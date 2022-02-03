@@ -14,22 +14,21 @@
 
 package main
 
-import (
-	"log"
-	"os"
-)
+type NewConnMsg struct {
+	DeviceId string `json:"device_id"`
+}
 
-func main() {
-	or := NewController(NewForwardingSignalingServer())
+type NewConnReply struct {
+	ConnId     string      `json:"connection_id"`
+	DeviceInfo interface{} `json:"device_info"`
+}
 
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-		log.Printf("Defaulting to port %s", port)
-	}
+type ForwardMsg struct {
+	Payload interface{} `json:"payload"`
+}
 
-	log.Printf("Listening on port %s", port)
-	if err := or.ListenAndServe(":"+port, nil); err != nil {
-		log.Fatal(err)
-	}
+type SignalingServer interface {
+	NewConnection(msg NewConnMsg) NewConnReply
+	Forward(id string, msg ForwardMsg) error
+	Messages(id string, start int, count int) ([]interface{}, error)
 }

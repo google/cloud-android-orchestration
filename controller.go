@@ -16,6 +16,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -28,11 +29,12 @@ import (
 // and validates requests from the client and passes the information to the
 // relevant modules
 type Controller struct {
-	sigServer SignalingServer
+	instanceManager InstanceManager
+	sigServer       SignalingServer
 }
 
-func NewController(ss SignalingServer) *Controller {
-	controller := &Controller{ss}
+func NewController(im InstanceManager, ss SignalingServer) *Controller {
+	controller := &Controller{im, ss}
 	controller.SetupRoutes()
 
 	return controller
@@ -46,75 +48,88 @@ func (c *Controller) SetupRoutes() {
 	router := mux.NewRouter()
 
 	// Signaling Server Routes
-	router.HandleFunc("/connections/{connId}/messages", func(w http.ResponseWriter, r *http.Request) {
-		c.Messages(w, r)
-	}).Methods("GET")
-	router.HandleFunc("/connections/{connId}/:forward", func(w http.ResponseWriter, r *http.Request) {
-		c.Forward(w, r)
-	}).Methods("POST")
-	router.HandleFunc("/connections", func(w http.ResponseWriter, r *http.Request) {
-		c.CreateConnection(w, r)
-	})
+	router.Handle("/connections/{connId}/messages", appHandler(func(w http.ResponseWriter, r *http.Request) error {
+		return c.Messages(w, r)
+	})).Methods("GET")
+	router.Handle("/connections/{connId}/:forward", appHandler(func(w http.ResponseWriter, r *http.Request) error {
+		return c.Forward(w, r)
+	})).Methods("POST")
+	router.Handle("/connections", appHandler(func(w http.ResponseWriter, r *http.Request) error {
+		return c.CreateConnection(w, r)
+	})).Methods("GET")
 
-	router.HandleFunc("/", indexHandler)
+	router.Handle("/", appHandler(indexHandler))
 
 	http.Handle("/", router)
 }
 
-func (c *Controller) CreateConnection(w http.ResponseWriter, r *http.Request) {
+type appHandler func(w http.ResponseWriter, r *http.Request) error
+
+func (fn appHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	log.Println(r.Method, " ", r.URL, " ", r.RemoteAddr)
+	if err := fn(w, r); err != nil {
+		log.Println("Error: ", err)
+		status := http.StatusInternalServerError
+		var e *AppError
+		if errors.As(err, &e) {
+			status = e.StatusCode
+		}
+		http.Error(w, err.Error(), status)
+	}
+}
+
+func (c *Controller) CreateConnection(w http.ResponseWriter, r *http.Request) error {
 	var msg NewConnMsg
 	err := json.NewDecoder(r.Body).Decode(&msg)
 	if err != nil {
-		log.Println("Failed to parse json  from client: ", err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return NewBadRequestError("Malformed JSON in request", err)
 	}
 	log.Println("id: ", msg.DeviceId)
-	reply := c.sigServer.NewConnection(msg)
-	replyJSON(w, reply)
+	reply, err := c.sigServer.NewConnection(msg)
+	if err != nil {
+		return fmt.Errorf("Failed to communicate with device: %w", err)
+	}
+	replyJSON(w, reply.Response, reply.StatusCode)
+	return nil
 }
 
-func (c *Controller) Messages(w http.ResponseWriter, r *http.Request) {
+func (c *Controller) Messages(w http.ResponseWriter, r *http.Request) error {
 	id := mux.Vars(r)["connId"]
 	start, err := intFormValue(r, "start", 0)
 	if err != nil {
-		http.Error(w, "Invalid value for start field", http.StatusBadRequest)
-		return
+		return NewBadRequestError("Invalid value for start field", err)
 	}
 	// -1 means all messages
 	count, err := intFormValue(r, "count", -1)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return NewBadRequestError("Invalid value for count field", err)
 	}
 	reply, err := c.sigServer.Messages(id, start, count)
 	if err != nil {
-		log.Println("Failed to get messages: ", err)
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
+		return fmt.Errorf("Failed to get messages: %w", err)
 	}
-	replyJSON(w, reply)
+	replyJSON(w, reply.Response, reply.StatusCode)
+	return nil
 }
 
-func (c *Controller) Forward(w http.ResponseWriter, r *http.Request) {
+func (c *Controller) Forward(w http.ResponseWriter, r *http.Request) error {
 	id := mux.Vars(r)["connId"]
 	var msg ForwardMsg
 	err := json.NewDecoder(r.Body).Decode(&msg)
 	if err != nil {
-		log.Println("Failed to parse json from client: ", err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return NewBadRequestError("Malformed JSON in request", err)
 	}
-	if err := c.sigServer.Forward(id, msg); err != nil {
-		log.Println("Failed to send message to device: ", err)
-		http.Error(w, "Device disconnected", http.StatusNotFound)
-		return
+	reply, err := c.sigServer.Forward(id, msg)
+	if err != nil {
+		return fmt.Errorf("Failed to send message to device: %w", err)
 	}
-	replyJSON(w, "ok")
+	replyJSON(w, reply.Response, reply.StatusCode)
+	return nil
 }
 
-func indexHandler(w http.ResponseWriter, r *http.Request) {
+func indexHandler(w http.ResponseWriter, r *http.Request) error {
 	fmt.Fprintln(w, "Home page")
+	return nil
 }
 
 // Get an int form value from the request. A form value can be in the query
@@ -129,13 +144,16 @@ func intFormValue(r *http.Request, name string, def int) (int, error) {
 	}
 	i, e := strconv.Atoi(str)
 	if e != nil {
-		log.Println("Invalid ", name, " value: ", str)
+		return 0, fmt.Errorf("Invalid %s value: %s", name, str)
 	}
-	return i, e
+	return i, nil
 }
 
 // Send a JSON http response to the client
-func replyJSON(w http.ResponseWriter, obj interface{}) error {
+func replyJSON(w http.ResponseWriter, obj interface{}, statusCode int) error {
+	if statusCode != http.StatusOK {
+		w.WriteHeader(statusCode)
+	}
 	w.Header().Set("Content-Type", "application/json")
 	encoder := json.NewEncoder(w)
 	return encoder.Encode(obj)

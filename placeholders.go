@@ -14,23 +14,11 @@
 
 package main
 
-import (
-	"log"
-	"os"
-)
+// Implements the InstanceManager interface providing access to the first
+// device in the local host orchestrator.
+// This implementation is useful for both development and testing
+type PlaceholderIM struct{}
 
-func main() {
-	im := &PlaceholderIM{}
-	or := NewController(im, NewForwardingSignalingServer(im))
-
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-		log.Printf("Defaulting to port %s", port)
-	}
-
-	log.Printf("Listening on port %s", port)
-	if err := or.ListenAndServe(":"+port, nil); err != nil {
-		log.Fatal(err)
-	}
+func (d *PlaceholderIM) DeviceFromId(name string) (DeviceDesc, error) {
+	return DeviceDesc{"127.0.0.1", "cvd-1"}, nil
 }

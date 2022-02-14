@@ -14,6 +14,10 @@
 
 package main
 
+type ErrorMsg struct {
+	Error string `json:"error"`
+}
+
 type NewConnMsg struct {
 	DeviceId string `json:"device_id"`
 }
@@ -27,8 +31,29 @@ type ForwardMsg struct {
 	Payload interface{} `json:"payload"`
 }
 
+type SServerResponse struct {
+	Response   interface{}
+	StatusCode int
+}
+
 type SignalingServer interface {
-	NewConnection(msg NewConnMsg) NewConnReply
-	Forward(id string, msg ForwardMsg) error
-	Messages(id string, start int, count int) ([]interface{}, error)
+	// All endpoints in the SignalingServer return the (possibly modified)
+	// response from the Host Orchestrator and the status code if it was
+	// able to communicate with it, otherwise it returns an error.
+	NewConnection(msg NewConnMsg) (*SServerResponse, error)
+	Forward(id string, msg ForwardMsg) (*SServerResponse, error)
+	Messages(id string, start int, count int) (*SServerResponse, error)
+}
+
+type DeviceDesc struct {
+	// The (internal) network address of the host where the cuttlefish device is
+	// running. The address can either be an IPv4, IPv6 or a domain name.
+	Addr string
+	// The id under which the cuttlefish device is registered with the host
+	// orchestrator (can be different from the id used in the cloud orchestrator)
+	LocalId string
+}
+
+type InstanceManager interface {
+	DeviceFromId(name string) (DeviceDesc, error)
 }

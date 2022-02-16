@@ -19,6 +19,7 @@ import (
 	"os"
 )
 
+// Just a comment to have a diff
 func main() {
 	im := &PlaceholderIM{}
 	or := NewController(im, NewForwardingSignalingServer(im))

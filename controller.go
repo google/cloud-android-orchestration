@@ -56,6 +56,7 @@ func (c *Controller) SetupRoutes() {
 	})).Methods("POST")
 	router.Handle("/connections", appHandler(func(w http.ResponseWriter, r *http.Request) error {
 		return c.CreateConnection(w, r)
+	})).Methods("POST")
 	})).Methods("GET")
 
 	router.Handle("/", appHandler(indexHandler))

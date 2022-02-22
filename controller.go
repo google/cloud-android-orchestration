@@ -63,6 +63,8 @@ func (c *Controller) SetupRoutes() {
 	router.Handle("/connections", appHandler(func(w http.ResponseWriter, r *http.Request) error {
 		return c.CreateConnection(w, r)
 	})).Methods("POST")
+	router.Handle("/devices/{deviceId}/files{path:/.+}", appHandler(func(w http.ResponseWriter, r *http.Request) error {
+		return c.GetDeviceFiles(w, r)
 	})).Methods("GET")
 
 	// Global routes
@@ -91,6 +93,11 @@ func (fn appHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (c *Controller) GetDeviceFiles(w http.ResponseWriter, r *http.Request) error {
+	devId := mux.Vars(r)["deviceId"]
+	path := mux.Vars(r)["path"]
+	return c.sigServer.ServeDeviceFiles(devId, path, w, r)
+}
 func (c *Controller) CreateConnection(w http.ResponseWriter, r *http.Request) error {
 	var msg NewConnMsg
 	err := json.NewDecoder(r.Body).Decode(&msg)

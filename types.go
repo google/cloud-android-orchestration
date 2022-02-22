@@ -14,6 +14,10 @@
 
 package main
 
+import (
+	"net/http"
+)
+
 type ErrorMsg struct {
 	Error string `json:"error"`
 }
@@ -50,6 +54,7 @@ type SignalingServer interface {
 	NewConnection(msg NewConnMsg) (*SServerResponse, error)
 	Forward(id string, msg ForwardMsg) (*SServerResponse, error)
 	Messages(id string, start int, count int) (*SServerResponse, error)
+	ServeDeviceFiles(devId string, path string, w http.ResponseWriter, r *http.Request) error
 }
 
 type DeviceDesc struct {

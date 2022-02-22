@@ -33,6 +33,12 @@ type Controller struct {
 	sigServer       SignalingServer
 }
 
+var DEFAULT_INFRA_CONFIG = InfraConfig{
+	IceServers: []IceServer{
+		IceServer{URLs: []string{"stun:stun.l.google.com:19302"}},
+	},
+}
+
 func NewController(im InstanceManager, ss SignalingServer) *Controller {
 	controller := &Controller{im, ss}
 	controller.SetupRoutes()
@@ -58,6 +64,12 @@ func (c *Controller) SetupRoutes() {
 		return c.CreateConnection(w, r)
 	})).Methods("POST")
 	})).Methods("GET")
+
+	// Global routes
+	router.HandleFunc("/infra_config", func(w http.ResponseWriter, r *http.Request) {
+		// TODO(b/220891296): Make this configurable
+		replyJSON(w, DEFAULT_INFRA_CONFIG, http.StatusOK)
+	}).Methods("GET")
 
 	router.Handle("/", appHandler(indexHandler))
 

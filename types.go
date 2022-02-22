@@ -36,6 +36,13 @@ type SServerResponse struct {
 	StatusCode int
 }
 
+type InfraConfig struct {
+	IceServers []IceServer `json:"ice_servers"`
+}
+type IceServer struct {
+	URLs []string `json:"urls"`
+}
+
 type SignalingServer interface {
 	// All endpoints in the SignalingServer return the (possibly modified)
 	// response from the Host Orchestrator and the status code if it was

@@ -19,6 +19,6 @@ package main
 // This implementation is useful for both development and testing
 type PlaceholderIM struct{}
 
-func (d *PlaceholderIM) DeviceFromId(name string) (DeviceDesc, error) {
+func (d *PlaceholderIM) DeviceFromId(name string, _ UserInfo) (DeviceDesc, error) {
 	return DeviceDesc{"127.0.0.1", "cvd-1"}, nil
 }

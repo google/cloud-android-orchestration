@@ -15,24 +15,27 @@
 package main
 
 import (
-	"log"
+	"net/http"
 	"os"
 )
 
-func main() {
-	im := &PlaceholderIM{}
-	ss := NewForwardingSignalingServer(im)
-	am := &OsAccountManager{}
-	or := NewController(im, ss, am)
+// Implements the AccountManager interface taking the username from the
+// environment and authorizing all requests
+type OsAccountManager struct{}
 
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-		log.Printf("Defaulting to port %s", port)
+func (o *OsAccountManager) Authenticate(fn AuthHTTPHandler) HTTPHandler {
+	return func(w http.ResponseWriter, r *http.Request) error {
+		return fn(w, r, &OsUserInfo{})
 	}
+}
 
-	log.Printf("Listening on port %s", port)
-	if err := or.ListenAndServe(":"+port, nil); err != nil {
-		log.Fatal(err)
+type OsUserInfo struct {
+	username string
+}
+
+func (i *OsUserInfo) Username() string {
+	if i.username == "" {
+		i.username = os.Getenv("USER")
 	}
+	return i.username
 }

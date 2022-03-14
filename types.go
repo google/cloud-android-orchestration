@@ -47,14 +47,18 @@ type IceServer struct {
 	URLs []string `json:"urls"`
 }
 
+type UserInfo interface {
+	Username() string
+}
+
 type SignalingServer interface {
 	// All endpoints in the SignalingServer return the (possibly modified)
 	// response from the Host Orchestrator and the status code if it was
 	// able to communicate with it, otherwise it returns an error.
-	NewConnection(msg NewConnMsg) (*SServerResponse, error)
-	Forward(id string, msg ForwardMsg) (*SServerResponse, error)
-	Messages(id string, start int, count int) (*SServerResponse, error)
-	ServeDeviceFiles(devId string, path string, w http.ResponseWriter, r *http.Request) error
+	NewConnection(msg NewConnMsg, user UserInfo) (*SServerResponse, error)
+	Forward(id string, msg ForwardMsg, user UserInfo) (*SServerResponse, error)
+	Messages(id string, start int, count int, user UserInfo) (*SServerResponse, error)
+	ServeDeviceFiles(devId string, path string, w http.ResponseWriter, r *http.Request, user UserInfo) error
 }
 
 type DeviceDesc struct {
@@ -67,5 +71,18 @@ type DeviceDesc struct {
 }
 
 type InstanceManager interface {
-	DeviceFromId(name string) (DeviceDesc, error)
+	DeviceFromId(name string, user UserInfo) (DeviceDesc, error)
+}
+
+type AuthHTTPHandler func(http.ResponseWriter, *http.Request, UserInfo) error
+type HTTPHandler func(http.ResponseWriter, *http.Request) error
+
+type AccountManager interface {
+	// Returns the received http handler wrapped in another that extracts user
+	// information from the request and passes it to to the original handler as
+	// the last parameter.
+	// The wrapper will only pass the request to the inner handler if a user is
+	// authenticated, otherwise it may choose to return an error or respond with
+	// an HTTP redirect to the login page.
+	Authenticate(fn AuthHTTPHandler) HTTPHandler
 }

@@ -31,6 +31,7 @@ import (
 type Controller struct {
 	instanceManager InstanceManager
 	sigServer       SignalingServer
+	accountManager  AccountManager
 }
 
 var DEFAULT_INFRA_CONFIG = InfraConfig{
@@ -39,8 +40,8 @@ var DEFAULT_INFRA_CONFIG = InfraConfig{
 	},
 }
 
-func NewController(im InstanceManager, ss SignalingServer) *Controller {
-	controller := &Controller{im, ss}
+func NewController(im InstanceManager, ss SignalingServer, am AccountManager) *Controller {
+	controller := &Controller{im, ss, am}
 	controller.SetupRoutes()
 
 	return controller
@@ -54,18 +55,10 @@ func (c *Controller) SetupRoutes() {
 	router := mux.NewRouter()
 
 	// Signaling Server Routes
-	router.Handle("/connections/{connId}/messages", appHandler(func(w http.ResponseWriter, r *http.Request) error {
-		return c.Messages(w, r)
-	})).Methods("GET")
-	router.Handle("/connections/{connId}/:forward", appHandler(func(w http.ResponseWriter, r *http.Request) error {
-		return c.Forward(w, r)
-	})).Methods("POST")
-	router.Handle("/connections", appHandler(func(w http.ResponseWriter, r *http.Request) error {
-		return c.CreateConnection(w, r)
-	})).Methods("POST")
-	router.Handle("/devices/{deviceId}/files{path:/.+}", appHandler(func(w http.ResponseWriter, r *http.Request) error {
-		return c.GetDeviceFiles(w, r)
-	})).Methods("GET")
+	router.Handle("/connections/{connId}/messages", HTTPHandler(c.accountManager.Authenticate(c.Messages))).Methods("GET")
+	router.Handle("/connections/{connId}/:forward", HTTPHandler(c.accountManager.Authenticate(c.Forward))).Methods("POST")
+	router.Handle("/connections", HTTPHandler(c.accountManager.Authenticate(c.CreateConnection))).Methods("POST")
+	router.Handle("/devices/{deviceId}/files{path:/.+}", HTTPHandler(c.accountManager.Authenticate(c.GetDeviceFiles))).Methods("GET")
 
 	// Global routes
 	router.HandleFunc("/infra_config", func(w http.ResponseWriter, r *http.Request) {
@@ -73,14 +66,14 @@ func (c *Controller) SetupRoutes() {
 		replyJSON(w, DEFAULT_INFRA_CONFIG, http.StatusOK)
 	}).Methods("GET")
 
-	router.Handle("/", appHandler(indexHandler))
+	router.Handle("/", HTTPHandler(c.accountManager.Authenticate(indexHandler)))
 
 	http.Handle("/", router)
 }
 
-type appHandler func(w http.ResponseWriter, r *http.Request) error
-
-func (fn appHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+// Intercept errors returned by the HTTPHandler and transform them into HTTP
+// error responses
+func (fn HTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log.Println(r.Method, " ", r.URL, " ", r.RemoteAddr)
 	if err := fn(w, r); err != nil {
 		log.Println("Error: ", err)
@@ -93,19 +86,19 @@ func (fn appHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (c *Controller) GetDeviceFiles(w http.ResponseWriter, r *http.Request) error {
+func (c *Controller) GetDeviceFiles(w http.ResponseWriter, r *http.Request, user UserInfo) error {
 	devId := mux.Vars(r)["deviceId"]
 	path := mux.Vars(r)["path"]
-	return c.sigServer.ServeDeviceFiles(devId, path, w, r)
+	return c.sigServer.ServeDeviceFiles(devId, path, w, r, user)
 }
-func (c *Controller) CreateConnection(w http.ResponseWriter, r *http.Request) error {
+func (c *Controller) CreateConnection(w http.ResponseWriter, r *http.Request, user UserInfo) error {
 	var msg NewConnMsg
 	err := json.NewDecoder(r.Body).Decode(&msg)
 	if err != nil {
 		return NewBadRequestError("Malformed JSON in request", err)
 	}
 	log.Println("id: ", msg.DeviceId)
-	reply, err := c.sigServer.NewConnection(msg)
+	reply, err := c.sigServer.NewConnection(msg, user)
 	if err != nil {
 		return fmt.Errorf("Failed to communicate with device: %w", err)
 	}
@@ -113,7 +106,7 @@ func (c *Controller) CreateConnection(w http.ResponseWriter, r *http.Request) er
 	return nil
 }
 
-func (c *Controller) Messages(w http.ResponseWriter, r *http.Request) error {
+func (c *Controller) Messages(w http.ResponseWriter, r *http.Request, user UserInfo) error {
 	id := mux.Vars(r)["connId"]
 	start, err := intFormValue(r, "start", 0)
 	if err != nil {
@@ -124,7 +117,7 @@ func (c *Controller) Messages(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return NewBadRequestError("Invalid value for count field", err)
 	}
-	reply, err := c.sigServer.Messages(id, start, count)
+	reply, err := c.sigServer.Messages(id, start, count, user)
 	if err != nil {
 		return fmt.Errorf("Failed to get messages: %w", err)
 	}
@@ -132,14 +125,14 @@ func (c *Controller) Messages(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func (c *Controller) Forward(w http.ResponseWriter, r *http.Request) error {
+func (c *Controller) Forward(w http.ResponseWriter, r *http.Request, user UserInfo) error {
 	id := mux.Vars(r)["connId"]
 	var msg ForwardMsg
 	err := json.NewDecoder(r.Body).Decode(&msg)
 	if err != nil {
 		return NewBadRequestError("Malformed JSON in request", err)
 	}
-	reply, err := c.sigServer.Forward(id, msg)
+	reply, err := c.sigServer.Forward(id, msg, user)
 	if err != nil {
 		return fmt.Errorf("Failed to send message to device: %w", err)
 	}
@@ -147,7 +140,7 @@ func (c *Controller) Forward(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func indexHandler(w http.ResponseWriter, r *http.Request) error {
+func indexHandler(w http.ResponseWriter, r *http.Request, user UserInfo) error {
 	fmt.Fprintln(w, "Home page")
 	return nil
 }

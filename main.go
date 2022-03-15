@@ -19,10 +19,19 @@ import (
 	"os"
 )
 
+func HostedInGAE() bool {
+	return os.Getenv("GAE_APPLICATION") != ""
+}
+
 func main() {
 	im := &PlaceholderIM{}
 	ss := NewForwardingSignalingServer(im)
-	am := &OsAccountManager{}
+	var am AccountManager
+	if HostedInGAE() {
+		am = NewGAEUsersAccountManager()
+	} else {
+		am = &OsAccountManager{}
+	}
 	or := NewController(im, ss, am)
 
 	port := os.Getenv("PORT")

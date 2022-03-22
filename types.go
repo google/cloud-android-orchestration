@@ -47,18 +47,28 @@ type IceServer struct {
 	URLs []string `json:"urls"`
 }
 
+type DeviceFilesRequest struct {
+	devId string
+	path  string
+	w     http.ResponseWriter
+	r     *http.Request
+}
+
 type UserInfo interface {
 	Username() string
 }
 
 type SignalingServer interface {
-	// All endpoints in the SignalingServer return the (possibly modified)
+	// These endpoints in the SignalingServer return the (possibly modified)
 	// response from the Host Orchestrator and the status code if it was
 	// able to communicate with it, otherwise it returns an error.
 	NewConnection(msg NewConnMsg, user UserInfo) (*SServerResponse, error)
 	Forward(id string, msg ForwardMsg, user UserInfo) (*SServerResponse, error)
 	Messages(id string, start int, count int, user UserInfo) (*SServerResponse, error)
-	ServeDeviceFiles(devId string, path string, w http.ResponseWriter, r *http.Request, user UserInfo) error
+
+	// Forwards the reques to the device's server unless it's a for a file that
+	// the signaling server needs to serve itself.
+	ServeDeviceFiles(params DeviceFilesRequest, user UserInfo) error
 }
 
 type DeviceDesc struct {

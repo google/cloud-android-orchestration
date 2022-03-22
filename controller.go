@@ -89,7 +89,7 @@ func (fn HTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (c *Controller) GetDeviceFiles(w http.ResponseWriter, r *http.Request, user UserInfo) error {
 	devId := mux.Vars(r)["deviceId"]
 	path := mux.Vars(r)["path"]
-	return c.sigServer.ServeDeviceFiles(devId, path, w, r, user)
+	return c.sigServer.ServeDeviceFiles(DeviceFilesRequest{devId, path, w, r}, user)
 }
 func (c *Controller) CreateConnection(w http.ResponseWriter, r *http.Request, user UserInfo) error {
 	var msg NewConnMsg

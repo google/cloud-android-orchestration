@@ -24,7 +24,7 @@ func HostedInGAE() bool {
 }
 
 func main() {
-	im := &PlaceholderIM{}
+	im := &GcpIM{}
 	ss := NewForwardingSignalingServer(im)
 	var am AccountManager
 	if HostedInGAE() {

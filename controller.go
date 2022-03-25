@@ -15,6 +15,8 @@
 package main
 
 import (
+	compute "cloud.google.com/go/compute/apiv1"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -22,6 +24,7 @@ import (
 	"net/http"
 	"strconv"
 
+	imtypes "cloud-android-orchestration/api/instancemanager/v1"
 	"github.com/gorilla/mux"
 )
 
@@ -29,9 +32,8 @@ import (
 // and validates requests from the client and passes the information to the
 // relevant modules
 type Controller struct {
-	instanceManager InstanceManager
-	sigServer       SignalingServer
-	accountManager  AccountManager
+	sigServer      SignalingServer
+	accountManager AccountManager
 }
 
 var DEFAULT_INFRA_CONFIG = InfraConfig{
@@ -41,7 +43,7 @@ var DEFAULT_INFRA_CONFIG = InfraConfig{
 }
 
 func NewController(im InstanceManager, ss SignalingServer, am AccountManager) *Controller {
-	controller := &Controller{im, ss, am}
+	controller := &Controller{ss, am}
 	controller.SetupRoutes()
 
 	return controller
@@ -59,6 +61,9 @@ func (c *Controller) SetupRoutes() {
 	router.Handle("/connections/{connId}/:forward", HTTPHandler(c.accountManager.Authenticate(c.Forward))).Methods("POST")
 	router.Handle("/connections", HTTPHandler(c.accountManager.Authenticate(c.CreateConnection))).Methods("POST")
 	router.Handle("/devices/{deviceId}/files{path:/.+}", HTTPHandler(c.accountManager.Authenticate(c.GetDeviceFiles))).Methods("GET")
+
+	// Instance Manager Routes
+	router.Handle("/v1/zones/{zone}/hosts", HTTPHandler(c.accountManager.Authenticate(c.InsertHost))).Methods("POST")
 
 	// Global routes
 	router.HandleFunc("/infra_config", func(w http.ResponseWriter, r *http.Request) {
@@ -137,6 +142,33 @@ func (c *Controller) Forward(w http.ResponseWriter, r *http.Request, user UserIn
 		return fmt.Errorf("Failed to send message to device: %w", err)
 	}
 	replyJSON(w, reply.Response, reply.StatusCode)
+	return nil
+}
+
+func (c *Controller) InsertHost(w http.ResponseWriter, r *http.Request, user UserInfo) error {
+	zone := mux.Vars(r)["zone"]
+	var msg imtypes.InsertHostRequest
+	err := json.NewDecoder(r.Body).Decode(&msg)
+	if err != nil {
+		return NewBadRequestError("Malformed JSON in request", err)
+	}
+	ctx := context.Background()
+	client, err := compute.NewInstancesRESTClient(ctx)
+	if err != nil {
+		log.Printf("NewInstancesRESTClient error %v", err)
+		return NewInternalError("error creating gcp rest client", nil)
+	}
+	defer client.Close()
+	im := NewGcpIM(client)
+	op, err := im.InsertHost(zone, &msg, user)
+	if err != nil {
+		if errors.Is(err, ErrBadInsertHostRequest) {
+			return NewBadRequestError("", err)
+		}
+		log.Printf("InsertHost error %v", err)
+		return NewInternalError("", nil)
+	}
+	replyJSON(w, op, http.StatusOK)
 	return nil
 }
 

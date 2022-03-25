@@ -15,6 +15,7 @@
 package main
 
 import (
+	imtypes "cloud-android-orchestration/api/instancemanager/v1"
 	"net/http"
 )
 
@@ -82,6 +83,7 @@ type DeviceDesc struct {
 
 type InstanceManager interface {
 	DeviceFromId(name string, user UserInfo) (DeviceDesc, error)
+	InsertHost(zone string, req *imtypes.InsertHostRequest, user UserInfo) (*imtypes.Operation, error)
 }
 
 type AuthHTTPHandler func(http.ResponseWriter, *http.Request, UserInfo) error

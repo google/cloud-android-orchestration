@@ -27,22 +27,22 @@ var newUUIDString = func() string {
 }
 
 // GCP implementation of the instance manager.
-type GcpIM struct {
+type GCPIM struct {
 	client *compute.InstancesClient
 }
 
-func NewGcpIM(client *compute.InstancesClient) *GcpIM {
-	result := &GcpIM{
+func NewGCPIM(client *compute.InstancesClient) *GCPIM {
+	result := &GCPIM{
 		client: client,
 	}
 	return result
 }
 
-func (m *GcpIM) DeviceFromId(name string, _ UserInfo) (DeviceDesc, error) {
+func (m *GCPIM) DeviceFromId(name string, _ UserInfo) (DeviceDesc, error) {
 	return DeviceDesc{"127.0.0.1", "cvd-1"}, nil
 }
 
-func (m *GcpIM) InsertHost(zone string, req *imtypes.InsertHostRequest, user UserInfo) (*imtypes.Operation, error) {
+func (m *GCPIM) InsertHost(zone string, req *imtypes.InsertHostRequest, user UserInfo) (*imtypes.Operation, error) {
 	if err := validateRequest(req); err != nil {
 		return nil, err
 	}

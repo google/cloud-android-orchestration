@@ -46,7 +46,7 @@ func TestInsertHostInvalidRequests(t *testing.T) {
 		}
 	}
 	// Make sure the valid request is indeed valid.
-	_, err := NewGcpIM(client).InsertHost("us-central1-a", validRequest(), &TestUserInfo{})
+	_, err := NewGCPIM(client).InsertHost("us-central1-a", validRequest(), &TestUserInfo{})
 	if err != nil {
 		t.Fatalf("the valid request is not valid")
 	}
@@ -65,7 +65,7 @@ func TestInsertHostInvalidRequests(t *testing.T) {
 	for _, test := range tests {
 		req := validRequest()
 		test.corruptRequest(req)
-		_, err := NewGcpIM(client).InsertHost("us-central1-a", req, &TestUserInfo{})
+		_, err := NewGCPIM(client).InsertHost("us-central1-a", req, &TestUserInfo{})
 		if !errors.Is(err, ErrBadInsertHostRequest) {
 			t.Errorf("unexpected error <<\"%v\">>, want \"%v\"", err, ErrBadInsertHostRequest)
 		}
@@ -82,7 +82,7 @@ func TestInsertHostRequestPath(t *testing.T) {
 	client := newTestInstancesRESTClient(t, ts)
 	defer client.Close()
 
-	NewGcpIM(client).InsertHost("us-central1-a",
+	NewGCPIM(client).InsertHost("us-central1-a",
 		&imtypes.InsertHostRequest{
 			CVDInfo: &imtypes.CVDInfo{
 				BuildID: "1234",
@@ -122,7 +122,7 @@ func TestInsertHostRequestBody(t *testing.T) {
 	client := newTestInstancesRESTClient(t, ts)
 	defer client.Close()
 
-	NewGcpIM(client).InsertHost("us-central1-a",
+	NewGCPIM(client).InsertHost("us-central1-a",
 		&imtypes.InsertHostRequest{
 			CVDInfo: &imtypes.CVDInfo{
 				BuildID: "1234",
@@ -186,7 +186,7 @@ func TestInsertHostSuccess(t *testing.T) {
 	client := newTestInstancesRESTClient(t, ts)
 	defer client.Close()
 
-	op, _ := NewGcpIM(client).InsertHost("us-central1-a",
+	op, _ := NewGCPIM(client).InsertHost("us-central1-a",
 		&imtypes.InsertHostRequest{
 			CVDInfo: &imtypes.CVDInfo{
 				BuildID: "1234",

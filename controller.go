@@ -15,8 +15,6 @@
 package main
 
 import (
-	compute "cloud.google.com/go/compute/apiv1"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -25,6 +23,7 @@ import (
 	"strconv"
 
 	imtypes "cloud-android-orchestration/api/instancemanager/v1"
+
 	"github.com/gorilla/mux"
 )
 
@@ -32,8 +31,9 @@ import (
 // and validates requests from the client and passes the information to the
 // relevant modules
 type Controller struct {
-	sigServer      SignalingServer
-	accountManager AccountManager
+	instanceManager InstanceManager
+	sigServer       SignalingServer
+	accountManager  AccountManager
 }
 
 var DEFAULT_INFRA_CONFIG = InfraConfig{
@@ -43,7 +43,7 @@ var DEFAULT_INFRA_CONFIG = InfraConfig{
 }
 
 func NewController(im InstanceManager, ss SignalingServer, am AccountManager) *Controller {
-	controller := &Controller{ss, am}
+	controller := &Controller{im, ss, am}
 	controller.SetupRoutes()
 
 	return controller
@@ -152,15 +152,7 @@ func (c *Controller) InsertHost(w http.ResponseWriter, r *http.Request, user Use
 	if err != nil {
 		return NewBadRequestError("Malformed JSON in request", err)
 	}
-	ctx := context.Background()
-	client, err := compute.NewInstancesRESTClient(ctx)
-	if err != nil {
-		log.Printf("NewInstancesRESTClient error %v", err)
-		return NewInternalError("error creating gcp rest client", nil)
-	}
-	defer client.Close()
-	im := NewGcpIM(client)
-	op, err := im.InsertHost(zone, &msg, user)
+	op, err := c.instanceManager.InsertHost(zone, &msg, user)
 	if err != nil {
 		if errors.Is(err, ErrBadInsertHostRequest) {
 			return NewBadRequestError("", err)

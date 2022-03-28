@@ -22,8 +22,56 @@ import (
 	"net/http"
 	"strconv"
 
+	ssapi "cloud-android-orchestration/api/signalingserver/v1"
+
 	"github.com/gorilla/mux"
 )
+
+type ErrorMsg struct {
+	Error string `json:"error"`
+}
+
+type InfraConfig struct {
+	IceServers []IceServer `json:"ice_servers"`
+}
+type IceServer struct {
+	URLs []string `json:"urls"`
+}
+
+type HTTPHandler func(http.ResponseWriter, *http.Request) error
+
+type DeviceFilesRequest struct {
+	devId string
+	path  string
+	w     http.ResponseWriter
+	r     *http.Request
+}
+
+type SignalingServer interface {
+	// These endpoints in the SignalingServer return the (possibly modified)
+	// response from the Host Orchestrator and the status code if it was
+	// able to communicate with it, otherwise it returns an error.
+	NewConnection(msg ssapi.NewConnMsg, user UserInfo) (*ssapi.SServerResponse, error)
+	Forward(id string, msg ssapi.ForwardMsg, user UserInfo) (*ssapi.SServerResponse, error)
+	Messages(id string, start int, count int, user UserInfo) (*ssapi.SServerResponse, error)
+
+	// Forwards the reques to the device's server unless it's a for a file that
+	// the signaling server needs to serve itself.
+	ServeDeviceFiles(params DeviceFilesRequest, user UserInfo) error
+}
+
+type DeviceDesc struct {
+	// The (internal) network address of the host where the cuttlefish device is
+	// running. The address can either be an IPv4, IPv6 or a domain name.
+	Addr string
+	// The id under which the cuttlefish device is registered with the host
+	// orchestrator (can be different from the id used in the cloud orchestrator)
+	LocalId string
+}
+
+type InstanceManager interface {
+	DeviceFromId(name string, user UserInfo) (DeviceDesc, error)
+}
 
 // The controller implements the web API of the cloud orchestrator. It parses
 // and validates requests from the client and passes the information to the
@@ -55,10 +103,10 @@ func (c *Controller) SetupRoutes() {
 	router := mux.NewRouter()
 
 	// Signaling Server Routes
-	router.Handle("/connections/{connId}/messages", HTTPHandler(c.accountManager.Authenticate(c.Messages))).Methods("GET")
-	router.Handle("/connections/{connId}/:forward", HTTPHandler(c.accountManager.Authenticate(c.Forward))).Methods("POST")
-	router.Handle("/connections", HTTPHandler(c.accountManager.Authenticate(c.CreateConnection))).Methods("POST")
-	router.Handle("/devices/{deviceId}/files{path:/.+}", HTTPHandler(c.accountManager.Authenticate(c.GetDeviceFiles))).Methods("GET")
+	router.Handle("/v1/connections/{connId}/messages", HTTPHandler(c.accountManager.Authenticate(c.Messages))).Methods("GET")
+	router.Handle("/v1/connections/{connId}/:forward", HTTPHandler(c.accountManager.Authenticate(c.Forward))).Methods("POST")
+	router.Handle("/v1/connections", HTTPHandler(c.accountManager.Authenticate(c.CreateConnection))).Methods("POST")
+	router.Handle("/v1/devices/{deviceId}/files{path:/.+}", HTTPHandler(c.accountManager.Authenticate(c.GetDeviceFiles))).Methods("GET")
 
 	// Global routes
 	router.HandleFunc("/infra_config", func(w http.ResponseWriter, r *http.Request) {
@@ -91,8 +139,9 @@ func (c *Controller) GetDeviceFiles(w http.ResponseWriter, r *http.Request, user
 	path := mux.Vars(r)["path"]
 	return c.sigServer.ServeDeviceFiles(DeviceFilesRequest{devId, path, w, r}, user)
 }
+
 func (c *Controller) CreateConnection(w http.ResponseWriter, r *http.Request, user UserInfo) error {
-	var msg NewConnMsg
+	var msg ssapi.NewConnMsg
 	err := json.NewDecoder(r.Body).Decode(&msg)
 	if err != nil {
 		return NewBadRequestError("Malformed JSON in request", err)
@@ -127,7 +176,7 @@ func (c *Controller) Messages(w http.ResponseWriter, r *http.Request, user UserI
 
 func (c *Controller) Forward(w http.ResponseWriter, r *http.Request, user UserInfo) error {
 	id := mux.Vars(r)["connId"]
-	var msg ForwardMsg
+	var msg ssapi.ForwardMsg
 	err := json.NewDecoder(r.Body).Decode(&msg)
 	if err != nil {
 		return NewBadRequestError("Malformed JSON in request", err)

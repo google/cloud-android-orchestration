@@ -24,6 +24,8 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"strings"
+
+	ssapi "cloud-android-orchestration/api/signalingserver/v1"
 )
 
 // The ForwardingSignalingServer implements the SignalingServer interface by
@@ -37,27 +39,27 @@ func NewForwardingSignalingServer(im InstanceManager) *ForwardingSignalingServer
 	return &ForwardingSignalingServer{im}
 }
 
-func (s *ForwardingSignalingServer) NewConnection(msg NewConnMsg, user UserInfo) (*SServerResponse, error) {
+func (s *ForwardingSignalingServer) NewConnection(msg ssapi.NewConnMsg, user UserInfo) (*ssapi.SServerResponse, error) {
 	dev, err := s.instanceManager.DeviceFromId(msg.DeviceId, user)
 	if err != nil {
 		return nil, err
 	}
 	var resErr ErrorMsg
-	var reply NewConnReply
-	status, err := POSTRequest(hostURL(dev.Addr, "/polled_connections", ""), NewConnMsg{dev.LocalId}, &reply, &resErr)
+	var reply ssapi.NewConnReply
+	status, err := POSTRequest(hostURL(dev.Addr, "/polled_connections", ""), ssapi.NewConnMsg{dev.LocalId}, &reply, &resErr)
 	if err != nil {
 		return nil, err
 	}
 	if resErr.Error != "" {
 		log.Println("The device host returned an error: ", resErr.Error)
-		return &SServerResponse{Response: resErr, StatusCode: status}, nil
+		return &ssapi.SServerResponse{Response: resErr, StatusCode: status}, nil
 	}
 	// Add the device id to the connection id to reference it in future calls
 	reply.ConnId = encodeConnId(reply.ConnId, msg.DeviceId)
-	return &SServerResponse{Response: reply, StatusCode: status}, nil
+	return &ssapi.SServerResponse{Response: reply, StatusCode: status}, nil
 }
 
-func (s *ForwardingSignalingServer) Forward(id string, msg ForwardMsg, user UserInfo) (*SServerResponse, error) {
+func (s *ForwardingSignalingServer) Forward(id string, msg ssapi.ForwardMsg, user UserInfo) (*ssapi.SServerResponse, error) {
 	dec, err := decodeConnId(id)
 	if err != nil {
 		return nil, NewNotFoundError("Invalid connection Id", err)
@@ -73,10 +75,10 @@ func (s *ForwardingSignalingServer) Forward(id string, msg ForwardMsg, user User
 	if err != nil {
 		return nil, err
 	}
-	return &SServerResponse{reply, status}, nil
+	return &ssapi.SServerResponse{reply, status}, nil
 }
 
-func (s *ForwardingSignalingServer) Messages(id string, start int, count int, user UserInfo) (*SServerResponse, error) {
+func (s *ForwardingSignalingServer) Messages(id string, start int, count int, user UserInfo) (*ssapi.SServerResponse, error) {
 	dec, err := decodeConnId(id)
 	if err != nil {
 		return nil, NewNotFoundError("Invalid connection id", err)
@@ -96,7 +98,7 @@ func (s *ForwardingSignalingServer) Messages(id string, start int, count int, us
 	if err != nil {
 		return nil, err
 	}
-	return &SServerResponse{reply, status}, nil
+	return &ssapi.SServerResponse{reply, status}, nil
 }
 
 func (s *ForwardingSignalingServer) ServeDeviceFiles(params DeviceFilesRequest, user UserInfo) error {

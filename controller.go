@@ -22,7 +22,7 @@ import (
 	"net/http"
 	"strconv"
 
-	ssapi "cloud-android-orchestration/api/signalingserver/v1"
+	caoapi "cloud-android-orchestration/api/v1"
 
 	"github.com/gorilla/mux"
 )
@@ -51,9 +51,9 @@ type SignalingServer interface {
 	// These endpoints in the SignalingServer return the (possibly modified)
 	// response from the Host Orchestrator and the status code if it was
 	// able to communicate with it, otherwise it returns an error.
-	NewConnection(msg ssapi.NewConnMsg, user UserInfo) (*ssapi.SServerResponse, error)
-	Forward(id string, msg ssapi.ForwardMsg, user UserInfo) (*ssapi.SServerResponse, error)
-	Messages(id string, start int, count int, user UserInfo) (*ssapi.SServerResponse, error)
+	NewConnection(msg caoapi.NewConnMsg, user UserInfo) (*caoapi.SServerResponse, error)
+	Forward(id string, msg caoapi.ForwardMsg, user UserInfo) (*caoapi.SServerResponse, error)
+	Messages(id string, start int, count int, user UserInfo) (*caoapi.SServerResponse, error)
 
 	// Forwards the reques to the device's server unless it's a for a file that
 	// the signaling server needs to serve itself.
@@ -141,7 +141,7 @@ func (c *Controller) GetDeviceFiles(w http.ResponseWriter, r *http.Request, user
 }
 
 func (c *Controller) CreateConnection(w http.ResponseWriter, r *http.Request, user UserInfo) error {
-	var msg ssapi.NewConnMsg
+	var msg caoapi.NewConnMsg
 	err := json.NewDecoder(r.Body).Decode(&msg)
 	if err != nil {
 		return NewBadRequestError("Malformed JSON in request", err)
@@ -176,7 +176,7 @@ func (c *Controller) Messages(w http.ResponseWriter, r *http.Request, user UserI
 
 func (c *Controller) Forward(w http.ResponseWriter, r *http.Request, user UserInfo) error {
 	id := mux.Vars(r)["connId"]
-	var msg ssapi.ForwardMsg
+	var msg caoapi.ForwardMsg
 	err := json.NewDecoder(r.Body).Decode(&msg)
 	if err != nil {
 		return NewBadRequestError("Malformed JSON in request", err)

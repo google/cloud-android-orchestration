@@ -1,5 +1,9 @@
 package v1
 
+type ErrorMsg struct {
+	Error string `json:"error"`
+}
+
 type NewConnMsg struct {
 	DeviceId string `json:"device_id"`
 }
@@ -16,4 +20,12 @@ type ForwardMsg struct {
 type SServerResponse struct {
 	Response   interface{}
 	StatusCode int
+}
+
+type InfraConfig struct {
+	IceServers []IceServer `json:"ice_servers"`
+}
+
+type IceServer struct {
+	URLs []string `json:"urls"`
 }

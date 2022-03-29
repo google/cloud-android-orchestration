@@ -1,0 +1,71 @@
+// Copyright 2022 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package main
+
+import (
+	"net/http"
+
+	apiv1 "cloud-android-orchestration/api/v1"
+)
+
+type DeviceFilesRequest struct {
+	devId string
+	path  string
+	w     http.ResponseWriter
+	r     *http.Request
+}
+
+type UserInfo interface {
+	Username() string
+}
+
+type SignalingServer interface {
+	// These endpoints in the SignalingServer return the (possibly modified)
+	// response from the Host Orchestrator and the status code if it was
+	// able to communicate with it, otherwise it returns an error.
+	NewConnection(msg apiv1.NewConnMsg, user UserInfo) (*apiv1.SServerResponse, error)
+	Forward(id string, msg apiv1.ForwardMsg, user UserInfo) (*apiv1.SServerResponse, error)
+	Messages(id string, start int, count int, user UserInfo) (*apiv1.SServerResponse, error)
+
+	// Forwards the reques to the device's server unless it's a for a file that
+	// the signaling server needs to serve itself.
+	ServeDeviceFiles(params DeviceFilesRequest, user UserInfo) error
+}
+
+type DeviceDesc struct {
+	// The (internal) network address of the host where the cuttlefish device is
+	// running. The address can either be an IPv4, IPv6 or a domain name.
+	Addr string
+	// The id under which the cuttlefish device is registered with the host
+	// orchestrator (can be different from the id used in the cloud orchestrator)
+	LocalId string
+}
+
+type InstanceManager interface {
+	DeviceFromId(name string, user UserInfo) (DeviceDesc, error)
+}
+
+type AuthHTTPHandler func(http.ResponseWriter, *http.Request, UserInfo) error
+type HTTPHandler func(http.ResponseWriter, *http.Request) error
+
+type AccountManager interface {
+	// Returns the received http handler wrapped in another that extracts user
+	// information from the request and passes it to to the original handler as
+	// the last parameter.
+	// The wrapper will only pass the request to the inner handler if a user is
+	// authenticated, otherwise it may choose to return an error or respond with
+	// an HTTP redirect to the login page.
+	Authenticate(fn AuthHTTPHandler) HTTPHandler
+}

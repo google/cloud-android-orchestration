@@ -22,56 +22,10 @@ import (
 	"net/http"
 	"strconv"
 
-	caoapi "cloud-android-orchestration/api/v1"
+	apiv1 "cloud-android-orchestration/api/v1"
 
 	"github.com/gorilla/mux"
 )
-
-type ErrorMsg struct {
-	Error string `json:"error"`
-}
-
-type InfraConfig struct {
-	IceServers []IceServer `json:"ice_servers"`
-}
-type IceServer struct {
-	URLs []string `json:"urls"`
-}
-
-type HTTPHandler func(http.ResponseWriter, *http.Request) error
-
-type DeviceFilesRequest struct {
-	devId string
-	path  string
-	w     http.ResponseWriter
-	r     *http.Request
-}
-
-type SignalingServer interface {
-	// These endpoints in the SignalingServer return the (possibly modified)
-	// response from the Host Orchestrator and the status code if it was
-	// able to communicate with it, otherwise it returns an error.
-	NewConnection(msg caoapi.NewConnMsg, user UserInfo) (*caoapi.SServerResponse, error)
-	Forward(id string, msg caoapi.ForwardMsg, user UserInfo) (*caoapi.SServerResponse, error)
-	Messages(id string, start int, count int, user UserInfo) (*caoapi.SServerResponse, error)
-
-	// Forwards the reques to the device's server unless it's a for a file that
-	// the signaling server needs to serve itself.
-	ServeDeviceFiles(params DeviceFilesRequest, user UserInfo) error
-}
-
-type DeviceDesc struct {
-	// The (internal) network address of the host where the cuttlefish device is
-	// running. The address can either be an IPv4, IPv6 or a domain name.
-	Addr string
-	// The id under which the cuttlefish device is registered with the host
-	// orchestrator (can be different from the id used in the cloud orchestrator)
-	LocalId string
-}
-
-type InstanceManager interface {
-	DeviceFromId(name string, user UserInfo) (DeviceDesc, error)
-}
 
 // The controller implements the web API of the cloud orchestrator. It parses
 // and validates requests from the client and passes the information to the
@@ -82,9 +36,9 @@ type Controller struct {
 	accountManager  AccountManager
 }
 
-var DEFAULT_INFRA_CONFIG = InfraConfig{
-	IceServers: []IceServer{
-		IceServer{URLs: []string{"stun:stun.l.google.com:19302"}},
+var DEFAULT_INFRA_CONFIG = apiv1.InfraConfig{
+	IceServers: []apiv1.IceServer{
+		apiv1.IceServer{URLs: []string{"stun:stun.l.google.com:19302"}},
 	},
 }
 
@@ -141,7 +95,7 @@ func (c *Controller) GetDeviceFiles(w http.ResponseWriter, r *http.Request, user
 }
 
 func (c *Controller) CreateConnection(w http.ResponseWriter, r *http.Request, user UserInfo) error {
-	var msg caoapi.NewConnMsg
+	var msg apiv1.NewConnMsg
 	err := json.NewDecoder(r.Body).Decode(&msg)
 	if err != nil {
 		return NewBadRequestError("Malformed JSON in request", err)
@@ -176,7 +130,7 @@ func (c *Controller) Messages(w http.ResponseWriter, r *http.Request, user UserI
 
 func (c *Controller) Forward(w http.ResponseWriter, r *http.Request, user UserInfo) error {
 	id := mux.Vars(r)["connId"]
-	var msg caoapi.ForwardMsg
+	var msg apiv1.ForwardMsg
 	err := json.NewDecoder(r.Body).Decode(&msg)
 	if err != nil {
 		return NewBadRequestError("Malformed JSON in request", err)

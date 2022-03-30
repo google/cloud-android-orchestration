@@ -23,6 +23,7 @@ import (
 	"strconv"
 
 	imtypes "cloud-android-orchestration/api/instancemanager/v1"
+	apiv1 "cloud-android-orchestration/api/v1"
 
 	"github.com/gorilla/mux"
 )
@@ -36,9 +37,9 @@ type Controller struct {
 	accountManager  AccountManager
 }
 
-var DEFAULT_INFRA_CONFIG = InfraConfig{
-	IceServers: []IceServer{
-		IceServer{URLs: []string{"stun:stun.l.google.com:19302"}},
+var DEFAULT_INFRA_CONFIG = apiv1.InfraConfig{
+	IceServers: []apiv1.IceServer{
+		apiv1.IceServer{URLs: []string{"stun:stun.l.google.com:19302"}},
 	},
 }
 
@@ -57,10 +58,10 @@ func (c *Controller) SetupRoutes() {
 	router := mux.NewRouter()
 
 	// Signaling Server Routes
-	router.Handle("/connections/{connId}/messages", HTTPHandler(c.accountManager.Authenticate(c.Messages))).Methods("GET")
-	router.Handle("/connections/{connId}/:forward", HTTPHandler(c.accountManager.Authenticate(c.Forward))).Methods("POST")
-	router.Handle("/connections", HTTPHandler(c.accountManager.Authenticate(c.CreateConnection))).Methods("POST")
-	router.Handle("/devices/{deviceId}/files{path:/.+}", HTTPHandler(c.accountManager.Authenticate(c.GetDeviceFiles))).Methods("GET")
+	router.Handle("/v1/connections/{connId}/messages", HTTPHandler(c.accountManager.Authenticate(c.Messages))).Methods("GET")
+	router.Handle("/v1/connections/{connId}/:forward", HTTPHandler(c.accountManager.Authenticate(c.Forward))).Methods("POST")
+	router.Handle("/v1/connections", HTTPHandler(c.accountManager.Authenticate(c.CreateConnection))).Methods("POST")
+	router.Handle("/v1/devices/{deviceId}/files{path:/.+}", HTTPHandler(c.accountManager.Authenticate(c.GetDeviceFiles))).Methods("GET")
 
 	// Instance Manager Routes
 	router.Handle("/v1/zones/{zone}/hosts", HTTPHandler(c.accountManager.Authenticate(c.InsertHost))).Methods("POST")
@@ -96,8 +97,9 @@ func (c *Controller) GetDeviceFiles(w http.ResponseWriter, r *http.Request, user
 	path := mux.Vars(r)["path"]
 	return c.sigServer.ServeDeviceFiles(DeviceFilesRequest{devId, path, w, r}, user)
 }
+
 func (c *Controller) CreateConnection(w http.ResponseWriter, r *http.Request, user UserInfo) error {
-	var msg NewConnMsg
+	var msg apiv1.NewConnMsg
 	err := json.NewDecoder(r.Body).Decode(&msg)
 	if err != nil {
 		return NewBadRequestError("Malformed JSON in request", err)
@@ -132,7 +134,7 @@ func (c *Controller) Messages(w http.ResponseWriter, r *http.Request, user UserI
 
 func (c *Controller) Forward(w http.ResponseWriter, r *http.Request, user UserInfo) error {
 	id := mux.Vars(r)["connId"]
-	var msg ForwardMsg
+	var msg apiv1.ForwardMsg
 	err := json.NewDecoder(r.Body).Decode(&msg)
 	if err != nil {
 		return NewBadRequestError("Malformed JSON in request", err)

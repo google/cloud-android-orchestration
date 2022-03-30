@@ -24,6 +24,8 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"strings"
+
+	apiv1 "cloud-android-orchestration/api/v1"
 )
 
 // The ForwardingSignalingServer implements the SignalingServer interface by
@@ -37,27 +39,27 @@ func NewForwardingSignalingServer(im InstanceManager) *ForwardingSignalingServer
 	return &ForwardingSignalingServer{im}
 }
 
-func (s *ForwardingSignalingServer) NewConnection(msg NewConnMsg, user UserInfo) (*SServerResponse, error) {
+func (s *ForwardingSignalingServer) NewConnection(msg apiv1.NewConnMsg, user UserInfo) (*apiv1.SServerResponse, error) {
 	dev, err := s.instanceManager.DeviceFromId(msg.DeviceId, user)
 	if err != nil {
 		return nil, err
 	}
-	var resErr ErrorMsg
-	var reply NewConnReply
-	status, err := POSTRequest(hostURL(dev.Addr, "/polled_connections", ""), NewConnMsg{dev.LocalId}, &reply, &resErr)
+	var resErr apiv1.ErrorMsg
+	var reply apiv1.NewConnReply
+	status, err := POSTRequest(hostURL(dev.Addr, "/polled_connections", ""), apiv1.NewConnMsg{dev.LocalId}, &reply, &resErr)
 	if err != nil {
 		return nil, err
 	}
 	if resErr.Error != "" {
 		log.Println("The device host returned an error: ", resErr.Error)
-		return &SServerResponse{Response: resErr, StatusCode: status}, nil
+		return &apiv1.SServerResponse{Response: resErr, StatusCode: status}, nil
 	}
 	// Add the device id to the connection id to reference it in future calls
 	reply.ConnId = encodeConnId(reply.ConnId, msg.DeviceId)
-	return &SServerResponse{Response: reply, StatusCode: status}, nil
+	return &apiv1.SServerResponse{Response: reply, StatusCode: status}, nil
 }
 
-func (s *ForwardingSignalingServer) Forward(id string, msg ForwardMsg, user UserInfo) (*SServerResponse, error) {
+func (s *ForwardingSignalingServer) Forward(id string, msg apiv1.ForwardMsg, user UserInfo) (*apiv1.SServerResponse, error) {
 	dec, err := decodeConnId(id)
 	if err != nil {
 		return nil, NewNotFoundError("Invalid connection Id", err)
@@ -67,16 +69,16 @@ func (s *ForwardingSignalingServer) Forward(id string, msg ForwardMsg, user User
 	if err != nil {
 		return nil, err
 	}
-	var resErr ErrorMsg
+	var resErr apiv1.ErrorMsg
 	var reply interface{}
 	status, err := POSTRequest(hostURL(dev.Addr, "/polled_connections/"+connId+"/:forward", ""), msg, &reply, &resErr)
 	if err != nil {
 		return nil, err
 	}
-	return &SServerResponse{reply, status}, nil
+	return &apiv1.SServerResponse{reply, status}, nil
 }
 
-func (s *ForwardingSignalingServer) Messages(id string, start int, count int, user UserInfo) (*SServerResponse, error) {
+func (s *ForwardingSignalingServer) Messages(id string, start int, count int, user UserInfo) (*apiv1.SServerResponse, error) {
 	dec, err := decodeConnId(id)
 	if err != nil {
 		return nil, NewNotFoundError("Invalid connection id", err)
@@ -90,13 +92,13 @@ func (s *ForwardingSignalingServer) Messages(id string, start int, count int, us
 	if count > 0 {
 		query = fmt.Sprintf("%s&count=%d", query, count)
 	}
-	var resErr ErrorMsg
+	var resErr apiv1.ErrorMsg
 	var reply interface{}
 	status, err := GETRequest(hostURL(dev.Addr, "/polled_connections/"+connId+"/messages", query), &reply, &resErr)
 	if err != nil {
 		return nil, err
 	}
-	return &SServerResponse{reply, status}, nil
+	return &apiv1.SServerResponse{reply, status}, nil
 }
 
 func (s *ForwardingSignalingServer) ServeDeviceFiles(params DeviceFilesRequest, user UserInfo) error {
@@ -132,7 +134,7 @@ func hostURL(addr string, path string, query string) string {
 // Returns the http response's status code or an error.
 // If the status code indicates success (in the 2xx range) the response will be
 // in resObj, otherwise resErr will contain the error message.
-func POSTRequest(url string, msg interface{}, resObj interface{}, resErr *ErrorMsg) (int, error) {
+func POSTRequest(url string, msg interface{}, resObj interface{}, resErr *apiv1.ErrorMsg) (int, error) {
 	jsonBody, err := json.Marshal(msg)
 	if err != nil {
 		return -1, fmt.Errorf("Failed to parse JSON request: %w", err)
@@ -146,7 +148,7 @@ func POSTRequest(url string, msg interface{}, resObj interface{}, resErr *ErrorM
 	return parseReply(res, resObj, resErr)
 }
 
-func GETRequest(url string, resObj interface{}, resErr *ErrorMsg) (int, error) {
+func GETRequest(url string, resObj interface{}, resErr *apiv1.ErrorMsg) (int, error) {
 	res, err := http.Get(url)
 	if err != nil {
 		return -1, fmt.Errorf("Failed to connect to device host: %w", err)
@@ -155,7 +157,7 @@ func GETRequest(url string, resObj interface{}, resErr *ErrorMsg) (int, error) {
 	return parseReply(res, resObj, resErr)
 }
 
-func parseReply(res *http.Response, resObj interface{}, resErr *ErrorMsg) (int, error) {
+func parseReply(res *http.Response, resObj interface{}, resErr *apiv1.ErrorMsg) (int, error) {
 	var err error
 	dec := json.NewDecoder(res.Body)
 	if res.StatusCode < 200 || res.StatusCode > 299 {

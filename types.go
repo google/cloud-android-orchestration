@@ -17,36 +17,9 @@ package main
 import (
 	imtypes "cloud-android-orchestration/api/instancemanager/v1"
 	"net/http"
+
+	apiv1 "cloud-android-orchestration/api/v1"
 )
-
-type ErrorMsg struct {
-	Error string `json:"error"`
-}
-
-type NewConnMsg struct {
-	DeviceId string `json:"device_id"`
-}
-
-type NewConnReply struct {
-	ConnId     string      `json:"connection_id"`
-	DeviceInfo interface{} `json:"device_info"`
-}
-
-type ForwardMsg struct {
-	Payload interface{} `json:"payload"`
-}
-
-type SServerResponse struct {
-	Response   interface{}
-	StatusCode int
-}
-
-type InfraConfig struct {
-	IceServers []IceServer `json:"ice_servers"`
-}
-type IceServer struct {
-	URLs []string `json:"urls"`
-}
 
 type DeviceFilesRequest struct {
 	devId string
@@ -63,9 +36,9 @@ type SignalingServer interface {
 	// These endpoints in the SignalingServer return the (possibly modified)
 	// response from the Host Orchestrator and the status code if it was
 	// able to communicate with it, otherwise it returns an error.
-	NewConnection(msg NewConnMsg, user UserInfo) (*SServerResponse, error)
-	Forward(id string, msg ForwardMsg, user UserInfo) (*SServerResponse, error)
-	Messages(id string, start int, count int, user UserInfo) (*SServerResponse, error)
+	NewConnection(msg apiv1.NewConnMsg, user UserInfo) (*apiv1.SServerResponse, error)
+	Forward(id string, msg apiv1.ForwardMsg, user UserInfo) (*apiv1.SServerResponse, error)
+	Messages(id string, start int, count int, user UserInfo) (*apiv1.SServerResponse, error)
 
 	// Forwards the reques to the device's server unless it's a for a file that
 	// the signaling server needs to serve itself.

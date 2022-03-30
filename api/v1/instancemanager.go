@@ -8,9 +8,9 @@ type CreateHostRequest struct {
 }
 
 type CVDInfo struct {
-	// [REQUIRED] A number that uniquely identifies the a set of builds of different targets.
+	// [REQUIRED] The Android build identifier.
 	BuildID string `json:"build_id"`
-	// [REQUIRED] A string to determine the specific product and flavor from the set of builds, e.g. aosp_cf_x86_64_phone-userdebug
+	// [REQUIRED] A string to determine the specific product and flavor from the set of builds, e.g. aosp_cf_x86_64_phone-userdebug.
 	Target string `json:"target"`
 	// The number of CVDs to create. Use this field if creating more than one instance.
 	InstancesCount int `json:"instances_number"`

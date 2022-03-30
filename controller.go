@@ -22,7 +22,6 @@ import (
 	"net/http"
 	"strconv"
 
-	imtypes "cloud-android-orchestration/api/instancemanager/v1"
 	apiv1 "cloud-android-orchestration/api/v1"
 
 	"github.com/gorilla/mux"
@@ -149,14 +148,14 @@ func (c *Controller) Forward(w http.ResponseWriter, r *http.Request, user UserIn
 
 func (c *Controller) InsertHost(w http.ResponseWriter, r *http.Request, user UserInfo) error {
 	zone := mux.Vars(r)["zone"]
-	var msg imtypes.InsertHostRequest
+	var msg apiv1.CreateHostRequest
 	err := json.NewDecoder(r.Body).Decode(&msg)
 	if err != nil {
 		return NewBadRequestError("Malformed JSON in request", err)
 	}
-	op, err := c.instanceManager.InsertHost(zone, &msg, user)
+	op, err := c.instanceManager.CreateHost(zone, &msg, user)
 	if err != nil {
-		if errors.Is(err, ErrBadInsertHostRequest) {
+		if errors.Is(err, ErrBadCreateHostRequest) {
 			return NewBadRequestError("", err)
 		}
 		log.Printf("InsertHost error %v", err)

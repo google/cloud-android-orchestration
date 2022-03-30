@@ -2,19 +2,19 @@ package main
 
 import (
 	"bytes"
-	imtypes "cloud-android-orchestration/api/instancemanager/v1"
-	compute "cloud.google.com/go/compute/apiv1"
-	"context"
 	"encoding/json"
 	"errors"
-	"github.com/sergi/go-diff/diffmatchpatch"
-	"google.golang.org/api/option"
-	computepb "google.golang.org/genproto/googleapis/cloud/compute/v1"
-	"google.golang.org/protobuf/proto"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	apiv1 "cloud-android-orchestration/api/v1"
+
+	"github.com/sergi/go-diff/diffmatchpatch"
+	"google.golang.org/api/option"
+	computepb "google.golang.org/genproto/googleapis/cloud/compute/v1"
+	"google.golang.org/protobuf/proto"
 )
 
 type TestUserInfo struct{}
@@ -23,21 +23,21 @@ func (i *TestUserInfo) Username() string {
 	return "johndoe"
 }
 
-func TestInsertHostInvalidRequests(t *testing.T) {
+func TestCreateHostInvalidRequests(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		replyJSON(w, &computepb.Operation{}, http.StatusOK)
 	}))
 	defer ts.Close()
-	client := newTestInstancesRESTClient(t, ts)
-	defer client.Close()
-	var validRequest = func() *imtypes.InsertHostRequest {
-		return &imtypes.InsertHostRequest{
-			CVDInfo: &imtypes.CVDInfo{
+	im := newTestGCPInstanceManager(t, ts)
+	defer im.Close()
+	var validRequest = func() *apiv1.CreateHostRequest {
+		return &apiv1.CreateHostRequest{
+			CVDInfo: &apiv1.CVDInfo{
 				BuildID: "1234",
 				Target:  "aosp_cf_x86_64_phone-userdebug",
 			},
-			HostInfo: &imtypes.HostInfo{
-				GCP: &imtypes.GCPInstance{
+			HostInfo: &apiv1.HostInfo{
+				GCP: &apiv1.GCPInstance{
 					DiskSizeGB:     100,
 					MachineType:    "zones/us-central1-f/machineTypes/n1-standard-1",
 					MinCPUPlatform: "Intel Haswell",
@@ -46,50 +46,50 @@ func TestInsertHostInvalidRequests(t *testing.T) {
 		}
 	}
 	// Make sure the valid request is indeed valid.
-	_, err := NewGCPIM(client).InsertHost("us-central1-a", validRequest(), &TestUserInfo{})
+	_, err := im.CreateHost("us-central1-a", validRequest(), &TestUserInfo{})
 	if err != nil {
 		t.Fatalf("the valid request is not valid")
 	}
 	var tests = []struct {
-		corruptRequest func(r *imtypes.InsertHostRequest)
+		corruptRequest func(r *apiv1.CreateHostRequest)
 	}{
-		{func(r *imtypes.InsertHostRequest) { r.CVDInfo = nil }},
-		{func(r *imtypes.InsertHostRequest) { r.CVDInfo.BuildID = "" }},
-		{func(r *imtypes.InsertHostRequest) { r.CVDInfo.Target = "" }},
-		{func(r *imtypes.InsertHostRequest) { r.HostInfo = nil }},
-		{func(r *imtypes.InsertHostRequest) { r.HostInfo.GCP = nil }},
-		{func(r *imtypes.InsertHostRequest) { r.HostInfo.GCP.DiskSizeGB = 0 }},
-		{func(r *imtypes.InsertHostRequest) { r.HostInfo.GCP.MachineType = "" }},
+		{func(r *apiv1.CreateHostRequest) { r.CVDInfo = nil }},
+		{func(r *apiv1.CreateHostRequest) { r.CVDInfo.BuildID = "" }},
+		{func(r *apiv1.CreateHostRequest) { r.CVDInfo.Target = "" }},
+		{func(r *apiv1.CreateHostRequest) { r.HostInfo = nil }},
+		{func(r *apiv1.CreateHostRequest) { r.HostInfo.GCP = nil }},
+		{func(r *apiv1.CreateHostRequest) { r.HostInfo.GCP.DiskSizeGB = 0 }},
+		{func(r *apiv1.CreateHostRequest) { r.HostInfo.GCP.MachineType = "" }},
 	}
 
 	for _, test := range tests {
 		req := validRequest()
 		test.corruptRequest(req)
-		_, err := NewGCPIM(client).InsertHost("us-central1-a", req, &TestUserInfo{})
-		if !errors.Is(err, ErrBadInsertHostRequest) {
-			t.Errorf("unexpected error <<\"%v\">>, want \"%v\"", err, ErrBadInsertHostRequest)
+		_, err := im.CreateHost("us-central1-a", req, &TestUserInfo{})
+		if !errors.Is(err, ErrBadCreateHostRequest) {
+			t.Errorf("unexpected error <<\"%v\">>, want \"%v\"", err, ErrBadCreateHostRequest)
 		}
 	}
 }
 
-func TestInsertHostRequestPath(t *testing.T) {
+func TestCreateHostRequestPath(t *testing.T) {
 	var pathSent string
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		pathSent = r.URL.Path
 		replyJSON(w, &computepb.Operation{}, http.StatusOK)
 	}))
 	defer ts.Close()
-	client := newTestInstancesRESTClient(t, ts)
-	defer client.Close()
+	im := newTestGCPInstanceManager(t, ts)
+	defer im.Close()
 
-	NewGCPIM(client).InsertHost("us-central1-a",
-		&imtypes.InsertHostRequest{
-			CVDInfo: &imtypes.CVDInfo{
+	im.CreateHost("us-central1-a",
+		&apiv1.CreateHostRequest{
+			CVDInfo: &apiv1.CVDInfo{
 				BuildID: "1234",
 				Target:  "aosp_cf_x86_64_phone-userdebug",
 			},
-			HostInfo: &imtypes.HostInfo{
-				GCP: &imtypes.GCPInstance{
+			HostInfo: &apiv1.HostInfo{
+				GCP: &apiv1.GCPInstance{
 					DiskSizeGB:     100,
 					MachineType:    "zones/us-central1-f/machineTypes/n1-standard-1",
 					MinCPUPlatform: "Intel Haswell",
@@ -104,7 +104,7 @@ func TestInsertHostRequestPath(t *testing.T) {
 	}
 }
 
-func TestInsertHostRequestBody(t *testing.T) {
+func TestCreateHostRequestBody(t *testing.T) {
 	// Save and restore original newUUIDString.
 	savedNewUUIDString := newUUIDString
 	defer func() { newUUIDString = savedNewUUIDString }()
@@ -119,17 +119,17 @@ func TestInsertHostRequestBody(t *testing.T) {
 		replyJSON(w, &computepb.Operation{Name: proto.String("operation-16482")}, http.StatusOK)
 	}))
 	defer ts.Close()
-	client := newTestInstancesRESTClient(t, ts)
-	defer client.Close()
+	im := newTestGCPInstanceManager(t, ts)
+	defer im.Close()
 
-	NewGCPIM(client).InsertHost("us-central1-a",
-		&imtypes.InsertHostRequest{
-			CVDInfo: &imtypes.CVDInfo{
+	im.CreateHost("us-central1-a",
+		&apiv1.CreateHostRequest{
+			CVDInfo: &apiv1.CVDInfo{
 				BuildID: "1234",
 				Target:  "aosp_cf_x86_64_phone-userdebug",
 			},
-			HostInfo: &imtypes.HostInfo{
-				GCP: &imtypes.GCPInstance{
+			HostInfo: &apiv1.HostInfo{
+				GCP: &apiv1.GCPInstance{
 					DiskSizeGB:     100,
 					MachineType:    "zones/us-central1-f/machineTypes/n1-standard-1",
 					MinCPUPlatform: "Intel Haswell",
@@ -150,8 +150,9 @@ func TestInsertHostRequestBody(t *testing.T) {
   ],
   "labels": {
     "cf-build_id": "1234",
-    "cf-creator": "johndoe",
-    "cf-target": "aosp_cf_x86_64_phone-userdebug"
+    "cf-created_by": "johndoe",
+    "cf-target": "aosp_cf_x86_64_phone-userdebug",
+    "created_by": "johndoe"
   },
   "machineType": "zones/us-central1-f/machineTypes/n1-standard-1",
   "minCpuPlatform": "Intel Haswell",
@@ -174,7 +175,7 @@ func TestInsertHostRequestBody(t *testing.T) {
 	}
 }
 
-func TestInsertHostSuccess(t *testing.T) {
+func TestCreateHostSuccess(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		o := &computepb.Operation{
 			Name:   proto.String("operation-123"),
@@ -183,17 +184,17 @@ func TestInsertHostSuccess(t *testing.T) {
 		replyJSON(w, o, http.StatusOK)
 	}))
 	defer ts.Close()
-	client := newTestInstancesRESTClient(t, ts)
-	defer client.Close()
+	im := newTestGCPInstanceManager(t, ts)
+	defer im.Close()
 
-	op, _ := NewGCPIM(client).InsertHost("us-central1-a",
-		&imtypes.InsertHostRequest{
-			CVDInfo: &imtypes.CVDInfo{
+	op, _ := im.CreateHost("us-central1-a",
+		&apiv1.CreateHostRequest{
+			CVDInfo: &apiv1.CVDInfo{
 				BuildID: "1234",
 				Target:  "aosp_cf_x86_64_phone-userdebug",
 			},
-			HostInfo: &imtypes.HostInfo{
-				GCP: &imtypes.GCPInstance{
+			HostInfo: &apiv1.HostInfo{
+				GCP: &apiv1.GCPInstance{
 					DiskSizeGB:     100,
 					MachineType:    "zones/us-central1-f/machineTypes/n1-standard-1",
 					MinCPUPlatform: "Intel Haswell",
@@ -202,22 +203,20 @@ func TestInsertHostSuccess(t *testing.T) {
 		},
 		&TestUserInfo{})
 
-	expected := &imtypes.Operation{Name: "operation-123", Done: true}
+	expected := &apiv1.Operation{Name: "operation-123", Done: true}
 	if *op != *expected {
 		t.Errorf("unexpected operation: <<%v>>, want: %v", *op, *expected)
 	}
 }
 
-func newTestInstancesRESTClient(t *testing.T, s *httptest.Server) *compute.InstancesClient {
-	ctx := context.Background()
-	client, err := compute.NewInstancesRESTClient(ctx,
+func newTestGCPInstanceManager(t *testing.T, s *httptest.Server) *GCPInstanceManager {
+	im, err := NewGCPInstanceManager(
 		option.WithEndpoint(s.URL),
-		option.WithHTTPClient(s.Client()),
-	)
+		option.WithHTTPClient(s.Client()))
 	if err != nil {
-		t.Fatalf("failed to create new instances rest client with error: %v", err)
+		t.Fatalf("failed to create new test GCPInstanceManager with error: %v", err)
 	}
-	return client
+	return im
 }
 
 func prettyJSON(t *testing.T, b []byte) string {

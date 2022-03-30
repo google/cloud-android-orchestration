@@ -1,11 +1,14 @@
 package main
 
 import (
-	imtypes "cloud-android-orchestration/api/instancemanager/v1"
-	compute "cloud.google.com/go/compute/apiv1"
 	"context"
 	"errors"
+
+	apiv1 "cloud-android-orchestration/api/v1"
+
+	compute "cloud.google.com/go/compute/apiv1"
 	"github.com/google/uuid"
+	"google.golang.org/api/option"
 	computepb "google.golang.org/genproto/googleapis/cloud/compute/v1"
 	"google.golang.org/protobuf/proto"
 )
@@ -27,22 +30,26 @@ var newUUIDString = func() string {
 }
 
 // GCP implementation of the instance manager.
-type GCPIM struct {
+type GCPInstanceManager struct {
 	client *compute.InstancesClient
 }
 
-func NewGCPIM(client *compute.InstancesClient) *GCPIM {
-	result := &GCPIM{
-		client: client,
+func NewGCPInstanceManager(opts ...option.ClientOption) (*GCPInstanceManager, error) {
+	ctx := context.Background()
+	client, err := compute.NewInstancesRESTClient(ctx, opts...)
+	if err != nil {
+		return nil, err
 	}
-	return result
+	return &GCPInstanceManager{
+		client: client,
+	}, nil
 }
 
-func (m *GCPIM) DeviceFromId(name string, _ UserInfo) (DeviceDesc, error) {
+func (m *GCPInstanceManager) DeviceFromId(name string, _ UserInfo) (DeviceDesc, error) {
 	return DeviceDesc{"127.0.0.1", "cvd-1"}, nil
 }
 
-func (m *GCPIM) InsertHost(zone string, req *imtypes.InsertHostRequest, user UserInfo) (*imtypes.Operation, error) {
+func (m *GCPInstanceManager) CreateHost(zone string, req *apiv1.CreateHostRequest, user UserInfo) (*apiv1.Operation, error) {
 	if err := validateRequest(req); err != nil {
 		return nil, err
 	}
@@ -58,7 +65,7 @@ func (m *GCPIM) InsertHost(zone string, req *imtypes.InsertHostRequest, user Use
 				{
 					InitializeParams: &computepb.AttachedDiskInitializeParams{
 						DiskSizeGb:  proto.Int64(int64(req.HostInfo.GCP.DiskSizeGB)),
-						SourceImage: proto.String("projects/cloud-android-releases/global/images/cuttlefish-google-vsoc-0-9-21"),
+						SourceImage: proto.String(sourceImage),
 					},
 					Boot: proto.Bool(true),
 				},
@@ -75,9 +82,10 @@ func (m *GCPIM) InsertHost(zone string, req *imtypes.InsertHostRequest, user Use
 				},
 			},
 			Labels: map[string]string{
-				labelPrefix + "creator":  user.Username(),
-				labelPrefix + "build_id": req.CVDInfo.BuildID,
-				labelPrefix + "target":   req.CVDInfo.Target,
+				"created_by":               user.Username(), // required for acloud backwards compatibility
+				labelPrefix + "created_by": user.Username(),
+				labelPrefix + "build_id":   req.CVDInfo.BuildID,
+				labelPrefix + "target":     req.CVDInfo.Target,
 			},
 		},
 	}
@@ -85,37 +93,43 @@ func (m *GCPIM) InsertHost(zone string, req *imtypes.InsertHostRequest, user Use
 	if err != nil {
 		return nil, err
 	}
-	result := &imtypes.Operation{
+	result := &apiv1.Operation{
 		Name: op.Name(),
 		Done: op.Done(),
 	}
 	return result, nil
 }
 
-// TODO(b/226935747) Have more thorough validation error in Instance Manager.
-var ErrBadInsertHostRequest = errors.New("invalid InsertHostRequest object")
+func (m *GCPInstanceManager) Close() error {
+	return m.client.Close()
+}
 
-func validateRequest(r *imtypes.InsertHostRequest) error {
-	if r.GetCVDInfo() == nil {
-		return ErrBadInsertHostRequest
+// TODO(b/226935747) Have more thorough validation error in Instance Manager.
+var ErrBadCreateHostRequest = errors.New("invalid CreateHostRequest object")
+
+func validateRequest(r *apiv1.CreateHostRequest) error {
+	if r.CVDInfo == nil {
+		return ErrBadCreateHostRequest
 	}
-	if r.GetCVDInfo().GetBuildID() == "" {
-		return ErrBadInsertHostRequest
+	if r.CVDInfo != nil {
+		if r.CVDInfo.BuildID == "" {
+			return ErrBadCreateHostRequest
+		}
+		if r.CVDInfo.Target == "" {
+			return ErrBadCreateHostRequest
+		}
 	}
-	if r.GetCVDInfo().GetTarget() == "" {
-		return ErrBadInsertHostRequest
+	if r.HostInfo == nil {
+		return ErrBadCreateHostRequest
 	}
-	if r.GetHostInfo() == nil {
-		return ErrBadInsertHostRequest
+	if r.HostInfo.GCP == nil {
+		return ErrBadCreateHostRequest
 	}
-	if r.GetHostInfo().GetGCP() == nil {
-		return ErrBadInsertHostRequest
+	if r.HostInfo.GCP.DiskSizeGB == 0 {
+		return ErrBadCreateHostRequest
 	}
-	if r.GetHostInfo().GetGCP().GetDiskSizeGB() == 0 {
-		return ErrBadInsertHostRequest
-	}
-	if r.GetHostInfo().GetGCP().GetMachineType() == "" {
-		return ErrBadInsertHostRequest
+	if r.HostInfo.GCP.MachineType == "" {
+		return ErrBadCreateHostRequest
 	}
 	return nil
 }

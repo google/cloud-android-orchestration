@@ -15,11 +15,8 @@
 package main
 
 import (
-	"context"
 	"log"
 	"os"
-
-	compute "cloud.google.com/go/compute/apiv1"
 )
 
 func HostedInGAE() bool {
@@ -27,13 +24,11 @@ func HostedInGAE() bool {
 }
 
 func main() {
-	ctx := context.Background()
-	client, err := compute.NewInstancesRESTClient(ctx)
+	im, err := NewGCPInstanceManager()
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer client.Close()
-	im := NewGCPIM(client)
+	defer im.Close()
 	ss := NewForwardingSignalingServer(im)
 	var am AccountManager
 	if HostedInGAE() {

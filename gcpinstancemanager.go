@@ -25,6 +25,7 @@ const (
 	labelPrefix = "cf-"
 )
 
+// modified during testing
 var newUUIDString = func() string {
 	return uuid.New().String()
 }

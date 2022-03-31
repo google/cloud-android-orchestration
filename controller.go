@@ -79,12 +79,12 @@ func (fn HTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log.Println(r.Method, " ", r.URL, " ", r.RemoteAddr)
 	if err := fn(w, r); err != nil {
 		log.Println("Error: ", err)
-		status := http.StatusInternalServerError
 		var e *AppError
 		if errors.As(err, &e) {
-			status = e.StatusCode
+			replyJSON(w, e.JSONResponse(), e.StatusCode)
+		} else {
+			replyJSON(w, apiv1.ErrorMsg{Error: "Internal Server Error"}, http.StatusInternalServerError)
 		}
-		http.Error(w, err.Error(), status)
 	}
 }
 

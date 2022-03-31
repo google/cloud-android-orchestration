@@ -82,7 +82,16 @@ class Connector {
 // The following code is internal and shouldn't be accessed outside this file.
 
 function httpUrl(path) {
-  return location.protocol + '//' + location.host + '/' + path;
+  // The host url includes the api version as a prefix
+  let curr = location.pathname;
+  // Device files are always served from the /<prefix>/devices/... url
+  let endIdx = curr.indexOf("/devices/");
+  if (endIdx < 0) {
+    // The path doesn't match our expectations
+    throw "server connector is incompatible with this server";
+  }
+  let prefix = curr.substr(0, endIdx);
+  return location.protocol + '//' + location.host + prefix + '/' + path;
 }
 
 async function ajaxPostJson(url, data) {

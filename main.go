@@ -24,7 +24,7 @@ func HostedInGAE() bool {
 }
 
 func main() {
-	im, err := NewGCPInstanceManager()
+	im, err := NewGCPInstanceManager(EmptyConfig())
 	if err != nil {
 		log.Fatal(err)
 	}

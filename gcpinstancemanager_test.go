@@ -17,6 +17,13 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+var testConfig = &Config{
+	GCPConfig: &GCPConfig{
+		ProjectID:   "google.com:test-project",
+		SourceImage: "projects/test-project-releases/global/images/img-001",
+	},
+}
+
 type TestUserInfo struct{}
 
 func (i *TestUserInfo) Username() string {
@@ -98,7 +105,7 @@ func TestCreateHostRequestPath(t *testing.T) {
 		},
 		&TestUserInfo{})
 
-	expected := "/compute/v1/projects/google.com:cloud-android-jemoreira/zones/us-central1-a/instances"
+	expected := "/compute/v1/projects/google.com:test-project/zones/us-central1-a/instances"
 	if pathSent != expected {
 		t.Errorf("unexpected url path <<%s>>, want: %s", pathSent, expected)
 	}
@@ -144,7 +151,7 @@ func TestCreateHostRequestBody(t *testing.T) {
       "boot": true,
       "initializeParams": {
         "diskSizeGb": "100",
-        "sourceImage": "projects/cloud-android-releases/global/images/cuttlefish-google-vsoc-0-9-21"
+        "sourceImage": "projects/test-project-releases/global/images/img-001"
       }
     }
   ],
@@ -165,7 +172,7 @@ func TestCreateHostRequestBody(t *testing.T) {
           "type": "ONE_TO_ONE_NAT"
         }
       ],
-      "name": "projects/cloud-android-jemoreira/global/networks/default"
+      "name": "projects/google.com:test-project/global/networks/default"
     }
   ]
 }`
@@ -211,6 +218,7 @@ func TestCreateHostSuccess(t *testing.T) {
 
 func newTestGCPInstanceManager(t *testing.T, s *httptest.Server) *GCPInstanceManager {
 	im, err := NewGCPInstanceManager(
+		testConfig,
 		option.WithEndpoint(s.URL),
 		option.WithHTTPClient(s.Client()))
 	if err != nil {

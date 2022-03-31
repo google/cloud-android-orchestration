@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	apiv1 "cloud-android-orchestration/api/v1"
 
@@ -11,13 +12,6 @@ import (
 	"google.golang.org/api/option"
 	computepb "google.golang.org/genproto/googleapis/cloud/compute/v1"
 	"google.golang.org/protobuf/proto"
-)
-
-const (
-	// TODO(b/220891296): Make this configurable
-	projectId   = "google.com:cloud-android-jemoreira"
-	sourceImage = "projects/cloud-android-releases/global/images/cuttlefish-google-vsoc-0-9-21"
-	networkName = "projects/cloud-android-jemoreira/global/networks/default"
 )
 
 const (
@@ -32,16 +26,18 @@ var newUUIDString = func() string {
 
 // GCP implementation of the instance manager.
 type GCPInstanceManager struct {
+	config *Config
 	client *compute.InstancesClient
 }
 
-func NewGCPInstanceManager(opts ...option.ClientOption) (*GCPInstanceManager, error) {
+func NewGCPInstanceManager(config *Config, opts ...option.ClientOption) (*GCPInstanceManager, error) {
 	ctx := context.Background()
 	client, err := compute.NewInstancesRESTClient(ctx, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return &GCPInstanceManager{
+		config: config,
 		client: client,
 	}, nil
 }
@@ -56,7 +52,7 @@ func (m *GCPInstanceManager) CreateHost(zone string, req *apiv1.CreateHostReques
 	}
 	ctx := context.Background()
 	computeReq := &computepb.InsertInstanceRequest{
-		Project: projectId,
+		Project: m.config.GCPConfig.ProjectID,
 		Zone:    zone,
 		InstanceResource: &computepb.Instance{
 			Name:           proto.String(namePrefix + newUUIDString()),
@@ -66,14 +62,14 @@ func (m *GCPInstanceManager) CreateHost(zone string, req *apiv1.CreateHostReques
 				{
 					InitializeParams: &computepb.AttachedDiskInitializeParams{
 						DiskSizeGb:  proto.Int64(int64(req.HostInfo.GCP.DiskSizeGB)),
-						SourceImage: proto.String(sourceImage),
+						SourceImage: proto.String(m.config.GCPConfig.SourceImage),
 					},
 					Boot: proto.Bool(true),
 				},
 			},
 			NetworkInterfaces: []*computepb.NetworkInterface{
 				{
-					Name: proto.String(networkName),
+					Name: proto.String(buildDefaultNetworkName(m.config.GCPConfig.ProjectID)),
 					AccessConfigs: []*computepb.AccessConfig{
 						{
 							Name: proto.String("External NAT"),
@@ -133,4 +129,8 @@ func validateRequest(r *apiv1.CreateHostRequest) error {
 		return ErrBadCreateHostRequest
 	}
 	return nil
+}
+
+func buildDefaultNetworkName(projectID string) string {
+	return fmt.Sprintf("projects/%s/global/networks/default", projectID)
 }

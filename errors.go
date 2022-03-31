@@ -16,6 +16,8 @@ package main
 
 import (
 	"net/http"
+	
+	apiv1 "cloud-android-orchestration/api/v1"
 )
 
 type AppError struct {
@@ -32,6 +34,12 @@ func (e *AppError) Error() string {
 }
 func (e *AppError) Unwrap() error {
 	return e.Err
+}
+
+func (e *AppError) JSONResponse() apiv1.ErrorMsg {
+	// Include only the high level error message in the error response, the
+	// lower level errors are just for logging
+	return apiv1.ErrorMsg{Error: e.Msg}
 }
 
 func NewNotFoundError(msg string, e error) error {

@@ -62,12 +62,13 @@ func (c *Controller) SetupRoutes() {
 	router.Handle("/v1/connections", HTTPHandler(c.accountManager.Authenticate(c.CreateConnection))).Methods("POST")
 	router.Handle("/v1/devices/{deviceId}/files{path:/.+}", HTTPHandler(c.accountManager.Authenticate(c.GetDeviceFiles))).Methods("GET")
 
-	// Global routes
-	router.HandleFunc("/infra_config", func(w http.ResponseWriter, r *http.Request) {
+	// Infra route
+	router.HandleFunc("/v1/infra_config", func(w http.ResponseWriter, r *http.Request) {
 		// TODO(b/220891296): Make this configurable
 		replyJSON(w, DEFAULT_INFRA_CONFIG, http.StatusOK)
 	}).Methods("GET")
 
+	// Global routes
 	router.Handle("/", HTTPHandler(c.accountManager.Authenticate(indexHandler)))
 
 	http.Handle("/", router)

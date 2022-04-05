@@ -63,7 +63,7 @@ func (c *Controller) SetupRoutes() {
 	router.Handle("/v1/devices/{deviceId}/files{path:/.+}", HTTPHandler(c.accountManager.Authenticate(c.GetDeviceFiles))).Methods("GET")
 
 	// Instance Manager Routes
-	router.Handle("/v1/zones/{zone}/hosts", HTTPHandler(c.accountManager.Authenticate(c.InsertHost))).Methods("POST")
+	router.Handle("/v1/zones/{zone}/hosts", HTTPHandler(c.accountManager.Authenticate(c.CreateHost))).Methods("POST")
 
 	// Infra route
 	router.HandleFunc("/v1/infra_config", func(w http.ResponseWriter, r *http.Request) {
@@ -147,7 +147,7 @@ func (c *Controller) Forward(w http.ResponseWriter, r *http.Request, user UserIn
 	return nil
 }
 
-func (c *Controller) InsertHost(w http.ResponseWriter, r *http.Request, user UserInfo) error {
+func (c *Controller) CreateHost(w http.ResponseWriter, r *http.Request, user UserInfo) error {
 	zone := mux.Vars(r)["zone"]
 	var msg apiv1.CreateHostRequest
 	err := json.NewDecoder(r.Body).Decode(&msg)
@@ -156,11 +156,7 @@ func (c *Controller) InsertHost(w http.ResponseWriter, r *http.Request, user Use
 	}
 	op, err := c.instanceManager.CreateHost(zone, &msg, user)
 	if err != nil {
-		if errors.Is(err, ErrBadCreateHostRequest) {
-			return NewBadRequestError("", err)
-		}
-		log.Printf("InsertHost error %v", err)
-		return NewInternalError("", nil)
+		return err
 	}
 	replyJSON(w, op, http.StatusOK)
 	return nil

@@ -2,12 +2,12 @@ package v1
 
 type CreateHostRequest struct {
 	// [REQUIRED]
-	CVDInfo *CVDInfo `json:"cvd_info"`
-	// [REQUIRED]
-	HostInfo *HostInfo `json:"host_info"`
+	CreateHostInstanceRequest *CreateHostInstanceRequest `json:"create_host_instance_request"`
+	//
+	CreateCVDRequest *CreateCVDRequest `json:"create_cvd_request"`
 }
 
-type CVDInfo struct {
+type CreateCVDRequest struct {
 	// [REQUIRED] The Android build identifier.
 	BuildID string `json:"build_id"`
 	// [REQUIRED] A string to determine the specific product and flavor from the set of builds, e.g. aosp_cf_x86_64_phone-userdebug.
@@ -16,7 +16,7 @@ type CVDInfo struct {
 	InstancesCount int `json:"instances_number"`
 }
 
-type HostInfo struct {
+type CreateHostInstanceRequest struct {
 	// Required if using GCP.
 	GCP *GCPInstance `json:"gcp"`
 }

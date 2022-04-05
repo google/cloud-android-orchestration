@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	apiv1 "cloud-android-orchestration/api/v1"
@@ -50,18 +49,26 @@ func (m *GCPInstanceManager) CreateHost(zone string, req *apiv1.CreateHostReques
 	if err := validateRequest(req); err != nil {
 		return nil, err
 	}
+	labels := map[string]string{
+		"created_by":               user.Username(), // required for acloud backwards compatibility
+		labelPrefix + "created_by": user.Username(),
+	}
+	if req.CreateCVDRequest != nil {
+		labels[labelPrefix+"build_id"] = req.CreateCVDRequest.BuildID
+		labels[labelPrefix+"target"] = req.CreateCVDRequest.Target
+	}
 	ctx := context.Background()
 	computeReq := &computepb.InsertInstanceRequest{
 		Project: m.config.GCPConfig.ProjectID,
 		Zone:    zone,
 		InstanceResource: &computepb.Instance{
 			Name:           proto.String(namePrefix + newUUIDString()),
-			MachineType:    proto.String(req.HostInfo.GCP.MachineType),
-			MinCpuPlatform: proto.String(req.HostInfo.GCP.MinCPUPlatform),
+			MachineType:    proto.String(req.CreateHostInstanceRequest.GCP.MachineType),
+			MinCpuPlatform: proto.String(req.CreateHostInstanceRequest.GCP.MinCPUPlatform),
 			Disks: []*computepb.AttachedDisk{
 				{
 					InitializeParams: &computepb.AttachedDiskInitializeParams{
-						DiskSizeGb:  proto.Int64(int64(req.HostInfo.GCP.DiskSizeGB)),
+						DiskSizeGb:  proto.Int64(int64(req.CreateHostInstanceRequest.GCP.DiskSizeGB)),
 						SourceImage: proto.String(m.config.GCPConfig.SourceImage),
 					},
 					Boot: proto.Bool(true),
@@ -78,12 +85,7 @@ func (m *GCPInstanceManager) CreateHost(zone string, req *apiv1.CreateHostReques
 					},
 				},
 			},
-			Labels: map[string]string{
-				"created_by":               user.Username(), // required for acloud backwards compatibility
-				labelPrefix + "created_by": user.Username(),
-				labelPrefix + "build_id":   req.CVDInfo.BuildID,
-				labelPrefix + "target":     req.CVDInfo.Target,
-			},
+			Labels: labels,
 		},
 	}
 	op, err := m.client.Insert(ctx, computeReq)
@@ -102,30 +104,27 @@ func (m *GCPInstanceManager) Close() error {
 }
 
 // TODO(b/226935747) Have more thorough validation error in Instance Manager.
-var ErrBadCreateHostRequest = errors.New("invalid CreateHostRequest object")
+var ErrBadCreateHostRequest = NewBadRequestError("invalid CreateHostRequest", nil)
 
 func validateRequest(r *apiv1.CreateHostRequest) error {
-	if r.CVDInfo == nil {
-		return ErrBadCreateHostRequest
-	}
-	if r.CVDInfo != nil {
-		if r.CVDInfo.BuildID == "" {
+	if r.CreateCVDRequest != nil {
+		if r.CreateCVDRequest.BuildID == "" {
 			return ErrBadCreateHostRequest
 		}
-		if r.CVDInfo.Target == "" {
+		if r.CreateCVDRequest.Target == "" {
 			return ErrBadCreateHostRequest
 		}
 	}
-	if r.HostInfo == nil {
+	if r.CreateHostInstanceRequest == nil {
 		return ErrBadCreateHostRequest
 	}
-	if r.HostInfo.GCP == nil {
+	if r.CreateHostInstanceRequest.GCP == nil {
 		return ErrBadCreateHostRequest
 	}
-	if r.HostInfo.GCP.DiskSizeGB == 0 {
+	if r.CreateHostInstanceRequest.GCP.DiskSizeGB == 0 {
 		return ErrBadCreateHostRequest
 	}
-	if r.HostInfo.GCP.MachineType == "" {
+	if r.CreateHostInstanceRequest.GCP.MachineType == "" {
 		return ErrBadCreateHostRequest
 	}
 	return nil

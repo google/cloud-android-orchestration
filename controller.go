@@ -65,12 +65,13 @@ func (c *Controller) SetupRoutes() {
 	// Instance Manager Routes
 	router.Handle("/v1/zones/{zone}/hosts", HTTPHandler(c.accountManager.Authenticate(c.InsertHost))).Methods("POST")
 
-	// Global routes
-	router.HandleFunc("/infra_config", func(w http.ResponseWriter, r *http.Request) {
+	// Infra route
+	router.HandleFunc("/v1/infra_config", func(w http.ResponseWriter, r *http.Request) {
 		// TODO(b/220891296): Make this configurable
 		replyJSON(w, DEFAULT_INFRA_CONFIG, http.StatusOK)
 	}).Methods("GET")
 
+	// Global routes
 	router.Handle("/", HTTPHandler(c.accountManager.Authenticate(indexHandler)))
 
 	http.Handle("/", router)
@@ -82,12 +83,12 @@ func (fn HTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log.Println(r.Method, " ", r.URL, " ", r.RemoteAddr)
 	if err := fn(w, r); err != nil {
 		log.Println("Error: ", err)
-		status := http.StatusInternalServerError
 		var e *AppError
 		if errors.As(err, &e) {
-			status = e.StatusCode
+			replyJSON(w, e.JSONResponse(), e.StatusCode)
+		} else {
+			replyJSON(w, apiv1.ErrorMsg{Error: "Internal Server Error"}, http.StatusInternalServerError)
 		}
-		http.Error(w, err.Error(), status)
 	}
 }
 

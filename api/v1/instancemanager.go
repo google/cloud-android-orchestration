@@ -3,17 +3,6 @@ package v1
 type CreateHostRequest struct {
 	// [REQUIRED]
 	CreateHostInstanceRequest *CreateHostInstanceRequest `json:"create_host_instance_request"`
-	//
-	CreateCVDRequest *CreateCVDRequest `json:"create_cvd_request"`
-}
-
-type CreateCVDRequest struct {
-	// [REQUIRED] The Android build identifier.
-	BuildID string `json:"build_id"`
-	// [REQUIRED] A string to determine the specific product and flavor from the set of builds, e.g. aosp_cf_x86_64_phone-userdebug.
-	Target string `json:"target"`
-	// The number of CVDs to create. Use this field if creating more than one instance.
-	InstancesCount int `json:"instances_number"`
 }
 
 type CreateHostInstanceRequest struct {

@@ -15,6 +15,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
 )
@@ -24,7 +25,7 @@ func HostedInGAE() bool {
 }
 
 func main() {
-	im, err := NewGCPInstanceManager(EmptyConfig())
+	im, err := NewGCPInstanceManager(EmptyConfig(), context.Background())
 	if err != nil {
 		log.Fatal(err)
 	}

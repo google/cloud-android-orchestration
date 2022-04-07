@@ -43,8 +43,7 @@ type GCPInstanceManager struct {
 	client *compute.InstancesClient
 }
 
-func NewGCPInstanceManager(config *Config, opts ...option.ClientOption) (*GCPInstanceManager, error) {
-	ctx := context.Background()
+func NewGCPInstanceManager(config *Config, ctx context.Context, opts ...option.ClientOption) (*GCPInstanceManager, error) {
 	client, err := compute.NewInstancesRESTClient(ctx, opts...)
 	if err != nil {
 		return nil, err
@@ -67,11 +66,7 @@ func (m *GCPInstanceManager) CreateHost(zone string, req *apiv1.CreateHostReques
 		"created_by":               user.Username(), // required for acloud backwards compatibility
 		labelPrefix + "created_by": user.Username(),
 	}
-	if req.CreateCVDRequest != nil {
-		labels[labelPrefix+"build_id"] = req.CreateCVDRequest.BuildID
-		labels[labelPrefix+"target"] = req.CreateCVDRequest.Target
-	}
-	ctx := context.Background()
+	ctx := context.TODO()
 	computeReq := &computepb.InsertInstanceRequest{
 		Project: m.config.GCPConfig.ProjectID,
 		Zone:    zone,
@@ -121,14 +116,6 @@ func (m *GCPInstanceManager) Close() error {
 var ErrBadCreateHostRequest = NewBadRequestError("invalid CreateHostRequest", nil)
 
 func validateRequest(r *apiv1.CreateHostRequest) error {
-	if r.CreateCVDRequest != nil {
-		if r.CreateCVDRequest.BuildID == "" {
-			return ErrBadCreateHostRequest
-		}
-		if r.CreateCVDRequest.Target == "" {
-			return ErrBadCreateHostRequest
-		}
-	}
 	if r.CreateHostInstanceRequest == nil {
 		return ErrBadCreateHostRequest
 	}

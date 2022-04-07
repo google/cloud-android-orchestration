@@ -18,6 +18,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"io/ioutil"
@@ -55,10 +56,6 @@ func TestCreateHostInvalidRequests(t *testing.T) {
 	defer im.Close()
 	var validRequest = func() *apiv1.CreateHostRequest {
 		return &apiv1.CreateHostRequest{
-			CreateCVDRequest: &apiv1.CreateCVDRequest{
-				BuildID: "1234",
-				Target:  "aosp_cf_x86_64_phone-userdebug",
-			},
 			CreateHostInstanceRequest: &apiv1.CreateHostInstanceRequest{
 				GCP: &apiv1.GCPInstance{
 					DiskSizeGB:     100,
@@ -76,8 +73,6 @@ func TestCreateHostInvalidRequests(t *testing.T) {
 	var tests = []struct {
 		corruptRequest func(r *apiv1.CreateHostRequest)
 	}{
-		{func(r *apiv1.CreateHostRequest) { r.CreateCVDRequest.BuildID = "" }},
-		{func(r *apiv1.CreateHostRequest) { r.CreateCVDRequest.Target = "" }},
 		{func(r *apiv1.CreateHostRequest) { r.CreateHostInstanceRequest = nil }},
 		{func(r *apiv1.CreateHostRequest) { r.CreateHostInstanceRequest.GCP = nil }},
 		{func(r *apiv1.CreateHostRequest) { r.CreateHostInstanceRequest.GCP.DiskSizeGB = 0 }},
@@ -106,10 +101,6 @@ func TestCreateHostRequestPath(t *testing.T) {
 
 	im.CreateHost("us-central1-a",
 		&apiv1.CreateHostRequest{
-			CreateCVDRequest: &apiv1.CreateCVDRequest{
-				BuildID: "1234",
-				Target:  "aosp_cf_x86_64_phone-userdebug",
-			},
 			CreateHostInstanceRequest: &apiv1.CreateHostInstanceRequest{
 				GCP: &apiv1.GCPInstance{
 					DiskSizeGB:     100,
@@ -146,10 +137,6 @@ func TestCreateHostRequestBody(t *testing.T) {
 
 	im.CreateHost("us-central1-a",
 		&apiv1.CreateHostRequest{
-			CreateCVDRequest: &apiv1.CreateCVDRequest{
-				BuildID: "1234",
-				Target:  "aosp_cf_x86_64_phone-userdebug",
-			},
 			CreateHostInstanceRequest: &apiv1.CreateHostInstanceRequest{
 				GCP: &apiv1.GCPInstance{
 					DiskSizeGB:     100,
@@ -171,9 +158,7 @@ func TestCreateHostRequestBody(t *testing.T) {
     }
   ],
   "labels": {
-    "cf-build_id": "1234",
     "cf-created_by": "johndoe",
-    "cf-target": "aosp_cf_x86_64_phone-userdebug",
     "created_by": "johndoe"
   },
   "machineType": "zones/us-central1-f/machineTypes/n1-standard-1",
@@ -211,10 +196,6 @@ func TestCreateHostSuccess(t *testing.T) {
 
 	op, _ := im.CreateHost("us-central1-a",
 		&apiv1.CreateHostRequest{
-			CreateCVDRequest: &apiv1.CreateCVDRequest{
-				BuildID: "1234",
-				Target:  "aosp_cf_x86_64_phone-userdebug",
-			},
 			CreateHostInstanceRequest: &apiv1.CreateHostInstanceRequest{
 				GCP: &apiv1.GCPInstance{
 					DiskSizeGB:     100,
@@ -234,6 +215,7 @@ func TestCreateHostSuccess(t *testing.T) {
 func newTestGCPInstanceManager(t *testing.T, s *httptest.Server) *GCPInstanceManager {
 	im, err := NewGCPInstanceManager(
 		testConfig,
+		context.TODO(),
 		option.WithEndpoint(s.URL),
 		option.WithHTTPClient(s.Client()))
 	if err != nil {

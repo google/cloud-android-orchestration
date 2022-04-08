@@ -21,7 +21,6 @@ import (
 	apiv1 "cloud-android-orchestration/api/v1"
 
 	compute "cloud.google.com/go/compute/apiv1"
-	"github.com/google/uuid"
 	"google.golang.org/api/option"
 	computepb "google.golang.org/genproto/googleapis/cloud/compute/v1"
 	"google.golang.org/protobuf/proto"
@@ -32,25 +31,26 @@ const (
 	labelPrefix = "cf-"
 )
 
-// modified during testing
-var newUUIDString = func() string {
-	return uuid.New().String()
-}
-
 // GCP implementation of the instance manager.
 type GCPInstanceManager struct {
-	config *Config
-	client *compute.InstancesClient
+	config      *Config
+	uuidFactory func() string
+	client      *compute.InstancesClient
 }
 
-func NewGCPInstanceManager(config *Config, ctx context.Context, opts ...option.ClientOption) (*GCPInstanceManager, error) {
+func NewGCPInstanceManager(
+	config *Config,
+	uuidFactory func() string,
+	ctx context.Context,
+	opts ...option.ClientOption) (*GCPInstanceManager, error) {
 	client, err := compute.NewInstancesRESTClient(ctx, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return &GCPInstanceManager{
-		config: config,
-		client: client,
+		config:      config,
+		client:      client,
+		uuidFactory: uuidFactory,
 	}, nil
 }
 
@@ -71,7 +71,8 @@ func (m *GCPInstanceManager) CreateHost(zone string, req *apiv1.CreateHostReques
 		Project: m.config.GCPConfig.ProjectID,
 		Zone:    zone,
 		InstanceResource: &computepb.Instance{
-			Name:           proto.String(namePrefix + newUUIDString()),
+			// Name:           proto.String(namePrefix + newUUIDString()),
+			Name:           proto.String(namePrefix + m.uuidFactory()),
 			MachineType:    proto.String(req.CreateHostInstanceRequest.GCP.MachineType),
 			MinCpuPlatform: proto.String(req.CreateHostInstanceRequest.GCP.MinCPUPlatform),
 			Disks: []*computepb.AttachedDisk{

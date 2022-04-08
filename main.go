@@ -18,6 +18,8 @@ import (
 	"context"
 	"log"
 	"os"
+
+	"github.com/google/uuid"
 )
 
 func HostedInGAE() bool {
@@ -25,7 +27,10 @@ func HostedInGAE() bool {
 }
 
 func main() {
-	im, err := NewGCPInstanceManager(EmptyConfig(), context.Background())
+	im, err := NewGCPInstanceManager(
+		EmptyConfig(),
+		func() string { return uuid.New().String() },
+		context.Background())
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// White-box tests for gcpinstancemanager.go
-
 package main
 
 import (
@@ -39,6 +37,10 @@ var testConfig = &Config{
 		ProjectID:   "google.com:test-project",
 		SourceImage: "projects/test-project-releases/global/images/img-001",
 	},
+}
+
+var testUUIDFactory = func() string {
+  return "123e4567"
 }
 
 type TestUserInfo struct{}
@@ -118,11 +120,6 @@ func TestCreateHostRequestPath(t *testing.T) {
 }
 
 func TestCreateHostRequestBody(t *testing.T) {
-	// Save and restore original newUUIDString.
-	savedNewUUIDString := newUUIDString
-	defer func() { newUUIDString = savedNewUUIDString }()
-	// Install the test's fake newUUIDString.
-	newUUIDString = func() string { return "123e4567" }
 	var bodySent []byte
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		b, err := ioutil.ReadAll(r.Body)
@@ -215,6 +212,7 @@ func TestCreateHostSuccess(t *testing.T) {
 func newTestGCPInstanceManager(t *testing.T, s *httptest.Server) *GCPInstanceManager {
 	im, err := NewGCPInstanceManager(
 		testConfig,
+    testUUIDFactory,
 		context.TODO(),
 		option.WithEndpoint(s.URL),
 		option.WithHTTPClient(s.Client()))

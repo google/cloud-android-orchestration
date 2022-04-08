@@ -62,6 +62,9 @@ func (c *Controller) SetupRoutes() {
 	router.Handle("/v1/connections", HTTPHandler(c.accountManager.Authenticate(c.CreateConnection))).Methods("POST")
 	router.Handle("/v1/devices/{deviceId}/files{path:/.+}", HTTPHandler(c.accountManager.Authenticate(c.GetDeviceFiles))).Methods("GET")
 
+	// Instance Manager Routes
+	router.Handle("/v1/zones/{zone}/hosts", HTTPHandler(c.accountManager.Authenticate(c.CreateHost))).Methods("POST")
+
 	// Infra route
 	router.HandleFunc("/v1/infra_config", func(w http.ResponseWriter, r *http.Request) {
 		// TODO(b/220891296): Make this configurable
@@ -141,6 +144,21 @@ func (c *Controller) Forward(w http.ResponseWriter, r *http.Request, user UserIn
 		return fmt.Errorf("Failed to send message to device: %w", err)
 	}
 	replyJSON(w, reply.Response, reply.StatusCode)
+	return nil
+}
+
+func (c *Controller) CreateHost(w http.ResponseWriter, r *http.Request, user UserInfo) error {
+	zone := mux.Vars(r)["zone"]
+	var msg apiv1.CreateHostRequest
+	err := json.NewDecoder(r.Body).Decode(&msg)
+	if err != nil {
+		return NewBadRequestError("Malformed JSON in request", err)
+	}
+	op, err := c.instanceManager.CreateHost(zone, &msg, user)
+	if err != nil {
+		return err
+	}
+	replyJSON(w, op, http.StatusOK)
 	return nil
 }
 

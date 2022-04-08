@@ -15,6 +15,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
 )
@@ -24,7 +25,11 @@ func HostedInGAE() bool {
 }
 
 func main() {
-	im := &PlaceholderIM{}
+	im, err := NewGCPInstanceManager(EmptyConfig(), context.Background())
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer im.Close()
 	ss := NewForwardingSignalingServer(im)
 	var am AccountManager
 	if HostedInGAE() {

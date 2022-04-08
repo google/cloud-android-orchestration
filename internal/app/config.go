@@ -12,30 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package app
 
-import (
-	"net/http"
-	"os"
-)
-
-// Implements the AccountManager interface taking the username from the
-// environment and authorizing all requests
-type OsAccountManager struct{}
-
-func (o *OsAccountManager) Authenticate(fn AuthHTTPHandler) HTTPHandler {
-	return func(w http.ResponseWriter, r *http.Request) error {
-		return fn(w, r, &OsUserInfo{})
-	}
+type Config struct {
+	GCPConfig *GCPConfig
 }
 
-type OsUserInfo struct {
-	username string
+type GCPConfig struct {
+	ProjectID   string
+	SourceImage string
 }
 
-func (i *OsUserInfo) Username() string {
-	if i.username == "" {
-		i.username = os.Getenv("USER")
+func EmptyConfig() *Config {
+	return &Config{
+		GCPConfig: &GCPConfig{
+			ProjectID:   "",
+			SourceImage: "",
+		},
 	}
-	return i.username
 }

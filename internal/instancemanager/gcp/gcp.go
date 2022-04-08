@@ -12,13 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package gcp
 
 import (
 	"context"
 	"fmt"
 
 	apiv1 "cloud-android-orchestration/api/v1"
+	"cloud-android-orchestration/internal/app"
 
 	compute "cloud.google.com/go/compute/apiv1"
 	"github.com/google/uuid"
@@ -34,12 +35,12 @@ const (
 
 // GCP implementation of the instance manager.
 type GCPInstanceManager struct {
-	config      *Config
+	config      *app.Config
 	client      *compute.InstancesClient
 	uuidFactory func() string
 }
 
-func NewGCPInstanceManager(config *Config, ctx context.Context, opts ...option.ClientOption) (*GCPInstanceManager, error) {
+func NewGCPInstanceManager(config *app.Config, ctx context.Context, opts ...option.ClientOption) (*GCPInstanceManager, error) {
 	client, err := compute.NewInstancesRESTClient(ctx, opts...)
 	if err != nil {
 		return nil, err
@@ -51,11 +52,11 @@ func NewGCPInstanceManager(config *Config, ctx context.Context, opts ...option.C
 	}, nil
 }
 
-func (m *GCPInstanceManager) DeviceFromId(name string, _ UserInfo) (DeviceDesc, error) {
-	return DeviceDesc{"127.0.0.1", "cvd-1"}, nil
+func (m *GCPInstanceManager) DeviceFromId(name string, _ app.UserInfo) (app.DeviceDesc, error) {
+	return app.DeviceDesc{"127.0.0.1", "cvd-1"}, nil
 }
 
-func (m *GCPInstanceManager) CreateHost(zone string, req *apiv1.CreateHostRequest, user UserInfo) (*apiv1.Operation, error) {
+func (m *GCPInstanceManager) CreateHost(zone string, req *apiv1.CreateHostRequest, user app.UserInfo) (*apiv1.Operation, error) {
 	if err := validateRequest(req); err != nil {
 		return nil, err
 	}
@@ -110,7 +111,7 @@ func (m *GCPInstanceManager) Close() error {
 }
 
 // TODO(b/226935747) Have more thorough validation error in Instance Manager.
-var ErrBadCreateHostRequest = NewBadRequestError("invalid CreateHostRequest", nil)
+var ErrBadCreateHostRequest = app.NewBadRequestError("invalid CreateHostRequest", nil)
 
 func validateRequest(r *apiv1.CreateHostRequest) error {
 	if r.CreateHostInstanceRequest == nil {

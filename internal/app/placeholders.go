@@ -12,22 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package app
 
-type Config struct {
-	GCPConfig *GCPConfig
-}
+// Implements the InstanceManager interface providing access to the first
+// device in the local host orchestrator.
+// This implementation is useful for both development and testing
+type PlaceholderIM struct{}
 
-type GCPConfig struct {
-	ProjectID   string
-	SourceImage string
-}
-
-func EmptyConfig() *Config {
-	return &Config{
-		GCPConfig: &GCPConfig{
-			ProjectID:   "",
-			SourceImage: "",
-		},
-	}
+func (d *PlaceholderIM) DeviceFromId(name string, _ UserInfo) (DeviceDesc, error) {
+	return DeviceDesc{"127.0.0.1", "cvd-1"}, nil
 }

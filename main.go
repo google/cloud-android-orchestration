@@ -18,6 +18,9 @@ import (
 	"context"
 	"log"
 	"os"
+
+	"cloud-android-orchestration/internal/app"
+	"cloud-android-orchestration/internal/instancemanager/gcp"
 )
 
 func HostedInGAE() bool {
@@ -25,19 +28,19 @@ func HostedInGAE() bool {
 }
 
 func main() {
-	im, err := NewGCPInstanceManager(EmptyConfig(), context.Background())
+	im, err := gcp.NewGCPInstanceManager(app.EmptyConfig(), context.Background())
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer im.Close()
-	ss := NewForwardingSignalingServer(im)
-	var am AccountManager
+	ss := app.NewForwardingSignalingServer(im)
+	var am app.AccountManager
 	if HostedInGAE() {
-		am = NewGAEUsersAccountManager()
+		am = app.NewGAEUsersAccountManager()
 	} else {
-		am = &OsAccountManager{}
+		am = &app.OsAccountManager{}
 	}
-	or := NewController(im, ss, am)
+	or := app.NewController(im, ss, am)
 
 	port := os.Getenv("PORT")
 	if port == "" {

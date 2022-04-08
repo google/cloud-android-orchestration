@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package gcp
 
 import (
 	"bytes"
@@ -25,6 +25,7 @@ import (
 	"testing"
 
 	apiv1 "cloud-android-orchestration/api/v1"
+	"cloud-android-orchestration/internal/app"
 
 	"github.com/sergi/go-diff/diffmatchpatch"
 	"google.golang.org/api/option"
@@ -32,8 +33,8 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-var testConfig = &Config{
-	GCPConfig: &GCPConfig{
+var testConfig = &app.Config{
+	GCPConfig: &app.GCPConfig{
 		ProjectID:   "google.com:test-project",
 		SourceImage: "projects/test-project-releases/global/images/img-001",
 	},
@@ -47,7 +48,7 @@ func (i *TestUserInfo) Username() string {
 
 func TestCreateHostInvalidRequests(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		replyJSON(w, &computepb.Operation{}, http.StatusOK)
+		replyJSON(w, &computepb.Operation{})
 	}))
 	defer ts.Close()
 	im := newTestGCPInstanceManager(t, ts)
@@ -91,7 +92,7 @@ func TestCreateHostRequestPath(t *testing.T) {
 	var pathSent string
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		pathSent = r.URL.Path
-		replyJSON(w, &computepb.Operation{}, http.StatusOK)
+		replyJSON(w, &computepb.Operation{})
 	}))
 	defer ts.Close()
 	im := newTestGCPInstanceManager(t, ts)
@@ -122,7 +123,7 @@ func TestCreateHostRequestBody(t *testing.T) {
 		if err == nil {
 			bodySent = b
 		}
-		replyJSON(w, &computepb.Operation{Name: proto.String("operation-16482")}, http.StatusOK)
+		replyJSON(w, &computepb.Operation{Name: proto.String("operation-16482")})
 	}))
 	defer ts.Close()
 	im := newTestGCPInstanceManager(t, ts)
@@ -182,7 +183,7 @@ func TestCreateHostSuccess(t *testing.T) {
 			Name:   proto.String("operation-123"),
 			Status: computepb.Operation_DONE.Enum(),
 		}
-		replyJSON(w, o, http.StatusOK)
+		replyJSON(w, o)
 	}))
 	defer ts.Close()
 	im := newTestGCPInstanceManager(t, ts)
@@ -230,4 +231,10 @@ func diffPrettyText(result string, expected string) string {
 	dmp := diffmatchpatch.New()
 	diffs := dmp.DiffMain(result, expected, false)
 	return dmp.DiffPrettyText(diffs)
+}
+
+func replyJSON(w http.ResponseWriter, obj interface{}) error {
+	w.Header().Set("Content-Type", "application/json")
+	encoder := json.NewEncoder(w)
+	return encoder.Encode(obj)
 }

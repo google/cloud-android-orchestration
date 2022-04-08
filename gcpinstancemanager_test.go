@@ -39,10 +39,6 @@ var testConfig = &Config{
 	},
 }
 
-var testUUIDFactory = func() string {
-  return "123e4567"
-}
-
 type TestUserInfo struct{}
 
 func (i *TestUserInfo) Username() string {
@@ -130,6 +126,7 @@ func TestCreateHostRequestBody(t *testing.T) {
 	}))
 	defer ts.Close()
 	im := newTestGCPInstanceManager(t, ts)
+	im.setUUIDFactory(func() string { return "123e4567" })
 	defer im.Close()
 
 	im.CreateHost("us-central1-a",
@@ -212,7 +209,6 @@ func TestCreateHostSuccess(t *testing.T) {
 func newTestGCPInstanceManager(t *testing.T, s *httptest.Server) *GCPInstanceManager {
 	im, err := NewGCPInstanceManager(
 		testConfig,
-    testUUIDFactory,
 		context.TODO(),
 		option.WithEndpoint(s.URL),
 		option.WithHTTPClient(s.Client()))

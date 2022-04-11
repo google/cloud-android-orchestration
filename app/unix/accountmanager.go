@@ -12,28 +12,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package app
+package unix
 
 import (
 	"net/http"
 	"os"
+
+	"cloud-android-orchestration/app"
 )
 
 // Implements the AccountManager interface taking the username from the
 // environment and authorizing all requests
-type OsAccountManager struct{}
+type AccountManager struct{}
 
-func (o *OsAccountManager) Authenticate(fn AuthHTTPHandler) HTTPHandler {
+func (m *AccountManager) Authenticate(fn app.AuthHTTPHandler) app.HTTPHandler {
 	return func(w http.ResponseWriter, r *http.Request) error {
-		return fn(w, r, &OsUserInfo{})
+		return fn(w, r, &UserInfo{})
 	}
 }
 
-type OsUserInfo struct {
+type UserInfo struct {
 	username string
 }
 
-func (i *OsUserInfo) Username() string {
+func (i *UserInfo) Username() string {
 	if i.username == "" {
 		i.username = os.Getenv("USER")
 	}

@@ -25,7 +25,7 @@ import (
 	"testing"
 
 	apiv1 "cloud-android-orchestration/api/v1"
-	"cloud-android-orchestration/internal/app"
+	"cloud-android-orchestration/app"
 
 	"github.com/sergi/go-diff/diffmatchpatch"
 	"google.golang.org/api/option"
@@ -51,7 +51,7 @@ func TestCreateHostInvalidRequests(t *testing.T) {
 		replyJSON(w, &computepb.Operation{})
 	}))
 	defer ts.Close()
-	im := newTestGCPInstanceManager(t, ts)
+	im := newTestInstanceManager(t, ts)
 	defer im.Close()
 	var validRequest = func() *apiv1.CreateHostRequest {
 		return &apiv1.CreateHostRequest{
@@ -95,7 +95,7 @@ func TestCreateHostRequestPath(t *testing.T) {
 		replyJSON(w, &computepb.Operation{})
 	}))
 	defer ts.Close()
-	im := newTestGCPInstanceManager(t, ts)
+	im := newTestInstanceManager(t, ts)
 	defer im.Close()
 
 	im.CreateHost("us-central1-a",
@@ -126,7 +126,7 @@ func TestCreateHostRequestBody(t *testing.T) {
 		replyJSON(w, &computepb.Operation{Name: proto.String("operation-16482")})
 	}))
 	defer ts.Close()
-	im := newTestGCPInstanceManager(t, ts)
+	im := newTestInstanceManager(t, ts)
 	im.setUUIDFactory(func() string { return "123e4567" })
 	defer im.Close()
 
@@ -186,7 +186,7 @@ func TestCreateHostSuccess(t *testing.T) {
 		replyJSON(w, o)
 	}))
 	defer ts.Close()
-	im := newTestGCPInstanceManager(t, ts)
+	im := newTestInstanceManager(t, ts)
 	defer im.Close()
 
 	op, _ := im.CreateHost("us-central1-a",
@@ -207,8 +207,8 @@ func TestCreateHostSuccess(t *testing.T) {
 	}
 }
 
-func newTestGCPInstanceManager(t *testing.T, s *httptest.Server) *GCPInstanceManager {
-	im, err := NewGCPInstanceManager(
+func newTestInstanceManager(t *testing.T, s *httptest.Server) *InstanceManager {
+	im, err := NewInstanceManager(
 		testConfig,
 		context.TODO(),
 		option.WithEndpoint(s.URL),

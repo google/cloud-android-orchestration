@@ -12,13 +12,32 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package unix
 
-// Implements the InstanceManager interface providing access to the first
-// device in the local host orchestrator.
-// This implementation is useful for both development and testing
-type PlaceholderIM struct{}
+import (
+	"net/http"
+	"os"
 
-func (d *PlaceholderIM) DeviceFromId(name string, _ UserInfo) (DeviceDesc, error) {
-	return DeviceDesc{"127.0.0.1", "cvd-1"}, nil
+	"cloud-android-orchestration/app"
+)
+
+// Implements the AccountManager interface taking the username from the
+// environment and authorizing all requests
+type AccountManager struct{}
+
+func (m *AccountManager) Authenticate(fn app.AuthHTTPHandler) app.HTTPHandler {
+	return func(w http.ResponseWriter, r *http.Request) error {
+		return fn(w, r, &UserInfo{})
+	}
+}
+
+type UserInfo struct {
+	username string
+}
+
+func (i *UserInfo) Username() string {
+	if i.username == "" {
+		i.username = os.Getenv("USER")
+	}
+	return i.username
 }

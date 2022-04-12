@@ -12,23 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package gcp
 
 import (
 	"errors"
 	"net/http"
 	"strings"
+
+	"cloud-android-orchestration/app"
 )
 
 const emailHeaderKey = "X-Appengine-User-Email"
 
-type GAEUsersAccountManager struct{}
+type UsersAccountManager struct{}
 
-func NewGAEUsersAccountManager() *GAEUsersAccountManager {
-	return &GAEUsersAccountManager{}
+func NewUsersAccountManager() *UsersAccountManager {
+	return &UsersAccountManager{}
 }
 
-func (g *GAEUsersAccountManager) Authenticate(fn AuthHTTPHandler) HTTPHandler {
+func (g *UsersAccountManager) Authenticate(fn app.AuthHTTPHandler) app.HTTPHandler {
 	return func(w http.ResponseWriter, r *http.Request) error {
 		// These headers are guaranteed to be present and come from AppEngine.
 		email := r.Header.Get(emailHeaderKey)
@@ -40,15 +42,15 @@ func (g *GAEUsersAccountManager) Authenticate(fn AuthHTTPHandler) HTTPHandler {
 			return errors.New("No authentication headers present")
 		}
 		username := strings.SplitN(email, "@", 2)[0]
-		user := GAEUserInfo{username}
+		user := UserInfo{username}
 		return fn(w, r, &user)
 	}
 }
 
-type GAEUserInfo struct {
+type UserInfo struct {
 	username string
 }
 
-func (u *GAEUserInfo) Username() string {
+func (u *UserInfo) Username() string {
 	return u.username
 }

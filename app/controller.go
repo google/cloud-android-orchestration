@@ -57,16 +57,16 @@ func (c *Controller) SetupRoutes() {
 	router := mux.NewRouter()
 
 	// Signaling Server Routes
-	router.Handle("/v1/connections/{connId}/messages", HTTPHandler(c.accountManager.Authenticate(c.Messages))).Methods("GET")
-	router.Handle("/v1/connections/{connId}/:forward", HTTPHandler(c.accountManager.Authenticate(c.Forward))).Methods("POST")
-	router.Handle("/v1/connections", HTTPHandler(c.accountManager.Authenticate(c.CreateConnection))).Methods("POST")
-	router.Handle("/v1/devices/{deviceId}/files{path:/.+}", HTTPHandler(c.accountManager.Authenticate(c.GetDeviceFiles))).Methods("GET")
+	router.Handle("/v1/zones/{zone}/hosts/{host}/connections/{connId}/messages", HTTPHandler(c.accountManager.Authenticate(c.Messages))).Methods("GET")
+	router.Handle("/v1/zones/{zone}/hosts/{host}/connections/{connId}/:forward", HTTPHandler(c.accountManager.Authenticate(c.Forward))).Methods("POST")
+	router.Handle("/v1/zones/{zone}/hosts/{host}/connections", HTTPHandler(c.accountManager.Authenticate(c.CreateConnection))).Methods("POST")
+	router.Handle("/v1/zones/{zone}/hosts/{host}/devices/{deviceId}/files{path:/.+}", HTTPHandler(c.accountManager.Authenticate(c.GetDeviceFiles))).Methods("GET")
 
 	// Instance Manager Routes
 	router.Handle("/v1/zones/{zone}/hosts", HTTPHandler(c.accountManager.Authenticate(c.CreateHost))).Methods("POST")
 
 	// Infra route
-	router.HandleFunc("/v1/infra_config", func(w http.ResponseWriter, r *http.Request) {
+	router.HandleFunc("/v1/zones/{zone}/hosts/{host}/infra_config", func(w http.ResponseWriter, r *http.Request) {
 		// TODO(b/220891296): Make this configurable
 		replyJSON(w, DEFAULT_INFRA_CONFIG, http.StatusOK)
 	}).Methods("GET")
@@ -93,19 +93,23 @@ func (fn HTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *Controller) GetDeviceFiles(w http.ResponseWriter, r *http.Request, user UserInfo) error {
+	zone := mux.Vars(r)["zone"]
+	host := mux.Vars(r)["host"]
 	devId := mux.Vars(r)["deviceId"]
 	path := mux.Vars(r)["path"]
-	return c.sigServer.ServeDeviceFiles(DeviceFilesRequest{devId, path, w, r}, user)
+	return c.sigServer.ServeDeviceFiles(zone, host, DeviceFilesRequest{devId, path, w, r}, user)
 }
 
 func (c *Controller) CreateConnection(w http.ResponseWriter, r *http.Request, user UserInfo) error {
+	zone := mux.Vars(r)["zone"]
+	host := mux.Vars(r)["host"]
 	var msg apiv1.NewConnMsg
 	err := json.NewDecoder(r.Body).Decode(&msg)
 	if err != nil {
 		return NewBadRequestError("Malformed JSON in request", err)
 	}
 	log.Println("id: ", msg.DeviceId)
-	reply, err := c.sigServer.NewConnection(msg, user)
+	reply, err := c.sigServer.NewConnection(zone, host, msg, user)
 	if err != nil {
 		return fmt.Errorf("Failed to communicate with device: %w", err)
 	}
@@ -114,6 +118,8 @@ func (c *Controller) CreateConnection(w http.ResponseWriter, r *http.Request, us
 }
 
 func (c *Controller) Messages(w http.ResponseWriter, r *http.Request, user UserInfo) error {
+	zone := mux.Vars(r)["zone"]
+	host := mux.Vars(r)["host"]
 	id := mux.Vars(r)["connId"]
 	start, err := intFormValue(r, "start", 0)
 	if err != nil {
@@ -124,7 +130,7 @@ func (c *Controller) Messages(w http.ResponseWriter, r *http.Request, user UserI
 	if err != nil {
 		return NewBadRequestError("Invalid value for count field", err)
 	}
-	reply, err := c.sigServer.Messages(id, start, count, user)
+	reply, err := c.sigServer.Messages(zone, host, id, start, count, user)
 	if err != nil {
 		return fmt.Errorf("Failed to get messages: %w", err)
 	}
@@ -133,13 +139,15 @@ func (c *Controller) Messages(w http.ResponseWriter, r *http.Request, user UserI
 }
 
 func (c *Controller) Forward(w http.ResponseWriter, r *http.Request, user UserInfo) error {
+	zone := mux.Vars(r)["zone"]
+	host := mux.Vars(r)["host"]
 	id := mux.Vars(r)["connId"]
 	var msg apiv1.ForwardMsg
 	err := json.NewDecoder(r.Body).Decode(&msg)
 	if err != nil {
 		return NewBadRequestError("Malformed JSON in request", err)
 	}
-	reply, err := c.sigServer.Forward(id, msg, user)
+	reply, err := c.sigServer.Forward(zone, host, id, msg, user)
 	if err != nil {
 		return fmt.Errorf("Failed to send message to device: %w", err)
 	}

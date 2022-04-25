@@ -52,7 +52,7 @@ func NewInstanceManager(config *app.Config, ctx context.Context, opts ...option.
 	}, nil
 }
 
-func (m *InstanceManager) DeviceFromId(name string, _ app.UserInfo) (app.DeviceDesc, error) {
+func (m *InstanceManager) DeviceFromId(zone string, host string, name string, _ app.UserInfo) (app.DeviceDesc, error) {
 	return app.DeviceDesc{"127.0.0.1", "cvd-1"}, nil
 }
 

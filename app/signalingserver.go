@@ -39,8 +39,8 @@ func NewForwardingSignalingServer(im InstanceManager) *ForwardingSignalingServer
 	return &ForwardingSignalingServer{im}
 }
 
-func (s *ForwardingSignalingServer) NewConnection(msg apiv1.NewConnMsg, user UserInfo) (*apiv1.SServerResponse, error) {
-	dev, err := s.instanceManager.DeviceFromId(msg.DeviceId, user)
+func (s *ForwardingSignalingServer) NewConnection(zone string, host string, msg apiv1.NewConnMsg, user UserInfo) (*apiv1.SServerResponse, error) {
+	dev, err := s.instanceManager.DeviceFromId(zone, host, msg.DeviceId, user)
 	if err != nil {
 		return nil, err
 	}
@@ -59,13 +59,13 @@ func (s *ForwardingSignalingServer) NewConnection(msg apiv1.NewConnMsg, user Use
 	return &apiv1.SServerResponse{Response: reply, StatusCode: status}, nil
 }
 
-func (s *ForwardingSignalingServer) Forward(id string, msg apiv1.ForwardMsg, user UserInfo) (*apiv1.SServerResponse, error) {
+func (s *ForwardingSignalingServer) Forward(zone string, host string, id string, msg apiv1.ForwardMsg, user UserInfo) (*apiv1.SServerResponse, error) {
 	dec, err := decodeConnId(id)
 	if err != nil {
 		return nil, NewNotFoundError("Invalid connection Id", err)
 	}
 	connId := dec.ConnId
-	dev, err := s.instanceManager.DeviceFromId(dec.DevId, user)
+	dev, err := s.instanceManager.DeviceFromId(zone, host, dec.DevId, user)
 	if err != nil {
 		return nil, err
 	}
@@ -78,13 +78,13 @@ func (s *ForwardingSignalingServer) Forward(id string, msg apiv1.ForwardMsg, use
 	return &apiv1.SServerResponse{reply, status}, nil
 }
 
-func (s *ForwardingSignalingServer) Messages(id string, start int, count int, user UserInfo) (*apiv1.SServerResponse, error) {
+func (s *ForwardingSignalingServer) Messages(zone string, host string, id string, start int, count int, user UserInfo) (*apiv1.SServerResponse, error) {
 	dec, err := decodeConnId(id)
 	if err != nil {
 		return nil, NewNotFoundError("Invalid connection id", err)
 	}
 	connId := dec.ConnId
-	dev, err := s.instanceManager.DeviceFromId(dec.DevId, user)
+	dev, err := s.instanceManager.DeviceFromId(zone, host, dec.DevId, user)
 	if err != nil {
 		return nil, err
 	}
@@ -101,8 +101,8 @@ func (s *ForwardingSignalingServer) Messages(id string, start int, count int, us
 	return &apiv1.SServerResponse{reply, status}, nil
 }
 
-func (s *ForwardingSignalingServer) ServeDeviceFiles(params DeviceFilesRequest, user UserInfo) error {
-	dev, err := s.instanceManager.DeviceFromId(params.devId, user)
+func (s *ForwardingSignalingServer) ServeDeviceFiles(zone string, host string, params DeviceFilesRequest, user UserInfo) error {
+	dev, err := s.instanceManager.DeviceFromId(zone, host, params.devId, user)
 	if err != nil {
 		return err
 	}

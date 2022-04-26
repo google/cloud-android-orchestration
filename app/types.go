@@ -35,13 +35,13 @@ type SignalingServer interface {
 	// These endpoints in the SignalingServer return the (possibly modified)
 	// response from the Host Orchestrator and the status code if it was
 	// able to communicate with it, otherwise it returns an error.
-	NewConnection(msg apiv1.NewConnMsg, user UserInfo) (*apiv1.SServerResponse, error)
-	Forward(id string, msg apiv1.ForwardMsg, user UserInfo) (*apiv1.SServerResponse, error)
-	Messages(id string, start int, count int, user UserInfo) (*apiv1.SServerResponse, error)
+	NewConnection(zone string, host string, msg apiv1.NewConnMsg, user UserInfo) (*apiv1.SServerResponse, error)
+	Forward(zone string, host string, id string, msg apiv1.ForwardMsg, user UserInfo) (*apiv1.SServerResponse, error)
+	Messages(zone string, host string, id string, start int, count int, user UserInfo) (*apiv1.SServerResponse, error)
 
 	// Forwards the reques to the device's server unless it's a for a file that
 	// the signaling server needs to serve itself.
-	ServeDeviceFiles(params DeviceFilesRequest, user UserInfo) error
+	ServeDeviceFiles(zone string, host string, params DeviceFilesRequest, user UserInfo) error
 }
 
 type DeviceDesc struct {
@@ -54,7 +54,7 @@ type DeviceDesc struct {
 }
 
 type InstanceManager interface {
-	DeviceFromId(name string, user UserInfo) (DeviceDesc, error)
+	DeviceFromId(zone string, host string, name string, user UserInfo) (DeviceDesc, error)
 	CreateHost(zone string, req *apiv1.CreateHostRequest, user UserInfo) (*apiv1.Operation, error)
 	// Closes the connection with the underlying API
 	Close() error

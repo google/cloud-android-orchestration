@@ -93,23 +93,19 @@ func (fn HTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *Controller) GetDeviceFiles(w http.ResponseWriter, r *http.Request, user UserInfo) error {
-	zone := mux.Vars(r)["zone"]
-	host := mux.Vars(r)["host"]
 	devId := mux.Vars(r)["deviceId"]
 	path := mux.Vars(r)["path"]
-	return c.sigServer.ServeDeviceFiles(zone, host, DeviceFilesRequest{devId, path, w, r}, user)
+	return c.sigServer.ServeDeviceFiles(getZone(r), getHost(r), DeviceFilesRequest{devId, path, w, r}, user)
 }
 
 func (c *Controller) CreateConnection(w http.ResponseWriter, r *http.Request, user UserInfo) error {
-	zone := mux.Vars(r)["zone"]
-	host := mux.Vars(r)["host"]
 	var msg apiv1.NewConnMsg
 	err := json.NewDecoder(r.Body).Decode(&msg)
 	if err != nil {
 		return NewBadRequestError("Malformed JSON in request", err)
 	}
 	log.Println("id: ", msg.DeviceId)
-	reply, err := c.sigServer.NewConnection(zone, host, msg, user)
+	reply, err := c.sigServer.NewConnection(getZone(r), getHost(r), msg, user)
 	if err != nil {
 		return fmt.Errorf("Failed to communicate with device: %w", err)
 	}
@@ -118,8 +114,6 @@ func (c *Controller) CreateConnection(w http.ResponseWriter, r *http.Request, us
 }
 
 func (c *Controller) Messages(w http.ResponseWriter, r *http.Request, user UserInfo) error {
-	zone := mux.Vars(r)["zone"]
-	host := mux.Vars(r)["host"]
 	id := mux.Vars(r)["connId"]
 	start, err := intFormValue(r, "start", 0)
 	if err != nil {
@@ -130,7 +124,7 @@ func (c *Controller) Messages(w http.ResponseWriter, r *http.Request, user UserI
 	if err != nil {
 		return NewBadRequestError("Invalid value for count field", err)
 	}
-	reply, err := c.sigServer.Messages(zone, host, id, start, count, user)
+	reply, err := c.sigServer.Messages(getZone(r), getHost(r), id, start, count, user)
 	if err != nil {
 		return fmt.Errorf("Failed to get messages: %w", err)
 	}
@@ -139,15 +133,13 @@ func (c *Controller) Messages(w http.ResponseWriter, r *http.Request, user UserI
 }
 
 func (c *Controller) Forward(w http.ResponseWriter, r *http.Request, user UserInfo) error {
-	zone := mux.Vars(r)["zone"]
-	host := mux.Vars(r)["host"]
-	id := mux.Vars(r)["connId"]
+	id := mux.Vars(r)["connid"]
 	var msg apiv1.ForwardMsg
 	err := json.NewDecoder(r.Body).Decode(&msg)
 	if err != nil {
 		return NewBadRequestError("Malformed JSON in request", err)
 	}
-	reply, err := c.sigServer.Forward(zone, host, id, msg, user)
+	reply, err := c.sigServer.Forward(getZone(r), getHost(r), id, msg, user)
 	if err != nil {
 		return fmt.Errorf("Failed to send message to device: %w", err)
 	}
@@ -156,13 +148,12 @@ func (c *Controller) Forward(w http.ResponseWriter, r *http.Request, user UserIn
 }
 
 func (c *Controller) CreateHost(w http.ResponseWriter, r *http.Request, user UserInfo) error {
-	zone := mux.Vars(r)["zone"]
 	var msg apiv1.CreateHostRequest
 	err := json.NewDecoder(r.Body).Decode(&msg)
 	if err != nil {
 		return NewBadRequestError("Malformed JSON in request", err)
 	}
-	op, err := c.instanceManager.CreateHost(zone, &msg, user)
+	op, err := c.instanceManager.CreateHost(getZone(r), &msg, user)
 	if err != nil {
 		return err
 	}
@@ -200,4 +191,12 @@ func replyJSON(w http.ResponseWriter, obj interface{}, statusCode int) error {
 	w.Header().Set("Content-Type", "application/json")
 	encoder := json.NewEncoder(w)
 	return encoder.Encode(obj)
+}
+
+func getZone(r *http.Request) string {
+	return mux.Vars(r)["zone"]
+}
+
+func getHost(r *http.Request) string {
+	return mux.Vars(r)["host"]
 }

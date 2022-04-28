@@ -82,8 +82,9 @@ func TestCreateHostInvalidRequests(t *testing.T) {
 		req := validRequest()
 		test.corruptRequest(req)
 		_, err := im.CreateHost("us-central1-a", req, &TestUserInfo{})
-		if !errors.Is(err, app.ErrBadCreateHostRequest) {
-			t.Errorf("unexpected error <<\"%v\">>, want \"%v\"", err, app.ErrBadCreateHostRequest)
+		var appErr *app.AppError
+		if !errors.As(err, &appErr) {
+			t.Errorf("unexpected error <<\"%v\">>, want \"%T\"", err, appErr)
 		}
 	}
 }
@@ -217,7 +218,7 @@ func TestGetHostAddrRequestPath(t *testing.T) {
 	im := newTestInstanceManager(t, ts)
 	defer im.Close()
 
-	im.GetHostAddr("us-central1-a", "cf-123e4567", &TestUserInfo{})
+	im.GetHostAddr("us-central1-a", "cf-123e4567")
 
 	expected := "/compute/v1/projects/google.com:test-project/zones/us-central1-a/instances/cf-123e4567"
 	if pathSent != expected {
@@ -225,48 +226,19 @@ func TestGetHostAddrRequestPath(t *testing.T) {
 	}
 }
 
-func TestGetHostAddrNotOwner(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		i := &computepb.Instance{
-			NetworkInterfaces: []*computepb.NetworkInterface{
-				{
-					NetworkIP: proto.String("10.128.0.63"),
-				},
-			},
-			Labels: map[string]string{
-				"created_by": "joeblow",
-			},
-		}
-		replyJSON(w, i)
-	}))
-	defer ts.Close()
-	im := newTestInstanceManager(t, ts)
-	defer im.Close()
-
-	_, err := im.GetHostAddr("us-central1-a", "cf-123e4567", &TestUserInfo{})
-
-	if !errors.Is(err, app.ErrHostInstanceNotOwnedByUser) {
-		t.Errorf("unexpected error <<\"%v\">>, want \"%v\"", err, app.ErrHostInstanceNotOwnedByUser)
-	}
-}
-
 func TestGetHostAddrMissingNetworkInterface(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		i := &computepb.Instance{
-			Labels: map[string]string{
-				"created_by": "johndoe",
-			},
-		}
-		replyJSON(w, i)
+		replyJSON(w, &computepb.Instance{})
 	}))
 	defer ts.Close()
 	im := newTestInstanceManager(t, ts)
 	defer im.Close()
 
-	_, err := im.GetHostAddr("us-central1-a", "cf-123e4567", &TestUserInfo{})
+	_, err := im.GetHostAddr("us-central1-a", "cf-123e4567")
 
-	if !errors.Is(err, app.ErrMissingNetworkInterface) {
-		t.Errorf("unexpected error <<\"%v\">>, want \"%v\"", err, app.ErrMissingNetworkInterface)
+	var appErr *app.AppError
+	if !errors.As(err, &appErr) {
+		t.Errorf("unexpected error <<\"%v\">>, want \"%T\"", err, appErr)
 	}
 }
 
@@ -278,9 +250,6 @@ func TestGetHostAddrSuccess(t *testing.T) {
 					NetworkIP: proto.String("10.128.0.63"),
 				},
 			},
-			Labels: map[string]string{
-				"created_by": "johndoe",
-			},
 		}
 		replyJSON(w, i)
 	}))
@@ -288,7 +257,7 @@ func TestGetHostAddrSuccess(t *testing.T) {
 	im := newTestInstanceManager(t, ts)
 	defer im.Close()
 
-	addr, _ := im.GetHostAddr("us-central1-a", "cf-123e4567", &TestUserInfo{})
+	addr, _ := im.GetHostAddr("us-central1-a", "cf-123e4567")
 
 	expected := "10.128.0.63"
 	if addr != expected {

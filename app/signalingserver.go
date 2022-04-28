@@ -40,7 +40,7 @@ func NewForwardingSignalingServer(im InstanceManager) *ForwardingSignalingServer
 }
 
 func (s *ForwardingSignalingServer) NewConnection(zone string, host string, msg apiv1.NewConnMsg, user UserInfo) (*apiv1.SServerResponse, error) {
-	hostAddr, err := s.instanceManager.GetHostAddr(zone, host, user)
+	hostAddr, err := s.instanceManager.GetHostAddr(zone, host)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +65,7 @@ func (s *ForwardingSignalingServer) Forward(zone string, host string, id string,
 		return nil, NewNotFoundError("Invalid connection Id", err)
 	}
 	connId := dec.ConnId
-	hostAddr, err := s.instanceManager.GetHostAddr(zone, host, user)
+	hostAddr, err := s.instanceManager.GetHostAddr(zone, host)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +84,7 @@ func (s *ForwardingSignalingServer) Messages(zone string, host string, id string
 		return nil, NewNotFoundError("Invalid connection id", err)
 	}
 	connId := dec.ConnId
-	hostAddr, err := s.instanceManager.GetHostAddr(zone, host, user)
+	hostAddr, err := s.instanceManager.GetHostAddr(zone, host)
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +102,7 @@ func (s *ForwardingSignalingServer) Messages(zone string, host string, id string
 }
 
 func (s *ForwardingSignalingServer) ServeDeviceFiles(zone string, host string, params DeviceFilesRequest, user UserInfo) error {
-	hostAddr, err := s.instanceManager.GetHostAddr(zone, host, user)
+	hostAddr, err := s.instanceManager.GetHostAddr(zone, host)
 	if err != nil {
 		return err
 	}

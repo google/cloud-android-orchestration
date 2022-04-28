@@ -55,14 +55,18 @@ func NewInstanceManager(config *app.Config, ctx context.Context, opts ...option.
 	}, nil
 }
 
-func (m *InstanceManager) GetHostAddr(zone string, host string, user app.UserInfo) (string, error) {
-	instance, err := m.getHostInstance(zone, host, user)
+func (m *InstanceManager) GetHostAddr(zone string, host string) (string, error) {
+	instance, err := m.getHostInstance(zone, host)
 	if err != nil {
 		return "", err
 	}
-	if len(instance.NetworkInterfaces) == 0 {
+	ilen := len(instance.NetworkInterfaces)
+	if ilen == 0 {
 		log.Printf("host instance %s in zone %s is missing a network interface", host, zone)
-		return "", app.ErrMissingNetworkInterface
+		return "", app.NewInternalError("host instance missing a network interface", nil)
+	}
+	if ilen > 1 {
+		log.Printf("host instance %s in zone %s has %d network interfaces", host, zone, ilen)
 	}
 	return *instance.NetworkInterfaces[0].NetworkIP, nil
 }
@@ -121,36 +125,22 @@ func (m *InstanceManager) Close() error {
 	return m.client.Close()
 }
 
-func (m *InstanceManager) getHostInstance(zone string, host string, user app.UserInfo) (*computepb.Instance, error) {
+func (m *InstanceManager) getHostInstance(zone string, host string) (*computepb.Instance, error) {
 	ctx := context.TODO()
 	req := &computepb.GetInstanceRequest{
 		Project:  m.config.GCPConfig.ProjectID,
 		Zone:     zone,
 		Instance: host,
 	}
-	instance, err := m.client.Get(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-	if instance.Labels[labelAcloudCreatedBy] != user.Username() {
-		log.Printf("host instance %s in zone %s not owned by %q", host, zone, user.Username())
-		return nil, app.ErrHostInstanceNotOwnedByUser
-	}
-	return instance, nil
+	return m.client.Get(ctx, req)
 }
 
 func validateRequest(r *apiv1.CreateHostRequest) error {
-	if r.CreateHostInstanceRequest == nil {
-		return app.ErrBadCreateHostRequest
-	}
-	if r.CreateHostInstanceRequest.GCP == nil {
-		return app.ErrBadCreateHostRequest
-	}
-	if r.CreateHostInstanceRequest.GCP.DiskSizeGB == 0 {
-		return app.ErrBadCreateHostRequest
-	}
-	if r.CreateHostInstanceRequest.GCP.MachineType == "" {
-		return app.ErrBadCreateHostRequest
+	if r.CreateHostInstanceRequest == nil ||
+		r.CreateHostInstanceRequest.GCP == nil ||
+		r.CreateHostInstanceRequest.GCP.DiskSizeGB == 0 ||
+		r.CreateHostInstanceRequest.GCP.MachineType == "" {
+		return app.NewBadRequestError("invalid CreateHostRequest", nil)
 	}
 	return nil
 }

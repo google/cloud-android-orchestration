@@ -47,16 +47,12 @@ type SignalingServer interface {
 type InstanceManager interface {
 	// Returns the (internal) network address of the host where the cuttlefish device is
 	// running. The address can either be an IPv4, IPv6 or a domain name.
-	GetHostAddr(zone string, host string, user UserInfo) (string, error)
+	GetHostAddr(zone string, host string) (string, error)
 	// Creates a host instance.
 	CreateHost(zone string, req *apiv1.CreateHostRequest, user UserInfo) (*apiv1.Operation, error)
 	// Closes the connection with the underlying API
 	Close() error
 }
-
-var ErrBadCreateHostRequest = NewBadRequestError("invalid CreateHostRequest", nil)
-var ErrHostInstanceNotOwnedByUser = NewForbiddenError("host instance not owned by user", nil)
-var ErrMissingNetworkInterface = NewInternalError("host instance missing a network interface", nil)
 
 type AuthHTTPHandler func(http.ResponseWriter, *http.Request, UserInfo) error
 type HTTPHandler func(http.ResponseWriter, *http.Request) error

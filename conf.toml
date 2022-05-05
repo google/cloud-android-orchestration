@@ -1,0 +1,6 @@
+[AccountManager]
+Type = "unix"
+
+[InstanceManager.GCP]
+ProjectId = ""
+HostImage = ""

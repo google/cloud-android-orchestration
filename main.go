@@ -24,22 +24,24 @@ import (
 	"cloud-android-orchestration/app/unix"
 )
 
-func HostedInGAE() bool {
-	return os.Getenv("GAE_APPLICATION") != ""
-}
-
 func main() {
-	im, err := gcp.NewInstanceManager(app.EmptyConfig(), context.Background())
+	config, err := app.LoadConfig()
+	if err != nil {
+		log.Fatal("Failed to load configuration: ", err)
+	}
+	im, err := gcp.NewInstanceManager(&config.InstanceManager, context.Background())
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer im.Close()
 	ss := app.NewForwardingSignalingServer(im)
 	var am app.AccountManager
-	if HostedInGAE() {
+	if config.AccountManager.Type == app.GAEAMType {
 		am = gcp.NewUsersAccountManager()
-	} else {
+	} else if config.AccountManager.Type == app.UnixAMType {
 		am = &unix.AccountManager{}
+	} else {
+		log.Fatal("Unknown Account Manager type: ", config.AccountManager.Type)
 	}
 	or := app.NewController(im, ss, am)
 

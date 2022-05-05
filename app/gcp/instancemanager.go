@@ -35,12 +35,12 @@ const (
 
 // GCP implementation of the instance manager.
 type InstanceManager struct {
-	config      *app.Config
+	config      *app.IMConfig
 	client      *compute.InstancesClient
 	uuidFactory func() string
 }
 
-func NewInstanceManager(config *app.Config, ctx context.Context, opts ...option.ClientOption) (*InstanceManager, error) {
+func NewInstanceManager(config *app.IMConfig, ctx context.Context, opts ...option.ClientOption) (*InstanceManager, error) {
 	client, err := compute.NewInstancesRESTClient(ctx, opts...)
 	if err != nil {
 		return nil, err
@@ -66,7 +66,7 @@ func (m *InstanceManager) CreateHost(zone string, req *apiv1.CreateHostRequest, 
 	}
 	ctx := context.TODO()
 	computeReq := &computepb.InsertInstanceRequest{
-		Project: m.config.GCPConfig.ProjectID,
+		Project: m.config.GCP.ProjectID,
 		Zone:    zone,
 		InstanceResource: &computepb.Instance{
 			Name:           proto.String(namePrefix + m.uuidFactory()),
@@ -76,14 +76,14 @@ func (m *InstanceManager) CreateHost(zone string, req *apiv1.CreateHostRequest, 
 				{
 					InitializeParams: &computepb.AttachedDiskInitializeParams{
 						DiskSizeGb:  proto.Int64(int64(req.CreateHostInstanceRequest.GCP.DiskSizeGB)),
-						SourceImage: proto.String(m.config.GCPConfig.SourceImage),
+						SourceImage: proto.String(m.config.GCP.HostImage),
 					},
 					Boot: proto.Bool(true),
 				},
 			},
 			NetworkInterfaces: []*computepb.NetworkInterface{
 				{
-					Name: proto.String(buildDefaultNetworkName(m.config.GCPConfig.ProjectID)),
+					Name: proto.String(buildDefaultNetworkName(m.config.GCP.ProjectID)),
 					AccessConfigs: []*computepb.AccessConfig{
 						{
 							Name: proto.String("External NAT"),

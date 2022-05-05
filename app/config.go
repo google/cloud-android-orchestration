@@ -14,20 +14,48 @@
 
 package app
 
+import (
+	"os"
+	toml "github.com/pelletier/go-toml/v2"
+)
+
+const DefaultConfFile = "conf.toml"
+const ConfFileEnvVar = "CONFIG_FILE"
+
 type Config struct {
-	GCPConfig *GCPConfig
+	AccountManager AMConfig
+	InstanceManager IMConfig
 }
 
-type GCPConfig struct {
+type IMConfig struct {
+	GCP *GCPIMConfig
+}
+type GCPIMConfig struct {
 	ProjectID   string
-	SourceImage string
+	HostImage string
 }
 
-func EmptyConfig() *Config {
-	return &Config{
-		GCPConfig: &GCPConfig{
-			ProjectID:   "",
-			SourceImage: "",
-		},
+type AMConfig struct {
+	Type AMType
+}
+type AMType string
+const (
+	UnixAMType AMType = "unix"
+	GAEAMType AMType = "GAE"
+)
+
+func LoadConfig() (*Config, error) {
+	confFile := os.Getenv(ConfFileEnvVar)
+	if confFile == "" {
+		confFile = "conf.toml"
 	}
+	file, err := os.Open(confFile)
+	if err != nil {
+		return nil, err
+	}
+	decoder := toml.NewDecoder(file)
+	decoder.DisallowUnknownFields()
+	var cfg Config
+	err = decoder.Decode(&cfg)
+	return &cfg, err
 }

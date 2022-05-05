@@ -33,10 +33,10 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-var testConfig = &app.Config{
-	GCPConfig: &app.GCPConfig{
+var testConfig = &app.IMConfig{
+	GCP: &app.GCPIMConfig{
 		ProjectID:   "google.com:test-project",
-		SourceImage: "projects/test-project-releases/global/images/img-001",
+		HostImage: "projects/test-project-releases/global/images/img-001",
 	},
 }
 

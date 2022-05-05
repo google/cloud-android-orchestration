@@ -133,7 +133,7 @@ func (c *Controller) Messages(w http.ResponseWriter, r *http.Request, user UserI
 }
 
 func (c *Controller) Forward(w http.ResponseWriter, r *http.Request, user UserInfo) error {
-	id := mux.Vars(r)["connid"]
+	id := mux.Vars(r)["connId"]
 	var msg apiv1.ForwardMsg
 	err := json.NewDecoder(r.Body).Decode(&msg)
 	if err != nil {

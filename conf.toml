@@ -4,3 +4,6 @@ Type = "unix"
 [InstanceManager.GCP]
 ProjectId = ""
 HostImage = ""
+
+[Infra]
+STUNServers = ["stun:stun.l.google.com:19302"]

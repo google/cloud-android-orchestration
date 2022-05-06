@@ -15,15 +15,15 @@
 package app
 
 import (
-	"os"
 	toml "github.com/pelletier/go-toml/v2"
+	"os"
 )
 
 const DefaultConfFile = "conf.toml"
 const ConfFileEnvVar = "CONFIG_FILE"
 
 type Config struct {
-	AccountManager AMConfig
+	AccountManager  AMConfig
 	InstanceManager IMConfig
 	Infra           InfraConfig
 }
@@ -31,21 +31,24 @@ type Config struct {
 type IMConfig struct {
 	GCP *GCPIMConfig
 }
+
 type GCPIMConfig struct {
-	ProjectID   string
+	ProjectID string
 	HostImage string
 }
 
 type AMConfig struct {
 	Type AMType
 }
+
 type AMType string
+
 const (
 	UnixAMType AMType = "unix"
-	GAEAMType AMType = "GAE"
+	GAEAMType  AMType = "GAE"
 )
 
-type InfraConfig struct{
+type InfraConfig struct {
 	STUNServers []string
 }
 

@@ -31,7 +31,7 @@ import (
 // and validates requests from the client and passes the information to the
 // relevant modules
 type Controller struct {
-	infraConfig apiv1.InfraConfig
+	infraConfig     apiv1.InfraConfig
 	instanceManager InstanceManager
 	sigServer       SignalingServer
 	accountManager  AccountManager
@@ -159,7 +159,7 @@ func (c *Controller) CreateHost(w http.ResponseWriter, r *http.Request, user Use
 
 func buildInfraCfg(servers []string) apiv1.InfraConfig {
 	iceServers := []apiv1.IceServer{}
-	for _,server := range servers {
+	for _, server := range servers {
 		iceServers = append(iceServers, apiv1.IceServer{URLs: []string{server}})
 	}
 	return apiv1.InfraConfig{

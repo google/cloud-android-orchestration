@@ -35,7 +35,7 @@ import (
 
 var testConfig = &app.IMConfig{
 	GCP: &app.GCPIMConfig{
-		ProjectID:   "google.com:test-project",
+		ProjectID: "google.com:test-project",
 		HostImage: "projects/test-project-releases/global/images/img-001",
 	},
 }

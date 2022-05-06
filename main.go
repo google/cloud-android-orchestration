@@ -43,7 +43,7 @@ func main() {
 	} else {
 		log.Fatal("Unknown Account Manager type: ", config.AccountManager.Type)
 	}
-	or := app.NewController(im, ss, am)
+	or := app.NewController(config.Infra.STUNServers, im, ss, am)
 
 	port := os.Getenv("PORT")
 	if port == "" {

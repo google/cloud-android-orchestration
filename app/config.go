@@ -25,6 +25,7 @@ const ConfFileEnvVar = "CONFIG_FILE"
 type Config struct {
 	AccountManager AMConfig
 	InstanceManager IMConfig
+	Infra           InfraConfig
 }
 
 type IMConfig struct {
@@ -43,6 +44,10 @@ const (
 	UnixAMType AMType = "unix"
 	GAEAMType AMType = "GAE"
 )
+
+type InfraConfig struct{
+	STUNServers []string
+}
 
 func LoadConfig() (*Config, error) {
 	confFile := os.Getenv(ConfFileEnvVar)

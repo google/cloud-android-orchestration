@@ -31,19 +31,15 @@ import (
 // and validates requests from the client and passes the information to the
 // relevant modules
 type Controller struct {
+	infraConfig apiv1.InfraConfig
 	instanceManager InstanceManager
 	sigServer       SignalingServer
 	accountManager  AccountManager
 }
 
-var DEFAULT_INFRA_CONFIG = apiv1.InfraConfig{
-	IceServers: []apiv1.IceServer{
-		apiv1.IceServer{URLs: []string{"stun:stun.l.google.com:19302"}},
-	},
-}
-
-func NewController(im InstanceManager, ss SignalingServer, am AccountManager) *Controller {
-	controller := &Controller{im, ss, am}
+func NewController(servers []string, im InstanceManager, ss SignalingServer, am AccountManager) *Controller {
+	infraCfg := buildInfraCfg(servers)
+	controller := &Controller{infraCfg, im, ss, am}
 	controller.SetupRoutes()
 
 	return controller
@@ -68,7 +64,7 @@ func (c *Controller) SetupRoutes() {
 	// Infra route
 	router.HandleFunc("/v1/zones/{zone}/hosts/{host}/infra_config", func(w http.ResponseWriter, r *http.Request) {
 		// TODO(b/220891296): Make this configurable
-		replyJSON(w, DEFAULT_INFRA_CONFIG, http.StatusOK)
+		replyJSON(w, c.infraConfig, http.StatusOK)
 	}).Methods("GET")
 
 	// Global routes
@@ -159,6 +155,16 @@ func (c *Controller) CreateHost(w http.ResponseWriter, r *http.Request, user Use
 	}
 	replyJSON(w, op, http.StatusOK)
 	return nil
+}
+
+func buildInfraCfg(servers []string) apiv1.InfraConfig {
+	iceServers := []apiv1.IceServer{}
+	for _,server := range servers {
+		iceServers = append(iceServers, apiv1.IceServer{URLs: []string{server}})
+	}
+	return apiv1.InfraConfig{
+		IceServers: iceServers,
+	}
 }
 
 func indexHandler(w http.ResponseWriter, r *http.Request, user UserInfo) error {

@@ -128,7 +128,7 @@ func (m *InstanceManager) Close() error {
 func (m *InstanceManager) getHostInstance(zone string, host string) (*computepb.Instance, error) {
 	ctx := context.TODO()
 	req := &computepb.GetInstanceRequest{
-		Project:  m.config.GCPConfig.ProjectID,
+		Project:  m.config.GCP.ProjectID,
 		Zone:     zone,
 		Instance: host,
 	}

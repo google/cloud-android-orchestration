@@ -44,17 +44,11 @@ type SignalingServer interface {
 	ServeDeviceFiles(zone string, host string, params DeviceFilesRequest, user UserInfo) error
 }
 
-type DeviceDesc struct {
-	// The (internal) network address of the host where the cuttlefish device is
-	// running. The address can either be an IPv4, IPv6 or a domain name.
-	Addr string
-	// The id under which the cuttlefish device is registered with the host
-	// orchestrator (can be different from the id used in the cloud orchestrator)
-	LocalId string
-}
-
 type InstanceManager interface {
-	DeviceFromId(zone string, host string, name string, user UserInfo) (DeviceDesc, error)
+	// Returns the (internal) network address of the host where the cuttlefish device is
+	// running. The address can either be an IPv4, IPv6 or a domain name.
+	GetHostAddr(zone string, host string) (string, error)
+	// Creates a host instance.
 	CreateHost(zone string, req *apiv1.CreateHostRequest, user UserInfo) (*apiv1.Operation, error)
 	// Closes the connection with the underlying API
 	Close() error

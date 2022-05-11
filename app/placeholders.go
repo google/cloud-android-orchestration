@@ -19,6 +19,6 @@ package app
 // This implementation is useful for both development and testing
 type PlaceholderIM struct{}
 
-func (d *PlaceholderIM) DeviceFromId(name string, _ UserInfo) (DeviceDesc, error) {
-	return DeviceDesc{"127.0.0.1", "cvd-1"}, nil
+func (m *PlaceholderIM) GetHostAddr(_ string, _ string, _ UserInfo) (string, error) {
+	return "127.0.0.1", nil
 }

@@ -82,8 +82,9 @@ func TestCreateHostInvalidRequests(t *testing.T) {
 		req := validRequest()
 		test.corruptRequest(req)
 		_, err := im.CreateHost("us-central1-a", req, &TestUserInfo{})
-		if !errors.Is(err, ErrBadCreateHostRequest) {
-			t.Errorf("unexpected error <<\"%v\">>, want \"%v\"", err, ErrBadCreateHostRequest)
+		var appErr *app.AppError
+		if !errors.As(err, &appErr) {
+			t.Errorf("unexpected error <<\"%v\">>, want \"%T\"", err, appErr)
 		}
 	}
 }
@@ -204,6 +205,63 @@ func TestCreateHostSuccess(t *testing.T) {
 	expected := &apiv1.Operation{Name: "operation-123", Done: true}
 	if *op != *expected {
 		t.Errorf("unexpected operation: <<%v>>, want: %v", *op, *expected)
+	}
+}
+
+func TestGetHostAddrRequestPath(t *testing.T) {
+	var pathSent string
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		pathSent = r.URL.Path
+		replyJSON(w, &computepb.Instance{})
+	}))
+	defer ts.Close()
+	im := newTestInstanceManager(t, ts)
+	defer im.Close()
+
+	im.GetHostAddr("us-central1-a", "cf-123e4567")
+
+	expected := "/compute/v1/projects/google.com:test-project/zones/us-central1-a/instances/cf-123e4567"
+	if pathSent != expected {
+		t.Errorf("unexpected url path <<%q>>, want: %q", pathSent, expected)
+	}
+}
+
+func TestGetHostAddrMissingNetworkInterface(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		replyJSON(w, &computepb.Instance{})
+	}))
+	defer ts.Close()
+	im := newTestInstanceManager(t, ts)
+	defer im.Close()
+
+	_, err := im.GetHostAddr("us-central1-a", "cf-123e4567")
+
+	var appErr *app.AppError
+	if !errors.As(err, &appErr) {
+		t.Errorf("unexpected error <<\"%v\">>, want \"%T\"", err, appErr)
+	}
+}
+
+func TestGetHostAddrSuccess(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		i := &computepb.Instance{
+			NetworkInterfaces: []*computepb.NetworkInterface{
+				{
+					NetworkIP: proto.String("10.128.0.63"),
+				},
+			},
+		}
+		replyJSON(w, i)
+	}))
+	defer ts.Close()
+	im := newTestInstanceManager(t, ts)
+	defer im.Close()
+
+	addr, _ := im.GetHostAddr("us-central1-a", "cf-123e4567")
+
+	expected := "10.128.0.63"
+	if addr != expected {
+		t.Errorf("unexpected host address <<%q>>, want: %q", addr, expected)
 	}
 }
 

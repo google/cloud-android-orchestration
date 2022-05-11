@@ -53,3 +53,7 @@ func NewBadRequestError(msg string, e error) error {
 func NewInternalError(msg string, e error) error {
 	return &AppError{Msg: msg, StatusCode: http.StatusInternalServerError, Err: e}
 }
+
+func NewForbiddenError(msg string, e error) error {
+	return &AppError{Msg: msg, StatusCode: http.StatusForbidden, Err: e}
+}

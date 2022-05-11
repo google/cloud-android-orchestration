@@ -17,6 +17,7 @@ package gcp
 import (
 	"context"
 	"fmt"
+	"log"
 
 	apiv1 "cloud-android-orchestration/api/v1"
 	"cloud-android-orchestration/app"
@@ -29,8 +30,10 @@ import (
 )
 
 const (
-	namePrefix  = "cf-"
-	labelPrefix = "cf-"
+	namePrefix           = "cf-"
+	labelPrefix          = "cf-"
+	labelAcloudCreatedBy = "created_by" // required for acloud backwards compatibility
+	labelCreatedBy       = labelPrefix + "created_by"
 )
 
 // GCP implementation of the instance manager.
@@ -52,8 +55,20 @@ func NewInstanceManager(config *app.IMConfig, ctx context.Context, opts ...optio
 	}, nil
 }
 
-func (m *InstanceManager) DeviceFromId(zone string, host string, name string, _ app.UserInfo) (app.DeviceDesc, error) {
-	return app.DeviceDesc{"127.0.0.1", "cvd-1"}, nil
+func (m *InstanceManager) GetHostAddr(zone string, host string) (string, error) {
+	instance, err := m.getHostInstance(zone, host)
+	if err != nil {
+		return "", err
+	}
+	ilen := len(instance.NetworkInterfaces)
+	if ilen == 0 {
+		log.Printf("host instance %s in zone %s is missing a network interface", host, zone)
+		return "", app.NewInternalError("host instance missing a network interface", nil)
+	}
+	if ilen > 1 {
+		log.Printf("host instance %s in zone %s has %d network interfaces", host, zone, ilen)
+	}
+	return *instance.NetworkInterfaces[0].NetworkIP, nil
 }
 
 func (m *InstanceManager) CreateHost(zone string, req *apiv1.CreateHostRequest, user app.UserInfo) (*apiv1.Operation, error) {
@@ -61,8 +76,8 @@ func (m *InstanceManager) CreateHost(zone string, req *apiv1.CreateHostRequest, 
 		return nil, err
 	}
 	labels := map[string]string{
-		"created_by":               user.Username(), // required for acloud backwards compatibility
-		labelPrefix + "created_by": user.Username(),
+		labelAcloudCreatedBy: user.Username(),
+		labelCreatedBy:       user.Username(),
 	}
 	ctx := context.TODO()
 	computeReq := &computepb.InsertInstanceRequest{
@@ -110,21 +125,22 @@ func (m *InstanceManager) Close() error {
 	return m.client.Close()
 }
 
-// TODO(b/226935747) Have more thorough validation error in Instance Manager.
-var ErrBadCreateHostRequest = app.NewBadRequestError("invalid CreateHostRequest", nil)
+func (m *InstanceManager) getHostInstance(zone string, host string) (*computepb.Instance, error) {
+	ctx := context.TODO()
+	req := &computepb.GetInstanceRequest{
+		Project:  m.config.GCPConfig.ProjectID,
+		Zone:     zone,
+		Instance: host,
+	}
+	return m.client.Get(ctx, req)
+}
 
 func validateRequest(r *apiv1.CreateHostRequest) error {
-	if r.CreateHostInstanceRequest == nil {
-		return ErrBadCreateHostRequest
-	}
-	if r.CreateHostInstanceRequest.GCP == nil {
-		return ErrBadCreateHostRequest
-	}
-	if r.CreateHostInstanceRequest.GCP.DiskSizeGB == 0 {
-		return ErrBadCreateHostRequest
-	}
-	if r.CreateHostInstanceRequest.GCP.MachineType == "" {
-		return ErrBadCreateHostRequest
+	if r.CreateHostInstanceRequest == nil ||
+		r.CreateHostInstanceRequest.GCP == nil ||
+		r.CreateHostInstanceRequest.GCP.DiskSizeGB == 0 ||
+		r.CreateHostInstanceRequest.GCP.MachineType == "" {
+		return app.NewBadRequestError("invalid CreateHostRequest", nil)
 	}
 	return nil
 }

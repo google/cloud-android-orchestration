@@ -40,13 +40,13 @@ func NewForwardingSignalingServer(im InstanceManager) *ForwardingSignalingServer
 }
 
 func (s *ForwardingSignalingServer) NewConnection(zone string, host string, msg apiv1.NewConnMsg, user UserInfo) (*apiv1.SServerResponse, error) {
-	dev, err := s.instanceManager.DeviceFromId(zone, host, msg.DeviceId, user)
+	hostAddr, err := s.instanceManager.GetHostAddr(zone, host)
 	if err != nil {
 		return nil, err
 	}
 	var resErr apiv1.ErrorMsg
 	var reply apiv1.NewConnReply
-	status, err := POSTRequest(hostURL(dev.Addr, "/polled_connections", ""), apiv1.NewConnMsg{dev.LocalId}, &reply, &resErr)
+	status, err := POSTRequest(hostURL(hostAddr, "/polled_connections", ""), apiv1.NewConnMsg{msg.DeviceId}, &reply, &resErr)
 	if err != nil {
 		return nil, err
 	}
@@ -65,13 +65,13 @@ func (s *ForwardingSignalingServer) Forward(zone string, host string, id string,
 		return nil, NewNotFoundError("Invalid connection Id", err)
 	}
 	connId := dec.ConnId
-	dev, err := s.instanceManager.DeviceFromId(zone, host, dec.DevId, user)
+	hostAddr, err := s.instanceManager.GetHostAddr(zone, host)
 	if err != nil {
 		return nil, err
 	}
 	var resErr apiv1.ErrorMsg
 	var reply interface{}
-	status, err := POSTRequest(hostURL(dev.Addr, "/polled_connections/"+connId+"/:forward", ""), msg, &reply, &resErr)
+	status, err := POSTRequest(hostURL(hostAddr, "/polled_connections/"+connId+"/:forward", ""), msg, &reply, &resErr)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +84,7 @@ func (s *ForwardingSignalingServer) Messages(zone string, host string, id string
 		return nil, NewNotFoundError("Invalid connection id", err)
 	}
 	connId := dec.ConnId
-	dev, err := s.instanceManager.DeviceFromId(zone, host, dec.DevId, user)
+	hostAddr, err := s.instanceManager.GetHostAddr(zone, host)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +94,7 @@ func (s *ForwardingSignalingServer) Messages(zone string, host string, id string
 	}
 	var resErr apiv1.ErrorMsg
 	var reply interface{}
-	status, err := GETRequest(hostURL(dev.Addr, "/polled_connections/"+connId+"/messages", query), &reply, &resErr)
+	status, err := GETRequest(hostURL(hostAddr, "/polled_connections/"+connId+"/messages", query), &reply, &resErr)
 	if err != nil {
 		return nil, err
 	}
@@ -102,20 +102,20 @@ func (s *ForwardingSignalingServer) Messages(zone string, host string, id string
 }
 
 func (s *ForwardingSignalingServer) ServeDeviceFiles(zone string, host string, params DeviceFilesRequest, user UserInfo) error {
-	dev, err := s.instanceManager.DeviceFromId(zone, host, params.devId, user)
+	hostAddr, err := s.instanceManager.GetHostAddr(zone, host)
 	if err != nil {
 		return err
 	}
 	if shouldIntercept(params.path) {
 		http.ServeFile(params.w, params.r, fmt.Sprintf("intercept%s", params.path))
 	} else {
-		devUrl, err := url.Parse(hostURL(dev.Addr, "", ""))
+		devUrl, err := url.Parse(hostURL(hostAddr, "", ""))
 		if err != nil {
 			return err
 		}
 		devProxy := httputil.NewSingleHostReverseProxy(devUrl)
 
-		params.r.URL.Path = fmt.Sprintf("/devices/%s/files%s", dev.LocalId, params.path)
+		params.r.URL.Path = fmt.Sprintf("/devices/%s/files%s", params.devId, params.path)
 		devProxy.ServeHTTP(params.w, params.r)
 	}
 	return nil

@@ -14,6 +14,12 @@
 
 package app
 
+import (
+	apiv1 "cloud-android-orchestration/api/v1"
+	"cloud-android-orchestration/app"
+	"fmt"
+)
+
 // Implements the InstanceManager interface providing access to the first
 // device in the local host orchestrator.
 // This implementation is useful for both development and testing
@@ -22,3 +28,9 @@ type PlaceholderIM struct{}
 func (m *PlaceholderIM) GetHostAddr(_ string, _ string, _ UserInfo) (string, error) {
 	return "127.0.0.1", nil
 }
+
+func (d *PlaceholderIM) CreateHost(_ string, _ *apiv1.CreateHostRequest, _ UserInfo) (*apiv1.Operation, error) {
+	return nil, NewInternalError(fmt.Sprintf("%T#CreateHost is not implemented", *d), nil)
+}
+
+func (d *PlaceholderIM) Close() error { return nil }

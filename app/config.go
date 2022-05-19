@@ -53,7 +53,7 @@ type AMType string
 
 const (
 	UnixAMType AMType = "unix"
-	GAEAMType  AMType = "GAE"
+	GAEAMType  AMType = "GCP"
 )
 
 type InfraConfig struct {

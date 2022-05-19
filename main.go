@@ -29,20 +29,32 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to load configuration: ", err)
 	}
-	im, err := gcp.NewInstanceManager(&config.InstanceManager, context.Background())
-	if err != nil {
-		log.Fatal(err)
+	var im app.InstanceManager
+	switch config.InstanceManager.Type {
+	case app.GCEIMType:
+		im, err = gcp.NewInstanceManager(&config.InstanceManager, context.Background())
+		if err != nil {
+			log.Fatal(err)
+		}
+	case app.UnixIMType:
+		im = &unix.InstanceManager{}
+	default:
+		log.Fatal("Unknown Instance Manager type: ", config.InstanceManager.Type)
 	}
 	defer im.Close()
+
 	ss := app.NewForwardingSignalingServer(im)
+
 	var am app.AccountManager
-	if config.AccountManager.Type == app.GAEAMType {
+	switch config.AccountManager.Type {
+	case app.GAEAMType:
 		am = gcp.NewUsersAccountManager()
-	} else if config.AccountManager.Type == app.UnixAMType {
+	case app.UnixAMType:
 		am = &unix.AccountManager{}
-	} else {
+	default:
 		log.Fatal("Unknown Account Manager type: ", config.AccountManager.Type)
 	}
+
 	or := app.NewController(config.Infra.STUNServers, im, ss, am)
 
 	port := os.Getenv("PORT")

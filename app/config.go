@@ -29,8 +29,16 @@ type Config struct {
 }
 
 type IMConfig struct {
-	GCP *GCPIMConfig
+	Type IMType
+	GCP  *GCPIMConfig
 }
+
+type IMType string
+
+const (
+	UnixIMType IMType = "unix"
+	GCEIMType  IMType = "GCP"
+)
 
 type GCPIMConfig struct {
 	ProjectID string

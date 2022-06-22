@@ -50,8 +50,6 @@ type InstanceManager interface {
 	GetHostAddr(zone string, host string) (string, error)
 	// Creates a host instance.
 	CreateHost(zone string, req *apiv1.CreateHostRequest, user UserInfo) (*apiv1.Operation, error)
-	// Closes the connection with the underlying API
-	Close() error
 }
 
 type AuthHTTPHandler func(http.ResponseWriter, *http.Request, UserInfo) error

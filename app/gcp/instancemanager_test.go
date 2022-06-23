@@ -16,7 +16,6 @@ package gcp
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"io/ioutil"
@@ -28,17 +27,21 @@ import (
 	"cloud-android-orchestration/app"
 
 	"github.com/sergi/go-diff/diffmatchpatch"
-	"google.golang.org/api/option"
-	computepb "google.golang.org/genproto/googleapis/cloud/compute/v1"
-	"google.golang.org/protobuf/proto"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
+	"google.golang.org/api/compute/v1"
 )
 
-var testConfig = &app.IMConfig{
+var testConfig = app.IMConfig{
 	GCP: &app.GCPIMConfig{
 		ProjectID: "google.com:test-project",
 		HostImage: "projects/test-project-releases/global/images/img-001",
 	},
 }
+
+var testClient, _ = google.DefaultClient(oauth2.NoContext)
+
+var testNameGenerator = &testConstantNameGenerator{name: "foo"}
 
 type TestUserInfo struct{}
 
@@ -48,11 +51,15 @@ func (i *TestUserInfo) Username() string {
 
 func TestCreateHostInvalidRequests(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		replyJSON(w, &computepb.Operation{})
+		replyJSON(w, &compute.Operation{})
 	}))
 	defer ts.Close()
-	im := newTestInstanceManager(t, ts)
-	defer im.Close()
+	im := InstanceManager{
+		Config:                testConfig,
+		Client:                testClient,
+		InstanceNameGenerator: testNameGenerator,
+		ServiceURL:            ts.URL,
+	}
 	var validRequest = func() *apiv1.CreateHostRequest {
 		return &apiv1.CreateHostRequest{
 			CreateHostInstanceRequest: &apiv1.CreateHostInstanceRequest{
@@ -67,7 +74,7 @@ func TestCreateHostInvalidRequests(t *testing.T) {
 	// Make sure the valid request is indeed valid.
 	_, err := im.CreateHost("us-central1-a", validRequest(), &TestUserInfo{})
 	if err != nil {
-		t.Fatalf("the valid request is not valid")
+		t.Fatalf("the valid request is not valid with error %+v", err)
 	}
 	var tests = []struct {
 		corruptRequest func(r *apiv1.CreateHostRequest)
@@ -93,11 +100,15 @@ func TestCreateHostRequestPath(t *testing.T) {
 	var pathSent string
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		pathSent = r.URL.Path
-		replyJSON(w, &computepb.Operation{})
+		replyJSON(w, &compute.Operation{})
 	}))
 	defer ts.Close()
-	im := newTestInstanceManager(t, ts)
-	defer im.Close()
+	im := InstanceManager{
+		Config:                testConfig,
+		Client:                testClient,
+		InstanceNameGenerator: testNameGenerator,
+		ServiceURL:            ts.URL,
+	}
 
 	im.CreateHost("us-central1-a",
 		&apiv1.CreateHostRequest{
@@ -111,7 +122,7 @@ func TestCreateHostRequestPath(t *testing.T) {
 		},
 		&TestUserInfo{})
 
-	expected := "/compute/v1/projects/google.com:test-project/zones/us-central1-a/instances"
+	expected := "/projects/google.com:test-project/zones/us-central1-a/instances"
 	if pathSent != expected {
 		t.Errorf("unexpected url path <<%s>>, want: %s", pathSent, expected)
 	}
@@ -124,12 +135,15 @@ func TestCreateHostRequestBody(t *testing.T) {
 		if err == nil {
 			bodySent = b
 		}
-		replyJSON(w, &computepb.Operation{Name: proto.String("operation-16482")})
+		replyJSON(w, &compute.Operation{Name: "operation-1"})
 	}))
 	defer ts.Close()
-	im := newTestInstanceManager(t, ts)
-	im.setUUIDFactory(func() string { return "123e4567" })
-	defer im.Close()
+	im := InstanceManager{
+		Config:                testConfig,
+		Client:                testClient,
+		InstanceNameGenerator: testNameGenerator,
+		ServiceURL:            ts.URL,
+	}
 
 	im.CreateHost("us-central1-a",
 		&apiv1.CreateHostRequest{
@@ -159,7 +173,7 @@ func TestCreateHostRequestBody(t *testing.T) {
   },
   "machineType": "zones/us-central1-f/machineTypes/n1-standard-1",
   "minCpuPlatform": "Intel Haswell",
-  "name": "cf-123e4567",
+  "name": "foo",
   "networkInterfaces": [
     {
       "accessConfigs": [
@@ -171,7 +185,8 @@ func TestCreateHostRequestBody(t *testing.T) {
       "name": "projects/google.com:test-project/global/networks/default"
     }
   ]
-}`
+}
+`
 	r := prettyJSON(t, bodySent)
 	if r != expected {
 		t.Errorf("unexpected body, diff: %s", diffPrettyText(r, expected))
@@ -179,16 +194,21 @@ func TestCreateHostRequestBody(t *testing.T) {
 }
 
 func TestCreateHostSuccess(t *testing.T) {
+	expectedName := "operation-1"
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		o := &computepb.Operation{
-			Name:   proto.String("operation-123"),
-			Status: computepb.Operation_DONE.Enum(),
+		o := &compute.Operation{
+			Name:   expectedName,
+			Status: "DONE",
 		}
 		replyJSON(w, o)
 	}))
 	defer ts.Close()
-	im := newTestInstanceManager(t, ts)
-	defer im.Close()
+	im := InstanceManager{
+		Config:                testConfig,
+		Client:                testClient,
+		InstanceNameGenerator: testNameGenerator,
+		ServiceURL:            ts.URL,
+	}
 
 	op, _ := im.CreateHost("us-central1-a",
 		&apiv1.CreateHostRequest{
@@ -202,9 +222,11 @@ func TestCreateHostSuccess(t *testing.T) {
 		},
 		&TestUserInfo{})
 
-	expected := &apiv1.Operation{Name: "operation-123", Done: true}
-	if *op != *expected {
-		t.Errorf("unexpected operation: <<%v>>, want: %v", *op, *expected)
+	if op.Name != expectedName {
+		t.Errorf("expected <<%q>>, got: %q", expectedName, op.Name)
+	}
+	if !op.Done {
+		t.Error("expected true")
 	}
 }
 
@@ -212,15 +234,19 @@ func TestGetHostAddrRequestPath(t *testing.T) {
 	var pathSent string
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		pathSent = r.URL.Path
-		replyJSON(w, &computepb.Instance{})
+		replyJSON(w, &compute.Instance{})
 	}))
 	defer ts.Close()
-	im := newTestInstanceManager(t, ts)
-	defer im.Close()
+	im := InstanceManager{
+		Config:                testConfig,
+		Client:                testClient,
+		InstanceNameGenerator: testNameGenerator,
+		ServiceURL:            ts.URL,
+	}
 
-	im.GetHostAddr("us-central1-a", "cf-123e4567")
+	im.GetHostAddr("us-central1-a", "foo")
 
-	expected := "/compute/v1/projects/google.com:test-project/zones/us-central1-a/instances/cf-123e4567"
+	expected := "/projects/google.com:test-project/zones/us-central1-a/instances/foo"
 	if pathSent != expected {
 		t.Errorf("unexpected url path <<%q>>, want: %q", pathSent, expected)
 	}
@@ -228,13 +254,17 @@ func TestGetHostAddrRequestPath(t *testing.T) {
 
 func TestGetHostAddrMissingNetworkInterface(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		replyJSON(w, &computepb.Instance{})
+		replyJSON(w, &compute.Instance{})
 	}))
 	defer ts.Close()
-	im := newTestInstanceManager(t, ts)
-	defer im.Close()
+	im := InstanceManager{
+		Config:                testConfig,
+		Client:                testClient,
+		InstanceNameGenerator: testNameGenerator,
+		ServiceURL:            ts.URL,
+	}
 
-	_, err := im.GetHostAddr("us-central1-a", "cf-123e4567")
+	_, err := im.GetHostAddr("us-central1-a", "foo")
 
 	var appErr *app.AppError
 	if !errors.As(err, &appErr) {
@@ -243,38 +273,30 @@ func TestGetHostAddrMissingNetworkInterface(t *testing.T) {
 }
 
 func TestGetHostAddrSuccess(t *testing.T) {
+	expectedIP := "10.128.0.63"
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		i := &computepb.Instance{
-			NetworkInterfaces: []*computepb.NetworkInterface{
+		i := &compute.Instance{
+			NetworkInterfaces: []*compute.NetworkInterface{
 				{
-					NetworkIP: proto.String("10.128.0.63"),
+					NetworkIP: expectedIP,
 				},
 			},
 		}
 		replyJSON(w, i)
 	}))
 	defer ts.Close()
-	im := newTestInstanceManager(t, ts)
-	defer im.Close()
-
-	addr, _ := im.GetHostAddr("us-central1-a", "cf-123e4567")
-
-	expected := "10.128.0.63"
-	if addr != expected {
-		t.Errorf("unexpected host address <<%q>>, want: %q", addr, expected)
+	im := InstanceManager{
+		Config:                testConfig,
+		Client:                testClient,
+		InstanceNameGenerator: testNameGenerator,
+		ServiceURL:            ts.URL,
 	}
-}
 
-func newTestInstanceManager(t *testing.T, s *httptest.Server) *InstanceManager {
-	im, err := NewInstanceManager(
-		testConfig,
-		context.TODO(),
-		option.WithEndpoint(s.URL),
-		option.WithHTTPClient(s.Client()))
-	if err != nil {
-		t.Fatalf("failed to create new test GCPInstanceManager with error: %v", err)
+	addr, _ := im.GetHostAddr("us-central1-a", "foo")
+
+	if addr != expectedIP {
+		t.Errorf("unexpected host address <<%q>>, want: %q", addr, expectedIP)
 	}
-	return im
 }
 
 func prettyJSON(t *testing.T, b []byte) string {
@@ -295,4 +317,12 @@ func replyJSON(w http.ResponseWriter, obj interface{}) error {
 	w.Header().Set("Content-Type", "application/json")
 	encoder := json.NewEncoder(w)
 	return encoder.Encode(obj)
+}
+
+type testConstantNameGenerator struct {
+	name string
+}
+
+func (g *testConstantNameGenerator) NewName() string {
+	return g.name
 }

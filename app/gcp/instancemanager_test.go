@@ -27,8 +27,6 @@ import (
 	"cloud-android-orchestration/app"
 
 	"github.com/sergi/go-diff/diffmatchpatch"
-	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google"
 	"google.golang.org/api/compute/v1"
 )
 
@@ -38,8 +36,6 @@ var testConfig = app.IMConfig{
 		HostImage: "projects/test-project-releases/global/images/img-001",
 	},
 }
-
-var testClient, _ = google.DefaultClient(oauth2.NoContext)
 
 var testNameGenerator = &testConstantNameGenerator{name: "foo"}
 
@@ -56,7 +52,7 @@ func TestCreateHostInvalidRequests(t *testing.T) {
 	defer ts.Close()
 	im := InstanceManager{
 		Config:                testConfig,
-		Client:                testClient,
+		Client:                ts.Client(),
 		InstanceNameGenerator: testNameGenerator,
 		ServiceURL:            ts.URL,
 	}
@@ -105,7 +101,7 @@ func TestCreateHostRequestPath(t *testing.T) {
 	defer ts.Close()
 	im := InstanceManager{
 		Config:                testConfig,
-		Client:                testClient,
+		Client:                ts.Client(),
 		InstanceNameGenerator: testNameGenerator,
 		ServiceURL:            ts.URL,
 	}
@@ -140,7 +136,7 @@ func TestCreateHostRequestBody(t *testing.T) {
 	defer ts.Close()
 	im := InstanceManager{
 		Config:                testConfig,
-		Client:                testClient,
+		Client:                ts.Client(),
 		InstanceNameGenerator: testNameGenerator,
 		ServiceURL:            ts.URL,
 	}
@@ -205,7 +201,7 @@ func TestCreateHostSuccess(t *testing.T) {
 	defer ts.Close()
 	im := InstanceManager{
 		Config:                testConfig,
-		Client:                testClient,
+		Client:                ts.Client(),
 		InstanceNameGenerator: testNameGenerator,
 		ServiceURL:            ts.URL,
 	}
@@ -239,7 +235,7 @@ func TestGetHostAddrRequestPath(t *testing.T) {
 	defer ts.Close()
 	im := InstanceManager{
 		Config:                testConfig,
-		Client:                testClient,
+		Client:                ts.Client(),
 		InstanceNameGenerator: testNameGenerator,
 		ServiceURL:            ts.URL,
 	}
@@ -259,7 +255,7 @@ func TestGetHostAddrMissingNetworkInterface(t *testing.T) {
 	defer ts.Close()
 	im := InstanceManager{
 		Config:                testConfig,
-		Client:                testClient,
+		Client:                ts.Client(),
 		InstanceNameGenerator: testNameGenerator,
 		ServiceURL:            ts.URL,
 	}
@@ -287,7 +283,7 @@ func TestGetHostAddrSuccess(t *testing.T) {
 	defer ts.Close()
 	im := InstanceManager{
 		Config:                testConfig,
-		Client:                testClient,
+		Client:                ts.Client(),
 		InstanceNameGenerator: testNameGenerator,
 		ServiceURL:            ts.URL,
 	}

@@ -28,7 +28,6 @@ import (
 )
 
 const (
-	namePrefix           = "cf-"
 	labelPrefix          = "cf-"
 	labelAcloudCreatedBy = "created_by" // required for acloud backwards compatibility
 	labelCreatedBy       = labelPrefix + "created_by"
@@ -57,6 +56,8 @@ func (m *InstanceManager) GetHostAddr(zone string, host string) (string, error) 
 	}
 	return instance.NetworkInterfaces[0].NetworkIP, nil
 }
+
+const operationStatusDone = "DONE"
 
 func (m *InstanceManager) CreateHost(zone string, req *apiv1.CreateHostRequest, user app.UserInfo) (*apiv1.Operation, error) {
 	if err := validateRequest(req); err != nil {
@@ -110,7 +111,7 @@ func (m *InstanceManager) CreateHost(zone string, req *apiv1.CreateHostRequest, 
 	}
 	result := &apiv1.Operation{
 		Name: op.Name,
-		Done: op.Status == "DONE",
+		Done: op.Status == operationStatusDone,
 	}
 	return result, nil
 }
@@ -156,5 +157,5 @@ type InstanceNameGenerator struct {
 }
 
 func (g *InstanceNameGenerator) NewName() string {
-	return namePrefix + g.UUIDFactory()
+	return hostInstanceNamePrefix + g.UUIDFactory()
 }

@@ -32,5 +32,3 @@ func (d *InstanceManager) GetHostAddr(_ string, _ string) (string, error) {
 func (d *InstanceManager) CreateHost(_ string, _ *apiv1.CreateHostRequest, _ app.UserInfo) (*apiv1.Operation, error) {
 	return nil, app.NewInternalError(fmt.Sprintf("%T#CreateHost is not implemented", *d), nil)
 }
-
-func (d *InstanceManager) Close() error { return nil }

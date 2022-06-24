@@ -22,6 +22,10 @@ import (
 	"cloud-android-orchestration/app"
 	"cloud-android-orchestration/app/gcp"
 	"cloud-android-orchestration/app/unix"
+
+	"github.com/google/uuid"
+	"golang.org/x/oauth2/google"
+	"google.golang.org/api/compute/v1"
 )
 
 func main() {
@@ -32,16 +36,22 @@ func main() {
 	var im app.InstanceManager
 	switch config.InstanceManager.Type {
 	case app.GCEIMType:
-		im, err = gcp.NewInstanceManager(&config.InstanceManager, context.Background())
+		client, err := google.DefaultClient(context.Background(), compute.CloudPlatformScope)
 		if err != nil {
 			log.Fatal(err)
+		}
+		im = &gcp.InstanceManager{
+			Config: config.InstanceManager,
+			Client: client,
+			InstanceNameGenerator: &gcp.InstanceNameGenerator{
+				UUIDFactory: func() string { return uuid.New().String() },
+			},
 		}
 	case app.UnixIMType:
 		im = &unix.InstanceManager{}
 	default:
 		log.Fatal("Unknown Instance Manager type: ", config.InstanceManager.Type)
 	}
-	defer im.Close()
 
 	ss := app.NewForwardingSignalingServer(im)
 

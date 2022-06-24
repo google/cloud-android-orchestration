@@ -24,7 +24,6 @@ import (
 	"cloud-android-orchestration/app/unix"
 
 	"github.com/google/uuid"
-	"golang.org/x/oauth2/google"
 	"google.golang.org/api/compute/v1"
 )
 
@@ -36,13 +35,13 @@ func main() {
 	var im app.InstanceManager
 	switch config.InstanceManager.Type {
 	case app.GCEIMType:
-		client, err := google.DefaultClient(context.Background(), compute.CloudPlatformScope)
+		service, err := compute.NewService(context.Background())
 		if err != nil {
 			log.Fatal(err)
 		}
 		im = &gcp.InstanceManager{
-			Config: config.InstanceManager,
-			Client: client,
+			Config:  config.InstanceManager,
+			Service: service,
 			InstanceNameGenerator: &gcp.InstanceNameGenerator{
 				UUIDFactory: func() string { return uuid.New().String() },
 			},

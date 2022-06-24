@@ -18,13 +18,11 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net/http"
 
 	apiv1 "cloud-android-orchestration/api/v1"
 	"cloud-android-orchestration/app"
 
 	"google.golang.org/api/compute/v1"
-	"google.golang.org/api/option"
 )
 
 const (
@@ -36,9 +34,8 @@ const (
 // GCP implementation of the instance manager.
 type InstanceManager struct {
 	Config                app.IMConfig
-	Client                *http.Client
+	Service               *compute.Service
 	InstanceNameGenerator NameGenerator
-	ServiceURL            string // If empty, default will be used
 }
 
 func (m *InstanceManager) GetHostAddr(zone string, host string) (string, error) {
@@ -61,15 +58,6 @@ const operationStatusDone = "DONE"
 
 func (m *InstanceManager) CreateHost(zone string, req *apiv1.CreateHostRequest, user app.UserInfo) (*apiv1.Operation, error) {
 	if err := validateRequest(req); err != nil {
-		return nil, err
-	}
-	ctx := context.TODO()
-	service, err := compute.NewService(
-		ctx,
-		option.WithHTTPClient(m.Client),
-		option.WithEndpoint(m.ServiceURL),
-	)
-	if err != nil {
 		return nil, err
 	}
 	labels := map[string]string{
@@ -102,9 +90,9 @@ func (m *InstanceManager) CreateHost(zone string, req *apiv1.CreateHostRequest, 
 		},
 		Labels: labels,
 	}
-	op, err := service.Instances.
+	op, err := m.Service.Instances.
 		Insert(m.Config.GCP.ProjectID, zone, payload).
-		Context(ctx).
+		Context(context.TODO()).
 		Do()
 	if err != nil {
 		return nil, err
@@ -117,18 +105,9 @@ func (m *InstanceManager) CreateHost(zone string, req *apiv1.CreateHostRequest, 
 }
 
 func (m *InstanceManager) getHostInstance(zone string, host string) (*compute.Instance, error) {
-	ctx := context.TODO()
-	service, err := compute.NewService(
-		ctx,
-		option.WithHTTPClient(m.Client),
-		option.WithEndpoint(m.ServiceURL),
-	)
-	if err != nil {
-		return nil, err
-	}
-	return service.Instances.
+	return m.Service.Instances.
 		Get(m.Config.GCP.ProjectID, zone, host).
-		Context(ctx).
+		Context(context.TODO()).
 		Do()
 }
 

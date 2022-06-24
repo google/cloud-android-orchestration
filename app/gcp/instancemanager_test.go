@@ -16,6 +16,7 @@ package gcp
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"io/ioutil"
@@ -28,6 +29,7 @@ import (
 
 	"github.com/sergi/go-diff/diffmatchpatch"
 	"google.golang.org/api/compute/v1"
+	"google.golang.org/api/option"
 )
 
 var testConfig = app.IMConfig{
@@ -50,11 +52,11 @@ func TestCreateHostInvalidRequests(t *testing.T) {
 		replyJSON(w, &compute.Operation{})
 	}))
 	defer ts.Close()
+	testService := buildTestService(t, ts)
 	im := InstanceManager{
 		Config:                testConfig,
-		Client:                ts.Client(),
+		Service:               testService,
 		InstanceNameGenerator: testNameGenerator,
-		ServiceURL:            ts.URL,
 	}
 	var validRequest = func() *apiv1.CreateHostRequest {
 		return &apiv1.CreateHostRequest{
@@ -99,11 +101,11 @@ func TestCreateHostRequestPath(t *testing.T) {
 		replyJSON(w, &compute.Operation{})
 	}))
 	defer ts.Close()
+	testService := buildTestService(t, ts)
 	im := InstanceManager{
 		Config:                testConfig,
-		Client:                ts.Client(),
+		Service:               testService,
 		InstanceNameGenerator: testNameGenerator,
-		ServiceURL:            ts.URL,
 	}
 
 	im.CreateHost("us-central1-a",
@@ -134,11 +136,11 @@ func TestCreateHostRequestBody(t *testing.T) {
 		replyJSON(w, &compute.Operation{Name: "operation-1"})
 	}))
 	defer ts.Close()
+	testService := buildTestService(t, ts)
 	im := InstanceManager{
 		Config:                testConfig,
-		Client:                ts.Client(),
+		Service:               testService,
 		InstanceNameGenerator: testNameGenerator,
-		ServiceURL:            ts.URL,
 	}
 
 	im.CreateHost("us-central1-a",
@@ -199,11 +201,11 @@ func TestCreateHostSuccess(t *testing.T) {
 		replyJSON(w, o)
 	}))
 	defer ts.Close()
+	testService := buildTestService(t, ts)
 	im := InstanceManager{
 		Config:                testConfig,
-		Client:                ts.Client(),
+		Service:               testService,
 		InstanceNameGenerator: testNameGenerator,
-		ServiceURL:            ts.URL,
 	}
 
 	op, _ := im.CreateHost("us-central1-a",
@@ -233,11 +235,11 @@ func TestGetHostAddrRequestPath(t *testing.T) {
 		replyJSON(w, &compute.Instance{})
 	}))
 	defer ts.Close()
+	testService := buildTestService(t, ts)
 	im := InstanceManager{
 		Config:                testConfig,
-		Client:                ts.Client(),
+		Service:               testService,
 		InstanceNameGenerator: testNameGenerator,
-		ServiceURL:            ts.URL,
 	}
 
 	im.GetHostAddr("us-central1-a", "foo")
@@ -253,11 +255,11 @@ func TestGetHostAddrMissingNetworkInterface(t *testing.T) {
 		replyJSON(w, &compute.Instance{})
 	}))
 	defer ts.Close()
+	testService := buildTestService(t, ts)
 	im := InstanceManager{
 		Config:                testConfig,
-		Client:                ts.Client(),
+		Service:               testService,
 		InstanceNameGenerator: testNameGenerator,
-		ServiceURL:            ts.URL,
 	}
 
 	_, err := im.GetHostAddr("us-central1-a", "foo")
@@ -281,11 +283,11 @@ func TestGetHostAddrSuccess(t *testing.T) {
 		replyJSON(w, i)
 	}))
 	defer ts.Close()
+	testService := buildTestService(t, ts)
 	im := InstanceManager{
 		Config:                testConfig,
-		Client:                ts.Client(),
+		Service:               testService,
 		InstanceNameGenerator: testNameGenerator,
-		ServiceURL:            ts.URL,
 	}
 
 	addr, _ := im.GetHostAddr("us-central1-a", "foo")
@@ -293,6 +295,18 @@ func TestGetHostAddrSuccess(t *testing.T) {
 	if addr != expectedIP {
 		t.Errorf("unexpected host address <<%q>>, want: %q", addr, expectedIP)
 	}
+}
+
+func buildTestService(t *testing.T, s *httptest.Server) *compute.Service {
+	srv, err := compute.NewService(
+		context.TODO(),
+		option.WithHTTPClient(s.Client()),
+		option.WithEndpoint(s.URL),
+	)
+	if err != nil {
+		t.Fatalf("failed to create compute service withe error: %+v", err)
+	}
+	return srv
 }
 
 func prettyJSON(t *testing.T, b []byte) string {

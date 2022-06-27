@@ -177,7 +177,7 @@ func BuildListHostRequest(r *http.Request) (*ListHostsRequest, error) {
 	if maxResultsRaw != "" {
 		i, err := strconv.Atoi(maxResultsRaw)
 		if err != nil || i < 0 {
-			return nil, NewBadRequestError("Invalid maxResults value, expected a positive integer", nil)
+			return nil, NewBadRequestError("Invalid maxResults value, expected a positive integer", err)
 		}
 		maxResults = i
 	}

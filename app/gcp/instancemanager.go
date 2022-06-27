@@ -109,7 +109,8 @@ const listHostsRequestMaxResultsLimit = 500
 func (m *InstanceManager) ListHosts(zone string, user app.UserInfo, req *app.ListHostsRequest) (*apiv1.ListHostsResponse, error) {
 	if req.MaxResults > listHostsRequestMaxResultsLimit {
 		return nil, app.NewBadRequestError(
-			fmt.Sprintf("Invalid maxResults value, acceptable values are 0 to %d, inclusive.", listHostsRequestMaxResultsLimit),
+			fmt.Sprintf("Invalid maxResults value, acceptable values are 0 to %d, inclusive.",
+				listHostsRequestMaxResultsLimit),
 			nil)
 	}
 	res, err := m.Service.Instances.

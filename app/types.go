@@ -50,6 +50,18 @@ type InstanceManager interface {
 	GetHostAddr(zone string, host string) (string, error)
 	// Creates a host instance.
 	CreateHost(zone string, req *apiv1.CreateHostRequest, user UserInfo) (*apiv1.Operation, error)
+	// List hosts
+	ListHosts(zone string, user UserInfo, req *ListHostsRequest) (*apiv1.ListHostsResponse, error)
+}
+
+type ListHostsRequest struct {
+	// The maximum number of results per page that should be returned. If the number of available results is larger
+	// than MaxResults, a `NextPageToken` will be returned which can be used to get the next page of results
+	// in subsequent List requests.
+	MaxResults uint32
+	// Specifies a page token to use.
+	// Use the `NextPageToken` value returned by a previous List request.
+	PageToken string
 }
 
 type AuthHTTPHandler func(http.ResponseWriter, *http.Request, UserInfo) error

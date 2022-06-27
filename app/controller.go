@@ -60,6 +60,7 @@ func (c *Controller) SetupRoutes() {
 
 	// Instance Manager Routes
 	router.Handle("/v1/zones/{zone}/hosts", HTTPHandler(c.accountManager.Authenticate(c.CreateHost))).Methods("POST")
+	router.Handle("/v1/zones/{zone}/hosts", HTTPHandler(c.accountManager.Authenticate(c.ListHosts))).Methods("GET")
 
 	// Infra route
 	router.HandleFunc("/v1/zones/{zone}/hosts/{host}/infra_config", func(w http.ResponseWriter, r *http.Request) {
@@ -155,6 +156,36 @@ func (c *Controller) CreateHost(w http.ResponseWriter, r *http.Request, user Use
 	}
 	replyJSON(w, op, http.StatusOK)
 	return nil
+}
+
+func (c *Controller) ListHosts(w http.ResponseWriter, r *http.Request, user UserInfo) error {
+	listReq, err := BuildListHostRequest(r)
+	if err != nil {
+		return err
+	}
+	res, err := c.instanceManager.ListHosts(getZone(r), user, listReq)
+	if err != nil {
+		return err
+	}
+	replyJSON(w, res, http.StatusOK)
+	return nil
+}
+
+func BuildListHostRequest(r *http.Request) (*ListHostsRequest, error) {
+	var maxResults int
+	maxResultsRaw := r.URL.Query().Get("maxResults")
+	if maxResultsRaw != "" {
+		i, err := strconv.Atoi(maxResultsRaw)
+		if err != nil || i < 0 {
+			return nil, NewBadRequestError("Invalid maxResults value, expected a positive integer", nil)
+		}
+		maxResults = i
+	}
+	res := &ListHostsRequest{
+		MaxResults: uint32(maxResults),
+		PageToken:  r.URL.Query().Get("pageToken"),
+	}
+	return res, nil
 }
 
 func buildInfraCfg(servers []string) apiv1.InfraConfig {

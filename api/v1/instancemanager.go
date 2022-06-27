@@ -12,7 +12,7 @@ type CreateHostInstanceRequest struct {
 
 type GCPInstance struct {
 	// [REQUIRED]
-	DiskSizeGB int `json:"disk_size_gb"`
+	DiskSizeGB int64 `json:"disk_size_gb"`
 	// [REQUIRED] More info about this field in https://cloud.google.com/compute/docs/reference/rest/v1/instances/insert#request-body
 	MachineType string `json:"machine_type"`
 	// More info about this field in https://cloud.google.com/compute/docs/reference/rest/v1/instances/insert#request-body
@@ -40,4 +40,19 @@ type Result struct {
 type Error struct {
 	Code    string `json:"code,omitempty"`
 	Message string `json:"message,omitempty"`
+}
+
+type HostInstance struct {
+	Name string       `json:"name"`
+	GCP  *GCPInstance `json:"gcp,omitempty"`
+}
+
+type ListHostsResponse struct {
+	Items []*HostInstance `json:"items,omitempty"`
+	// This token allows you to get the next page of results for list requests.
+	// If the number of results is larger than maxResults, use the `nextPageToken`
+	// as a value for the query parameter `pageToken` in the next list request.
+	// Subsequent list requests will have their own `nextPageToken` to continue
+	// paging through out all the results.
+	NextPageToken string `json:"nextPageToken,omitempty"`
 }

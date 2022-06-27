@@ -15,13 +15,13 @@
 package gcp
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 
 	apiv1 "cloud-android-orchestration/api/v1"
@@ -127,11 +127,11 @@ func TestCreateHostRequestPath(t *testing.T) {
 }
 
 func TestCreateHostRequestBody(t *testing.T) {
-	var bodySent []byte
+	var bodySent compute.Instance
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		b, err := ioutil.ReadAll(r.Body)
-		if err == nil {
-			bodySent = b
+		body, _ := ioutil.ReadAll(r.Body)
+		if err := json.Unmarshal(body, &bodySent); err != nil {
+			t.Fatal(err)
 		}
 		replyJSON(w, &compute.Operation{Name: "operation-1"})
 	}))
@@ -183,9 +183,8 @@ func TestCreateHostRequestBody(t *testing.T) {
       "name": "projects/google.com:test-project/global/networks/default"
     }
   ]
-}
-`
-	r := prettyJSON(t, bodySent)
+}`
+	r := prettyJSON(t, &bodySent)
 	if r != expected {
 		t.Errorf("unexpected body, diff: %s", diffPrettyText(r, expected))
 	}
@@ -297,6 +296,146 @@ func TestGetHostAddrSuccess(t *testing.T) {
 	}
 }
 
+func TestListHostsOverMaxResultsLimit(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		replyJSON(w, &compute.InstanceList{})
+	}))
+	defer ts.Close()
+	testService := buildTestService(t, ts)
+	im := InstanceManager{
+		Config:                testConfig,
+		Service:               testService,
+		InstanceNameGenerator: testNameGenerator,
+	}
+	req := &app.ListHostsRequest{MaxResults: 501}
+
+	_, err := im.ListHosts("us-central1-a", &TestUserInfo{}, req)
+
+	var appErr *app.AppError
+	if !errors.As(err, &appErr) {
+		t.Errorf("error type <<\"%T\">> not found in error chain, got %v", appErr, err)
+	}
+}
+
+func TestListHostsRequestQuery(t *testing.T) {
+	var usedQuery string
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		usedQuery = r.URL.Query().Encode()
+		replyJSON(w, &compute.InstanceList{})
+	}))
+	defer ts.Close()
+	testService := buildTestService(t, ts)
+	im := InstanceManager{
+		Config:                testConfig,
+		Service:               testService,
+		InstanceNameGenerator: testNameGenerator,
+	}
+	req := &app.ListHostsRequest{
+		MaxResults: 100,
+		PageToken:  "foo",
+	}
+
+	im.ListHosts("us-central1-a", &TestUserInfo{}, req)
+
+	expected := "alt=json&filter=labels.cf-created_by%3Ajohndoe&maxResults=100&pageToken=foo&prettyPrint=false"
+	if usedQuery != expected {
+		t.Errorf("expected <<%q>>, got %q", expected, usedQuery)
+	}
+}
+
+func TestListHostsSucceeds(t *testing.T) {
+	i1 := &compute.Instance{
+		Disks:          []*compute.AttachedDisk{{DiskSizeGb: 10}},
+		Name:           "foo",
+		MachineType:    "mt",
+		MinCpuPlatform: "mcp",
+	}
+	i2 := &compute.Instance{
+		Disks:          []*compute.AttachedDisk{{DiskSizeGb: 20}},
+		Name:           "bar",
+		MachineType:    "mtbaz",
+		MinCpuPlatform: "mcpbaz",
+	}
+	nextPageToken := "test-token"
+	items := []*compute.Instance{i1, i2}
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		list := &compute.InstanceList{
+			Items:         items,
+			NextPageToken: "test-token",
+		}
+		replyJSON(w, list)
+	}))
+	defer ts.Close()
+	testService := buildTestService(t, ts)
+	im := InstanceManager{
+		Config:                testConfig,
+		Service:               testService,
+		InstanceNameGenerator: testNameGenerator,
+	}
+
+	resp, err := im.ListHosts("us-central1-a", &TestUserInfo{}, &app.ListHostsRequest{})
+
+	if err != nil {
+		t.Errorf("expected <<nil>>, got %+v", err)
+	}
+	if resp.NextPageToken != nextPageToken {
+		t.Errorf("expected <<%q>>, got %q", nextPageToken, resp.NextPageToken)
+	}
+	for i, _ := range resp.Items {
+		expected, _ := BuildHostInstance(items[i])
+		if !reflect.DeepEqual(resp.Items[i], expected) {
+			t.Errorf("unexpected host instance with diff: %s",
+				diffPrettyText(prettyJSON(t, *expected), prettyJSON(t, *resp.Items[0])))
+		}
+	}
+}
+
+func TestBuildHostInstance(t *testing.T) {
+	input := &compute.Instance{
+		Disks:          []*compute.AttachedDisk{{DiskSizeGb: 10}},
+		Name:           "foo",
+		MachineType:    "mt",
+		MinCpuPlatform: "mcp",
+	}
+
+	result, err := BuildHostInstance(input)
+
+	expected := `{
+  "name": "foo",
+  "gcp": {
+    "disk_size_gb": 10,
+    "machine_type": "mt",
+    "min_cpu_platform": "mcp"
+  }
+}`
+	r := prettyJSON(t, result)
+	if r != expected {
+		t.Errorf("unexpected host instance, got diff: %s", diffPrettyText(r, expected))
+	}
+	if err != nil {
+		t.Errorf("expected <<nil>>, got %+v", err)
+	}
+}
+
+func TestBuildHostInstanceNoDisk(t *testing.T) {
+	input := &compute.Instance{
+		Disks:          []*compute.AttachedDisk{},
+		Name:           "foo",
+		MachineType:    "mt",
+		MinCpuPlatform: "mcp",
+	}
+
+	result, err := BuildHostInstance(input)
+
+	var appErr *app.AppError
+	if !errors.As(err, &appErr) {
+		t.Errorf("error type <<\"%T\">> not found in error chain, got %v", appErr, err)
+	}
+	if result != nil {
+		t.Errorf("expected <<nil>>, got %+v", err)
+	}
+}
+
 func buildTestService(t *testing.T, s *httptest.Server) *compute.Service {
 	srv, err := compute.NewService(
 		context.TODO(),
@@ -309,12 +448,12 @@ func buildTestService(t *testing.T, s *httptest.Server) *compute.Service {
 	return srv
 }
 
-func prettyJSON(t *testing.T, b []byte) string {
-	var prettyJSON bytes.Buffer
-	if err := json.Indent(&prettyJSON, b, "", "  "); err != nil {
-		t.Fatalf("failed to prettyfi JSON, error: %v", err)
+func prettyJSON(t *testing.T, obj interface{}) string {
+	s, err := json.MarshalIndent(obj, "", "  ")
+	if err != nil {
+		t.Fatal(err)
 	}
-	return prettyJSON.String()
+	return string(s)
 }
 
 func diffPrettyText(result string, expected string) string {

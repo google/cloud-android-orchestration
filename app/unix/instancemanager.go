@@ -25,10 +25,14 @@ import (
 // This implementation is useful for both development and testing
 type InstanceManager struct{}
 
-func (d *InstanceManager) GetHostAddr(_ string, _ string) (string, error) {
+func (m *InstanceManager) GetHostAddr(_ string, _ string) (string, error) {
 	return "127.0.0.1", nil
 }
 
-func (d *InstanceManager) CreateHost(_ string, _ *apiv1.CreateHostRequest, _ app.UserInfo) (*apiv1.Operation, error) {
-	return nil, app.NewInternalError(fmt.Sprintf("%T#CreateHost is not implemented", *d), nil)
+func (m *InstanceManager) CreateHost(_ string, _ *apiv1.CreateHostRequest, _ app.UserInfo) (*apiv1.Operation, error) {
+	return nil, app.NewInternalError(fmt.Sprintf("%T#CreateHost is not implemented", *m), nil)
+}
+
+func (m *InstanceManager) ListHosts(zone string, user app.UserInfo, req *app.ListHostsRequest) (*apiv1.ListHostsResponse, error) {
+	return nil, app.NewInternalError(fmt.Sprintf("%T#ListHosts is not implemented", *m), nil)
 }

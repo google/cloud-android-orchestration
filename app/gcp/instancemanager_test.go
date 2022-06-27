@@ -130,9 +130,7 @@ func TestCreateHostRequestBody(t *testing.T) {
 	var bodySent compute.Instance
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, _ := ioutil.ReadAll(r.Body)
-		if err := json.Unmarshal(body, &bodySent); err != nil {
-			t.Fatal(err)
-		}
+		json.Unmarshal(body, &bodySent)
 		replyJSON(w, &compute.Operation{Name: "operation-1"})
 	}))
 	defer ts.Close()

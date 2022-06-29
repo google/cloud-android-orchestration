@@ -379,7 +379,7 @@ func TestListHostsSucceeds(t *testing.T) {
 	if resp.NextPageToken != nextPageToken {
 		t.Errorf("expected <<%q>>, got %q", nextPageToken, resp.NextPageToken)
 	}
-	for i, _ := range resp.Items {
+	for i := range resp.Items {
 		expected, _ := BuildHostInstance(items[i])
 		if !reflect.DeepEqual(resp.Items[i], expected) {
 			t.Errorf("unexpected host instance with diff: %s",

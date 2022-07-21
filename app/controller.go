@@ -60,6 +60,7 @@ func (c *Controller) SetupRoutes() {
 
 	// Instance Manager Routes
 	router.Handle("/v1/zones/{zone}/hosts", HTTPHandler(c.accountManager.Authenticate(c.CreateHost))).Methods("POST")
+	router.Handle("/v1/zones/{zone}/hosts", HTTPHandler(c.accountManager.Authenticate(c.ListHosts))).Methods("GET")
 
 	// Infra route
 	router.HandleFunc("/v1/zones/{zone}/hosts/{host}/infra_config", func(w http.ResponseWriter, r *http.Request) {
@@ -155,6 +156,44 @@ func (c *Controller) CreateHost(w http.ResponseWriter, r *http.Request, user Use
 	}
 	replyJSON(w, op, http.StatusOK)
 	return nil
+}
+
+func (c *Controller) ListHosts(w http.ResponseWriter, r *http.Request, user UserInfo) error {
+	listReq, err := BuildListHostsRequest(r)
+	if err != nil {
+		return err
+	}
+	res, err := c.instanceManager.ListHosts(getZone(r), user, listReq)
+	if err != nil {
+		return err
+	}
+	replyJSON(w, res, http.StatusOK)
+	return nil
+}
+
+const (
+	queryParamMaxResults = "maxResults"
+)
+
+func BuildListHostsRequest(r *http.Request) (*ListHostsRequest, error) {
+	maxResultsRaw := r.URL.Query().Get(queryParamMaxResults)
+	maxResults, err := uint32Value(maxResultsRaw)
+	if err != nil {
+		return nil, NewInvalidQueryParamError(queryParamMaxResults, maxResultsRaw, err)
+	}
+	res := &ListHostsRequest{
+		MaxResults: maxResults,
+		PageToken:  r.URL.Query().Get("pageToken"),
+	}
+	return res, nil
+}
+
+func uint32Value(value string) (uint32, error) {
+	if value == "" {
+		return uint32(0), nil
+	}
+	uint64v, err := strconv.ParseUint(value, 10, 32)
+	return uint32(uint64v), err
 }
 
 func buildInfraCfg(servers []string) apiv1.InfraConfig {

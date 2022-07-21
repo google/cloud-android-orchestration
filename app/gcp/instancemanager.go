@@ -104,6 +104,39 @@ func (m *InstanceManager) CreateHost(zone string, req *apiv1.CreateHostRequest, 
 	return result, nil
 }
 
+const listHostsRequestMaxResultsLimit uint32 = 500
+
+func (m *InstanceManager) ListHosts(zone string, user app.UserInfo, req *app.ListHostsRequest) (*apiv1.ListHostsResponse, error) {
+	var maxResults uint32
+	if req.MaxResults <= listHostsRequestMaxResultsLimit {
+		maxResults = req.MaxResults
+	} else {
+		maxResults = listHostsRequestMaxResultsLimit
+	}
+	res, err := m.Service.Instances.
+		List(m.Config.GCP.ProjectID, zone).
+		Context(context.TODO()).
+		MaxResults(int64(maxResults)).
+		PageToken(req.PageToken).
+		Filter("labels.cf-created_by:" + user.Username()).
+		Do()
+	if err != nil {
+		return nil, err
+	}
+	var items []*apiv1.HostInstance
+	for _, i := range res.Items {
+		hi, err := BuildHostInstance(i)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, hi)
+	}
+	return &apiv1.ListHostsResponse{
+		Items:         items,
+		NextPageToken: res.NextPageToken,
+	}, nil
+}
+
 func (m *InstanceManager) getHostInstance(zone string, host string) (*compute.Instance, error) {
 	return m.Service.Instances.
 		Get(m.Config.GCP.ProjectID, zone, host).
@@ -123,6 +156,25 @@ func validateRequest(r *apiv1.CreateHostRequest) error {
 
 func buildDefaultNetworkName(projectID string) string {
 	return fmt.Sprintf("projects/%s/global/networks/default", projectID)
+}
+
+func BuildHostInstance(in *compute.Instance) (*apiv1.HostInstance, error) {
+	disksLen := len(in.Disks)
+	if disksLen == 0 {
+		log.Printf("invalid host instance %q: has 0 disks", in.SelfLink)
+		return nil, app.NewInternalError("invalid host instance: has 0 disks", nil)
+	}
+	if disksLen > 1 {
+		log.Printf("invalid host instance %q: has %d (more than one) disks", in.SelfLink, disksLen)
+	}
+	return &apiv1.HostInstance{
+		Name: in.Name,
+		GCP: &apiv1.GCPInstance{
+			DiskSizeGB:     in.Disks[0].DiskSizeGb,
+			MachineType:    in.MachineType,
+			MinCPUPlatform: in.MinCpuPlatform,
+		},
+	}, nil
 }
 
 const hostInstanceNamePrefix = "cf-"

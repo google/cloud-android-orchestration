@@ -159,7 +159,7 @@ func (c *Controller) CreateHost(w http.ResponseWriter, r *http.Request, user Use
 }
 
 func (c *Controller) ListHosts(w http.ResponseWriter, r *http.Request, user UserInfo) error {
-	listReq, err := BuildListHostRequest(r)
+	listReq, err := BuildListHostsRequest(r)
 	if err != nil {
 		return err
 	}
@@ -171,21 +171,29 @@ func (c *Controller) ListHosts(w http.ResponseWriter, r *http.Request, user User
 	return nil
 }
 
-func BuildListHostRequest(r *http.Request) (*ListHostsRequest, error) {
-	var maxResults int
-	maxResultsRaw := r.URL.Query().Get("maxResults")
-	if maxResultsRaw != "" {
-		i, err := strconv.Atoi(maxResultsRaw)
-		if err != nil || i < 0 {
-			return nil, NewBadRequestError("Invalid maxResults value, expected a positive integer", err)
-		}
-		maxResults = i
+const (
+	queryParamMaxResults = "maxResults"
+)
+
+func BuildListHostsRequest(r *http.Request) (*ListHostsRequest, error) {
+	maxResultsRaw := r.URL.Query().Get(queryParamMaxResults)
+	maxResults, err := uint32Value(maxResultsRaw)
+	if err != nil {
+		return nil, NewInvalidQueryParamError(queryParamMaxResults, maxResultsRaw, err)
 	}
 	res := &ListHostsRequest{
-		MaxResults: uint32(maxResults),
+		MaxResults: maxResults,
 		PageToken:  r.URL.Query().Get("pageToken"),
 	}
 	return res, nil
+}
+
+func uint32Value(value string) (uint32, error) {
+	if value == "" {
+		return uint32(0), nil
+	}
+	uint64v, err := strconv.ParseUint(value, 10, 32)
+	return uint32(uint64v), err
 }
 
 func buildInfraCfg(servers []string) apiv1.InfraConfig {

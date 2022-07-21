@@ -294,27 +294,6 @@ func TestGetHostAddrSuccess(t *testing.T) {
 	}
 }
 
-func TestListHostsOverMaxResultsLimit(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		replyJSON(w, &compute.InstanceList{})
-	}))
-	defer ts.Close()
-	testService := buildTestService(t, ts)
-	im := InstanceManager{
-		Config:                testConfig,
-		Service:               testService,
-		InstanceNameGenerator: testNameGenerator,
-	}
-	req := &app.ListHostsRequest{MaxResults: 501}
-
-	_, err := im.ListHosts("us-central1-a", &TestUserInfo{}, req)
-
-	var appErr *app.AppError
-	if !errors.As(err, &appErr) {
-		t.Errorf("error type <<\"%T\">> not found in error chain, got %v", appErr, err)
-	}
-}
-
 func TestListHostsRequestQuery(t *testing.T) {
 	var usedQuery string
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -336,6 +315,32 @@ func TestListHostsRequestQuery(t *testing.T) {
 	im.ListHosts("us-central1-a", &TestUserInfo{}, req)
 
 	expected := "alt=json&filter=labels.cf-created_by%3Ajohndoe&maxResults=100&pageToken=foo&prettyPrint=false"
+	if usedQuery != expected {
+		t.Errorf("expected <<%q>>, got %q", expected, usedQuery)
+	}
+}
+
+func TestListHostsOverMaxResultsLimit(t *testing.T) {
+	var usedQuery string
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		usedQuery = r.URL.Query().Encode()
+		replyJSON(w, &compute.InstanceList{})
+	}))
+	defer ts.Close()
+	testService := buildTestService(t, ts)
+	im := InstanceManager{
+		Config:                testConfig,
+		Service:               testService,
+		InstanceNameGenerator: testNameGenerator,
+	}
+	req := &app.ListHostsRequest{
+		MaxResults: 501,
+		PageToken:  "foo",
+	}
+
+	im.ListHosts("us-central1-a", &TestUserInfo{}, req)
+
+	expected := "alt=json&filter=labels.cf-created_by%3Ajohndoe&maxResults=500&pageToken=foo&prettyPrint=false"
 	if usedQuery != expected {
 		t.Errorf("expected <<%q>>, got %q", expected, usedQuery)
 	}

@@ -15,6 +15,7 @@
 package app
 
 import (
+	"fmt"
 	"net/http"
 
 	apiv1 "cloud-android-orchestration/api/v1"
@@ -48,6 +49,10 @@ func NewNotFoundError(msg string, e error) error {
 
 func NewBadRequestError(msg string, e error) error {
 	return &AppError{Msg: msg, StatusCode: http.StatusBadRequest, Err: e}
+}
+
+func NewInvalidQueryParamError(param, value string, err error) error {
+	return NewBadRequestError(fmt.Sprintf("Invalid query parameter %q value: %q", param, value), err)
 }
 
 func NewInternalError(msg string, e error) error {

@@ -104,19 +104,19 @@ func (m *InstanceManager) CreateHost(zone string, req *apiv1.CreateHostRequest, 
 	return result, nil
 }
 
-const listHostsRequestMaxResultsLimit = 500
+const listHostsRequestMaxResultsLimit uint32 = 500
 
 func (m *InstanceManager) ListHosts(zone string, user app.UserInfo, req *app.ListHostsRequest) (*apiv1.ListHostsResponse, error) {
-	if req.MaxResults > listHostsRequestMaxResultsLimit {
-		return nil, app.NewBadRequestError(
-			fmt.Sprintf("Invalid maxResults value, acceptable values are 0 to %d, inclusive.",
-				listHostsRequestMaxResultsLimit),
-			nil)
+	var maxResults uint32
+	if req.MaxResults <= listHostsRequestMaxResultsLimit {
+		maxResults = req.MaxResults
+	} else {
+		maxResults = listHostsRequestMaxResultsLimit
 	}
 	res, err := m.Service.Instances.
 		List(m.Config.GCP.ProjectID, zone).
 		Context(context.TODO()).
-		MaxResults(int64(req.MaxResults)).
+		MaxResults(int64(maxResults)).
 		PageToken(req.PageToken).
 		Filter("labels.cf-created_by:" + user.Username()).
 		Do()

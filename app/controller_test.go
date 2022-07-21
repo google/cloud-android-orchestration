@@ -25,7 +25,7 @@ func TestBuildListHostsRequest(t *testing.T) {
 	t.Run("default", func(t *testing.T) {
 		r, _ := http.NewRequest("GET", "http://abc.com/", nil)
 
-		listReq, _ := BuildListHostRequest(r)
+		listReq, _ := BuildListHostsRequest(r)
 
 		if listReq.MaxResults != 0 {
 			t.Errorf("expected <<%d>>, got %d", 0, listReq.MaxResults)
@@ -38,7 +38,7 @@ func TestBuildListHostsRequest(t *testing.T) {
 	t.Run("non integer maxResults", func(t *testing.T) {
 		r, _ := http.NewRequest("GET", "http://abc.com/query?maxResults=foo", nil)
 
-		listReq, err := BuildListHostRequest(r)
+		listReq, err := BuildListHostsRequest(r)
 
 		assertIsAppError(t, err)
 		if listReq != nil {
@@ -49,7 +49,7 @@ func TestBuildListHostsRequest(t *testing.T) {
 	t.Run("negative integer maxResults", func(t *testing.T) {
 		r, _ := http.NewRequest("GET", "http://abc.com/query?maxResults=-1", nil)
 
-		listReq, err := BuildListHostRequest(r)
+		listReq, err := BuildListHostsRequest(r)
 
 		assertIsAppError(t, err)
 		if listReq != nil {
@@ -60,7 +60,7 @@ func TestBuildListHostsRequest(t *testing.T) {
 	t.Run("full", func(t *testing.T) {
 		r, _ := http.NewRequest("GET", "http://abc.com/query?pageToken=foo&maxResults=1", nil)
 
-		listReq, _ := BuildListHostRequest(r)
+		listReq, _ := BuildListHostsRequest(r)
 
 		expected := ListHostsRequest{
 			MaxResults: 1,

@@ -18,9 +18,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	apiv1 "cloud-android-orchestration/api/v1"
 
@@ -51,6 +53,10 @@ func (c *Controller) ListenAndServe(addr string, handler http.Handler) error {
 
 func (c *Controller) SetupRoutes() {
 	router := mux.NewRouter()
+	hf := &HostForwarder{
+		AddressResolver: c.instanceManager,
+		Client:          &http.Client{},
+	}
 
 	// Signaling Server Routes
 	router.Handle("/v1/zones/{zone}/hosts/{host}/connections/{connId}/messages", HTTPHandler(c.accountManager.Authenticate(c.Messages))).Methods("GET")
@@ -61,6 +67,9 @@ func (c *Controller) SetupRoutes() {
 	// Instance Manager Routes
 	router.Handle("/v1/zones/{zone}/hosts", HTTPHandler(c.accountManager.Authenticate(c.CreateHost))).Methods("POST")
 	router.Handle("/v1/zones/{zone}/hosts", HTTPHandler(c.accountManager.Authenticate(c.ListHosts))).Methods("GET")
+
+	// Host Orchestrator Proxy Routes
+	router.PathPrefix("/v1/zones/{zone}/hosts/{host}/{resource:cvds|operations}").Handler(hf.Handler())
 
 	// Infra route
 	router.HandleFunc("/v1/zones/{zone}/hosts/{host}/infra_config", func(w http.ResponseWriter, r *http.Request) {
@@ -76,9 +85,9 @@ func (c *Controller) SetupRoutes() {
 
 // Intercept errors returned by the HTTPHandler and transform them into HTTP
 // error responses
-func (fn HTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h HTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log.Println(r.Method, " ", r.URL, " ", r.RemoteAddr)
-	if err := fn(w, r); err != nil {
+	if err := h(w, r); err != nil {
 		log.Println("Error: ", err)
 		var e *AppError
 		if errors.As(err, &e) {
@@ -86,6 +95,53 @@ func (fn HTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		} else {
 			replyJSON(w, apiv1.ErrorMsg{Error: "Internal Server Error"}, http.StatusInternalServerError)
 		}
+	}
+}
+
+const headerContentType = "Content-Type"
+
+type HostForwarder struct {
+	AddressResolver HostAddressResolver
+	Client          *http.Client
+}
+
+func (f *HostForwarder) Handler() HTTPHandler {
+	return func(w http.ResponseWriter, r *http.Request) error {
+		vars := mux.Vars(r)
+		zone := vars["zone"]
+		if zone == "" {
+			return NewBadRequestError("Invalid url, missing zone value", nil)
+		}
+		host := vars["host"]
+		if host == "" {
+			return NewBadRequestError("Invalid url, missing host value", nil)
+		}
+		split := strings.SplitN(r.URL.String(), "hosts/"+host+"/", 2)
+		if len(split) != 2 {
+			return NewBadRequestError("Invalid url, missing host resource", nil)
+		}
+		addr, err := f.AddressResolver.GetHostAddr(zone, host)
+		if err != nil {
+			return err
+		}
+		url := fmt.Sprintf("%s/%s", addr, split[1])
+		req, err := http.NewRequest(r.Method, url, r.Body)
+		if err != nil {
+			return nil
+		}
+		resp, err := f.Client.Do(req)
+		if err != nil {
+			return err
+		}
+		defer resp.Body.Close()
+		b, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+		w.Header().Set(headerContentType, resp.Header.Get(headerContentType))
+		w.WriteHeader(resp.StatusCode)
+		w.Write(b)
+		return nil
 	}
 }
 

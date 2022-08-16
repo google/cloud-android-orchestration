@@ -64,6 +64,12 @@ type ListHostsRequest struct {
 	PageToken string
 }
 
+type HostAddressResolver interface {
+	// Returns the (internal) network address of the host where the cuttlefish device is
+	// running. The address can either be an IPv4, IPv6 or a domain name.
+	GetHostAddr(zone string, host string) (string, error)
+}
+
 type AuthHTTPHandler func(http.ResponseWriter, *http.Request, UserInfo) error
 type HTTPHandler func(http.ResponseWriter, *http.Request) error
 

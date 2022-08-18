@@ -115,18 +115,18 @@ func (f *HostForwarder) Handler() HTTPHandler {
 		if err != nil {
 			return err
 		}
-		split := strings.SplitN(r.URL.Path, "hosts/"+host, 2)
-		proxy := f.buildReverseProxy(hostURL, split[1])
+		proxy := f.buildReverseProxy(host, hostURL)
 		proxy.ServeHTTP(w, r)
 		return nil
 	}
 }
 
-func (f *HostForwarder) buildReverseProxy(hostURL *url.URL, path string) *httputil.ReverseProxy {
-	director := func(req *http.Request) {
-		req.URL.Scheme = hostURL.Scheme
-		req.URL.Host = hostURL.Host
-		req.URL.Path = path
+func (f *HostForwarder) buildReverseProxy(name string, URL *url.URL) *httputil.ReverseProxy {
+	director := func(r *http.Request) {
+		r.URL.Scheme = URL.Scheme
+		r.URL.Host = URL.Host
+		split := strings.SplitN(r.URL.Path, "hosts/"+name, 2)
+		r.URL.Path = split[1]
 	}
 	return &httputil.ReverseProxy{Director: director}
 }

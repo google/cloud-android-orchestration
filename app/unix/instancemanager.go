@@ -15,9 +15,11 @@
 package unix
 
 import (
+	"fmt"
+	"net/url"
+
 	apiv1 "cloud-android-orchestration/api/v1"
 	"cloud-android-orchestration/app"
-	"fmt"
 )
 
 // Implements the InstanceManager interface providing access to the first
@@ -27,6 +29,19 @@ type InstanceManager struct{}
 
 func (m *InstanceManager) GetHostAddr(_ string, _ string) (string, error) {
 	return "127.0.0.1", nil
+}
+
+const (
+	hostURLScheme = "http"
+	hostURLPort   = 1080
+)
+
+func (m *InstanceManager) GetHostURL(zone string, host string) (*url.URL, error) {
+	addr, err := m.GetHostAddr(zone, host)
+	if err != nil {
+		return nil, err
+	}
+	return url.Parse(fmt.Sprintf("%s://%s:%d", hostURLScheme, addr, hostURLPort))
 }
 
 func (m *InstanceManager) CreateHost(_ string, _ *apiv1.CreateHostRequest, _ app.UserInfo) (*apiv1.Operation, error) {

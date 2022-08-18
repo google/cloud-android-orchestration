@@ -18,9 +18,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -53,10 +54,7 @@ func (c *Controller) ListenAndServe(addr string, handler http.Handler) error {
 
 func (c *Controller) SetupRoutes() {
 	router := mux.NewRouter()
-	hf := &HostForwarder{
-		AddressResolver: c.instanceManager,
-		Client:          &http.Client{},
-	}
+	hf := &HostForwarder{URLResolver: c.instanceManager}
 
 	// Signaling Server Routes
 	router.Handle("/v1/zones/{zone}/hosts/{host}/connections/{connId}/messages", HTTPHandler(c.accountManager.Authenticate(c.Messages))).Methods("GET")
@@ -98,11 +96,8 @@ func (h HTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-const headerContentType = "Content-Type"
-
 type HostForwarder struct {
-	AddressResolver HostAddressResolver
-	Client          *http.Client
+	URLResolver HostURLResolver
 }
 
 func (f *HostForwarder) Handler() HTTPHandler {
@@ -110,39 +105,30 @@ func (f *HostForwarder) Handler() HTTPHandler {
 		vars := mux.Vars(r)
 		zone := vars["zone"]
 		if zone == "" {
-			return NewBadRequestError("Invalid url, missing zone value", nil)
+			return fmt.Errorf("invalid url missing zone value: %q", r.URL.String())
 		}
 		host := vars["host"]
 		if host == "" {
-			return NewBadRequestError("Invalid url, missing host value", nil)
+			return fmt.Errorf("invalid url missing host value: %q", r.URL.String())
 		}
-		split := strings.SplitN(r.URL.String(), "hosts/"+host+"/", 2)
-		if len(split) != 2 {
-			return NewBadRequestError("Invalid url, missing host resource", nil)
-		}
-		addr, err := f.AddressResolver.GetHostAddr(zone, host)
+		hostURL, err := f.URLResolver.GetHostURL(zone, host)
 		if err != nil {
 			return err
 		}
-		url := fmt.Sprintf("%s/%s", addr, split[1])
-		req, err := http.NewRequest(r.Method, url, r.Body)
-		if err != nil {
-			return nil
-		}
-		resp, err := f.Client.Do(req)
-		if err != nil {
-			return err
-		}
-		defer resp.Body.Close()
-		b, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return err
-		}
-		w.Header().Set(headerContentType, resp.Header.Get(headerContentType))
-		w.WriteHeader(resp.StatusCode)
-		w.Write(b)
+		split := strings.SplitN(r.URL.Path, "hosts/"+host, 2)
+		proxy := f.buildReverseProxy(hostURL, split[1])
+		proxy.ServeHTTP(w, r)
 		return nil
 	}
+}
+
+func (f *HostForwarder) buildReverseProxy(hostURL *url.URL, path string) *httputil.ReverseProxy {
+	director := func(req *http.Request) {
+		req.URL.Scheme = hostURL.Scheme
+		req.URL.Host = hostURL.Host
+		req.URL.Path = path
+	}
+	return &httputil.ReverseProxy{Director: director}
 }
 
 func (c *Controller) GetDeviceFiles(w http.ResponseWriter, r *http.Request, user UserInfo) error {

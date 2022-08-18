@@ -18,11 +18,13 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/gorilla/mux"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
+
+	"github.com/gorilla/mux"
 )
 
 func TestBuildListHostsRequest(t *testing.T) {
@@ -77,20 +79,18 @@ func TestBuildListHostsRequest(t *testing.T) {
 	})
 }
 
-type testHostAddressResolver struct {
-	Addr string
+type testHostURLResolver struct {
+	hostURL *url.URL
 }
 
-func (r *testHostAddressResolver) GetHostAddr(_ string, _ string) (string, error) {
-	return r.Addr, nil
+func (r *testHostURLResolver) GetHostURL(_ string, _ string) (*url.URL, error) {
+	return r.hostURL, nil
 }
 
 func TestHostForwarderInvalidRequests(t *testing.T) {
 	zone := "foo"
-	host := "bar"
 	hf := HostForwarder{
-		AddressResolver: &testHostAddressResolver{Addr: "127.0.0.1"},
-		Client:          &http.Client{},
+		URLResolver: &testHostURLResolver{},
 	}
 
 	cases := []struct {
@@ -105,10 +105,6 @@ func TestHostForwarderInvalidRequests(t *testing.T) {
 			reqURL: fmt.Sprintf("http://test.com/v1/zones/%s/hosts", zone),
 			vars:   map[string]string{"zone": zone},
 		},
-		{
-			reqURL: fmt.Sprintf("http://test.com/v1/zones/%s/hosts/%s", zone, host),
-			vars:   map[string]string{"zone": zone, "host": host},
-		},
 	}
 
 	for _, c := range cases {
@@ -119,9 +115,13 @@ func TestHostForwarderInvalidRequests(t *testing.T) {
 
 		err := hf.Handler()(w, r)
 
-		assertIsAppError(t, err)
+		if err == nil {
+			t.Error("expected error")
+		}
 	}
 }
+
+const headerContentType = "Content-Type"
 
 func TestHostForwarderRequest(t *testing.T) {
 	respContentType := "app/ct"
@@ -129,10 +129,10 @@ func TestHostForwarderRequest(t *testing.T) {
 	respStatusCode := http.StatusNotFound
 	zone := "foo"
 	host := "bar"
-	reqURL := fmt.Sprintf("http://test.com/v1/zones/%s/hosts/%s/devices?baz=1", zone, host)
+	reqURL := fmt.Sprintf("http://test.com/v1/zones/%s/hosts/%s/cvds?baz=1", zone, host)
 	postRequestBody := "duis feugiat"
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		expectedReceivedURL := "/devices?baz=1"
+		expectedReceivedURL := "/cvds?baz=1"
 		if r.URL.String() != expectedReceivedURL {
 			t.Fatalf("expected url <<%q>>, got: %q", expectedReceivedURL, r.URL.String())
 		}
@@ -148,9 +148,9 @@ func TestHostForwarderRequest(t *testing.T) {
 		w.WriteHeader(respStatusCode)
 		w.Write([]byte(respContent))
 	}))
+	hostURL, _ := url.Parse(ts.URL)
 	hf := HostForwarder{
-		AddressResolver: &testHostAddressResolver{Addr: ts.URL},
-		Client:          ts.Client(),
+		URLResolver: &testHostURLResolver{hostURL: hostURL},
 	}
 
 	tests := []struct {
@@ -163,7 +163,7 @@ func TestHostForwarderRequest(t *testing.T) {
 
 	for _, tt := range tests {
 
-		t.Run(fmt.Sprintf("no error - %s", tt.method), func(t *testing.T) {
+		t.Run(fmt.Sprintf("request - %s", tt.method), func(t *testing.T) {
 			w := httptest.NewRecorder()
 			r, _ := http.NewRequest(tt.method, reqURL, bytes.NewBuffer([]byte(tt.reqBody)))
 			// Manually set mux Vars as the parsing is done by the router.
@@ -174,48 +174,17 @@ func TestHostForwarderRequest(t *testing.T) {
 			if err != nil {
 				t.Errorf("expected nil error, got %+v", err)
 			}
-		})
-
-		t.Run(fmt.Sprintf("content type is set - %s", tt.method), func(t *testing.T) {
-			w := httptest.NewRecorder()
-			r, _ := http.NewRequest(tt.method, reqURL, bytes.NewBuffer([]byte(tt.reqBody)))
-			// Manually set mux Vars as the parsing is done by the router.
-			r = mux.SetURLVars(r, map[string]string{"zone": zone, "host": host})
-
-			hf.Handler()(w, r)
-
 			if w.Header()[headerContentType][0] != respContentType {
 				t.Errorf("expected <<%q>>, got: %q", respContentType, w.Header()[headerContentType])
 			}
-		})
-
-		t.Run(fmt.Sprintf("status code is set - %s", tt.method), func(t *testing.T) {
-			w := httptest.NewRecorder()
-			r, _ := http.NewRequest(tt.method, reqURL, bytes.NewBuffer([]byte(tt.reqBody)))
-			// Manually set mux Vars as the parsing is done by the router.
-			r = mux.SetURLVars(r, map[string]string{"zone": zone, "host": host})
-
-			hf.Handler()(w, r)
-
 			if w.Result().StatusCode != respStatusCode {
 				t.Errorf("expected <<%+v>>, got: %+v", respStatusCode, w.Result().StatusCode)
 			}
-		})
-
-		t.Run(fmt.Sprintf("response is set - %s", tt.method), func(t *testing.T) {
-			w := httptest.NewRecorder()
-			r, _ := http.NewRequest(tt.method, reqURL, bytes.NewBuffer([]byte(tt.reqBody)))
-			// Manually set mux Vars as the parsing is done by the router.
-			r = mux.SetURLVars(r, map[string]string{"zone": zone, "host": host})
-
-			hf.Handler()(w, r)
-
 			b, _ := ioutil.ReadAll(w.Result().Body)
 			if string(b) != respContent {
 				t.Errorf("expected <<%q>>, got: %q", respContent, string(b))
 			}
 		})
-
 	}
 }
 
@@ -227,9 +196,9 @@ func TestHostForwarderHostAsHostResource(t *testing.T) {
 		receivedURL = r.URL.String()
 		w.Write([]byte(""))
 	}))
+	hostURL, _ := url.Parse(ts.URL)
 	hf := HostForwarder{
-		AddressResolver: &testHostAddressResolver{Addr: ts.URL},
-		Client:          ts.Client(),
+		URLResolver: &testHostURLResolver{hostURL: hostURL},
 	}
 	w := httptest.NewRecorder()
 	reqURL := fmt.Sprintf("http://test.com/v1/zones/%s/hosts/%s/hosts/%s", zone, host, host)

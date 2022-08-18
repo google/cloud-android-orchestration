@@ -16,6 +16,7 @@ package app
 
 import (
 	"net/http"
+	"net/url"
 
 	apiv1 "cloud-android-orchestration/api/v1"
 )
@@ -48,6 +49,8 @@ type InstanceManager interface {
 	// Returns the (internal) network address of the host where the cuttlefish device is
 	// running. The address can either be an IPv4, IPv6 or a domain name.
 	GetHostAddr(zone string, host string) (string, error)
+	// Returns base URL the orchestrator is listening on.
+	GetHostURL(zone string, host string) (*url.URL, error)
 	// Creates a host instance.
 	CreateHost(zone string, req *apiv1.CreateHostRequest, user UserInfo) (*apiv1.Operation, error)
 	// List hosts
@@ -64,10 +67,9 @@ type ListHostsRequest struct {
 	PageToken string
 }
 
-type HostAddressResolver interface {
-	// Returns the (internal) network address of the host where the cuttlefish device is
-	// running. The address can either be an IPv4, IPv6 or a domain name.
-	GetHostAddr(zone string, host string) (string, error)
+type HostURLResolver interface {
+	// Returns base URL the orchestrator is listening on.
+	GetHostURL(zone string, host string) (*url.URL, error)
 }
 
 type AuthHTTPHandler func(http.ResponseWriter, *http.Request, UserInfo) error

@@ -67,7 +67,7 @@ func (c *Controller) SetupRoutes() {
 	router.Handle("/v1/zones/{zone}/hosts", HTTPHandler(c.accountManager.Authenticate(c.ListHosts))).Methods("GET")
 
 	// Host Orchestrator Proxy Routes
-	router.PathPrefix("/v1/zones/{zone}/hosts/{host}/{resource:cvds|operations}").Handler(hf.Handler())
+	router.PathPrefix("/v1/zones/{zone}/hosts/{host}/{resource:devices|operations}").Handler(hf.Handler())
 
 	// Infra route
 	router.HandleFunc("/v1/zones/{zone}/hosts/{host}/infra_config", func(w http.ResponseWriter, r *http.Request) {

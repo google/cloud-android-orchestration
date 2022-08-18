@@ -129,10 +129,10 @@ func TestHostForwarderRequest(t *testing.T) {
 	respStatusCode := http.StatusNotFound
 	zone := "foo"
 	host := "bar"
-	reqURL := fmt.Sprintf("http://test.com/v1/zones/%s/hosts/%s/cvds?baz=1", zone, host)
+	reqURL := fmt.Sprintf("http://test.com/v1/zones/%s/hosts/%s/devices?baz=1", zone, host)
 	postRequestBody := "duis feugiat"
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		expectedReceivedURL := "/cvds?baz=1"
+		expectedReceivedURL := "/devices?baz=1"
 		if r.URL.String() != expectedReceivedURL {
 			t.Fatalf("expected url <<%q>>, got: %q", expectedReceivedURL, r.URL.String())
 		}

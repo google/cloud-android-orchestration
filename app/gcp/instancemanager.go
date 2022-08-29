@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/url"
 
 	apiv1 "cloud-android-orchestration/api/v1"
 	"cloud-android-orchestration/app"
@@ -52,6 +53,19 @@ func (m *InstanceManager) GetHostAddr(zone string, host string) (string, error) 
 		log.Printf("host instance %s in zone %s has %d network interfaces", host, zone, ilen)
 	}
 	return instance.NetworkInterfaces[0].NetworkIP, nil
+}
+
+const (
+	hostURLScheme = "http"
+	hostURLPort   = 1080
+)
+
+func (m *InstanceManager) GetHostURL(zone string, host string) (*url.URL, error) {
+	addr, err := m.GetHostAddr(zone, host)
+	if err != nil {
+		return nil, err
+	}
+	return url.Parse(fmt.Sprintf("%s://%s:%d", hostURLScheme, addr, hostURLPort))
 }
 
 const operationStatusDone = "DONE"

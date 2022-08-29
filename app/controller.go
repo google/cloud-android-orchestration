@@ -20,7 +20,10 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"strconv"
+	"strings"
 
 	apiv1 "cloud-android-orchestration/api/v1"
 
@@ -51,6 +54,7 @@ func (c *Controller) ListenAndServe(addr string, handler http.Handler) error {
 
 func (c *Controller) SetupRoutes() {
 	router := mux.NewRouter()
+	hf := &HostForwarder{URLResolver: c.instanceManager}
 
 	// Signaling Server Routes
 	router.Handle("/v1/zones/{zone}/hosts/{host}/connections/{connId}/messages", HTTPHandler(c.accountManager.Authenticate(c.Messages))).Methods("GET")
@@ -61,6 +65,9 @@ func (c *Controller) SetupRoutes() {
 	// Instance Manager Routes
 	router.Handle("/v1/zones/{zone}/hosts", HTTPHandler(c.accountManager.Authenticate(c.CreateHost))).Methods("POST")
 	router.Handle("/v1/zones/{zone}/hosts", HTTPHandler(c.accountManager.Authenticate(c.ListHosts))).Methods("GET")
+
+	// Host Orchestrator Proxy Routes
+	router.PathPrefix("/v1/zones/{zone}/hosts/{host}/{resource:devices|operations}").Handler(hf.Handler())
 
 	// Infra route
 	router.HandleFunc("/v1/zones/{zone}/hosts/{host}/infra_config", func(w http.ResponseWriter, r *http.Request) {
@@ -76,9 +83,9 @@ func (c *Controller) SetupRoutes() {
 
 // Intercept errors returned by the HTTPHandler and transform them into HTTP
 // error responses
-func (fn HTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h HTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log.Println(r.Method, " ", r.URL, " ", r.RemoteAddr)
-	if err := fn(w, r); err != nil {
+	if err := h(w, r); err != nil {
 		log.Println("Error: ", err)
 		var e *AppError
 		if errors.As(err, &e) {
@@ -87,6 +94,51 @@ func (fn HTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			replyJSON(w, apiv1.ErrorMsg{Error: "Internal Server Error"}, http.StatusInternalServerError)
 		}
 	}
+}
+
+type HostForwarder struct {
+	URLResolver HostURLResolver
+}
+
+func (f *HostForwarder) Handler() HTTPHandler {
+	return func(w http.ResponseWriter, r *http.Request) error {
+		vars := mux.Vars(r)
+		zone := vars["zone"]
+		if zone == "" {
+			return fmt.Errorf("invalid url missing zone value: %q", r.URL.String())
+		}
+		host := vars["host"]
+		if host == "" {
+			return fmt.Errorf("invalid url missing host value: %q", r.URL.String())
+		}
+		hostURL, err := f.URLResolver.GetHostURL(zone, host)
+		if err != nil {
+			return err
+		}
+		proxy := newHostReverseProxy(host, hostURL)
+		proxy.ServeHTTP(w, r)
+		return nil
+	}
+}
+
+type hostReverseProxy struct {
+	innerProxy *httputil.ReverseProxy
+}
+
+func newHostReverseProxy(hostName string, hostBaseURL *url.URL) *hostReverseProxy {
+	director := func(r *http.Request) {
+		r.URL.Scheme = hostBaseURL.Scheme
+		r.URL.Host = hostBaseURL.Host
+		split := strings.SplitN(r.URL.Path, "hosts/"+hostName, 2)
+		r.URL.Path = split[1]
+	}
+	return &hostReverseProxy{
+		innerProxy: &httputil.ReverseProxy{Director: director},
+	}
+}
+
+func (p *hostReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
+	p.innerProxy.ServeHTTP(rw, req)
 }
 
 func (c *Controller) GetDeviceFiles(w http.ResponseWriter, r *http.Request, user UserInfo) error {

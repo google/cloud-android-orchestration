@@ -115,20 +115,30 @@ func (f *HostForwarder) Handler() HTTPHandler {
 		if err != nil {
 			return err
 		}
-		proxy := f.buildReverseProxy(host, hostURL)
+		proxy := newHostReverseProxy(host, hostURL)
 		proxy.ServeHTTP(w, r)
 		return nil
 	}
 }
 
-func (f *HostForwarder) buildReverseProxy(name string, URL *url.URL) *httputil.ReverseProxy {
+type hostReverseProxy struct {
+	innerProxy *httputil.ReverseProxy
+}
+
+func newHostReverseProxy(hostName string, hostBaseURL *url.URL) *hostReverseProxy {
 	director := func(r *http.Request) {
-		r.URL.Scheme = URL.Scheme
-		r.URL.Host = URL.Host
-		split := strings.SplitN(r.URL.Path, "hosts/"+name, 2)
+		r.URL.Scheme = hostBaseURL.Scheme
+		r.URL.Host = hostBaseURL.Host
+		split := strings.SplitN(r.URL.Path, "hosts/"+hostName, 2)
 		r.URL.Path = split[1]
 	}
-	return &httputil.ReverseProxy{Director: director}
+	return &hostReverseProxy{
+		innerProxy: &httputil.ReverseProxy{Director: director},
+	}
+}
+
+func (p *hostReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
+	p.innerProxy.ServeHTTP(rw, req)
 }
 
 func (c *Controller) GetDeviceFiles(w http.ResponseWriter, r *http.Request, user UserInfo) error {

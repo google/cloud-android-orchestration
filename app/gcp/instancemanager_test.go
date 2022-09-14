@@ -314,7 +314,7 @@ func TestListHostsRequestQuery(t *testing.T) {
 
 	im.ListHosts("us-central1-a", &TestUserInfo{}, req)
 
-	expected := "alt=json&filter=labels.cf-created_by%3Ajohndoe&maxResults=100&pageToken=foo&prettyPrint=false"
+	expected := "alt=json&filter=labels.created_by%3Ajohndoe&maxResults=100&pageToken=foo&prettyPrint=false"
 	if usedQuery != expected {
 		t.Errorf("expected <<%q>>, got %q", expected, usedQuery)
 	}
@@ -340,7 +340,7 @@ func TestListHostsOverMaxResultsLimit(t *testing.T) {
 
 	im.ListHosts("us-central1-a", &TestUserInfo{}, req)
 
-	expected := "alt=json&filter=labels.cf-created_by%3Ajohndoe&maxResults=500&pageToken=foo&prettyPrint=false"
+	expected := "alt=json&filter=labels.created_by%3Ajohndoe&maxResults=500&pageToken=foo&prettyPrint=false"
 	if usedQuery != expected {
 		t.Errorf("expected <<%q>>, got %q", expected, usedQuery)
 	}

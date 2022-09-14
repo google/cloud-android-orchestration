@@ -132,7 +132,7 @@ func (m *InstanceManager) ListHosts(zone string, user app.UserInfo, req *app.Lis
 		Context(context.TODO()).
 		MaxResults(int64(maxResults)).
 		PageToken(req.PageToken).
-    Filter(fmt.Sprintf("labels.%s:%s", labelAcloudCreatedBy, user.Username())).
+		Filter(fmt.Sprintf("labels.%s:%s", labelAcloudCreatedBy, user.Username())).
 		Do()
 	if err != nil {
 		return nil, err

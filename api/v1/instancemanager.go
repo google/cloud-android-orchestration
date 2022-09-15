@@ -48,7 +48,7 @@ type HostInstance struct {
 }
 
 type ListHostsResponse struct {
-	Items []*HostInstance `json:"items,omitempty"`
+	Items []*HostInstance `json:"items"`
 	// This token allows you to get the next page of results for list requests.
 	// If the number of results is larger than maxResults, use the `nextPageToken`
 	// as a value for the query parameter `pageToken` in the next list request.

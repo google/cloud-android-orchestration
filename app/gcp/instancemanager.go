@@ -71,6 +71,9 @@ func (m *InstanceManager) GetHostURL(zone string, host string) (*url.URL, error)
 const operationStatusDone = "DONE"
 
 func (m *InstanceManager) CreateHost(zone string, req *apiv1.CreateHostRequest, user app.UserInfo) (*apiv1.Operation, error) {
+	if m.Config.GCP.ContainsAcloudInstances {
+		return nil, app.NewBadRequestError("Invalid CreateHostRequest: GCP project contains acloud instances", nil)
+	}
 	if err := validateRequest(req); err != nil {
 		return nil, err
 	}

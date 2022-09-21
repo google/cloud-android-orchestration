@@ -41,8 +41,9 @@ const (
 )
 
 type GCPIMConfig struct {
-	ProjectID string
-	HostImage string
+	ProjectID               string
+	HostImage               string
+	ContainsAcloudInstances bool
 }
 
 type AMConfig struct {

@@ -225,6 +225,46 @@ func TestCreateHostSuccess(t *testing.T) {
 	}
 }
 
+func TestCreateHostProjectContainsAcloudInstances(t *testing.T) {
+	expectedName := "operation-1"
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		o := &compute.Operation{
+			Name:   expectedName,
+			Status: "DONE",
+		}
+		replyJSON(w, o)
+	}))
+	defer ts.Close()
+	testService := buildTestService(t, ts)
+	testConfig := app.IMConfig{
+		GCP: &app.GCPIMConfig{
+			ProjectID:               "google.com:test-project",
+			HostImage:               "projects/test-project-releases/global/images/img-001",
+			ContainsAcloudInstances: true,
+		},
+	}
+	im := InstanceManager{
+		Config:                testConfig,
+		Service:               testService,
+		InstanceNameGenerator: testNameGenerator,
+	}
+	_, err := im.CreateHost("us-central1-a",
+		&apiv1.CreateHostRequest{
+			CreateHostInstanceRequest: &apiv1.CreateHostInstanceRequest{
+				GCP: &apiv1.GCPInstance{
+					DiskSizeGB:     100,
+					MachineType:    "zones/us-central1-f/machineTypes/n1-standard-1",
+					MinCPUPlatform: "Intel Haswell",
+				},
+			},
+		},
+		&TestUserInfo{})
+	var appErr *app.AppError
+	if !errors.As(err, &appErr) {
+		t.Errorf("unexpected error <<\"%v\">>, want \"%T\"", err, appErr)
+	}
+}
+
 func TestGetHostAddrRequestPath(t *testing.T) {
 	var pathSent string
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

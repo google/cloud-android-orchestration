@@ -55,6 +55,10 @@ func NewInvalidQueryParamError(param, value string, err error) error {
 	return NewBadRequestError(fmt.Sprintf("Invalid query parameter %q value: %q", param, value), err)
 }
 
+func NewMethodNotAllowedError(msg string, e error) error {
+	return &AppError{Msg: msg, StatusCode: http.StatusMethodNotAllowed, Err: e}
+}
+
 func NewInternalError(msg string, e error) error {
 	return &AppError{Msg: msg, StatusCode: http.StatusInternalServerError, Err: e}
 }

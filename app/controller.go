@@ -35,16 +35,20 @@ import (
 // relevant modules
 type Controller struct {
 	infraConfig     apiv1.InfraConfig
+	opsConfig       OperationsConfig
 	instanceManager InstanceManager
 	sigServer       SignalingServer
 	accountManager  AccountManager
 }
 
-func NewController(servers []string, im InstanceManager, ss SignalingServer, am AccountManager) *Controller {
-
+func NewController(
+	servers []string,
+	opsConfig OperationsConfig,
+	im InstanceManager,
+	ss SignalingServer,
+	am AccountManager) *Controller {
 	infraCfg := buildInfraCfg(servers)
-	controller := &Controller{infraCfg, im, ss, am}
-	return controller
+	return &Controller{infraCfg, opsConfig, im, ss, am}
 }
 
 func (c *Controller) Handler() http.Handler {
@@ -58,7 +62,7 @@ func (c *Controller) Handler() http.Handler {
 	router.Handle("/v1/zones/{zone}/hosts/{host}/devices/{deviceId}/files{path:/.+}", HTTPHandler(c.accountManager.Authenticate(c.getDeviceFiles))).Methods("GET")
 
 	// Instance Manager Routes
-	router.Handle("/v1/zones/{zone}/hosts", HTTPHandler(c.accountManager.Authenticate(c.createHost))).Methods("POST")
+	router.Handle("/v1/zones/{zone}/hosts", c.createHostHTTPHandler()).Methods("POST")
 	router.Handle("/v1/zones/{zone}/hosts", HTTPHandler(c.accountManager.Authenticate(c.listHosts))).Methods("GET")
 
 	// Host Orchestrator Proxy Routes
@@ -75,6 +79,13 @@ func (c *Controller) Handler() http.Handler {
 
 	// http.Handle("/", router)
 	return router
+}
+
+func (c *Controller) createHostHTTPHandler() HTTPHandler {
+	if c.opsConfig.CreateHostDisabled {
+		return notAllowedHttpHandler
+	}
+	return c.accountManager.Authenticate(c.createHost)
 }
 
 // Intercept errors returned by the HTTPHandler and transform them into HTTP
@@ -292,4 +303,8 @@ func getZone(r *http.Request) string {
 
 func getHost(r *http.Request) string {
 	return mux.Vars(r)["host"]
+}
+
+func notAllowedHttpHandler(w http.ResponseWriter, r *http.Request) error {
+	return NewMethodNotAllowedError("Operation is disabled", nil)
 }

@@ -35,16 +35,20 @@ import (
 // relevant modules
 type Controller struct {
 	infraConfig     apiv1.InfraConfig
+	opsConfig       OperationsConfig
 	instanceManager InstanceManager
 	sigServer       SignalingServer
 	accountManager  AccountManager
 }
 
-func NewController(servers []string, im InstanceManager, ss SignalingServer, am AccountManager) *Controller {
-
+func NewController(
+	servers []string,
+	opsConfig OperationsConfig,
+	im InstanceManager,
+	ss SignalingServer,
+	am AccountManager) *Controller {
 	infraCfg := buildInfraCfg(servers)
-	controller := &Controller{infraCfg, im, ss, am}
-	return controller
+	return &Controller{infraCfg, opsConfig, im, ss, am}
 }
 
 func (c *Controller) Handler() http.Handler {
@@ -193,6 +197,9 @@ func (c *Controller) forward(w http.ResponseWriter, r *http.Request, user UserIn
 }
 
 func (c *Controller) createHost(w http.ResponseWriter, r *http.Request, user UserInfo) error {
+	if c.opsConfig.CreateHostDisabled {
+		return NewMethodNotAllowedError("Create host operation is disabled", nil)
+	}
 	var msg apiv1.CreateHostRequest
 	err := json.NewDecoder(r.Body).Decode(&msg)
 	if err != nil {

@@ -26,6 +26,7 @@ type Config struct {
 	AccountManager  AMConfig
 	InstanceManager IMConfig
 	Infra           InfraConfig
+	Operations      OperationsConfig
 }
 
 type IMConfig struct {
@@ -41,9 +42,8 @@ const (
 )
 
 type GCPIMConfig struct {
-	ProjectID               string
-	HostImage               string
-	ContainsAcloudInstances bool
+	ProjectID string
+	HostImage string
 }
 
 type AMConfig struct {
@@ -59,6 +59,10 @@ const (
 
 type InfraConfig struct {
 	STUNServers []string
+}
+
+type OperationsConfig struct {
+	CreateHostDisabled bool
 }
 
 func LoadConfig() (*Config, error) {

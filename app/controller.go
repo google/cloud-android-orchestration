@@ -83,7 +83,7 @@ func (c *Controller) Handler() http.Handler {
 
 func (c *Controller) createHostHTTPHandler() HTTPHandler {
 	if c.opsConfig.CreateHostDisabled {
-		return notAllowedHttpHandler()
+		return notAllowedHttpHandler
 	}
 	return c.accountManager.Authenticate(c.createHost)
 }
@@ -305,8 +305,6 @@ func getHost(r *http.Request) string {
 	return mux.Vars(r)["host"]
 }
 
-func notAllowedHttpHandler() HTTPHandler {
-	return func(w http.ResponseWriter, r *http.Request) error {
-		return NewMethodNotAllowedError("Operation is disabled", nil)
-	}
+func notAllowedHttpHandler(w http.ResponseWriter, r *http.Request) error {
+	return NewMethodNotAllowedError("Operation is disabled", nil)
 }

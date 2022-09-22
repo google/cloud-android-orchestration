@@ -17,6 +17,7 @@ package main
 import (
 	"context"
 	"log"
+	"net/http"
 	"os"
 
 	"cloud-android-orchestration/app"
@@ -73,7 +74,5 @@ func main() {
 	}
 
 	log.Printf("Listening on port %s", port)
-	if err := or.ListenAndServe(":"+port, nil); err != nil {
-		log.Fatal(err)
-	}
+	log.Fatal(http.ListenAndServe(":"+port, or.Handler()))
 }

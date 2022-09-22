@@ -22,10 +22,59 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
+
+	apiv1 "cloud-android-orchestration/api/v1"
 
 	"github.com/gorilla/mux"
 )
+
+const testUsername = "johndoe"
+
+type testUserInfo struct{}
+
+func (i *testUserInfo) Username() string { return testUsername }
+
+type testAccountManager struct{}
+
+func (m *testAccountManager) Authenticate(fn AuthHTTPHandler) HTTPHandler {
+	return func(w http.ResponseWriter, r *http.Request) error {
+		return fn(w, r, &testUserInfo{})
+	}
+}
+
+type testInstanceManager struct{}
+
+func (m *testInstanceManager) GetHostAddr(_ string, _ string) (string, error) {
+	return "127.0.0.1", nil
+}
+
+func (m *testInstanceManager) GetHostURL(zone string, host string) (*url.URL, error) {
+	return url.Parse("http://127.0.0.1:8080")
+}
+
+func (m *testInstanceManager) CreateHost(_ string, _ *apiv1.CreateHostRequest, _ UserInfo) (*apiv1.Operation, error) {
+	return &apiv1.Operation{}, nil
+}
+
+func (m *testInstanceManager) ListHosts(zone string, user UserInfo, req *ListHostsRequest) (*apiv1.ListHostsResponse, error) {
+	return &apiv1.ListHostsResponse{}, nil
+}
+
+func TestCreateHostSucceeds(t *testing.T) {
+	controller := NewController(make([]string, 0), &testInstanceManager{}, nil, &testAccountManager{})
+	ts := httptest.NewServer(controller.Handler())
+	defer ts.Close()
+
+	res, _ := http.Post(
+		ts.URL+"/v1/zones/us-central1-a/hosts", "application/json", strings.NewReader("{}"))
+
+	expected := http.StatusOK
+	if res.StatusCode != http.StatusOK {
+		t.Errorf("unexpected status code <<%d>>, want: %d", res.StatusCode, expected)
+	}
+}
 
 func TestBuildListHostsRequest(t *testing.T) {
 

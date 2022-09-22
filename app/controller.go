@@ -41,30 +41,25 @@ type Controller struct {
 }
 
 func NewController(servers []string, im InstanceManager, ss SignalingServer, am AccountManager) *Controller {
+
 	infraCfg := buildInfraCfg(servers)
 	controller := &Controller{infraCfg, im, ss, am}
-	controller.SetupRoutes()
-
 	return controller
 }
 
-func (c *Controller) ListenAndServe(addr string, handler http.Handler) error {
-	return http.ListenAndServe(addr, handler)
-}
-
-func (c *Controller) SetupRoutes() {
+func (c *Controller) Handler() http.Handler {
 	router := mux.NewRouter()
 	hf := &HostForwarder{URLResolver: c.instanceManager}
 
 	// Signaling Server Routes
-	router.Handle("/v1/zones/{zone}/hosts/{host}/connections/{connId}/messages", HTTPHandler(c.accountManager.Authenticate(c.Messages))).Methods("GET")
-	router.Handle("/v1/zones/{zone}/hosts/{host}/connections/{connId}/:forward", HTTPHandler(c.accountManager.Authenticate(c.Forward))).Methods("POST")
-	router.Handle("/v1/zones/{zone}/hosts/{host}/connections", HTTPHandler(c.accountManager.Authenticate(c.CreateConnection))).Methods("POST")
-	router.Handle("/v1/zones/{zone}/hosts/{host}/devices/{deviceId}/files{path:/.+}", HTTPHandler(c.accountManager.Authenticate(c.GetDeviceFiles))).Methods("GET")
+	router.Handle("/v1/zones/{zone}/hosts/{host}/connections/{connId}/messages", HTTPHandler(c.accountManager.Authenticate(c.messages))).Methods("GET")
+	router.Handle("/v1/zones/{zone}/hosts/{host}/connections/{connId}/:forward", HTTPHandler(c.accountManager.Authenticate(c.forward))).Methods("POST")
+	router.Handle("/v1/zones/{zone}/hosts/{host}/connections", HTTPHandler(c.accountManager.Authenticate(c.createConnection))).Methods("POST")
+	router.Handle("/v1/zones/{zone}/hosts/{host}/devices/{deviceId}/files{path:/.+}", HTTPHandler(c.accountManager.Authenticate(c.getDeviceFiles))).Methods("GET")
 
 	// Instance Manager Routes
-	router.Handle("/v1/zones/{zone}/hosts", HTTPHandler(c.accountManager.Authenticate(c.CreateHost))).Methods("POST")
-	router.Handle("/v1/zones/{zone}/hosts", HTTPHandler(c.accountManager.Authenticate(c.ListHosts))).Methods("GET")
+	router.Handle("/v1/zones/{zone}/hosts", HTTPHandler(c.accountManager.Authenticate(c.createHost))).Methods("POST")
+	router.Handle("/v1/zones/{zone}/hosts", HTTPHandler(c.accountManager.Authenticate(c.listHosts))).Methods("GET")
 
 	// Host Orchestrator Proxy Routes
 	router.PathPrefix("/v1/zones/{zone}/hosts/{host}/{resource:devices|operations}").Handler(hf.Handler())
@@ -78,7 +73,8 @@ func (c *Controller) SetupRoutes() {
 	// Global routes
 	router.Handle("/", HTTPHandler(c.accountManager.Authenticate(indexHandler)))
 
-	http.Handle("/", router)
+	// http.Handle("/", router)
+	return router
 }
 
 // Intercept errors returned by the HTTPHandler and transform them into HTTP
@@ -141,13 +137,13 @@ func (p *hostReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) 
 	p.innerProxy.ServeHTTP(rw, req)
 }
 
-func (c *Controller) GetDeviceFiles(w http.ResponseWriter, r *http.Request, user UserInfo) error {
+func (c *Controller) getDeviceFiles(w http.ResponseWriter, r *http.Request, user UserInfo) error {
 	devId := mux.Vars(r)["deviceId"]
 	path := mux.Vars(r)["path"]
 	return c.sigServer.ServeDeviceFiles(getZone(r), getHost(r), DeviceFilesRequest{devId, path, w, r}, user)
 }
 
-func (c *Controller) CreateConnection(w http.ResponseWriter, r *http.Request, user UserInfo) error {
+func (c *Controller) createConnection(w http.ResponseWriter, r *http.Request, user UserInfo) error {
 	var msg apiv1.NewConnMsg
 	err := json.NewDecoder(r.Body).Decode(&msg)
 	if err != nil {
@@ -162,7 +158,7 @@ func (c *Controller) CreateConnection(w http.ResponseWriter, r *http.Request, us
 	return nil
 }
 
-func (c *Controller) Messages(w http.ResponseWriter, r *http.Request, user UserInfo) error {
+func (c *Controller) messages(w http.ResponseWriter, r *http.Request, user UserInfo) error {
 	id := mux.Vars(r)["connId"]
 	start, err := intFormValue(r, "start", 0)
 	if err != nil {
@@ -181,7 +177,7 @@ func (c *Controller) Messages(w http.ResponseWriter, r *http.Request, user UserI
 	return nil
 }
 
-func (c *Controller) Forward(w http.ResponseWriter, r *http.Request, user UserInfo) error {
+func (c *Controller) forward(w http.ResponseWriter, r *http.Request, user UserInfo) error {
 	id := mux.Vars(r)["connId"]
 	var msg apiv1.ForwardMsg
 	err := json.NewDecoder(r.Body).Decode(&msg)
@@ -196,7 +192,7 @@ func (c *Controller) Forward(w http.ResponseWriter, r *http.Request, user UserIn
 	return nil
 }
 
-func (c *Controller) CreateHost(w http.ResponseWriter, r *http.Request, user UserInfo) error {
+func (c *Controller) createHost(w http.ResponseWriter, r *http.Request, user UserInfo) error {
 	var msg apiv1.CreateHostRequest
 	err := json.NewDecoder(r.Body).Decode(&msg)
 	if err != nil {
@@ -210,7 +206,7 @@ func (c *Controller) CreateHost(w http.ResponseWriter, r *http.Request, user Use
 	return nil
 }
 
-func (c *Controller) ListHosts(w http.ResponseWriter, r *http.Request, user UserInfo) error {
+func (c *Controller) listHosts(w http.ResponseWriter, r *http.Request, user UserInfo) error {
 	listReq, err := BuildListHostsRequest(r)
 	if err != nil {
 		return err

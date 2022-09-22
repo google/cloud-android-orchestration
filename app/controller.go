@@ -62,7 +62,7 @@ func (c *Controller) Handler() http.Handler {
 	router.Handle("/v1/zones/{zone}/hosts/{host}/devices/{deviceId}/files{path:/.+}", HTTPHandler(c.accountManager.Authenticate(c.getDeviceFiles))).Methods("GET")
 
 	// Instance Manager Routes
-	router.Handle("/v1/zones/{zone}/hosts", HTTPHandler(c.accountManager.Authenticate(c.createHost))).Methods("POST")
+	router.Handle("/v1/zones/{zone}/hosts", c.createHostHTTPHandler()).Methods("POST")
 	router.Handle("/v1/zones/{zone}/hosts", HTTPHandler(c.accountManager.Authenticate(c.listHosts))).Methods("GET")
 
 	// Host Orchestrator Proxy Routes
@@ -79,6 +79,13 @@ func (c *Controller) Handler() http.Handler {
 
 	// http.Handle("/", router)
 	return router
+}
+
+func (c *Controller) createHostHTTPHandler() HTTPHandler {
+	if c.opsConfig.CreateHostDisabled {
+		return notAllowedHttpHandler()
+	}
+	return c.accountManager.Authenticate(c.createHost)
 }
 
 // Intercept errors returned by the HTTPHandler and transform them into HTTP
@@ -197,9 +204,6 @@ func (c *Controller) forward(w http.ResponseWriter, r *http.Request, user UserIn
 }
 
 func (c *Controller) createHost(w http.ResponseWriter, r *http.Request, user UserInfo) error {
-	if c.opsConfig.CreateHostDisabled {
-		return NewMethodNotAllowedError("Create host operation is disabled", nil)
-	}
 	var msg apiv1.CreateHostRequest
 	err := json.NewDecoder(r.Body).Decode(&msg)
 	if err != nil {
@@ -299,4 +303,10 @@ func getZone(r *http.Request) string {
 
 func getHost(r *http.Request) string {
 	return mux.Vars(r)["host"]
+}
+
+func notAllowedHttpHandler() HTTPHandler {
+	return func(w http.ResponseWriter, r *http.Request) error {
+		return NewMethodNotAllowedError("Operation is disabled", nil)
+	}
 }

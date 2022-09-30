@@ -151,6 +151,18 @@ func (m *InstanceManager) ListHosts(zone string, user app.UserInfo, req *app.Lis
 	}, nil
 }
 
+func (m *InstanceManager) WaitOperation(zone string, user app.UserInfo, name string) (*apiv1.Operation, error) {
+	op, err := m.Service.ZoneOperations.Wait(m.Config.GCP.ProjectID, zone, name).Do()
+	if err != nil {
+		return nil, err
+	}
+	result := &apiv1.Operation{
+		Name: op.Name,
+		Done: op.Status == operationStatusDone,
+	}
+	return result, nil
+}
+
 func (m *InstanceManager) getHostInstance(zone string, host string) (*compute.Instance, error) {
 	return m.Service.Instances.
 		Get(m.Config.GCP.ProjectID, zone, host).

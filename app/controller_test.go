@@ -62,6 +62,10 @@ func (m *testInstanceManager) ListHosts(zone string, user UserInfo, req *ListHos
 	return &apiv1.ListHostsResponse{}, nil
 }
 
+func (m *testInstanceManager) WaitOperation(_ string, _ UserInfo, _ string) (*apiv1.Operation, error) {
+	return &apiv1.Operation{}, nil
+}
+
 func TestCreateHostSucceeds(t *testing.T) {
 	controller := NewController(
 		make([]string, 0), OperationsConfig{}, &testInstanceManager{}, nil, &testAccountManager{})
@@ -89,6 +93,21 @@ func TestCreateHostOperationIsDisabled(t *testing.T) {
 		ts.URL+"/v1/zones/us-central1-a/hosts", "application/json", strings.NewReader("{}"))
 
 	expected := http.StatusMethodNotAllowed
+	if res.StatusCode != expected {
+		t.Errorf("unexpected status code <<%d>>, want: %d", res.StatusCode, expected)
+	}
+}
+
+func TestWaitOperatioSucceeds(t *testing.T) {
+	controller := NewController(
+		make([]string, 0), OperationsConfig{}, &testInstanceManager{}, nil, &testAccountManager{})
+	ts := httptest.NewServer(controller.Handler())
+	defer ts.Close()
+
+	res, _ := http.Post(
+		ts.URL+"/v1/zones/us-central1-a/operations/foo/wait", "application/json", strings.NewReader("{}"))
+
+	expected := http.StatusOK
 	if res.StatusCode != expected {
 		t.Errorf("unexpected status code <<%d>>, want: %d", res.StatusCode, expected)
 	}

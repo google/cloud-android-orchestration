@@ -478,27 +478,24 @@ func TestWaitOperationDoneOperationSucceeds(t *testing.T) {
 
 func TestWaitOperationInvalidDoneOperations(t *testing.T) {
 	zone := "us-central1-a"
-	var operations = []struct {
-		name      string
-		operation *compute.Operation
-	}{
-		{"oper-1", &compute.Operation{Status: "DONE"}},
-		{"oper-2", &compute.Operation{
+	var operations = map[string]*compute.Operation{
+		"oper-1": &compute.Operation{Status: "DONE"},
+		"oper-2": &compute.Operation{
 			OperationType: "refresh", // not handled operation type
 			TargetLink:    "https://xyzzy.com/compute/v1/projects/google.com:test-project/zones/us-central1-a/instances/foo",
 			Status:        "DONE",
-		}},
-		{"oper-3", &compute.Operation{
+		},
+		"oper-3": &compute.Operation{
 			OperationType: "insert",
 			// Invalid TargetLink, missing the instance name.
 			TargetLink: "https://xyzzy.com/compute/v1/projects/google.com:test-project/zones/us-central1-a/instances/",
 			Status:     "DONE",
-		}},
+		},
 	}
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		for _, op := range operations {
-			if strings.HasSuffix(r.URL.Path, op.name+"/wait") {
-				replyJSON(w, op.operation)
+		for name, op := range operations {
+			if strings.HasSuffix(r.URL.Path, name+"/wait") {
+				replyJSON(w, op)
 				return
 			}
 		}
@@ -511,9 +508,9 @@ func TestWaitOperationInvalidDoneOperations(t *testing.T) {
 		InstanceNameGenerator: testNameGenerator,
 	}
 
-	for _, op := range operations {
+	for name, _ := range operations {
 
-		_, err := im.WaitOperation(zone, &TestUserInfo{}, op.name)
+		_, err := im.WaitOperation(zone, &TestUserInfo{}, name)
 
 		if err == nil {
 			t.Error("expected error")

@@ -29,12 +29,17 @@ type Operation struct {
 	// available.
 	Done bool `json:"done"`
 	// Result will contain either an error or a result object but never both.
-	Result *Result `json:"result,omitempty"`
+	Result *OperationResult `json:"result,omitempty"`
 }
 
-type Result struct {
-	Error        Error       `json:"error,omitempty"`
-	ResultObject interface{} `json:"result,omitempty"`
+type OperationResult struct {
+	// The error result of the operation in case of failure or cancellation.
+	Error *Error `json:"error,omitempty"`
+	// The expected response of the operation in case of success.  If the original
+	// method returns no data on success, such as `Delete`, this field will be
+	// empty, hence omitted. If the original method is standard:
+	// `Get`/`Create`/`Update`, the response should be the relevant resource.
+	Response interface{} `json:"response,omitempty"`
 }
 
 type Error struct {

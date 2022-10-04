@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"strings"
 	"testing"
 
 	apiv1 "cloud-android-orchestration/api/v1"
@@ -193,7 +194,7 @@ func TestCreateHostSuccess(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		o := &compute.Operation{
 			Name:   expectedName,
-			Status: "DONE",
+			Status: "PENDING",
 		}
 		replyJSON(w, o)
 	}))
@@ -220,8 +221,8 @@ func TestCreateHostSuccess(t *testing.T) {
 	if op.Name != expectedName {
 		t.Errorf("expected <<%q>>, got: %q", expectedName, op.Name)
 	}
-	if !op.Done {
-		t.Error("expected true")
+	if op.Done {
+		t.Error("expected not done.")
 	}
 }
 
@@ -389,6 +390,133 @@ func TestListHostsSucceeds(t *testing.T) {
 		if !reflect.DeepEqual(resp.Items[i], expected) {
 			t.Errorf("unexpected host instance with diff: %s",
 				diffPrettyText(prettyJSON(t, *expected), prettyJSON(t, *resp.Items[0])))
+		}
+	}
+}
+
+func TestWaitOperationNotDoneOperationSucceeds(t *testing.T) {
+	zone := "us-central1-a"
+	opName := "operation-1"
+	operation := &compute.Operation{
+		Name:   opName,
+		Status: "PENDING",
+	}
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch path := r.URL.Path; path {
+		case "/projects/google.com:test-project/zones/us-central1-a/operations/operation-1/wait":
+			replyJSON(w, operation)
+		default:
+			t.Fatalf("unexpected path: %q", path)
+		}
+	}))
+	defer ts.Close()
+	im := InstanceManager{
+		Config:                testConfig,
+		Service:               buildTestService(t, ts),
+		InstanceNameGenerator: testNameGenerator,
+	}
+
+	op, _ := im.WaitOperation(zone, &TestUserInfo{}, opName)
+
+	if op.Name != opName {
+		t.Errorf("expected <<%q>>, got: %q", opName, op.Name)
+	}
+	if op.Done {
+		t.Error("expected not done.")
+	}
+	if op.Result != nil {
+		t.Error("expected nil result.")
+	}
+}
+
+func TestWaitOperationDoneOperationSucceeds(t *testing.T) {
+	zone := "us-central1-a"
+	opName := "operation-1"
+	operation := &compute.Operation{
+		Name:          opName,
+		OperationType: "insert",
+		TargetLink:    "https://xyzzy.com/compute/v1/projects/google.com:test-project/zones/us-central1-a/instances/foo",
+		Status:        "DONE",
+	}
+	instance := &compute.Instance{
+		Disks:          []*compute.AttachedDisk{{DiskSizeGb: 10}},
+		Name:           "foo",
+		MachineType:    "mt",
+		MinCpuPlatform: "mcp",
+	}
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch path := r.URL.Path; path {
+		case "/projects/google.com:test-project/zones/us-central1-a/operations/operation-1/wait":
+			replyJSON(w, operation)
+		case "/projects/google.com:test-project/zones/us-central1-a/instances/foo":
+			replyJSON(w, instance)
+		default:
+			t.Fatalf("unexpected path: %q", path)
+		}
+	}))
+	defer ts.Close()
+	im := InstanceManager{
+		Config:                testConfig,
+		Service:               buildTestService(t, ts),
+		InstanceNameGenerator: testNameGenerator,
+	}
+
+	op, _ := im.WaitOperation(zone, &TestUserInfo{}, opName)
+
+	if op.Name != opName {
+		t.Errorf("expected <<%q>>, got: %q", opName, op.Name)
+	}
+	if !op.Done {
+		t.Error("expected done.")
+	}
+	expected, _ := BuildHostInstance(instance)
+	if !reflect.DeepEqual(op.Result.Response, expected) {
+		t.Errorf("unexpected operation result with diff: %s",
+			diffPrettyText(prettyJSON(t, *expected), prettyJSON(t, *instance)))
+	}
+}
+
+func TestWaitOperationInvalidDoneOperations(t *testing.T) {
+	zone := "us-central1-a"
+	var operations = []struct {
+		name      string
+		operation *compute.Operation
+	}{
+		{"oper-1", &compute.Operation{Status: "DONE"}},
+		{"oper-2", &compute.Operation{
+			OperationType: "refresh", // not handled operation type
+			TargetLink:    "https://xyzzy.com/compute/v1/projects/google.com:test-project/zones/us-central1-a/instances/foo",
+			Status:        "DONE",
+		}},
+		{"oper-3", &compute.Operation{
+			OperationType: "insert",
+			// Invalid TargetLink, missing the instance name.
+			TargetLink: "https://xyzzy.com/compute/v1/projects/google.com:test-project/zones/us-central1-a/instances/",
+			Status:     "DONE",
+		}},
+	}
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		for _, op := range operations {
+			if strings.HasSuffix(r.URL.Path, op.name+"/wait") {
+				replyJSON(w, op.operation)
+				return
+			}
+		}
+		t.Fatalf("unexpected path: %q", r.URL.Path)
+	}))
+	defer ts.Close()
+	im := InstanceManager{
+		Config:                testConfig,
+		Service:               buildTestService(t, ts),
+		InstanceNameGenerator: testNameGenerator,
+	}
+
+	for _, op := range operations {
+
+		_, err := im.WaitOperation(zone, &TestUserInfo{}, op.name)
+
+		if err == nil {
+			t.Error("expected error")
 		}
 	}
 }

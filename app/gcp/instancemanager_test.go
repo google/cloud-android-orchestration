@@ -479,13 +479,13 @@ func TestWaitOperationDoneOperationSucceeds(t *testing.T) {
 func TestWaitOperationInvalidDoneOperations(t *testing.T) {
 	zone := "us-central1-a"
 	var operations = map[string]*compute.Operation{
-		"oper-1": &compute.Operation{Status: "DONE"},
-		"oper-2": &compute.Operation{
+		"oper-1": {Status: "DONE"},
+		"oper-2": {
 			OperationType: "refresh", // not handled operation type
 			TargetLink:    "https://xyzzy.com/compute/v1/projects/google.com:test-project/zones/us-central1-a/instances/foo",
 			Status:        "DONE",
 		},
-		"oper-3": &compute.Operation{
+		"oper-3": {
 			OperationType: "insert",
 			// Invalid TargetLink, missing the instance name.
 			TargetLink: "https://xyzzy.com/compute/v1/projects/google.com:test-project/zones/us-central1-a/instances/",
@@ -508,7 +508,7 @@ func TestWaitOperationInvalidDoneOperations(t *testing.T) {
 		InstanceNameGenerator: testNameGenerator,
 	}
 
-	for name, _ := range operations {
+	for name := range operations {
 
 		_, err := im.WaitOperation(zone, &TestUserInfo{}, name)
 

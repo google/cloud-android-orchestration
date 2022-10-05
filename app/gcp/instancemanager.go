@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"log"
 	"net/url"
+	"regexp"
 
 	apiv1 "cloud-android-orchestration/api/v1"
 	"cloud-android-orchestration/app"
@@ -111,11 +112,7 @@ func (m *InstanceManager) CreateHost(zone string, req *apiv1.CreateHostRequest, 
 	if err != nil {
 		return nil, err
 	}
-	result := &apiv1.Operation{
-		Name: op.Name,
-		Done: op.Status == operationStatusDone,
-	}
-	return result, nil
+	return m.buildOperation(op)
 }
 
 const listHostsRequestMaxResultsLimit uint32 = 500
@@ -156,11 +153,7 @@ func (m *InstanceManager) WaitOperation(zone string, user app.UserInfo, name str
 	if err != nil {
 		return nil, err
 	}
-	result := &apiv1.Operation{
-		Name: op.Name,
-		Done: op.Status == operationStatusDone,
-	}
-	return result, nil
+	return m.buildOperation(op)
 }
 
 func (m *InstanceManager) getHostInstance(zone string, host string) (*compute.Instance, error) {
@@ -168,6 +161,11 @@ func (m *InstanceManager) getHostInstance(zone string, host string) (*compute.In
 		Get(m.Config.GCP.ProjectID, zone, host).
 		Context(context.TODO()).
 		Do()
+}
+
+func (m *InstanceManager) buildOperation(op *compute.Operation) (*apiv1.Operation, error) {
+	opBuilder := operationBuilder{Service: m.Service, Operation: op}
+	return opBuilder.Build()
 }
 
 func validateRequest(r *apiv1.CreateHostRequest) error {
@@ -215,4 +213,69 @@ type InstanceNameGenerator struct {
 
 func (g *InstanceNameGenerator) NewName() string {
 	return hostInstanceNamePrefix + g.UUIDFactory()
+}
+
+var (
+	instanceTargetLinkRe = regexp.MustCompile(`^https://.+/compute/v1/projects/(.+)/zones/(.+)/instances/(.+)$`)
+)
+
+type operationBuilder struct {
+	Service   *compute.Service
+	Operation *compute.Operation
+}
+
+func (b *operationBuilder) Build() (*apiv1.Operation, error) {
+	done := b.Operation.Status == operationStatusDone
+	if !done {
+		return b.buildNotDone()
+	}
+	return b.buildDone()
+}
+
+func (b *operationBuilder) buildNotDone() (*apiv1.Operation, error) {
+	return &apiv1.Operation{
+		Name: b.Operation.Name,
+		Done: false,
+	}, nil
+}
+
+func (b *operationBuilder) buildDone() (*apiv1.Operation, error) {
+	if b.isCreateInstance() {
+		result, err := b.buildCreateInstanceResult()
+		if err != nil {
+			return nil, err
+		}
+		return &apiv1.Operation{
+			Name:   b.Operation.Name,
+			Done:   true,
+			Result: result,
+		}, nil
+	}
+	return nil, fmt.Errorf("not handled operation type: %v", b.Operation)
+}
+
+func (b *operationBuilder) isCreateInstance() bool {
+	return b.Operation.OperationType == "insert" &&
+		instanceTargetLinkRe.MatchString(b.Operation.TargetLink)
+}
+
+func (b *operationBuilder) buildCreateInstanceResult() (*apiv1.OperationResult, error) {
+	matches := instanceTargetLinkRe.FindStringSubmatch(b.Operation.TargetLink)
+	if len(matches) != 4 {
+		err := fmt.Errorf("invalid target link for instance insert operation: %q",
+			b.Operation.TargetLink)
+		return nil, err
+	}
+	gcpInstance, err := b.Service.Instances.
+		Get(matches[1], matches[2], matches[3]).
+		Context(context.TODO()).
+		Do()
+	if err != nil {
+		return nil, err
+	}
+	hostInstance, err := BuildHostInstance(gcpInstance)
+	if err != nil {
+		return nil, err
+	}
+	return &apiv1.OperationResult{Response: hostInstance}, nil
 }

@@ -518,6 +518,39 @@ func TestWaitOperationInvalidDoneOperations(t *testing.T) {
 	}
 }
 
+func TestWaitOperationFailedOperation(t *testing.T) {
+	zone := "us-central1-a"
+	opName := "operation-1"
+	errorMessage := "NOT FOUND"
+	errorStatusCode := http.StatusNotFound
+	operation := &compute.Operation{
+		Name:                opName,
+		Status:              "DONE",
+		Error:               &compute.OperationError{},
+		HttpErrorMessage:    errorMessage,
+		HttpErrorStatusCode: int64(errorStatusCode),
+	}
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		replyJSON(w, operation)
+	}))
+	defer ts.Close()
+	im := InstanceManager{
+		Config:                testConfig,
+		Service:               buildTestService(t, ts),
+		InstanceNameGenerator: testNameGenerator,
+	}
+
+	_, err := im.WaitOperation(zone, &TestUserInfo{}, opName)
+
+	appErr, _ := err.(*app.AppError)
+	if appErr.Msg != errorMessage {
+		t.Errorf("expected <<%q>>, got: %q", errorMessage, appErr.Msg)
+	}
+	if appErr.StatusCode != errorStatusCode {
+		t.Errorf("expected <<%d>>, got: %d", errorStatusCode, appErr.StatusCode)
+	}
+}
+
 func TestBuildHostInstance(t *testing.T) {
 	input := &compute.Instance{
 		Disks:          []*compute.AttachedDisk{{DiskSizeGb: 10}},

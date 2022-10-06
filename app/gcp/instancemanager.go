@@ -240,6 +240,13 @@ func (b *operationBuilder) buildNotDone() (*apiv1.Operation, error) {
 }
 
 func (b *operationBuilder) buildDone() (*apiv1.Operation, error) {
+	if b.Operation.Error != nil {
+		return nil, &app.AppError{
+			Msg:        b.Operation.HttpErrorMessage,
+			StatusCode: int(b.Operation.HttpErrorStatusCode),
+			Err:        fmt.Errorf("gcp operation failed: %+v", b.Operation),
+		}
+	}
 	if b.isCreateInstance() {
 		result, err := b.buildCreateInstanceResult()
 		if err != nil {

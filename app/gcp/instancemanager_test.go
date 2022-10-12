@@ -63,7 +63,6 @@ func TestCreateHostInvalidRequests(t *testing.T) {
 		return &apiv1.CreateHostRequest{
 			CreateHostInstanceRequest: &apiv1.CreateHostInstanceRequest{
 				GCP: &apiv1.GCPInstance{
-					DiskSizeGB:     100,
 					MachineType:    "zones/us-central1-f/machineTypes/n1-standard-1",
 					MinCPUPlatform: "Intel Haswell",
 				},
@@ -80,7 +79,7 @@ func TestCreateHostInvalidRequests(t *testing.T) {
 	}{
 		{func(r *apiv1.CreateHostRequest) { r.CreateHostInstanceRequest = nil }},
 		{func(r *apiv1.CreateHostRequest) { r.CreateHostInstanceRequest.GCP = nil }},
-		{func(r *apiv1.CreateHostRequest) { r.CreateHostInstanceRequest.GCP.DiskSizeGB = 0 }},
+		{func(r *apiv1.CreateHostRequest) { r.CreateHostInstanceRequest.GCP.BootDiskSizeGB = 1 }},
 		{func(r *apiv1.CreateHostRequest) { r.CreateHostInstanceRequest.GCP.MachineType = "" }},
 	}
 
@@ -113,7 +112,6 @@ func TestCreateHostRequestPath(t *testing.T) {
 		&apiv1.CreateHostRequest{
 			CreateHostInstanceRequest: &apiv1.CreateHostInstanceRequest{
 				GCP: &apiv1.GCPInstance{
-					DiskSizeGB:     100,
 					MachineType:    "zones/us-central1-f/machineTypes/n1-standard-1",
 					MinCPUPlatform: "Intel Haswell",
 				},
@@ -146,7 +144,6 @@ func TestCreateHostRequestBody(t *testing.T) {
 		&apiv1.CreateHostRequest{
 			CreateHostInstanceRequest: &apiv1.CreateHostInstanceRequest{
 				GCP: &apiv1.GCPInstance{
-					DiskSizeGB:     100,
 					MachineType:    "zones/us-central1-f/machineTypes/n1-standard-1",
 					MinCPUPlatform: "Intel Haswell",
 				},
@@ -159,7 +156,6 @@ func TestCreateHostRequestBody(t *testing.T) {
     {
       "boot": true,
       "initializeParams": {
-        "diskSizeGb": "100",
         "sourceImage": "projects/test-project-releases/global/images/img-001"
       }
     }
@@ -210,7 +206,6 @@ func TestCreateHostSuccess(t *testing.T) {
 		&apiv1.CreateHostRequest{
 			CreateHostInstanceRequest: &apiv1.CreateHostInstanceRequest{
 				GCP: &apiv1.GCPInstance{
-					DiskSizeGB:     100,
 					MachineType:    "zones/us-central1-f/machineTypes/n1-standard-1",
 					MinCPUPlatform: "Intel Haswell",
 				},
@@ -564,7 +559,7 @@ func TestBuildHostInstance(t *testing.T) {
 	expected := `{
   "name": "foo",
   "gcp": {
-    "disk_size_gb": 10,
+    "boot_disk_size_gb": 10,
     "machine_type": "mt",
     "min_cpu_platform": "mcp"
   }

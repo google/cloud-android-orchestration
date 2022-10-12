@@ -11,8 +11,8 @@ type CreateHostInstanceRequest struct {
 }
 
 type GCPInstance struct {
-	// [REQUIRED]
-	DiskSizeGB int64 `json:"disk_size_gb"`
+	// [Output Only] Boot disk size in GB.
+	BootDiskSizeGB int64 `json:"boot_disk_size_gb"`
 	// [REQUIRED] More info about this field in https://cloud.google.com/compute/docs/reference/rest/v1/instances/insert#request-body
 	MachineType string `json:"machine_type"`
 	// More info about this field in https://cloud.google.com/compute/docs/reference/rest/v1/instances/insert#request-body

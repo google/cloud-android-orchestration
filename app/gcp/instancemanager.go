@@ -86,7 +86,6 @@ func (m *InstanceManager) CreateHost(zone string, req *apiv1.CreateHostRequest, 
 		Disks: []*compute.AttachedDisk{
 			{
 				InitializeParams: &compute.AttachedDiskInitializeParams{
-					DiskSizeGb:  int64(req.CreateHostInstanceRequest.GCP.DiskSizeGB),
 					SourceImage: m.Config.GCP.HostImage,
 				},
 				Boot: true,
@@ -171,7 +170,7 @@ func (m *InstanceManager) buildOperation(op *compute.Operation) (*apiv1.Operatio
 func validateRequest(r *apiv1.CreateHostRequest) error {
 	if r.CreateHostInstanceRequest == nil ||
 		r.CreateHostInstanceRequest.GCP == nil ||
-		r.CreateHostInstanceRequest.GCP.DiskSizeGB == 0 ||
+		r.CreateHostInstanceRequest.GCP.BootDiskSizeGB != 0 ||
 		r.CreateHostInstanceRequest.GCP.MachineType == "" {
 		return app.NewBadRequestError("invalid CreateHostRequest", nil)
 	}
@@ -194,7 +193,7 @@ func BuildHostInstance(in *compute.Instance) (*apiv1.HostInstance, error) {
 	return &apiv1.HostInstance{
 		Name: in.Name,
 		GCP: &apiv1.GCPInstance{
-			DiskSizeGB:     in.Disks[0].DiskSizeGb,
+			BootDiskSizeGB: in.Disks[0].DiskSizeGb,
 			MachineType:    in.MachineType,
 			MinCPUPlatform: in.MinCpuPlatform,
 		},

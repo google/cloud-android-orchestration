@@ -55,6 +55,8 @@ type InstanceManager interface {
 	CreateHost(zone string, req *apiv1.CreateHostRequest, user UserInfo) (*apiv1.Operation, error)
 	// List hosts
 	ListHosts(zone string, user UserInfo, req *ListHostsRequest) (*apiv1.ListHostsResponse, error)
+	// Deletes the given host instance.
+	DeleteHost(zone string, user UserInfo, name string) (*apiv1.Operation, error)
 	// Waits until operation is DONE or earlier returning the current status.
 	WaitOperation(zone string, user UserInfo, name string) (*apiv1.Operation, error)
 }

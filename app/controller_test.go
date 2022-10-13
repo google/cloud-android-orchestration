@@ -30,6 +30,8 @@ import (
 	"github.com/gorilla/mux"
 )
 
+const pageNotFoundErrMsg = "404 page not found\n"
+
 const testUsername = "johndoe"
 
 type testUserInfo struct{}
@@ -60,6 +62,10 @@ func (m *testInstanceManager) CreateHost(_ string, _ *apiv1.CreateHostRequest, _
 
 func (m *testInstanceManager) ListHosts(zone string, user UserInfo, req *ListHostsRequest) (*apiv1.ListHostsResponse, error) {
 	return &apiv1.ListHostsResponse{}, nil
+}
+
+func (m *testInstanceManager) DeleteHost(zone string, user UserInfo, name string) (*apiv1.Operation, error) {
+	return &apiv1.Operation{}, nil
 }
 
 func (m *testInstanceManager) WaitOperation(_ string, _ UserInfo, _ string) (*apiv1.Operation, error) {
@@ -163,6 +169,22 @@ func TestBuildListHostsRequest(t *testing.T) {
 			t.Errorf("expected <<%+v>>, got %+v", expected, listReq)
 		}
 	})
+}
+
+func TestDeleteHostIsHandled(t *testing.T) {
+	rr := httptest.NewRecorder()
+	req, err := http.NewRequest("DELETE", "/v1/zones/foo/hosts/bar", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	controller := NewController(
+		make([]string, 0), OperationsConfig{}, &testInstanceManager{}, nil, &testAccountManager{})
+
+	makeRequest(rr, req, controller)
+
+	if rr.Code == http.StatusNotFound && rr.Body.String() == pageNotFoundErrMsg {
+		t.Errorf("request was not handled. This failure implies an API breaking change.")
+	}
 }
 
 type testHostURLResolver struct {
@@ -308,4 +330,9 @@ func assertIsAppError(t *testing.T, err error) {
 	if !errors.As(err, &appErr) {
 		t.Errorf("error type <<\"%T\">> not found in error chain", appErr)
 	}
+}
+
+func makeRequest(w http.ResponseWriter, r *http.Request, controller *Controller) {
+	router := controller.Handler()
+	router.ServeHTTP(w, r)
 }

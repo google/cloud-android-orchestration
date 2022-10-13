@@ -147,6 +147,10 @@ func (m *InstanceManager) ListHosts(zone string, user app.UserInfo, req *app.Lis
 	}, nil
 }
 
+func (m *InstanceManager) DeleteHost(zone string, user app.UserInfo, name string) (*apiv1.Operation, error) {
+	return nil, app.NewInternalError(fmt.Sprintf("%T#DeleteHost is not implemented", *m), nil)
+}
+
 func (m *InstanceManager) WaitOperation(zone string, user app.UserInfo, name string) (*apiv1.Operation, error) {
 	op, err := m.Service.ZoneOperations.Wait(m.Config.GCP.ProjectID, zone, name).Do()
 	if err != nil {

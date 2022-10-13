@@ -52,6 +52,10 @@ func (m *InstanceManager) ListHosts(zone string, user app.UserInfo, req *app.Lis
 	return nil, app.NewInternalError(fmt.Sprintf("%T#ListHosts is not implemented", *m), nil)
 }
 
+func (m *InstanceManager) DeleteHost(zone string, user app.UserInfo, name string) (*apiv1.Operation, error) {
+	return nil, app.NewInternalError(fmt.Sprintf("%T#DeleteHost is not implemented", *m), nil)
+}
+
 func (m *InstanceManager) WaitOperation(zone string, user app.UserInfo, name string) (*apiv1.Operation, error) {
 	return nil, app.NewInternalError(fmt.Sprintf("%T#WaitOperation is not implemented", *m), nil)
 }

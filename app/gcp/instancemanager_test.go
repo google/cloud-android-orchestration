@@ -446,7 +446,7 @@ func TestDeleteHostSucceeds(t *testing.T) {
 			r.URL.Path == "/projects/google.com:test-project/zones/us-central1-a/instances/foo" {
 			replyJSON(w, operation)
 		} else if r.URL.Path == "/projects/google.com:test-project/zones/us-central1-a/instances" {
-			replyJSON(w, &compute.InstanceList{Items: []*compute.Instance{&compute.Instance{}}})
+			replyJSON(w, &compute.InstanceList{Items: []*compute.Instance{{}}})
 		} else {
 			t.Fatalf("unexpected path: %q", r.URL.Path)
 		}

@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"reflect"
 	"strings"
 	"testing"
@@ -311,9 +312,14 @@ func TestListHostsRequestQuery(t *testing.T) {
 
 	im.ListHosts("us-central1-a", &TestUserInfo{}, req)
 
-	expected := "alt=json&filter=labels.created_by%3Ajohndoe&maxResults=100&pageToken=foo&prettyPrint=false"
-	if usedQuery != expected {
-		t.Errorf("expected <<%q>>, got %q", expected, usedQuery)
+	m, _ := url.ParseQuery(usedQuery)
+	got, expected := m["filter"][0], "labels.created_by:johndoe AND status=RUNNING"
+	if got != expected {
+		t.Errorf("expected <<%q>>, got %q", expected, got)
+	}
+	got, expected = m["maxResults"][0], "100"
+	if got != expected {
+		t.Errorf("expected <<%q>>, got %q", expected, got)
 	}
 }
 
@@ -337,9 +343,10 @@ func TestListHostsOverMaxResultsLimit(t *testing.T) {
 
 	im.ListHosts("us-central1-a", &TestUserInfo{}, req)
 
-	expected := "alt=json&filter=labels.created_by%3Ajohndoe&maxResults=500&pageToken=foo&prettyPrint=false"
-	if usedQuery != expected {
-		t.Errorf("expected <<%q>>, got %q", expected, usedQuery)
+	m, _ := url.ParseQuery(usedQuery)
+	got, expected := m["maxResults"][0], "500"
+	if got != expected {
+		t.Errorf("expected <<%q>>, got %q", expected, got)
 	}
 }
 

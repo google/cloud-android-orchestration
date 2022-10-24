@@ -148,7 +148,27 @@ func (m *InstanceManager) ListHosts(zone string, user app.UserInfo, req *app.Lis
 }
 
 func (m *InstanceManager) DeleteHost(zone string, user app.UserInfo, name string) (*apiv1.Operation, error) {
-	return nil, app.NewInternalError(fmt.Sprintf("%T#DeleteHost is not implemented", *m), nil)
+	nameFilterExpr := "name=" + name
+	ownerFilterExpr := fmt.Sprintf("labels.%s:%s", labelAcloudCreatedBy, user.Username())
+	res, err := m.Service.Instances.
+		List(m.Config.GCP.ProjectID, zone).
+		Context(context.TODO()).
+		Filter(fmt.Sprintf("%s AND %s", nameFilterExpr, ownerFilterExpr)).
+		Do()
+	if err != nil {
+		return nil, err
+	}
+	if len(res.Items) == 0 {
+		return nil, app.NewBadRequestError(fmt.Sprintf("Host instance %q not found.", name), nil)
+	}
+	op, err := m.Service.Instances.
+		Delete(m.Config.GCP.ProjectID, zone, name).
+		Context(context.TODO()).
+		Do()
+	if err != nil {
+		return nil, err
+	}
+	return m.buildOperation(op)
 }
 
 func (m *InstanceManager) WaitOperation(zone string, user app.UserInfo, name string) (*apiv1.Operation, error) {
@@ -228,6 +248,7 @@ type operationBuilder struct {
 }
 
 func (b *operationBuilder) Build() (*apiv1.Operation, error) {
+
 	done := b.Operation.Status == operationStatusDone
 	if !done {
 		return b.buildNotDone()
@@ -250,7 +271,13 @@ func (b *operationBuilder) buildDone() (*apiv1.Operation, error) {
 			Err:        fmt.Errorf("gcp operation failed: %+v", b.Operation),
 		}
 	}
-	if b.isCreateInstance() {
+	if b.isDeleteInstance() {
+		return &apiv1.Operation{
+			Name:   b.Operation.Name,
+			Done:   true,
+			Result: &apiv1.OperationResult{Response: struct{}{}},
+		}, nil
+	} else if b.isCreateInstance() {
 		result, err := b.buildCreateInstanceResult()
 		if err != nil {
 			return nil, err
@@ -261,7 +288,12 @@ func (b *operationBuilder) buildDone() (*apiv1.Operation, error) {
 			Result: result,
 		}, nil
 	}
-	return nil, fmt.Errorf("not handled operation type: %v", b.Operation)
+	return nil, fmt.Errorf("not handled operation type: %+v", b.Operation)
+}
+
+func (b *operationBuilder) isDeleteInstance() bool {
+	return b.Operation.OperationType == "delete" &&
+		instanceTargetLinkRe.MatchString(b.Operation.TargetLink)
 }
 
 func (b *operationBuilder) isCreateInstance() bool {

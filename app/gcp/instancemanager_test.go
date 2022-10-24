@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -389,6 +390,81 @@ func TestListHostsSucceeds(t *testing.T) {
 	}
 }
 
+func TestDeleteHostVerifyUserOwnsTheHost(t *testing.T) {
+	var usedListQuery string
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		usedListQuery = r.URL.Query().Encode()
+		replyJSON(w, &compute.InstanceList{})
+	}))
+	defer ts.Close()
+	testService := buildTestService(t, ts)
+	im := InstanceManager{
+		Config:                testConfig,
+		Service:               testService,
+		InstanceNameGenerator: testNameGenerator,
+	}
+
+	im.DeleteHost("us-central1-a", &TestUserInfo{}, "foo")
+
+	expected := "alt=json&filter=name%3Dfoo+AND+labels.created_by%3Ajohndoe&prettyPrint=false"
+	if usedListQuery != expected {
+		t.Errorf("expected <<%q>>, got %q", expected, usedListQuery)
+	}
+}
+
+func TestDeleteHostHostDoesNotExist(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		replyJSON(w, &compute.InstanceList{})
+	}))
+	defer ts.Close()
+	testService := buildTestService(t, ts)
+	im := InstanceManager{
+		Config:                testConfig,
+		Service:               testService,
+		InstanceNameGenerator: testNameGenerator,
+	}
+
+	_, err := im.DeleteHost("us-central1-a", &TestUserInfo{}, "foo")
+
+	if appErr, ok := err.(*app.AppError); !ok {
+		t.Errorf("expected <<%T>>, got %T", appErr, err)
+	}
+}
+
+func TestDeleteHostSucceeds(t *testing.T) {
+	zone := "us-central1-a"
+	opName := "operation-1"
+	operation := &compute.Operation{
+		Name:          opName,
+		OperationType: "delete",
+		TargetLink:    "https://xyzzy.com/compute/v1/projects/google.com:test-project/zones/us-central1-a/instances/foo",
+		Status:        "PENDING",
+	}
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Println(r.URL.Path)
+		if r.Method == "DELETE" &&
+			r.URL.Path == "/projects/google.com:test-project/zones/us-central1-a/instances/foo" {
+			replyJSON(w, operation)
+		} else if r.URL.Path == "/projects/google.com:test-project/zones/us-central1-a/instances" {
+			replyJSON(w, &compute.InstanceList{Items: []*compute.Instance{{}}})
+		} else {
+			t.Fatalf("unexpected path: %q", r.URL.Path)
+		}
+	}))
+	defer ts.Close()
+	im := InstanceManager{
+		Config:                testConfig,
+		Service:               buildTestService(t, ts),
+		InstanceNameGenerator: testNameGenerator,
+	}
+
+	op, _ := im.DeleteHost(zone, &TestUserInfo{}, "foo")
+
+	if op.Name != opName {
+		t.Errorf("expected <<%q>>, got: %q", opName, op.Name)
+	}
+}
+
 func TestWaitOperationNotDoneOperationSucceeds(t *testing.T) {
 	zone := "us-central1-a"
 	opName := "operation-1"
@@ -424,7 +500,7 @@ func TestWaitOperationNotDoneOperationSucceeds(t *testing.T) {
 	}
 }
 
-func TestWaitOperationDoneOperationSucceeds(t *testing.T) {
+func TestWaitCreateInstanceOperationSucceeds(t *testing.T) {
 	zone := "us-central1-a"
 	opName := "operation-1"
 	operation := &compute.Operation{
@@ -468,6 +544,38 @@ func TestWaitOperationDoneOperationSucceeds(t *testing.T) {
 	if !reflect.DeepEqual(op.Result.Response, expected) {
 		t.Errorf("unexpected operation result with diff: %s",
 			diffPrettyText(prettyJSON(t, *expected), prettyJSON(t, *instance)))
+	}
+}
+
+func TestWaitDeleteInstanceOperationSucceeds(t *testing.T) {
+	zone := "us-central1-a"
+	opName := "operation-1"
+	operation := &compute.Operation{
+		Name:          opName,
+		OperationType: "delete",
+		TargetLink:    "https://xyzzy.com/compute/v1/projects/google.com:test-project/zones/us-central1-a/instances/foo",
+		Status:        "DONE",
+	}
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		replyJSON(w, operation)
+	}))
+	defer ts.Close()
+	im := InstanceManager{
+		Config:                testConfig,
+		Service:               buildTestService(t, ts),
+		InstanceNameGenerator: testNameGenerator,
+	}
+
+	op, _ := im.WaitOperation(zone, &TestUserInfo{}, opName)
+
+	if op.Name != opName {
+		t.Errorf("expected <<%q>>, got: %q", opName, op.Name)
+	}
+	if !op.Done {
+		t.Error("expected done.")
+	}
+	if op.Result.Response != struct{}{} {
+		t.Errorf("expected empty struct, got %+v", op.Result.Response)
 	}
 }
 

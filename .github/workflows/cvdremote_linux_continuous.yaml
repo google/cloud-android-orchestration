@@ -17,7 +17,8 @@ jobs:
         with:
           go-version: '1.16.0'
       - run: go version
-      - name: Run `go build` 
+      - name: Build
+        run: cd cmd/cvdremote && go build .
       - uses: actions/upload-artifact@v1.0.0
         with:
           name: cvdremote 

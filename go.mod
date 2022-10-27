@@ -1,4 +1,4 @@
-module cloud-android-orchestration
+module github.com/google/cloud-android-orchestration
 
 go 1.18
 

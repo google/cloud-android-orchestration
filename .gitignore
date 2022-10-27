@@ -1,4 +1,4 @@
 cmd/cvdremote/cvdremote
-cmd/server/server
+cmd/cloud_orchestrator/cloud_orchestrator
 
 tags

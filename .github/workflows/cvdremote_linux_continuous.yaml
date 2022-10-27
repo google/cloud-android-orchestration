@@ -1,7 +1,7 @@
 name: cvdremote Linux 
 
 on:
-  [pull_request, push]:
+  push:
     branches:
       - main
 

@@ -18,8 +18,8 @@ import (
 	"fmt"
 	"net/url"
 
-	apiv1 "cloud-android-orchestration/api/v1"
-	"cloud-android-orchestration/app"
+	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
+	"github.com/google/cloud-android-orchestration/pkg/app"
 )
 
 // Implements the InstanceManager interface providing access to the first

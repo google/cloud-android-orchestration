@@ -19,7 +19,7 @@ import (
 	"net/http"
 	"strings"
 
-	"cloud-android-orchestration/app"
+	"github.com/google/cloud-android-orchestration/pkg/app"
 )
 
 const emailHeaderKey = "X-Appengine-User-Email"

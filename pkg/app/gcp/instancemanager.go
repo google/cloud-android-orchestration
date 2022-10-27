@@ -21,8 +21,8 @@ import (
 	"net/url"
 	"regexp"
 
-	apiv1 "cloud-android-orchestration/api/v1"
-	"cloud-android-orchestration/app"
+	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
+	"github.com/google/cloud-android-orchestration/pkg/app"
 
 	"google.golang.org/api/compute/v1"
 )

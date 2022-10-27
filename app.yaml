@@ -13,3 +13,5 @@
 # limitations under the License.
 
 runtime: go116
+
+main: ./cmd/cloud_orchestrator

@@ -20,9 +20,9 @@ import (
 	"net/http"
 	"os"
 
-	"cloud-android-orchestration/app"
-	"cloud-android-orchestration/app/gcp"
-	"cloud-android-orchestration/app/unix"
+	"github.com/google/cloud-android-orchestration/pkg/app"
+	"github.com/google/cloud-android-orchestration/pkg/app/gcp"
+	"github.com/google/cloud-android-orchestration/pkg/app/unix"
 
 	"github.com/google/uuid"
 	"google.golang.org/api/compute/v1"

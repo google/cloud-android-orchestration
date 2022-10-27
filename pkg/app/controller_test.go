@@ -25,7 +25,7 @@ import (
 	"strings"
 	"testing"
 
-	apiv1 "cloud-android-orchestration/api/v1"
+	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
 
 	"github.com/gorilla/mux"
 )

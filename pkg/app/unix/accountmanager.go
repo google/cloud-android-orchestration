@@ -18,7 +18,7 @@ import (
 	"net/http"
 	"os"
 
-	"cloud-android-orchestration/app"
+	"github.com/google/cloud-android-orchestration/pkg/app"
 )
 
 // Implements the AccountManager interface taking the username from the

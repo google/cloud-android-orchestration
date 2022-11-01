@@ -68,7 +68,7 @@ func TestCVDRemoteCommandSubCommandsRouting(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			command := NewCVDRemoteCommand(test.subCommands)
+			command := NewCVDRemoteCommandWithArgs(test.subCommands)
 
 			err := command.Run(test.args)
 
@@ -81,7 +81,7 @@ func TestCVDRemoteCommandSubCommandsRouting(t *testing.T) {
 
 func TestCVDRemoteCommandSubCommandsExpectedArgs(t *testing.T) {
 	listCVDsCommand := &testCommand{}
-	command := NewCVDRemoteCommand(CVDRemoteSubCommands{ListCVDs: listCVDsCommand})
+	command := NewCVDRemoteCommandWithArgs(CVDRemoteSubCommands{ListCVDs: listCVDsCommand})
 
 	err := command.Run([]string{"list", "foo", "bar"})
 

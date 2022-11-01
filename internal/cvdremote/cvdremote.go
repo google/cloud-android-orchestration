@@ -57,7 +57,7 @@ type CVDRemoteCommand struct {
 	subCommandsMap map[string]map[string]Command
 }
 
-func NewDefaultCVDRemoteCommand() Command {
+func NewCVDRemoteCommand() Command {
 	subCommands := CVDRemoteSubCommands{
 		CreateCVD:   &notImplementedCommand{},
 		ListCVDs:    &notImplementedCommand{},
@@ -65,7 +65,7 @@ func NewDefaultCVDRemoteCommand() Command {
 		ListHosts:   &notImplementedCommand{},
 		DeleteHosts: &notImplementedCommand{},
 	}
-	return NewCVDRemoteCommand(subCommands)
+	return NewCVDRemoteCommandWithArgs(subCommands)
 }
 
 const (
@@ -77,7 +77,7 @@ const (
 	commandDelete = "delete"
 )
 
-func NewCVDRemoteCommand(subCommands CVDRemoteSubCommands) Command {
+func NewCVDRemoteCommandWithArgs(subCommands CVDRemoteSubCommands) Command {
 	c := &CVDRemoteCommand{
 		fs: flag.NewFlagSet("cvdremote", flag.ContinueOnError),
 		subCommandsMap: map[string]map[string]Command{

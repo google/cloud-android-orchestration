@@ -107,7 +107,7 @@ func (s *ForwardingSignalingServer) ServeDeviceFiles(zone string, host string, p
 		return err
 	}
 	if shouldIntercept(params.path) {
-		http.ServeFile(params.w, params.r, fmt.Sprintf("intercept%s", params.path))
+		http.ServeFile(params.w, params.r, fmt.Sprintf("web/intercept%s", params.path))
 	} else {
 		devUrl, err := url.Parse(hostURL(hostAddr, "", ""))
 		if err != nil {

@@ -61,8 +61,8 @@ func NewDefaultCVDRemoteCommand() Command {
 	subCommands := CVDRemoteSubCommands{
 		CreateCVD:   &notImplementedCommand{},
 		ListCVDs:    &notImplementedCommand{},
-		ListHosts:   &notImplementedCommand{},
 		CreateHost:  &notImplementedCommand{},
+		ListHosts:   &notImplementedCommand{},
 		DeleteHosts: &notImplementedCommand{},
 	}
 	return NewCVDRemoteCommand(subCommands)
@@ -106,13 +106,13 @@ func (c *CVDRemoteCommand) Run(args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("missing resource")
 	}
-	var resource string
-	_, ok := c.subCommandsMap[args[0]]
-	if ok {
+	// If no resource is given it defaults to "cvd".
+	// There is no chance of a collision between a cvd subcommand and a resource name because
+	// resources are nouns and subcommands are verbs.
+	resource := resourceCVD
+	if _, ok := c.subCommandsMap[args[0]]; ok {
 		resource = args[0]
 		args = args[1:]
-	} else {
-		resource = resourceCVD
 	}
 	if len(args) == 0 {
 		return fmt.Errorf("missing resource's command")

@@ -16,6 +16,7 @@ package gcp
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/url"
@@ -277,7 +278,7 @@ func (b *operationBuilder) buildDone() (*apiv1.Operation, error) {
 		return &apiv1.Operation{
 			Name:   b.Operation.Name,
 			Done:   true,
-			Result: &apiv1.OperationResult{Response: struct{}{}},
+			Result: &apiv1.OperationResult{},
 		}, nil
 	} else if b.isCreateInstance() {
 		result, err := b.buildCreateInstanceResult()
@@ -321,5 +322,9 @@ func (b *operationBuilder) buildCreateInstanceResult() (*apiv1.OperationResult, 
 	if err != nil {
 		return nil, err
 	}
-	return &apiv1.OperationResult{Response: hostInstance}, nil
+	buf, err := json.Marshal(hostInstance)
+	if err != nil {
+		return nil, err
+	}
+	return &apiv1.OperationResult{Response: string(buf)}, nil
 }

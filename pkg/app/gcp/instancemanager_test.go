@@ -30,6 +30,7 @@ import (
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
 	"github.com/google/cloud-android-orchestration/pkg/app"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/sergi/go-diff/diffmatchpatch"
 	"google.golang.org/api/compute/v1"
 	"google.golang.org/api/option"
@@ -547,10 +548,11 @@ func TestWaitCreateInstanceOperationSucceeds(t *testing.T) {
 	if !op.Done {
 		t.Error("expected done.")
 	}
-	expected, _ := BuildHostInstance(instance)
-	if !reflect.DeepEqual(op.Result.Response, expected) {
-		t.Errorf("unexpected operation result with diff: %s",
-			diffPrettyText(prettyJSON(t, *expected), prettyJSON(t, *instance)))
+	want, _ := BuildHostInstance(instance)
+	var got apiv1.HostInstance
+	json.Unmarshal([]byte(op.Result.Response), &got)
+	if diff := cmp.Diff(*want, got); diff != "" {
+		t.Errorf("operation response mismatch (-want +got):\n%s", diff)
 	}
 }
 
@@ -581,8 +583,8 @@ func TestWaitDeleteInstanceOperationSucceeds(t *testing.T) {
 	if !op.Done {
 		t.Error("expected done.")
 	}
-	if op.Result.Response != struct{}{} {
-		t.Errorf("expected empty struct, got %+v", op.Result.Response)
+	if op.Result.Response != "" {
+		t.Errorf("expected empty string, got %q", op.Result.Response)
 	}
 }
 

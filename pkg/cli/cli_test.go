@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"testing"
 
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
@@ -256,6 +257,41 @@ func TestListHostsCommand(t *testing.T) {
 				t.Errorf("standard output mismatch (-want +got):\n%s", diff)
 			}
 			if diff := cmp.Diff(test.ExpErr, err); diff != "" {
+				t.Errorf("err mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestZoneAwareService(t *testing.T) {
+	tests := []struct {
+		Name string
+		Args []string
+	}{
+		{Name: "host create", Args: []string{"host", "create"}},
+		{Name: "host list", Args: []string{"host", "list"}},
+	}
+
+	const zone = "foo"
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/v1/zones/"+zone+"/") {
+			writeErr(w, 500)
+			return
+		}
+		t.Fatalf("invalid zone based path: %s", r.URL.Path)
+	}))
+	defer ts.Close()
+	for _, test := range tests {
+		t.Run(test.Name, func(t *testing.T) {
+			io, _, _, _ := newTestIOStreams()
+			opts := &CommandOptions{
+				IOStreams: io,
+				Args:      append([]string{"--service_url=" + ts.URL, "--zone=" + zone}, test.Args[:]...),
+			}
+
+			err := NewCVDRemoteCommandWithArgs(opts).ExecuteNoErrOutput()
+
+			if diff := cmp.Diff(&apiCallError{&apiv1.Error{Code: "500"}}, err); diff != "" {
 				t.Errorf("err mismatch (-want +got):\n%s", diff)
 			}
 		})

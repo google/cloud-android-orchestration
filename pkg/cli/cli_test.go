@@ -194,6 +194,74 @@ func TestCreateHostCommand(t *testing.T) {
 	}
 }
 
+type listHostSucceedsHandler struct{ WithInstances []*apiv1.HostInstance }
+
+func (h *listHostSucceedsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	switch ep := r.Method + " " + r.URL.Path; ep {
+	case "GET /v1/hosts":
+		writeOK(w, &apiv1.ListHostsResponse{Items: h.WithInstances})
+	default:
+		panic("unexpected request")
+	}
+}
+
+type listsHostReqFailsHandler struct{ WithErrCode int }
+
+func (h *listsHostReqFailsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	switch ep := r.Method + " " + r.URL.Path; ep {
+	case "GET /v1/hosts":
+		writeErr(w, h.WithErrCode)
+	default:
+		panic("unexpected request")
+	}
+}
+
+func TestListHostsCommand(t *testing.T) {
+	tests := []struct {
+		Name       string
+		Args       []string
+		SrvHandler http.Handler
+		ExpOut     string
+		ExpErr     error
+	}{
+		{
+			Name:       "list hosts api call fails",
+			Args:       []string{"host", "list"},
+			SrvHandler: &listsHostReqFailsHandler{WithErrCode: 500},
+			ExpErr:     &apiCallError{&apiv1.Error{Code: "500"}},
+		},
+		{
+			Name: "succeeds",
+			Args: []string{"host", "list"},
+			SrvHandler: &listHostSucceedsHandler{
+				WithInstances: []*apiv1.HostInstance{{Name: "foo"}, {Name: "bar"}},
+			},
+			ExpOut: "foo\nbar\n",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.Name, func(t *testing.T) {
+			ts := httptest.NewServer(test.SrvHandler)
+			defer ts.Close()
+			io, _, out, _ := newTestIOStreams()
+			opts := &CommandOptions{
+				IOStreams: io,
+				Args:      append([]string{"--service_url=" + ts.URL}, test.Args[:]...),
+			}
+
+			err := NewCVDRemoteCommandWithArgs(opts).ExecuteNoErrOutput()
+
+			b, _ := ioutil.ReadAll(out)
+			if diff := cmp.Diff(test.ExpOut, string(b)); diff != "" {
+				t.Errorf("standard output mismatch (-want +got):\n%s", diff)
+			}
+			if diff := cmp.Diff(test.ExpErr, err); diff != "" {
+				t.Errorf("err mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
 func newTestIOStreams() (IOStreams, *bytes.Buffer, *bytes.Buffer, *bytes.Buffer) {
 	in := &bytes.Buffer{}
 	out := &bytes.Buffer{}

@@ -60,12 +60,7 @@ type configFlags struct {
 }
 
 func NewCVDRemoteCommandWithArgs(o *CommandOptions) *CVDRemoteCommand {
-	var configFlags = new(configFlags)
-	hostCmd := &cobra.Command{
-		Use:   "host",
-		Short: "Work with hosts",
-	}
-	hostCmd.AddCommand(newCreateHostCommand())
+	configFlags := &configFlags{}
 	rootCmd := &cobra.Command{
 		Use:               "cvdremote",
 		Short:             "Manages Cuttlefish Virtual Devices (CVDs) in the cloud.",
@@ -81,7 +76,7 @@ func NewCVDRemoteCommandWithArgs(o *CommandOptions) *CVDRemoteCommand {
 	rootCmd.MarkPersistentFlagRequired(serviceURLFlag)
 	// Do not show a `help` command, users have always the `-h` and `--help` flags for help purpose.
 	rootCmd.SetHelpCommand(&cobra.Command{Hidden: true})
-	rootCmd.AddCommand(hostCmd)
+	rootCmd.AddCommand(newHostCommand())
 	return &CVDRemoteCommand{rootCmd}
 }
 
@@ -112,15 +107,28 @@ func (e *apiCallError) Error() string {
 	return fmt.Sprintf("api call error %s: %s", e.Err.Code, e.Err.Message)
 }
 
-func newCreateHostCommand() *cobra.Command {
-	cmd := &cobra.Command{
+func newHostCommand() *cobra.Command {
+	create := &cobra.Command{
 		Use:   "create",
 		Short: "Creates a host.",
 		RunE: func(c *cobra.Command, args []string) error {
 			return runCreateHostCommand(c)
 		},
 	}
-	return cmd
+	list := &cobra.Command{
+		Use:   "list",
+		Short: "Lists hosts.",
+		RunE: func(c *cobra.Command, args []string) error {
+			return runListHostsCommand(c)
+		},
+	}
+	host := &cobra.Command{
+		Use:   "host",
+		Short: "Work with hosts",
+	}
+	host.AddCommand(create)
+	host.AddCommand(list)
+	return host
 }
 
 func runCreateHostCommand(c *cobra.Command) error {
@@ -148,6 +156,19 @@ func runCreateHostCommand(c *cobra.Command) error {
 		return err
 	}
 	c.Printf("%s\n", ins.Name)
+	return nil
+}
+
+func runListHostsCommand(c *cobra.Command) error {
+	serviceURL := c.InheritedFlags().Lookup(serviceURLFlag).Value.String()
+	baseURL := serviceURL + "/v1"
+	var res apiv1.ListHostsResponse
+	if err := doRequest(&http.Client{}, "GET", baseURL+"/hosts", nil, &res); err != nil {
+		return err
+	}
+	for _, ins := range res.Items {
+		c.Printf("%s\n", ins.Name)
+	}
 	return nil
 }
 

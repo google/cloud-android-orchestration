@@ -53,7 +53,6 @@ func NewCVDRemoteCommand() *CVDRemoteCommand {
 
 const (
 	serviceURLFlag = "service_url"
-	zoneFlag       = "zone"
 )
 
 type configFlags struct {
@@ -66,12 +65,13 @@ func NewCVDRemoteCommandWithArgs(o *CommandOptions) *CVDRemoteCommand {
 		Use:   "host",
 		Short: "Work with hosts",
 	}
-	hostCmd.AddCommand(newCreateHostCommand(o.IOStreams))
+	hostCmd.AddCommand(newCreateHostCommand())
 	rootCmd := &cobra.Command{
-		Use:           "cvdremote",
-		Short:         "Manages Cuttlefish Virtual Devices (CVDs) in the cloud.",
-		SilenceUsage:  true,
-		SilenceErrors: true,
+		Use:               "cvdremote",
+		Short:             "Manages Cuttlefish Virtual Devices (CVDs) in the cloud.",
+		SilenceUsage:      true,
+		SilenceErrors:     true,
+		CompletionOptions: cobra.CompletionOptions{DisableDefaultCmd: true},
 	}
 	rootCmd.SetArgs(o.Args)
 	rootCmd.SetOut(o.IOStreams.Out)
@@ -79,6 +79,8 @@ func NewCVDRemoteCommandWithArgs(o *CommandOptions) *CVDRemoteCommand {
 	rootCmd.PersistentFlags().StringVar(&configFlags.ServiceURL, serviceURLFlag, "",
 		"Cloud orchestration service url.")
 	rootCmd.MarkPersistentFlagRequired(serviceURLFlag)
+	// Do not show a `help` command, users have always the `-h` and `--help` flags for help purpose.
+	rootCmd.SetHelpCommand(&cobra.Command{Hidden: true})
 	rootCmd.AddCommand(hostCmd)
 	return &CVDRemoteCommand{rootCmd}
 }
@@ -102,13 +104,12 @@ const (
 )
 
 type createHostCommandRunner struct {
-	IO             IOStreams
 	MachineType    *string
 	MinCPUPlatform *string
 	Command        *cobra.Command
 }
 
-func newCreateHostCommand(io IOStreams) *cobra.Command {
+func newCreateHostCommand() *cobra.Command {
 	var machineType string
 	var minCPUPlatform string
 	runner := new(createHostCommandRunner)
@@ -122,7 +123,6 @@ func newCreateHostCommand(io IOStreams) *cobra.Command {
 	cmd.Flags().StringVar(&machineType, machineTypeFlag, "n1-standard-4", "Machine type.")
 	cmd.Flags().StringVar(&minCPUPlatform, minCpuPlatformFlag, "Intel Haswell",
 		"Specifies a minimum CPU platform for the VM instance.")
-	runner.IO = io
 	runner.MachineType = &machineType
 	runner.MinCPUPlatform = &minCPUPlatform
 	runner.Command = cmd
@@ -165,10 +165,8 @@ func (r *createHostCommandRunner) Run() error {
 	}
 	ins := new(apiv1.HostInstance)
 	if err := json.Unmarshal([]byte(op.Result.Response), ins); err != nil {
-		fmt.Fprintf(r.IO.ErrOut, "error: %+v\n", err)
-		return nil
+		return err
 	}
-
 	r.Command.Printf("%s\n", ins.Name)
 	return nil
 }

@@ -14,17 +14,8 @@
 
 package main
 
-import (
-	"fmt"
-	"os"
-
-	"github.com/google/cloud-android-orchestration/internal/cvdremote"
-)
+import "github.com/google/cloud-android-orchestration/pkg/cli"
 
 func main() {
-	cmd := cvdremote.NewCVDRemoteCommand()
-	if err := cmd.Run(os.Args[1:]); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
+	cli.NewCVDRemoteCommand().Execute()
 }

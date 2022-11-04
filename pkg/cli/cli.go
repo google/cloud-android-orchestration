@@ -98,37 +98,6 @@ func (c *CVDRemoteCommand) Execute() {
 	}
 }
 
-const (
-	machineTypeFlag    = "machine_type"
-	minCpuPlatformFlag = "min_cpu_platform"
-)
-
-type createHostCommandRunner struct {
-	MachineType    *string
-	MinCPUPlatform *string
-	Command        *cobra.Command
-}
-
-func newCreateHostCommand() *cobra.Command {
-	var machineType string
-	var minCPUPlatform string
-	runner := new(createHostCommandRunner)
-	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Creates a host.",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runner.Run()
-		},
-	}
-	cmd.Flags().StringVar(&machineType, machineTypeFlag, "n1-standard-4", "Machine type.")
-	cmd.Flags().StringVar(&minCPUPlatform, minCpuPlatformFlag, "Intel Haswell",
-		"Specifies a minimum CPU platform for the VM instance.")
-	runner.MachineType = &machineType
-	runner.MinCPUPlatform = &minCPUPlatform
-	runner.Command = cmd
-	return cmd
-}
-
 type opTimeoutError string
 
 func (s opTimeoutError) Error() string {
@@ -143,8 +112,19 @@ func (e *apiCallError) Error() string {
 	return fmt.Sprintf("api call error %s: %s", e.Err.Code, e.Err.Message)
 }
 
-func (r *createHostCommandRunner) Run() error {
-	serviceURL := r.Command.InheritedFlags().Lookup(serviceURLFlag).Value.String()
+func newCreateHostCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "create",
+		Short: "Creates a host.",
+		RunE: func(c *cobra.Command, args []string) error {
+			return runCreateHostCommand(c)
+		},
+	}
+	return cmd
+}
+
+func runCreateHostCommand(c *cobra.Command) error {
+	serviceURL := c.InheritedFlags().Lookup(serviceURLFlag).Value.String()
 	baseURL := serviceURL + "/v1"
 	req := &apiv1.CreateHostInstanceRequest{}
 	body := &apiv1.CreateHostRequest{CreateHostInstanceRequest: req}
@@ -167,7 +147,7 @@ func (r *createHostCommandRunner) Run() error {
 	if err := json.Unmarshal([]byte(op.Result.Response), ins); err != nil {
 		return err
 	}
-	r.Command.Printf("%s\n", ins.Name)
+	c.Printf("%s\n", ins.Name)
 	return nil
 }
 

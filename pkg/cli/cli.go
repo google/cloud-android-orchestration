@@ -128,12 +128,12 @@ func runCreateHostCommand(c *cobra.Command) error {
 	baseURL := serviceURL + "/v1"
 	req := &apiv1.CreateHostInstanceRequest{}
 	body := &apiv1.CreateHostRequest{CreateHostInstanceRequest: req}
-	op := new(apiv1.Operation)
+	var op apiv1.Operation
 	client := &http.Client{}
-	if err := doRequest(client, "POST", baseURL+"/hosts", body, op); err != nil {
+	if err := doRequest(client, "POST", baseURL+"/hosts", body, &op); err != nil {
 		return err
 	}
-	if err := doRequest(client, "POST", baseURL+"/operations/"+op.Name+"/wait", nil, op); err != nil {
+	if err := doRequest(client, "POST", baseURL+"/operations/"+op.Name+"/wait", nil, &op); err != nil {
 		return err
 	}
 	if op.Result != nil && op.Result.Error != nil {
@@ -143,8 +143,8 @@ func runCreateHostCommand(c *cobra.Command) error {
 	if !op.Done {
 		return opTimeoutError(op.Name)
 	}
-	ins := new(apiv1.HostInstance)
-	if err := json.Unmarshal([]byte(op.Result.Response), ins); err != nil {
+	var ins apiv1.HostInstance
+	if err := json.Unmarshal([]byte(op.Result.Response), &ins); err != nil {
 		return err
 	}
 	c.Printf("%s\n", ins.Name)

@@ -53,10 +53,12 @@ func NewCVDRemoteCommand() *CVDRemoteCommand {
 
 const (
 	serviceURLFlag = "service_url"
+	zoneFlag       = "zone"
 )
 
 type configFlags struct {
 	ServiceURL string
+	Zone       string
 }
 
 func NewCVDRemoteCommandWithArgs(o *CommandOptions) *CVDRemoteCommand {
@@ -74,6 +76,7 @@ func NewCVDRemoteCommandWithArgs(o *CommandOptions) *CVDRemoteCommand {
 	rootCmd.PersistentFlags().StringVar(&configFlags.ServiceURL, serviceURLFlag, "",
 		"Cloud orchestration service url.")
 	rootCmd.MarkPersistentFlagRequired(serviceURLFlag)
+	rootCmd.PersistentFlags().StringVar(&configFlags.Zone, zoneFlag, "", "Cloud zone.")
 	// Do not show a `help` command, users have always the `-h` and `--help` flags for help purpose.
 	rootCmd.SetHelpCommand(&cobra.Command{Hidden: true})
 	rootCmd.AddCommand(newHostCommand())
@@ -132,8 +135,7 @@ func newHostCommand() *cobra.Command {
 }
 
 func runCreateHostCommand(c *cobra.Command) error {
-	serviceURL := c.InheritedFlags().Lookup(serviceURLFlag).Value.String()
-	baseURL := serviceURL + "/v1"
+	baseURL := buildBaseURL(c)
 	req := &apiv1.CreateHostInstanceRequest{}
 	body := &apiv1.CreateHostRequest{CreateHostInstanceRequest: req}
 	var op apiv1.Operation
@@ -160,8 +162,7 @@ func runCreateHostCommand(c *cobra.Command) error {
 }
 
 func runListHostsCommand(c *cobra.Command) error {
-	serviceURL := c.InheritedFlags().Lookup(serviceURLFlag).Value.String()
-	baseURL := serviceURL + "/v1"
+	baseURL := buildBaseURL(c)
 	var res apiv1.ListHostsResponse
 	if err := doRequest(&http.Client{}, "GET", baseURL+"/hosts", nil, &res); err != nil {
 		return err
@@ -170,6 +171,16 @@ func runListHostsCommand(c *cobra.Command) error {
 		c.Printf("%s\n", ins.Name)
 	}
 	return nil
+}
+
+func buildBaseURL(c *cobra.Command) string {
+	serviceURL := c.InheritedFlags().Lookup(serviceURLFlag).Value.String()
+	zone := c.InheritedFlags().Lookup(zoneFlag).Value.String()
+	baseURL := serviceURL + "/v1"
+	if zone != "" {
+		baseURL += "/zones/" + zone
+	}
+	return baseURL
 }
 
 // It either populates the passed resPayload reference and returns nil error or returns an error.

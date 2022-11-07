@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"testing"
 
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
@@ -116,23 +117,18 @@ func (h *createHostOpFailedHandler) ServeHTTP(w http.ResponseWriter, r *http.Req
 	}
 }
 
-type createHostSucceedsHandler struct{ WithHostName string }
+type listsHostReqFailsHandler struct{ WithErrCode int }
 
-func (h *createHostSucceedsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	const opName = "op-foo"
+func (h *listsHostReqFailsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch ep := r.Method + " " + r.URL.Path; ep {
-	case "POST /v1/hosts":
-		writeOK(w, &apiv1.Operation{Name: opName})
-	case "POST /v1/operations/" + opName + "/wait":
-		res, _ := json.Marshal(&apiv1.HostInstance{Name: h.WithHostName})
-		op := &apiv1.Operation{Done: true, Result: &apiv1.OperationResult{Response: string(res)}}
-		writeOK(w, op)
+	case "GET /v1/hosts":
+		writeErr(w, h.WithErrCode)
 	default:
 		panic("unexpected request")
 	}
 }
 
-func TestCreateHostCommand(t *testing.T) {
+func TestCommandFails(t *testing.T) {
 	tests := []struct {
 		Name       string
 		Args       []string
@@ -165,10 +161,10 @@ func TestCreateHostCommand(t *testing.T) {
 			ExpErr:     &apiCallError{&apiv1.Error{Code: "507"}},
 		},
 		{
-			Name:       "succeeds",
-			Args:       []string{"host", "create"},
-			SrvHandler: &createHostSucceedsHandler{WithHostName: "cf-foo"},
-			ExpOut:     "cf-foo\n",
+			Name:       "list hosts api call fails",
+			Args:       []string{"host", "list"},
+			SrvHandler: &listsHostReqFailsHandler{WithErrCode: 500},
+			ExpErr:     &apiCallError{&apiv1.Error{Code: "500"}},
 		},
 	}
 	for _, test := range tests {
@@ -194,69 +190,78 @@ func TestCreateHostCommand(t *testing.T) {
 	}
 }
 
-type listHostSucceedsHandler struct{ WithInstances []*apiv1.HostInstance }
+const testZone = "us-west1-c"
 
-func (h *listHostSucceedsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+type alwaysSucceedsHandler struct {
+	WithHostName      string
+	WithHostInstances []*apiv1.HostInstance
+}
+
+func (h *alwaysSucceedsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	const opName = "op-foo"
 	switch ep := r.Method + " " + r.URL.Path; ep {
-	case "GET /v1/hosts":
-		writeOK(w, &apiv1.ListHostsResponse{Items: h.WithInstances})
+	case "POST /v1/hosts", "POST /v1/zones/" + testZone + "/hosts":
+		writeOK(w, &apiv1.Operation{Name: opName})
+	case "POST /v1/operations/" + opName + "/wait",
+		"POST /v1/zones/" + testZone + "/operations/" + opName + "/wait":
+		res, _ := json.Marshal(&apiv1.HostInstance{Name: h.WithHostName})
+		op := &apiv1.Operation{Done: true, Result: &apiv1.OperationResult{Response: string(res)}}
+		writeOK(w, op)
+	case "GET /v1/hosts", "GET /v1/zones/" + testZone + "/hosts":
+		writeOK(w, &apiv1.ListHostsResponse{Items: h.WithHostInstances})
 	default:
-		panic("unexpected request")
+		panic("unexpected endpoint: " + ep)
 	}
 }
 
-type listsHostReqFailsHandler struct{ WithErrCode int }
-
-func (h *listsHostReqFailsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	switch ep := r.Method + " " + r.URL.Path; ep {
-	case "GET /v1/hosts":
-		writeErr(w, h.WithErrCode)
-	default:
-		panic("unexpected request")
-	}
-}
-
-func TestListHostsCommand(t *testing.T) {
+func TestCommandSucceeds(t *testing.T) {
 	tests := []struct {
-		Name       string
 		Args       []string
 		SrvHandler http.Handler
 		ExpOut     string
-		ExpErr     error
 	}{
 		{
-			Name:       "list hosts api call fails",
-			Args:       []string{"host", "list"},
-			SrvHandler: &listsHostReqFailsHandler{WithErrCode: 500},
-			ExpErr:     &apiCallError{&apiv1.Error{Code: "500"}},
+			Args:       []string{"host", "create"},
+			SrvHandler: &alwaysSucceedsHandler{WithHostName: "foo"},
+			ExpOut:     "foo\n",
 		},
 		{
-			Name: "succeeds",
 			Args: []string{"host", "list"},
-			SrvHandler: &listHostSucceedsHandler{
-				WithInstances: []*apiv1.HostInstance{{Name: "foo"}, {Name: "bar"}},
+			SrvHandler: &alwaysSucceedsHandler{
+				WithHostInstances: []*apiv1.HostInstance{{Name: "foo"}, {Name: "bar"}},
 			},
 			ExpOut: "foo\nbar\n",
 		},
 	}
 	for _, test := range tests {
-		t.Run(test.Name, func(t *testing.T) {
+		t.Run(strings.Join(test.Args, " "), func(t *testing.T) {
 			ts := httptest.NewServer(test.SrvHandler)
 			defer ts.Close()
-			io, _, out, _ := newTestIOStreams()
-			opts := &CommandOptions{
-				IOStreams: io,
-				Args:      append([]string{"--service_url=" + ts.URL}, test.Args[:]...),
+			configs := []struct {
+				Name string
+				Args []string
+			}{
+				{Name: "default", Args: []string{"--service_url=" + ts.URL}},
+				{Name: "with zone", Args: []string{"--service_url=" + ts.URL, "--zone=" + testZone}},
 			}
+			for _, cfg := range configs {
+				t.Run("with config "+cfg.Name, func(t *testing.T) {
+					io, _, out, _ := newTestIOStreams()
+					opts := &CommandOptions{
+						IOStreams: io,
+						Args:      append(cfg.Args, test.Args[:]...),
+					}
 
-			err := NewCVDRemoteCommandWithArgs(opts).ExecuteNoErrOutput()
+					err := NewCVDRemoteCommandWithArgs(opts).ExecuteNoErrOutput()
 
-			b, _ := ioutil.ReadAll(out)
-			if diff := cmp.Diff(test.ExpOut, string(b)); diff != "" {
-				t.Errorf("standard output mismatch (-want +got):\n%s", diff)
-			}
-			if diff := cmp.Diff(test.ExpErr, err); diff != "" {
-				t.Errorf("err mismatch (-want +got):\n%s", diff)
+					b, _ := ioutil.ReadAll(out)
+					if diff := cmp.Diff(test.ExpOut, string(b)); diff != "" {
+						t.Errorf("standard output mismatch (-want +got):\n%s", diff)
+					}
+					if err != nil {
+						t.Fatal(err)
+					}
+				})
 			}
 		})
 	}

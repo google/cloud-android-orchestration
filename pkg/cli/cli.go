@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"os"
 	"sync"
@@ -117,9 +118,18 @@ func (e *apiCallError) Error() string {
 	return fmt.Sprintf("api call error %s: %s", e.Err.Code, e.Err.Message)
 }
 
+const (
+	verboseFlag = "verbose"
+)
+
+type subCommandFlags struct {
+	Verbose bool
+}
+
 type subCommandOptions struct {
 	HTTPClient *http.Client
 	BaseURL    string
+	Verbose    bool
 }
 
 type subCommandRunner func(c *cobra.Command, args []string, opts *subCommandOptions) error
@@ -150,6 +160,8 @@ func newHostCommand() *cobra.Command {
 		Use:   "host",
 		Short: "Work with hosts",
 	}
+	subCommandFlags := &subCommandFlags{}
+	host.PersistentFlags().BoolVarP(&subCommandFlags.Verbose, verboseFlag, "v", false, "Be verbose.")
 	host.AddCommand(create)
 	host.AddCommand(list)
 	host.AddCommand(del)
@@ -170,20 +182,25 @@ func runSubCommand(c *cobra.Command, args []string, runner subCommandRunner) err
 	opts := &subCommandOptions{
 		HTTPClient: httpClient,
 		BaseURL:    buildBaseURL(c),
+		Verbose:    c.InheritedFlags().Lookup(verboseFlag).Changed,
 	}
 	return runner(c, args, opts)
 
 }
 
 func runCreateHostCommand(c *cobra.Command, _ []string, opts *subCommandOptions) error {
-	req := &apiv1.CreateHostInstanceRequest{}
-	body := &apiv1.CreateHostRequest{CreateHostInstanceRequest: req}
 	var op apiv1.Operation
-	if err := doRequest(opts.HTTPClient, "POST", opts.BaseURL+"/hosts", body, &op); err != nil {
+	reqOpts := doRequestOpts{
+		Client:  opts.HTTPClient,
+		Verbose: opts.Verbose,
+		ErrOut:  c.ErrOrStderr(),
+	}
+	body := apiv1.CreateHostRequest{CreateHostInstanceRequest: &apiv1.CreateHostInstanceRequest{}}
+	if err := doRequest("POST", opts.BaseURL+"/hosts", &body, &op, &reqOpts); err != nil {
 		return err
 	}
 	url := opts.BaseURL + "/operations/" + op.Name + "/wait"
-	if err := doRequest(opts.HTTPClient, "POST", url, nil, &op); err != nil {
+	if err := doRequest("POST", url, nil, &op, &reqOpts); err != nil {
 		return err
 	}
 	if op.Result != nil && op.Result.Error != nil {
@@ -203,7 +220,12 @@ func runCreateHostCommand(c *cobra.Command, _ []string, opts *subCommandOptions)
 
 func runListHostsCommand(c *cobra.Command, _ []string, opts *subCommandOptions) error {
 	var res apiv1.ListHostsResponse
-	if err := doRequest(opts.HTTPClient, "GET", opts.BaseURL+"/hosts", nil, &res); err != nil {
+	reqOpts := doRequestOpts{
+		Client:  opts.HTTPClient,
+		Verbose: opts.Verbose,
+		ErrOut:  c.ErrOrStderr(),
+	}
+	if err := doRequest("GET", opts.BaseURL+"/hosts", nil, &res, &reqOpts); err != nil {
 		return err
 	}
 	for _, ins := range res.Items {
@@ -213,6 +235,11 @@ func runListHostsCommand(c *cobra.Command, _ []string, opts *subCommandOptions) 
 }
 
 func runDeleteHostsCommand(c *cobra.Command, args []string, opts *subCommandOptions) error {
+	reqOpts := doRequestOpts{
+		Client:  opts.HTTPClient,
+		Verbose: opts.Verbose,
+		ErrOut:  c.ErrOrStderr(),
+	}
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	var merr error
@@ -221,7 +248,7 @@ func runDeleteHostsCommand(c *cobra.Command, args []string, opts *subCommandOpti
 		go func(name string) {
 			defer wg.Done()
 			url := opts.BaseURL + "/hosts/" + name
-			if err := doRequest(opts.HTTPClient, "DELETE", url, nil, nil); err != nil {
+			if err := doRequest("DELETE", url, nil, nil, &reqOpts); err != nil {
 				mu.Lock()
 				defer mu.Unlock()
 				merr = multierror.Append(merr, fmt.Errorf("delete host %q failed: %w", name, err))
@@ -242,12 +269,18 @@ func buildBaseURL(c *cobra.Command) string {
 	return baseURL
 }
 
-// It either populates the passed resPayload reference and returns nil error or returns an error.
+type doRequestOpts struct {
+	Client  *http.Client
+	Verbose bool
+	ErrOut  io.Writer
+}
+
+// It either populates the passed response payload reference and returns nil error or returns an error.
 // For responses with non-2xx status code an error will be returned.
-func doRequest(client *http.Client, method, url string, reqPayload interface{}, resPayload interface{}) error {
+func doRequest(method, url string, reqpl, respl interface{}, opts *doRequestOpts) error {
 	var body io.Reader
-	if reqPayload != nil {
-		json, err := json.Marshal(reqPayload)
+	if reqpl != nil {
+		json, err := json.Marshal(reqpl)
 		if err != nil {
 			return err
 		}
@@ -258,27 +291,55 @@ func doRequest(client *http.Client, method, url string, reqPayload interface{}, 
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	res, err := client.Do(req)
+	if opts.Verbose {
+		if err := dumpRequest(req, opts.ErrOut); err != nil {
+			return err
+		}
+	}
+	res, err := opts.Client.Do(req)
 	if err != nil {
 		return err
 	}
 	defer res.Body.Close()
+	if opts.Verbose {
+		if err := dumpResponse(res, opts.ErrOut); err != nil {
+			return err
+		}
+	}
 	dec := json.NewDecoder(res.Body)
 	if res.StatusCode < 200 || res.StatusCode > 299 {
 		// DELETE responses do not have a body.
 		if method == "DELETE" {
 			return &apiCallError{&apiv1.Error{Message: res.Status}}
 		}
-		errPayload := new(apiv1.Error)
-		if err := dec.Decode(errPayload); err != nil {
+		errpl := new(apiv1.Error)
+		if err := dec.Decode(errpl); err != nil {
 			return err
 		}
-		return &apiCallError{errPayload}
+		return &apiCallError{errpl}
 	}
-	if resPayload != nil {
-		if err := dec.Decode(resPayload); err != nil {
+	if respl != nil {
+		if err := dec.Decode(respl); err != nil {
 			return err
 		}
 	}
+	return nil
+}
+
+func dumpRequest(r *http.Request, w io.Writer) error {
+	dump, err := httputil.DumpRequestOut(r, true)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(w, "%s\n", dump)
+	return nil
+}
+
+func dumpResponse(r *http.Response, w io.Writer) error {
+	dump, err := httputil.DumpResponse(r, true)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(w, "%s\n", dump)
 	return nil
 }

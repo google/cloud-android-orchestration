@@ -64,7 +64,7 @@ func TestCreateHostInvalidRequests(t *testing.T) {
 	}
 	var validRequest = func() *apiv1.CreateHostRequest {
 		return &apiv1.CreateHostRequest{
-			CreateHostInstanceRequest: &apiv1.CreateHostInstanceRequest{
+			HostInstance: &apiv1.HostInstance{
 				GCP: &apiv1.GCPInstance{
 					MachineType:    "zones/us-central1-f/machineTypes/n1-standard-1",
 					MinCPUPlatform: "Intel Haswell",
@@ -80,10 +80,11 @@ func TestCreateHostInvalidRequests(t *testing.T) {
 	var tests = []struct {
 		corruptRequest func(r *apiv1.CreateHostRequest)
 	}{
-		{func(r *apiv1.CreateHostRequest) { r.CreateHostInstanceRequest = nil }},
-		{func(r *apiv1.CreateHostRequest) { r.CreateHostInstanceRequest.GCP = nil }},
-		{func(r *apiv1.CreateHostRequest) { r.CreateHostInstanceRequest.GCP.BootDiskSizeGB = 1 }},
-		{func(r *apiv1.CreateHostRequest) { r.CreateHostInstanceRequest.GCP.MachineType = "" }},
+		{func(r *apiv1.CreateHostRequest) { r.HostInstance = nil }},
+		{func(r *apiv1.CreateHostRequest) { r.HostInstance.Name = "foo" }},
+		{func(r *apiv1.CreateHostRequest) { r.HostInstance.BootDiskSizeGB = 1 }},
+		{func(r *apiv1.CreateHostRequest) { r.HostInstance.GCP = nil }},
+		{func(r *apiv1.CreateHostRequest) { r.HostInstance.GCP.MachineType = "" }},
 	}
 
 	for _, test := range tests {
@@ -113,7 +114,7 @@ func TestCreateHostRequestPath(t *testing.T) {
 
 	im.CreateHost("us-central1-a",
 		&apiv1.CreateHostRequest{
-			CreateHostInstanceRequest: &apiv1.CreateHostInstanceRequest{
+			HostInstance: &apiv1.HostInstance{
 				GCP: &apiv1.GCPInstance{
 					MachineType:    "zones/us-central1-f/machineTypes/n1-standard-1",
 					MinCPUPlatform: "Intel Haswell",
@@ -145,7 +146,7 @@ func TestCreateHostRequestBody(t *testing.T) {
 
 	im.CreateHost("us-central1-a",
 		&apiv1.CreateHostRequest{
-			CreateHostInstanceRequest: &apiv1.CreateHostInstanceRequest{
+			HostInstance: &apiv1.HostInstance{
 				GCP: &apiv1.GCPInstance{
 					MachineType:    "zones/us-central1-f/machineTypes/n1-standard-1",
 					MinCPUPlatform: "Intel Haswell",
@@ -207,7 +208,7 @@ func TestCreateHostSuccess(t *testing.T) {
 
 	op, _ := im.CreateHost("us-central1-a",
 		&apiv1.CreateHostRequest{
-			CreateHostInstanceRequest: &apiv1.CreateHostInstanceRequest{
+			HostInstance: &apiv1.HostInstance{
 				GCP: &apiv1.GCPInstance{
 					MachineType:    "zones/us-central1-f/machineTypes/n1-standard-1",
 					MinCPUPlatform: "Intel Haswell",
@@ -671,22 +672,21 @@ func TestBuildHostInstance(t *testing.T) {
 		MinCpuPlatform: "mcp",
 	}
 
-	result, err := BuildHostInstance(input)
+	got, err := BuildHostInstance(input)
 
-	expected := `{
-  "name": "foo",
-  "gcp": {
-    "boot_disk_size_gb": 10,
-    "machine_type": "mt",
-    "min_cpu_platform": "mcp"
-  }
-}`
-	r := prettyJSON(t, result)
-	if r != expected {
-		t.Errorf("unexpected host instance, got diff: %s", diffPrettyText(r, expected))
+	want := apiv1.HostInstance{
+		Name:           "foo",
+		BootDiskSizeGB: 10,
+		GCP: &apiv1.GCPInstance{
+			MachineType:    "mt",
+			MinCPUPlatform: "mcp",
+		},
+	}
+	if diff := cmp.Diff(&want, got); diff != "" {
+		t.Errorf("instance mismatch (-want +got):\n%s", diff)
 	}
 	if err != nil {
-		t.Errorf("expected <<nil>>, got %+v", err)
+		t.Fatal(err)
 	}
 }
 

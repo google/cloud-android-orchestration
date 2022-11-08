@@ -118,7 +118,6 @@ func (e *apiCallError) Error() string {
 
 type subCommandOptions struct {
 	BaseURL    string
-	HTTPClient *http.Client
 }
 
 type subCommandRunner func(c *cobra.Command, args []string, opts *subCommandOptions) error

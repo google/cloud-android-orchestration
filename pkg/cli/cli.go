@@ -117,7 +117,7 @@ func (e *apiCallError) Error() string {
 }
 
 type subCommandOptions struct {
-	BaseURL    string
+	BaseURL string
 }
 
 type subCommandRunner func(c *cobra.Command, args []string, opts *subCommandOptions) error

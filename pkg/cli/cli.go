@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
@@ -54,11 +55,13 @@ func NewCVDRemoteCommand() *CVDRemoteCommand {
 const (
 	serviceURLFlag = "service_url"
 	zoneFlag       = "zone"
+	httpProxyFlag  = "http_proxy"
 )
 
 type configFlags struct {
 	ServiceURL string
 	Zone       string
+	HTTPProxy  string
 }
 
 func NewCVDRemoteCommandWithArgs(o *CommandOptions) *CVDRemoteCommand {
@@ -77,7 +80,10 @@ func NewCVDRemoteCommandWithArgs(o *CommandOptions) *CVDRemoteCommand {
 		"Cloud orchestration service url.")
 	rootCmd.MarkPersistentFlagRequired(serviceURLFlag)
 	rootCmd.PersistentFlags().StringVar(&configFlags.Zone, zoneFlag, "", "Cloud zone.")
-	// Do not show a `help` command, users have always the `-h` and `--help` flags for help purpose.
+	rootCmd.PersistentFlags().StringVar(&configFlags.HTTPProxy, httpProxyFlag, "",
+		"Proxy used to route the http communication through.")
+	// Do not show a `help` command, users have always the `-h` and `--help` flags for help
+	// purpose.
 	rootCmd.SetHelpCommand(&cobra.Command{Hidden: true})
 	rootCmd.AddCommand(newHostCommand())
 	return &CVDRemoteCommand{rootCmd}
@@ -110,19 +116,26 @@ func (e *apiCallError) Error() string {
 	return fmt.Sprintf("api call error %s: %s", e.Err.Code, e.Err.Message)
 }
 
+type subCommandOptions struct {
+	BaseURL    string
+	HTTPClient *http.Client
+}
+
+type subCommandRunner func(c *cobra.Command, args []string, opts *subCommandOptions) error
+
 func newHostCommand() *cobra.Command {
 	create := &cobra.Command{
 		Use:   "create",
 		Short: "Creates a host.",
 		RunE: func(c *cobra.Command, args []string) error {
-			return runCreateHostCommand(c)
+			return runSubCommand(c, args, runCreateHostCommand)
 		},
 	}
 	list := &cobra.Command{
 		Use:   "list",
 		Short: "Lists hosts.",
 		RunE: func(c *cobra.Command, args []string) error {
-			return runListHostsCommand(c)
+			return runSubCommand(c, args, runListHostsCommand)
 		},
 	}
 	host := &cobra.Command{
@@ -134,16 +147,32 @@ func newHostCommand() *cobra.Command {
 	return host
 }
 
-func runCreateHostCommand(c *cobra.Command) error {
-	baseURL := buildBaseURL(c)
+func runSubCommand(c *cobra.Command, args []string, runner subCommandRunner) error {
+	proxyURL := c.InheritedFlags().Lookup(httpProxyFlag).Value.String()
+	// Handles http proxy
+	if proxyURL != "" {
+		if _, err := url.Parse(proxyURL); err != nil {
+			return err
+		}
+		os.Setenv("HTTP_PROXY", proxyURL)
+	}
+	opts := &subCommandOptions{
+		BaseURL: buildBaseURL(c),
+	}
+	return runner(c, args, opts)
+
+}
+
+func runCreateHostCommand(c *cobra.Command, _ []string, opts *subCommandOptions) error {
+	client := &http.Client{}
 	req := &apiv1.CreateHostInstanceRequest{}
 	body := &apiv1.CreateHostRequest{CreateHostInstanceRequest: req}
 	var op apiv1.Operation
-	client := &http.Client{}
-	if err := doRequest(client, "POST", baseURL+"/hosts", body, &op); err != nil {
+	if err := doRequest(client, "POST", opts.BaseURL+"/hosts", body, &op); err != nil {
 		return err
 	}
-	if err := doRequest(client, "POST", baseURL+"/operations/"+op.Name+"/wait", nil, &op); err != nil {
+	url := opts.BaseURL + "/operations/" + op.Name + "/wait"
+	if err := doRequest(client, "POST", url, nil, &op); err != nil {
 		return err
 	}
 	if op.Result != nil && op.Result.Error != nil {
@@ -161,10 +190,9 @@ func runCreateHostCommand(c *cobra.Command) error {
 	return nil
 }
 
-func runListHostsCommand(c *cobra.Command) error {
-	baseURL := buildBaseURL(c)
+func runListHostsCommand(c *cobra.Command, _ []string, opts *subCommandOptions) error {
 	var res apiv1.ListHostsResponse
-	if err := doRequest(&http.Client{}, "GET", baseURL+"/hosts", nil, &res); err != nil {
+	if err := doRequest(&http.Client{}, "GET", opts.BaseURL+"/hosts", nil, &res); err != nil {
 		return err
 	}
 	for _, ins := range res.Items {
@@ -185,8 +213,7 @@ func buildBaseURL(c *cobra.Command) string {
 
 // It either populates the passed resPayload reference and returns nil error or returns an error.
 // For responses with non-2xx status code an error will be returned.
-func doRequest(
-	client *http.Client, method, url string, reqPayload interface{}, resPayload interface{}) error {
+func doRequest(client *http.Client, method, url string, reqPayload interface{}, resPayload interface{}) error {
 	var body io.Reader
 	if reqPayload != nil {
 		json, err := json.Marshal(reqPayload)
@@ -196,6 +223,9 @@ func doRequest(
 		body = bytes.NewBuffer(json)
 	}
 	req, err := http.NewRequest(method, url, body)
+	if err != nil {
+		return err
+	}
 	req.Header.Set("Content-Type", "application/json")
 	res, err := client.Do(req)
 	if err != nil {

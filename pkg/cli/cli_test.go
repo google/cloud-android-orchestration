@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -28,6 +29,7 @@ import (
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/hashicorp/go-multierror"
 )
 
 func TestCVDRemoteRequiredFlags(t *testing.T) {
@@ -209,9 +211,17 @@ func (h *alwaysSucceedsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 		writeOK(w, op)
 	case "GET /v1/hosts", "GET /v1/zones/" + testZone + "/hosts":
 		writeOK(w, &apiv1.ListHostsResponse{Items: h.WithHostInstances})
+	case "DELETE /v1/hosts/" + h.getHost(r.URL.Path),
+		"DELETE /v1/zones/" + testZone + "/hosts/" + h.getHost(r.URL.Path):
+		writeOK(w, "")
 	default:
 		panic("unexpected endpoint: " + ep)
 	}
+}
+
+func (h *alwaysSucceedsHandler) getHost(path string) string {
+	re := regexp.MustCompile(`^/v1/(zones/.*/)?hosts/(.*)$`)
+	return re.FindStringSubmatch(path)[2]
 }
 
 func TestCommandSucceeds(t *testing.T) {
@@ -231,6 +241,11 @@ func TestCommandSucceeds(t *testing.T) {
 				WithHostInstances: []*apiv1.HostInstance{{Name: "foo"}, {Name: "bar"}},
 			},
 			ExpOut: "foo\nbar\n",
+		},
+		{
+			Args:       []string{"host", "delete", "foo", "bar"},
+			SrvHandler: &alwaysSucceedsHandler{},
+			ExpOut:     "",
 		},
 	}
 	for _, test := range tests {
@@ -273,6 +288,47 @@ func TestCommandSucceeds(t *testing.T) {
 			}
 		})
 	}
+}
+
+type delHostReqHandler struct {
+	WithHostNames map[string]struct{}
+}
+
+func (h *delHostReqHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "DELETE" {
+		panic("unexpected method: " + r.Method)
+	}
+	re := regexp.MustCompile(`^/v1/hosts/(.*)$`)
+	matches := re.FindStringSubmatch(r.URL.Path)
+	if len(matches) != 2 {
+		panic("unexpected path: " + r.URL.Path)
+	}
+	if _, ok := h.WithHostNames[matches[1]]; ok {
+		writeOK(w, "")
+	} else {
+		writeErr(w, 404)
+	}
+}
+
+func TestDeleteHostsCommandFails(t *testing.T) {
+	hostNames := map[string]struct{}{"bar": {}, "baz": {}}
+	srvHandler := &delHostReqHandler{hostNames}
+	ts := httptest.NewServer(srvHandler)
+	defer ts.Close()
+	io, _, _, _ := newTestIOStreams()
+	opts := &CommandOptions{
+		IOStreams: io,
+		Args:      append([]string{"--service_url=" + ts.URL}, "host", "delete", "foo", "bar", "baz", "quz"),
+	}
+
+	err := NewCVDRemoteCommandWithArgs(opts).ExecuteNoErrOutput()
+
+	merr, _ := err.(*multierror.Error)
+	errs := merr.WrappedErrors()
+	if len(errs) != 2 {
+		t.Errorf("expected 2, got: %d", len(errs))
+	}
+
 }
 
 func newTestIOStreams() (IOStreams, *bytes.Buffer, *bytes.Buffer, *bytes.Buffer) {

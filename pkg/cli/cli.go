@@ -22,9 +22,11 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"sync"
 
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
 
+	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 )
 
@@ -137,12 +139,20 @@ func newHostCommand() *cobra.Command {
 			return runSubCommand(c, args, runListHostsCommand)
 		},
 	}
+	del := &cobra.Command{
+		Use:   "delete <foo> <bar> <baz>",
+		Short: "Delete hosts.",
+		RunE: func(c *cobra.Command, args []string) error {
+			return runSubCommand(c, args, runDeleteHostsCommand)
+		},
+	}
 	host := &cobra.Command{
 		Use:   "host",
 		Short: "Work with hosts",
 	}
 	host.AddCommand(create)
 	host.AddCommand(list)
+	host.AddCommand(del)
 	return host
 }
 
@@ -202,6 +212,26 @@ func runListHostsCommand(c *cobra.Command, _ []string, opts *subCommandOptions) 
 	return nil
 }
 
+func runDeleteHostsCommand(c *cobra.Command, args []string, opts *subCommandOptions) error {
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	var merr error
+	for _, arg := range args {
+		wg.Add(1)
+		go func(name string) {
+			defer wg.Done()
+			url := opts.BaseURL + "/hosts/" + name
+			if err := doRequest(opts.HTTPClient, "DELETE", url, nil, nil); err != nil {
+				mu.Lock()
+				defer mu.Unlock()
+				merr = multierror.Append(merr, fmt.Errorf("delete host %q failed: %w", name, err))
+			}
+		}(arg)
+	}
+	wg.Wait()
+	return merr
+}
+
 func buildBaseURL(c *cobra.Command) string {
 	serviceURL := c.InheritedFlags().Lookup(serviceURLFlag).Value.String()
 	zone := c.InheritedFlags().Lookup(zoneFlag).Value.String()
@@ -235,6 +265,10 @@ func doRequest(client *http.Client, method, url string, reqPayload interface{}, 
 	defer res.Body.Close()
 	dec := json.NewDecoder(res.Body)
 	if res.StatusCode < 200 || res.StatusCode > 299 {
+		// DELETE responses do not have a body.
+		if method == "DELETE" {
+			return &apiCallError{&apiv1.Error{Message: res.Status}}
+		}
 		errPayload := new(apiv1.Error)
 		if err := dec.Decode(errPayload); err != nil {
 			return err

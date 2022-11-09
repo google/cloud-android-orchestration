@@ -311,7 +311,7 @@ func (h *delHostReqHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func TestDeleteHostsCommandFails(t *testing.T) {
-	hostNames := map[string]struct{}{"bar": struct{}{}, "baz": struct{}{}}
+	hostNames := map[string]struct{}{"bar": {}, "baz": {}}
 	srvHandler := &delHostReqHandler{hostNames}
 	ts := httptest.NewServer(srvHandler)
 	defer ts.Close()

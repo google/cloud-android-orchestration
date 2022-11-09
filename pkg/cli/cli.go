@@ -22,7 +22,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strconv"
 	"sync"
 
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
@@ -216,7 +215,7 @@ func runListHostsCommand(c *cobra.Command, _ []string, opts *subCommandOptions) 
 func runDeleteHostsCommand(c *cobra.Command, args []string, opts *subCommandOptions) error {
 	var wg sync.WaitGroup
 	var mu sync.Mutex
-	var errs error
+	var merr error
 	for _, arg := range args {
 		wg.Add(1)
 		go func(name string) {
@@ -224,14 +223,13 @@ func runDeleteHostsCommand(c *cobra.Command, args []string, opts *subCommandOpti
 			url := opts.BaseURL + "/hosts/" + name
 			if err := doRequest(opts.HTTPClient, "DELETE", url, nil, nil); err != nil {
 				mu.Lock()
-				errs = multierror.Append(errs, fmt.Errorf("delete host %q failed: %w", name, err))
 				defer mu.Unlock()
-
+				merr = multierror.Append(merr, fmt.Errorf("delete host %q failed: %w", name, err))
 			}
 		}(arg)
 	}
 	wg.Wait()
-	return errs
+	return merr
 }
 
 func buildBaseURL(c *cobra.Command) string {
@@ -267,8 +265,9 @@ func doRequest(client *http.Client, method, url string, reqPayload interface{}, 
 	defer res.Body.Close()
 	dec := json.NewDecoder(res.Body)
 	if res.StatusCode < 200 || res.StatusCode > 299 {
+		// DELETE responses do not have a body.
 		if method == "DELETE" {
-			return &apiCallError{&apiv1.Error{Code: strconv.Itoa(res.StatusCode)}}
+			return &apiCallError{&apiv1.Error{Message: res.Status}}
 		}
 		errPayload := new(apiv1.Error)
 		if err := dec.Decode(errPayload); err != nil {

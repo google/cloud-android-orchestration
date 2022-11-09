@@ -19,6 +19,7 @@ import (
 	"io"
 	"sync"
 
+	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
 	client "github.com/google/cloud-android-orchestration/pkg/client"
 
 	"github.com/hashicorp/go-multierror"
@@ -150,7 +151,15 @@ func runCreateHostCommand(c *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
-	ins, err := apiClient.CreateHost()
+	req := apiv1.CreateHostRequest{
+		HostInstance: &apiv1.HostInstance{
+			GCP: &apiv1.GCPInstance{
+				MachineType:    c.LocalFlags().Lookup(gcpMachineTypeFlag).Value.String(),
+				MinCPUPlatform: c.LocalFlags().Lookup(gcpMinCPUPlatformFlag).Value.String(),
+			},
+		},
+	}
+	ins, err := apiClient.CreateHost(&req)
 	if err != nil {
 		return err
 	}

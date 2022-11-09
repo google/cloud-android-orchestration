@@ -63,10 +63,9 @@ func NewAPIClient(baseURL, proxyURL string, dumpOut io.Writer) (*APIClient, erro
 	}, nil
 }
 
-func (c *APIClient) CreateHost() (*apiv1.HostInstance, error) {
+func (c *APIClient) CreateHost(req *apiv1.CreateHostRequest) (*apiv1.HostInstance, error) {
 	var op apiv1.Operation
-	body := apiv1.CreateHostRequest{HostInstance: &apiv1.HostInstance{}}
-	if err := c.doRequest("POST", "/hosts", &body, &op); err != nil {
+	if err := c.doRequest("POST", "/hosts", req, &op); err != nil {
 		return nil, err
 	}
 	path := "/operations/" + op.Name + "/wait"
@@ -80,11 +79,11 @@ func (c *APIClient) CreateHost() (*apiv1.HostInstance, error) {
 	if !op.Done {
 		return nil, OpTimeoutError(op.Name)
 	}
-	var ins apiv1.HostInstance
-	if err := json.Unmarshal([]byte(op.Result.Response), &ins); err != nil {
+	res := &apiv1.HostInstance{}
+	if err := json.Unmarshal([]byte(op.Result.Response), res); err != nil {
 		return nil, err
 	}
-	return &ins, nil
+	return res, nil
 }
 
 func (c *APIClient) ListHosts() (*apiv1.ListHostsResponse, error) {

@@ -82,8 +82,7 @@ func NewCVDRemoteCommandWithArgs(o *CommandOptions) *CVDRemoteCommand {
 	rootCmd.PersistentFlags().StringVar(&configFlags.Zone, zoneFlag, "", "Cloud zone.")
 	rootCmd.PersistentFlags().StringVar(&configFlags.HTTPProxy, httpProxyFlag, "",
 		"Proxy used to route the http communication through.")
-	// Do not show a `help` command, users have always the `-h` and `--help` flags for help
-	// purpose.
+	// Do not show a `help` command, users have always the `-h` and `--help` flags for help purpose.
 	rootCmd.SetHelpCommand(&cobra.Command{Hidden: true})
 	rootCmd.AddCommand(newHostCommand())
 	return &CVDRemoteCommand{rootCmd}
@@ -117,7 +116,8 @@ func (e *apiCallError) Error() string {
 }
 
 type subCommandOptions struct {
-	BaseURL string
+	HTTPClient *http.Client
+	BaseURL    string
 }
 
 type subCommandRunner func(c *cobra.Command, args []string, opts *subCommandOptions) error
@@ -147,31 +147,33 @@ func newHostCommand() *cobra.Command {
 }
 
 func runSubCommand(c *cobra.Command, args []string, runner subCommandRunner) error {
+	httpClient := &http.Client{}
 	proxyURL := c.InheritedFlags().Lookup(httpProxyFlag).Value.String()
 	// Handles http proxy
 	if proxyURL != "" {
-		if _, err := url.Parse(proxyURL); err != nil {
+		proxyUrl, err := url.Parse(proxyURL)
+		if err != nil {
 			return err
 		}
-		os.Setenv("HTTP_PROXY", proxyURL)
+		httpClient.Transport = &http.Transport{Proxy: http.ProxyURL(proxyUrl)}
 	}
 	opts := &subCommandOptions{
-		BaseURL: buildBaseURL(c),
+		HTTPClient: httpClient,
+		BaseURL:    buildBaseURL(c),
 	}
 	return runner(c, args, opts)
 
 }
 
 func runCreateHostCommand(c *cobra.Command, _ []string, opts *subCommandOptions) error {
-	client := &http.Client{}
 	req := &apiv1.CreateHostInstanceRequest{}
 	body := &apiv1.CreateHostRequest{CreateHostInstanceRequest: req}
 	var op apiv1.Operation
-	if err := doRequest(client, "POST", opts.BaseURL+"/hosts", body, &op); err != nil {
+	if err := doRequest(opts.HTTPClient, "POST", opts.BaseURL+"/hosts", body, &op); err != nil {
 		return err
 	}
 	url := opts.BaseURL + "/operations/" + op.Name + "/wait"
-	if err := doRequest(client, "POST", url, nil, &op); err != nil {
+	if err := doRequest(opts.HTTPClient, "POST", url, nil, &op); err != nil {
 		return err
 	}
 	if op.Result != nil && op.Result.Error != nil {
@@ -191,7 +193,7 @@ func runCreateHostCommand(c *cobra.Command, _ []string, opts *subCommandOptions)
 
 func runListHostsCommand(c *cobra.Command, _ []string, opts *subCommandOptions) error {
 	var res apiv1.ListHostsResponse
-	if err := doRequest(&http.Client{}, "GET", opts.BaseURL+"/hosts", nil, &res); err != nil {
+	if err := doRequest(opts.HTTPClient, "GET", opts.BaseURL+"/hosts", nil, &res); err != nil {
 		return err
 	}
 	for _, ins := range res.Items {

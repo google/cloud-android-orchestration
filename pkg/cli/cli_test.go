@@ -242,7 +242,15 @@ func TestCommandSucceeds(t *testing.T) {
 				Args []string
 			}{
 				{Name: "default", Args: []string{"--service_url=" + ts.URL}},
-				{Name: "with zone", Args: []string{"--service_url=" + ts.URL, "--zone=" + testZone}},
+				{Name: "having zone", Args: []string{"--service_url=" + ts.URL, "--zone=" + testZone}},
+				{
+					Name: "having proxy",
+					Args: []string{
+						"--service_url=http://foo.com",
+						"--zone=" + testZone,
+						"--http_proxy=" + ts.URL,
+					},
+				},
 			}
 			for _, cfg := range configs {
 				t.Run("with config "+cfg.Name, func(t *testing.T) {

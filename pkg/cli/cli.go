@@ -215,6 +215,7 @@ func runListHostsCommand(c *cobra.Command, _ []string, opts *subCommandOptions) 
 
 func runDeleteHostsCommand(c *cobra.Command, args []string, opts *subCommandOptions) error {
 	var wg sync.WaitGroup
+	var mu sync.Mutex
 	var errs error
 	for _, arg := range args {
 		wg.Add(1)
@@ -222,7 +223,10 @@ func runDeleteHostsCommand(c *cobra.Command, args []string, opts *subCommandOpti
 			defer wg.Done()
 			url := opts.BaseURL + "/hosts/" + name
 			if err := doRequest(opts.HTTPClient, "DELETE", url, nil, nil); err != nil {
+				mu.Lock()
 				errs = multierror.Append(errs, fmt.Errorf("delete host %q failed: %w", name, err))
+				defer mu.Unlock()
+
 			}
 		}(arg)
 	}

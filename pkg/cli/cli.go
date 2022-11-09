@@ -120,9 +120,19 @@ func (e *apiCallError) Error() string {
 
 const (
 	verboseFlag = "verbose"
+
+	gcpMachineTypeFlag    = "gcp_machine_type"
+	gcpMinCPUPlatformFlag = "gcp_min_cpu_platform"
 )
 
+type createGCPHostFlags struct {
+	MachineType    string
+	MinCPUPlatform string
+}
+
 type subCommandFlags struct {
+	createGCPHostFlags
+
 	Verbose bool
 }
 
@@ -135,6 +145,7 @@ type subCommandOptions struct {
 type subCommandRunner func(c *cobra.Command, args []string, opts *subCommandOptions) error
 
 func newHostCommand() *cobra.Command {
+	flags := &subCommandFlags{}
 	create := &cobra.Command{
 		Use:   "create",
 		Short: "Creates a host.",
@@ -142,6 +153,10 @@ func newHostCommand() *cobra.Command {
 			return runSubCommand(c, args, runCreateHostCommand)
 		},
 	}
+	create.LocalFlags().StringVar(&flags.MachineType, gcpMachineTypeFlag, "n1-standard-4",
+		"Indicates the machine type")
+	create.LocalFlags().StringVar(&flags.MinCPUPlatform, gcpMinCPUPlatformFlag, "Intel Haswell",
+		"Specifies a minimum CPU platform for the VM instance")
 	list := &cobra.Command{
 		Use:   "list",
 		Short: "Lists hosts.",
@@ -160,8 +175,7 @@ func newHostCommand() *cobra.Command {
 		Use:   "host",
 		Short: "Work with hosts",
 	}
-	subCommandFlags := &subCommandFlags{}
-	host.PersistentFlags().BoolVarP(&subCommandFlags.Verbose, verboseFlag, "v", false, "Be verbose.")
+	host.PersistentFlags().BoolVarP(&flags.Verbose, verboseFlag, "v", false, "Be verbose.")
 	host.AddCommand(create)
 	host.AddCommand(list)
 	host.AddCommand(del)
@@ -195,7 +209,14 @@ func runCreateHostCommand(c *cobra.Command, _ []string, opts *subCommandOptions)
 		Verbose: opts.Verbose,
 		ErrOut:  c.ErrOrStderr(),
 	}
-	body := apiv1.CreateHostRequest{HostInstance: &apiv1.HostInstance{}}
+	body := apiv1.CreateHostRequest{
+		HostInstance: &apiv1.HostInstance{
+			GCP: &apiv1.GCPInstance{
+				MachineType:    c.LocalFlags().Lookup(gcpMachineTypeFlag).Value.String(),
+				MinCPUPlatform: c.LocalFlags().Lookup(gcpMinCPUPlatformFlag).Value.String(),
+			},
+		},
+	}
 	if err := doRequest("POST", opts.BaseURL+"/hosts", &body, &op, &reqOpts); err != nil {
 		return err
 	}

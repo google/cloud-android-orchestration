@@ -2,17 +2,19 @@ package v1
 
 type CreateHostRequest struct {
 	// [REQUIRED]
-	CreateHostInstanceRequest *CreateHostInstanceRequest `json:"create_host_instance_request"`
+	HostInstance *HostInstance `json:"host_instance"`
 }
 
-type CreateHostInstanceRequest struct {
-	// Required if using GCP.
-	GCP *GCPInstance `json:"gcp"`
+type HostInstance struct {
+	// [Output Only] Instance name.
+	Name string `json:"name,omitempty"`
+	// [Output Only] Boot disk size in GB.
+	BootDiskSizeGB int64 `json:"boot_disk_size_gb,omitempty"`
+	// GCP specific properties.
+	GCP *GCPInstance `json:"gcp,omitempty"`
 }
 
 type GCPInstance struct {
-	// [Output Only] Boot disk size in GB.
-	BootDiskSizeGB int64 `json:"boot_disk_size_gb"`
 	// [REQUIRED] More info about this field in https://cloud.google.com/compute/docs/reference/rest/v1/instances/insert#request-body
 	MachineType string `json:"machine_type"`
 	// More info about this field in https://cloud.google.com/compute/docs/reference/rest/v1/instances/insert#request-body
@@ -45,11 +47,6 @@ type OperationResult struct {
 type Error struct {
 	Code    string `json:"code,omitempty"`
 	Message string `json:"message,omitempty"`
-}
-
-type HostInstance struct {
-	Name string       `json:"name"`
-	GCP  *GCPInstance `json:"gcp,omitempty"`
 }
 
 type ListHostsResponse struct {

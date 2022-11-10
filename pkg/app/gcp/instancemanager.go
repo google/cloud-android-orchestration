@@ -82,8 +82,8 @@ func (m *InstanceManager) CreateHost(zone string, req *apiv1.CreateHostRequest, 
 	}
 	payload := &compute.Instance{
 		Name:           m.InstanceNameGenerator.NewName(),
-		MachineType:    req.CreateHostInstanceRequest.GCP.MachineType,
-		MinCpuPlatform: req.CreateHostInstanceRequest.GCP.MinCPUPlatform,
+		MachineType:    req.HostInstance.GCP.MachineType,
+		MinCpuPlatform: req.HostInstance.GCP.MinCPUPlatform,
 		Disks: []*compute.AttachedDisk{
 			{
 				InitializeParams: &compute.AttachedDiskInitializeParams{
@@ -195,10 +195,11 @@ func (m *InstanceManager) buildOperation(op *compute.Operation) (*apiv1.Operatio
 }
 
 func validateRequest(r *apiv1.CreateHostRequest) error {
-	if r.CreateHostInstanceRequest == nil ||
-		r.CreateHostInstanceRequest.GCP == nil ||
-		r.CreateHostInstanceRequest.GCP.BootDiskSizeGB != 0 ||
-		r.CreateHostInstanceRequest.GCP.MachineType == "" {
+	if r.HostInstance == nil ||
+		r.HostInstance.Name != "" ||
+		r.HostInstance.BootDiskSizeGB != 0 ||
+		r.HostInstance.GCP == nil ||
+		r.HostInstance.GCP.MachineType == "" {
 		return app.NewBadRequestError("invalid CreateHostRequest", nil)
 	}
 	return nil
@@ -218,9 +219,9 @@ func BuildHostInstance(in *compute.Instance) (*apiv1.HostInstance, error) {
 		log.Printf("invalid host instance %q: has %d (more than one) disks", in.SelfLink, disksLen)
 	}
 	return &apiv1.HostInstance{
-		Name: in.Name,
+		Name:           in.Name,
+		BootDiskSizeGB: in.Disks[0].DiskSizeGb,
 		GCP: &apiv1.GCPInstance{
-			BootDiskSizeGB: in.Disks[0].DiskSizeGb,
 			MachineType:    in.MachineType,
 			MinCPUPlatform: in.MinCpuPlatform,
 		},

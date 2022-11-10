@@ -195,7 +195,7 @@ func runCreateHostCommand(c *cobra.Command, _ []string, opts *subCommandOptions)
 		Verbose: opts.Verbose,
 		ErrOut:  c.ErrOrStderr(),
 	}
-	body := apiv1.CreateHostRequest{CreateHostInstanceRequest: &apiv1.CreateHostInstanceRequest{}}
+	body := apiv1.CreateHostRequest{HostInstance: &apiv1.HostInstance{}}
 	if err := doRequest("POST", opts.BaseURL+"/hosts", &body, &op, &reqOpts); err != nil {
 		return err
 	}

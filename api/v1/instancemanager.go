@@ -15,9 +15,10 @@ type HostInstance struct {
 }
 
 type GCPInstance struct {
-	// [REQUIRED] More info about this field in https://cloud.google.com/compute/docs/reference/rest/v1/instances/insert#request-body
+	// [REQUIRED] Specifies the machine type of the VM Instance.
+	// Check https://cloud.google.com/compute/docs/regions-zones#available for available values.
 	MachineType string `json:"machine_type"`
-	// More info about this field in https://cloud.google.com/compute/docs/reference/rest/v1/instances/insert#request-body
+	// Specifies a minimum CPU platform for the VM instance.
 	MinCPUPlatform string `json:"min_cpu_platform"`
 }
 

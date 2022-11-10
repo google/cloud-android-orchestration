@@ -66,7 +66,7 @@ func TestCreateHostInvalidRequests(t *testing.T) {
 		return &apiv1.CreateHostRequest{
 			HostInstance: &apiv1.HostInstance{
 				GCP: &apiv1.GCPInstance{
-					MachineType:    "zones/us-central1-f/machineTypes/n1-standard-1",
+					MachineType:    "n1-standard-1",
 					MinCPUPlatform: "Intel Haswell",
 				},
 			},
@@ -116,7 +116,7 @@ func TestCreateHostRequestPath(t *testing.T) {
 		&apiv1.CreateHostRequest{
 			HostInstance: &apiv1.HostInstance{
 				GCP: &apiv1.GCPInstance{
-					MachineType:    "zones/us-central1-f/machineTypes/n1-standard-1",
+					MachineType:    "n1-standard-1",
 					MinCPUPlatform: "Intel Haswell",
 				},
 			},
@@ -148,7 +148,7 @@ func TestCreateHostRequestBody(t *testing.T) {
 		&apiv1.CreateHostRequest{
 			HostInstance: &apiv1.HostInstance{
 				GCP: &apiv1.GCPInstance{
-					MachineType:    "zones/us-central1-f/machineTypes/n1-standard-1",
+					MachineType:    "n1-standard-1",
 					MinCPUPlatform: "Intel Haswell",
 				},
 			},
@@ -168,7 +168,7 @@ func TestCreateHostRequestBody(t *testing.T) {
     "cf-created_by": "johndoe",
     "created_by": "johndoe"
   },
-  "machineType": "zones/us-central1-f/machineTypes/n1-standard-1",
+  "machineType": "zones/us-central1-a/machineTypes/n1-standard-1",
   "minCpuPlatform": "Intel Haswell",
   "name": "foo",
   "networkInterfaces": [
@@ -210,7 +210,7 @@ func TestCreateHostSuccess(t *testing.T) {
 		&apiv1.CreateHostRequest{
 			HostInstance: &apiv1.HostInstance{
 				GCP: &apiv1.GCPInstance{
-					MachineType:    "zones/us-central1-f/machineTypes/n1-standard-1",
+					MachineType:    "n1-standard-1",
 					MinCPUPlatform: "Intel Haswell",
 				},
 			},
@@ -668,8 +668,8 @@ func TestBuildHostInstance(t *testing.T) {
 	input := &compute.Instance{
 		Disks:          []*compute.AttachedDisk{{DiskSizeGb: 10}},
 		Name:           "foo",
-		MachineType:    "mt",
-		MinCpuPlatform: "mcp",
+		MachineType:    "zones/us-central1-a/machineTypes/n1-standard-1",
+		MinCpuPlatform: "Intel Haswell",
 	}
 
 	got, err := BuildHostInstance(input)
@@ -678,8 +678,8 @@ func TestBuildHostInstance(t *testing.T) {
 		Name:           "foo",
 		BootDiskSizeGB: 10,
 		GCP: &apiv1.GCPInstance{
-			MachineType:    "mt",
-			MinCPUPlatform: "mcp",
+			MachineType:    "n1-standard-1",
+			MinCPUPlatform: "Intel Haswell",
 		},
 	}
 	if diff := cmp.Diff(&want, got); diff != "" {

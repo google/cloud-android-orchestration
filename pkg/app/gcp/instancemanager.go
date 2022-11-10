@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"log"
 	"net/url"
+	"path"
 	"regexp"
 
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
@@ -81,8 +82,10 @@ func (m *InstanceManager) CreateHost(zone string, req *apiv1.CreateHostRequest, 
 		labelCreatedBy:       user.Username(),
 	}
 	payload := &compute.Instance{
-		Name:           m.InstanceNameGenerator.NewName(),
-		MachineType:    req.HostInstance.GCP.MachineType,
+		Name: m.InstanceNameGenerator.NewName(),
+		// This is required in the format: "zones/zone/machineTypes/machine-type".
+		// Read more: https://cloud.google.com/compute/docs/reference/rest/v1/instances/insert#request-body
+		MachineType:    fmt.Sprintf("zones/%s/machineTypes/%s", zone, req.HostInstance.GCP.MachineType),
 		MinCpuPlatform: req.HostInstance.GCP.MinCPUPlatform,
 		Disks: []*compute.AttachedDisk{
 			{
@@ -222,7 +225,7 @@ func BuildHostInstance(in *compute.Instance) (*apiv1.HostInstance, error) {
 		Name:           in.Name,
 		BootDiskSizeGB: in.Disks[0].DiskSizeGb,
 		GCP: &apiv1.GCPInstance{
-			MachineType:    in.MachineType,
+			MachineType:    path.Base(in.MachineType),
 			MinCPUPlatform: in.MinCpuPlatform,
 		},
 	}, nil

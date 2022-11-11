@@ -22,7 +22,6 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"os"
 	"sync"
 
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
@@ -47,14 +46,6 @@ type CVDRemoteCommand struct {
 	command *cobra.Command
 }
 
-func NewCVDRemoteCommand() *CVDRemoteCommand {
-	opts := &CommandOptions{
-		IOStreams: IOStreams{In: os.Stdin, Out: os.Stdout, ErrOut: os.Stderr},
-		Args:      os.Args[1:],
-	}
-	return NewCVDRemoteCommandWithArgs(opts)
-}
-
 const (
 	serviceURLFlag = "service_url"
 	zoneFlag       = "zone"
@@ -67,7 +58,7 @@ type configFlags struct {
 	HTTPProxy  string
 }
 
-func NewCVDRemoteCommandWithArgs(o *CommandOptions) *CVDRemoteCommand {
+func NewCVDRemoteCommand(o *CommandOptions) *CVDRemoteCommand {
 	configFlags := &configFlags{}
 	rootCmd := &cobra.Command{
 		Use:               "cvdremote",
@@ -91,17 +82,12 @@ func NewCVDRemoteCommandWithArgs(o *CommandOptions) *CVDRemoteCommand {
 	return &CVDRemoteCommand{rootCmd}
 }
 
-// ExecuteNoErrOutput is a version of Execute which returns the command error instead of
-// printing it and do not exit in case of error.
-func (c *CVDRemoteCommand) ExecuteNoErrOutput() error {
-	return c.command.Execute()
-}
-
-func (c *CVDRemoteCommand) Execute() {
-	if err := c.ExecuteNoErrOutput(); err != nil {
+func (c *CVDRemoteCommand) Execute() error {
+	err := c.command.Execute()
+	if err != nil {
 		c.command.PrintErrln(err)
-		os.Exit(1)
 	}
+	return err
 }
 
 type opTimeoutError string

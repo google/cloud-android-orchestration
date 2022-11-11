@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -45,13 +46,13 @@ func TestCVDRemoteRequiredFlags(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.FlagName, func(t *testing.T) {
-			io, _, _, _ := newTestIOStreams()
+			io, _, _ := newTestIOStreams()
 			opts := &CommandOptions{
 				IOStreams: io,
 				Args:      test.Args,
 			}
 
-			err := NewCVDRemoteCommandWithArgs(opts).ExecuteNoErrOutput()
+			err := NewCVDRemoteCommand(opts).Execute()
 
 			// Asserting against the error message itself as there's no specific error type for
 			// required flags based failures.
@@ -173,13 +174,13 @@ func TestCommandFails(t *testing.T) {
 		t.Run(test.Name, func(t *testing.T) {
 			ts := httptest.NewServer(test.SrvHandler)
 			defer ts.Close()
-			io, _, out, _ := newTestIOStreams()
+			io, _, out := newTestIOStreams()
 			opts := &CommandOptions{
 				IOStreams: io,
 				Args:      append([]string{"--service_url=" + ts.URL}, test.Args[:]...),
 			}
 
-			err := NewCVDRemoteCommandWithArgs(opts).ExecuteNoErrOutput()
+			err := NewCVDRemoteCommand(opts).Execute()
 
 			b, _ := ioutil.ReadAll(out)
 			if diff := cmp.Diff(test.ExpOut, string(b)); diff != "" {
@@ -269,13 +270,13 @@ func TestCommandSucceeds(t *testing.T) {
 			}
 			for _, cfg := range configs {
 				t.Run("with config "+cfg.Name, func(t *testing.T) {
-					io, _, out, _ := newTestIOStreams()
+					io, _, out := newTestIOStreams()
 					opts := &CommandOptions{
 						IOStreams: io,
 						Args:      append(cfg.Args, test.Args[:]...),
 					}
 
-					err := NewCVDRemoteCommandWithArgs(opts).ExecuteNoErrOutput()
+					err := NewCVDRemoteCommand(opts).Execute()
 
 					b, _ := ioutil.ReadAll(out)
 					if diff := cmp.Diff(test.ExpOut, string(b)); diff != "" {
@@ -315,13 +316,13 @@ func TestDeleteHostsCommandFails(t *testing.T) {
 	srvHandler := &delHostReqHandler{hostNames}
 	ts := httptest.NewServer(srvHandler)
 	defer ts.Close()
-	io, _, _, _ := newTestIOStreams()
+	io, _, _ := newTestIOStreams()
 	opts := &CommandOptions{
 		IOStreams: io,
 		Args:      append([]string{"--service_url=" + ts.URL}, "host", "delete", "foo", "bar", "baz", "quz"),
 	}
 
-	err := NewCVDRemoteCommandWithArgs(opts).ExecuteNoErrOutput()
+	err := NewCVDRemoteCommand(opts).Execute()
 
 	merr, _ := err.(*multierror.Error)
 	errs := merr.WrappedErrors()
@@ -331,16 +332,16 @@ func TestDeleteHostsCommandFails(t *testing.T) {
 
 }
 
-func newTestIOStreams() (IOStreams, *bytes.Buffer, *bytes.Buffer, *bytes.Buffer) {
+func newTestIOStreams() (IOStreams, *bytes.Buffer, *bytes.Buffer) {
 	in := &bytes.Buffer{}
 	out := &bytes.Buffer{}
-	errOut := &bytes.Buffer{}
+	errOut := io.Discard
 
 	return IOStreams{
 		In:     in,
 		Out:    out,
 		ErrOut: errOut,
-	}, in, out, errOut
+	}, in, out
 }
 
 func writeErr(w http.ResponseWriter, statusCode int) {

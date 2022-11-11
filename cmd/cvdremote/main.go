@@ -14,8 +14,17 @@
 
 package main
 
-import "github.com/google/cloud-android-orchestration/pkg/cli"
+import (
+	"github.com/google/cloud-android-orchestration/pkg/cli"
+	"os"
+)
 
 func main() {
-	cli.NewCVDRemoteCommand().Execute()
+	opts := &cli.CommandOptions{
+		IOStreams: cli.IOStreams{In: os.Stdin, Out: os.Stdout, ErrOut: os.Stderr},
+		Args:      os.Args[1:],
+	}
+	if err := cli.NewCVDRemoteCommand(opts).Execute(); err != nil {
+		os.Exit(1)
+	}
 }

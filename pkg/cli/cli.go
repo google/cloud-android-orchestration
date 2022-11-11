@@ -118,29 +118,21 @@ type subCommandOptions struct {
 	Verbose    bool
 }
 
-type subCommandRunner func(c *cobra.Command, args []string, opts *subCommandOptions) error
-
 func newHostCommand() *cobra.Command {
 	create := &cobra.Command{
 		Use:   "create",
 		Short: "Creates a host.",
-		RunE: func(c *cobra.Command, args []string) error {
-			return runSubCommand(c, args, runCreateHostCommand)
-		},
+		RunE:  runCreateHostCommand,
 	}
 	list := &cobra.Command{
 		Use:   "list",
 		Short: "Lists hosts.",
-		RunE: func(c *cobra.Command, args []string) error {
-			return runSubCommand(c, args, runListHostsCommand)
-		},
+		RunE:  runListHostsCommand,
 	}
 	del := &cobra.Command{
 		Use:   "delete <foo> <bar> <baz>",
 		Short: "Delete hosts.",
-		RunE: func(c *cobra.Command, args []string) error {
-			return runSubCommand(c, args, runDeleteHostsCommand)
-		},
+		RunE:  runDeleteHostsCommand,
 	}
 	host := &cobra.Command{
 		Use:   "host",
@@ -154,27 +146,30 @@ func newHostCommand() *cobra.Command {
 	return host
 }
 
-func runSubCommand(c *cobra.Command, args []string, runner subCommandRunner) error {
+func GetSubCommandOptions(c *cobra.Command) (*subCommandOptions, error) {
 	httpClient := &http.Client{}
 	proxyURL := c.InheritedFlags().Lookup(httpProxyFlag).Value.String()
 	// Handles http proxy
 	if proxyURL != "" {
 		proxyUrl, err := url.Parse(proxyURL)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		httpClient.Transport = &http.Transport{Proxy: http.ProxyURL(proxyUrl)}
 	}
-	opts := &subCommandOptions{
+	return &subCommandOptions{
 		HTTPClient: httpClient,
 		BaseURL:    buildBaseURL(c),
 		Verbose:    c.InheritedFlags().Lookup(verboseFlag).Changed,
-	}
-	return runner(c, args, opts)
+	}, nil
 
 }
 
-func runCreateHostCommand(c *cobra.Command, _ []string, opts *subCommandOptions) error {
+func runCreateHostCommand(c *cobra.Command, _ []string) error {
+	opts, err := GetSubCommandOptions(c)
+	if err != nil {
+		return err
+	}
 	var op apiv1.Operation
 	reqOpts := doRequestOpts{
 		Client:  opts.HTTPClient,
@@ -204,7 +199,11 @@ func runCreateHostCommand(c *cobra.Command, _ []string, opts *subCommandOptions)
 	return nil
 }
 
-func runListHostsCommand(c *cobra.Command, _ []string, opts *subCommandOptions) error {
+func runListHostsCommand(c *cobra.Command, _ []string) error {
+	opts, err := GetSubCommandOptions(c)
+	if err != nil {
+		return err
+	}
 	var res apiv1.ListHostsResponse
 	reqOpts := doRequestOpts{
 		Client:  opts.HTTPClient,
@@ -220,7 +219,11 @@ func runListHostsCommand(c *cobra.Command, _ []string, opts *subCommandOptions) 
 	return nil
 }
 
-func runDeleteHostsCommand(c *cobra.Command, args []string, opts *subCommandOptions) error {
+func runDeleteHostsCommand(c *cobra.Command, args []string) error {
+	opts, err := GetSubCommandOptions(c)
+	if err != nil {
+		return err
+	}
 	reqOpts := doRequestOpts{
 		Client:  opts.HTTPClient,
 		Verbose: opts.Verbose,

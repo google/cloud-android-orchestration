@@ -28,6 +28,7 @@ import (
 	"testing"
 
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
+	"github.com/google/cloud-android-orchestration/pkg/client"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/go-multierror"
@@ -143,31 +144,31 @@ func TestCommandFails(t *testing.T) {
 			Name:       "create host api call fails",
 			Args:       []string{"host", "create"},
 			SrvHandler: &createHostReqFailsHandler{WithErrCode: 500},
-			ExpErr:     &apiCallError{&apiv1.Error{Code: "500"}},
+			ExpErr:     &client.ApiCallError{&apiv1.Error{Code: "500"}},
 		},
 		{
 			Name:       "wait operation api call fails",
 			Args:       []string{"host", "create"},
 			SrvHandler: &createHostReqFailsHandler{WithErrCode: 503},
-			ExpErr:     &apiCallError{&apiv1.Error{Code: "503"}},
+			ExpErr:     &client.ApiCallError{&apiv1.Error{Code: "503"}},
 		},
 		{
 			Name:       "wait operation, operation not done",
 			Args:       []string{"host", "create"},
 			SrvHandler: &createHostWaitOpNotDoneHandler{WithOpName: "op-foo"},
-			ExpErr:     opTimeoutError("op-foo"),
+			ExpErr:     client.OpTimeoutError("op-foo"),
 		},
 		{
 			Name:       "failed operation",
 			Args:       []string{"host", "create"},
 			SrvHandler: &createHostOpFailedHandler{WithErrCode: 507},
-			ExpErr:     &apiCallError{&apiv1.Error{Code: "507"}},
+			ExpErr:     &client.ApiCallError{&apiv1.Error{Code: "507"}},
 		},
 		{
 			Name:       "list hosts api call fails",
 			Args:       []string{"host", "list"},
 			SrvHandler: &listsHostReqFailsHandler{WithErrCode: 500},
-			ExpErr:     &apiCallError{&apiv1.Error{Code: "500"}},
+			ExpErr:     &client.ApiCallError{&apiv1.Error{Code: "500"}},
 		},
 	}
 	for _, test := range tests {

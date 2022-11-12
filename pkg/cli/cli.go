@@ -15,16 +15,11 @@
 package cli
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
-	"net/http/httputil"
-	"net/url"
 	"sync"
 
-	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
+	client "github.com/google/cloud-android-orchestration/pkg/client"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
@@ -90,20 +85,6 @@ func (c *CVDRemoteCommand) Execute() error {
 	return err
 }
 
-type opTimeoutError string
-
-func (s opTimeoutError) Error() string {
-	return fmt.Sprintf("waiting for operation %q timed out", string(s))
-}
-
-type apiCallError struct {
-	Err *apiv1.Error
-}
-
-func (e *apiCallError) Error() string {
-	return fmt.Sprintf("api call error %s: %s", e.Err.Code, e.Err.Message)
-}
-
 const (
 	verboseFlag = "verbose"
 
@@ -120,12 +101,6 @@ type subCommandFlags struct {
 	createGCPHostFlags
 
 	Verbose bool
-}
-
-type subCommandOptions struct {
-	HTTPClient *http.Client
-	BaseURL    string
-	Verbose    bool
 }
 
 func newHostCommand() *cobra.Command {
@@ -160,60 +135,23 @@ func newHostCommand() *cobra.Command {
 	return host
 }
 
-func GetSubCommandOptions(c *cobra.Command) (*subCommandOptions, error) {
-	httpClient := &http.Client{}
+func buildAPIClient(c *cobra.Command) (*client.APIClient, error) {
 	proxyURL := c.InheritedFlags().Lookup(httpProxyFlag).Value.String()
-	// Handles http proxy
-	if proxyURL != "" {
-		proxyUrl, err := url.Parse(proxyURL)
-		if err != nil {
-			return nil, err
-		}
-		httpClient.Transport = &http.Transport{Proxy: http.ProxyURL(proxyUrl)}
+	verbose := c.InheritedFlags().Lookup(verboseFlag).Changed
+	var dumpOut io.Writer = io.Discard
+	if verbose {
+		dumpOut = c.ErrOrStderr()
 	}
-	return &subCommandOptions{
-		HTTPClient: httpClient,
-		BaseURL:    buildBaseURL(c),
-		Verbose:    c.InheritedFlags().Lookup(verboseFlag).Changed,
-	}, nil
-
+	return client.NewAPIClient(buildBaseURL(c), proxyURL, dumpOut)
 }
 
 func runCreateHostCommand(c *cobra.Command, _ []string) error {
-	opts, err := GetSubCommandOptions(c)
+	apiClient, err := buildAPIClient(c)
 	if err != nil {
 		return err
 	}
-	var op apiv1.Operation
-	reqOpts := doRequestOpts{
-		Client:  opts.HTTPClient,
-		Verbose: opts.Verbose,
-		ErrOut:  c.ErrOrStderr(),
-	}
-	body := apiv1.CreateHostRequest{
-		HostInstance: &apiv1.HostInstance{
-			GCP: &apiv1.GCPInstance{
-				MachineType:    c.LocalFlags().Lookup(gcpMachineTypeFlag).Value.String(),
-				MinCPUPlatform: c.LocalFlags().Lookup(gcpMinCPUPlatformFlag).Value.String(),
-			},
-		},
-	}
-	if err := doRequest("POST", opts.BaseURL+"/hosts", &body, &op, &reqOpts); err != nil {
-		return err
-	}
-	url := opts.BaseURL + "/operations/" + op.Name + "/wait"
-	if err := doRequest("POST", url, nil, &op, &reqOpts); err != nil {
-		return err
-	}
-	if op.Result != nil && op.Result.Error != nil {
-		err := &apiCallError{op.Result.Error}
-		return err
-	}
-	if !op.Done {
-		return opTimeoutError(op.Name)
-	}
-	var ins apiv1.HostInstance
-	if err := json.Unmarshal([]byte(op.Result.Response), &ins); err != nil {
+	ins, err := apiClient.CreateHost()
+	if err != nil {
 		return err
 	}
 	c.Printf("%s\n", ins.Name)
@@ -221,34 +159,24 @@ func runCreateHostCommand(c *cobra.Command, _ []string) error {
 }
 
 func runListHostsCommand(c *cobra.Command, _ []string) error {
-	opts, err := GetSubCommandOptions(c)
+	apiClient, err := buildAPIClient(c)
 	if err != nil {
 		return err
 	}
-	var res apiv1.ListHostsResponse
-	reqOpts := doRequestOpts{
-		Client:  opts.HTTPClient,
-		Verbose: opts.Verbose,
-		ErrOut:  c.ErrOrStderr(),
-	}
-	if err := doRequest("GET", opts.BaseURL+"/hosts", nil, &res, &reqOpts); err != nil {
+	hosts, err := apiClient.ListHosts()
+	if err != nil {
 		return err
 	}
-	for _, ins := range res.Items {
+	for _, ins := range hosts.Items {
 		c.Printf("%s\n", ins.Name)
 	}
 	return nil
 }
 
 func runDeleteHostsCommand(c *cobra.Command, args []string) error {
-	opts, err := GetSubCommandOptions(c)
+	apiClient, err := buildAPIClient(c)
 	if err != nil {
 		return err
-	}
-	reqOpts := doRequestOpts{
-		Client:  opts.HTTPClient,
-		Verbose: opts.Verbose,
-		ErrOut:  c.ErrOrStderr(),
 	}
 	var wg sync.WaitGroup
 	var mu sync.Mutex
@@ -257,8 +185,7 @@ func runDeleteHostsCommand(c *cobra.Command, args []string) error {
 		wg.Add(1)
 		go func(name string) {
 			defer wg.Done()
-			url := opts.BaseURL + "/hosts/" + name
-			if err := doRequest("DELETE", url, nil, nil, &reqOpts); err != nil {
+			if err := apiClient.DeleteHost(name); err != nil {
 				mu.Lock()
 				defer mu.Unlock()
 				merr = multierror.Append(merr, fmt.Errorf("delete host %q failed: %w", name, err))
@@ -277,79 +204,4 @@ func buildBaseURL(c *cobra.Command) string {
 		baseURL += "/zones/" + zone
 	}
 	return baseURL
-}
-
-type doRequestOpts struct {
-	Client  *http.Client
-	Verbose bool
-	ErrOut  io.Writer
-}
-
-// It either populates the passed response payload reference and returns nil error or returns an error.
-// For responses with non-2xx status code an error will be returned.
-func doRequest(method, url string, reqpl, respl interface{}, opts *doRequestOpts) error {
-	var body io.Reader
-	if reqpl != nil {
-		json, err := json.Marshal(reqpl)
-		if err != nil {
-			return err
-		}
-		body = bytes.NewBuffer(json)
-	}
-	req, err := http.NewRequest(method, url, body)
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	if opts.Verbose {
-		if err := dumpRequest(req, opts.ErrOut); err != nil {
-			return err
-		}
-	}
-	res, err := opts.Client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer res.Body.Close()
-	if opts.Verbose {
-		if err := dumpResponse(res, opts.ErrOut); err != nil {
-			return err
-		}
-	}
-	dec := json.NewDecoder(res.Body)
-	if res.StatusCode < 200 || res.StatusCode > 299 {
-		// DELETE responses do not have a body.
-		if method == "DELETE" {
-			return &apiCallError{&apiv1.Error{Message: res.Status}}
-		}
-		errpl := new(apiv1.Error)
-		if err := dec.Decode(errpl); err != nil {
-			return err
-		}
-		return &apiCallError{errpl}
-	}
-	if respl != nil {
-		if err := dec.Decode(respl); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func dumpRequest(r *http.Request, w io.Writer) error {
-	dump, err := httputil.DumpRequestOut(r, true)
-	if err != nil {
-		return err
-	}
-	fmt.Fprintf(w, "%s\n", dump)
-	return nil
-}
-
-func dumpResponse(r *http.Response, w io.Writer) error {
-	dump, err := httputil.DumpResponse(r, true)
-	if err != nil {
-		return err
-	}
-	fmt.Fprintf(w, "%s\n", dump)
-	return nil
 }

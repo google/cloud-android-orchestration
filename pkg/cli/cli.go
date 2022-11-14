@@ -19,6 +19,7 @@ import (
 	"io"
 	"sync"
 
+	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
 	client "github.com/google/cloud-android-orchestration/pkg/client"
 
 	"github.com/hashicorp/go-multierror"
@@ -87,18 +88,33 @@ func (c *CVDRemoteCommand) Execute() error {
 
 const (
 	verboseFlag = "verbose"
+
+	gcpMachineTypeFlag    = "gcp_machine_type"
+	gcpMinCPUPlatformFlag = "gcp_min_cpu_platform"
 )
 
+type createGCPHostFlags struct {
+	MachineType    string
+	MinCPUPlatform string
+}
+
 type subCommandFlags struct {
+	createGCPHostFlags
+
 	Verbose bool
 }
 
 func newHostCommand() *cobra.Command {
+	flags := &subCommandFlags{}
 	create := &cobra.Command{
 		Use:   "create",
 		Short: "Creates a host.",
 		RunE:  runCreateHostCommand,
 	}
+	create.LocalFlags().StringVar(&flags.MachineType, gcpMachineTypeFlag, "n1-standard-4",
+		"Indicates the machine type")
+	create.LocalFlags().StringVar(&flags.MinCPUPlatform, gcpMinCPUPlatformFlag, "Intel Haswell",
+		"Specifies a minimum CPU platform for the VM instance")
 	list := &cobra.Command{
 		Use:   "list",
 		Short: "Lists hosts.",
@@ -113,8 +129,7 @@ func newHostCommand() *cobra.Command {
 		Use:   "host",
 		Short: "Work with hosts",
 	}
-	subCommandFlags := &subCommandFlags{}
-	host.PersistentFlags().BoolVarP(&subCommandFlags.Verbose, verboseFlag, "v", false, "Be verbose.")
+	host.PersistentFlags().BoolVarP(&flags.Verbose, verboseFlag, "v", false, "Be verbose.")
 	host.AddCommand(create)
 	host.AddCommand(list)
 	host.AddCommand(del)
@@ -136,7 +151,15 @@ func runCreateHostCommand(c *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
-	ins, err := apiClient.CreateHost()
+	req := apiv1.CreateHostRequest{
+		HostInstance: &apiv1.HostInstance{
+			GCP: &apiv1.GCPInstance{
+				MachineType:    c.LocalFlags().Lookup(gcpMachineTypeFlag).Value.String(),
+				MinCPUPlatform: c.LocalFlags().Lookup(gcpMinCPUPlatformFlag).Value.String(),
+			},
+		},
+	}
+	ins, err := apiClient.CreateHost(&req)
 	if err != nil {
 		return err
 	}

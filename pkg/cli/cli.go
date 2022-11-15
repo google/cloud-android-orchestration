@@ -143,7 +143,11 @@ func buildAPIClient(c *cobra.Command) (*client.APIClient, error) {
 	if verbose {
 		dumpOut = c.ErrOrStderr()
 	}
-	return client.NewAPIClient(buildBaseURL(c), proxyURL, dumpOut)
+	return client.NewAPIClient(buildBaseURL(c), proxyURL, dumpOut, c.ErrOrStderr())
+}
+
+func notImplementedCommand(c *cobra.Command, _ []string) error {
+	return fmt.Errorf("Command not implemented")
 }
 
 func runCreateHostCommand(c *cobra.Command, _ []string) error {

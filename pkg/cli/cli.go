@@ -74,7 +74,7 @@ func NewCVDRemoteCommand(o *CommandOptions) *CVDRemoteCommand {
 		"Proxy used to route the http communication through.")
 	// Do not show a `help` command, users have always the `-h` and `--help` flags for help purpose.
 	rootCmd.SetHelpCommand(&cobra.Command{Hidden: true})
-	rootCmd.AddCommand(newHostCommand())
+	rootCmd.AddCommand(newHostCommand(configFlags))
 	return &CVDRemoteCommand{rootCmd}
 }
 
@@ -93,73 +93,86 @@ const (
 	gcpMinCPUPlatformFlag = "gcp_min_cpu_platform"
 )
 
+type subCommandFlags struct {
+	*configFlags
+	Verbose bool
+}
+
 type createGCPHostFlags struct {
+	*subCommandFlags
 	MachineType    string
 	MinCPUPlatform string
 }
 
-type subCommandFlags struct {
-	createGCPHostFlags
-
-	Verbose bool
-}
-
-func newHostCommand() *cobra.Command {
-	flags := &subCommandFlags{}
+func newHostCommand(cfgFlags *configFlags) *cobra.Command {
+	hostFlags := &subCommandFlags{
+		cfgFlags,
+		false,
+	}
+	createFlags := &createGCPHostFlags{hostFlags, "", ""}
 	create := &cobra.Command{
 		Use:   "create",
 		Short: "Creates a host.",
-		RunE:  runCreateHostCommand,
+		RunE: func(c *cobra.Command, args []string) error {
+			return runCreateHostCommand(createFlags, c, args)
+		},
 	}
-	create.LocalFlags().StringVar(&flags.MachineType, gcpMachineTypeFlag, "n1-standard-4",
+	create.LocalFlags().StringVar(&createFlags.MachineType, gcpMachineTypeFlag, "n1-standard-4",
 		"Indicates the machine type")
-	create.LocalFlags().StringVar(&flags.MinCPUPlatform, gcpMinCPUPlatformFlag, "Intel Haswell",
+	create.LocalFlags().StringVar(&createFlags.MinCPUPlatform, gcpMinCPUPlatformFlag, "Intel Haswell",
 		"Specifies a minimum CPU platform for the VM instance")
 	list := &cobra.Command{
 		Use:   "list",
 		Short: "Lists hosts.",
-		RunE:  runListHostsCommand,
+		RunE: func(c *cobra.Command, args []string) error {
+			return runListHostsCommand(hostFlags, c, args)
+		},
 	}
 	del := &cobra.Command{
 		Use:   "delete <foo> <bar> <baz>",
 		Short: "Delete hosts.",
-		RunE:  runDeleteHostsCommand,
+		RunE: func(c *cobra.Command, args []string) error {
+			return runDeleteHostsCommand(hostFlags, c, args)
+		},
 	}
 	host := &cobra.Command{
 		Use:   "host",
 		Short: "Work with hosts",
 	}
-	host.PersistentFlags().BoolVarP(&flags.Verbose, verboseFlag, "v", false, "Be verbose.")
+	addCommonSubcommandFlags(host, hostFlags)
 	host.AddCommand(create)
 	host.AddCommand(list)
 	host.AddCommand(del)
 	return host
 }
 
-func buildAPIClient(c *cobra.Command) (*client.APIClient, error) {
-	proxyURL := c.InheritedFlags().Lookup(httpProxyFlag).Value.String()
-	verbose := c.InheritedFlags().Lookup(verboseFlag).Changed
+func buildAPIClient(flags *subCommandFlags, c *cobra.Command) (*client.APIClient, error) {
+	proxyURL := flags.HTTPProxy
 	var dumpOut io.Writer = io.Discard
-	if verbose {
+	if flags.Verbose {
 		dumpOut = c.ErrOrStderr()
 	}
-	return client.NewAPIClient(buildBaseURL(c), proxyURL, dumpOut, c.ErrOrStderr())
+	return client.NewAPIClient(buildBaseURL(flags.configFlags), proxyURL, dumpOut, c.ErrOrStderr())
+}
+
+func addCommonSubcommandFlags(c *cobra.Command, flags *subCommandFlags) {
+	c.PersistentFlags().BoolVarP(&flags.Verbose, verboseFlag, "v", false, "Be verbose.")
 }
 
 func notImplementedCommand(c *cobra.Command, _ []string) error {
 	return fmt.Errorf("Command not implemented")
 }
 
-func runCreateHostCommand(c *cobra.Command, _ []string) error {
-	apiClient, err := buildAPIClient(c)
+func runCreateHostCommand(flags *createGCPHostFlags, c *cobra.Command, _ []string) error {
+	apiClient, err := buildAPIClient(flags.subCommandFlags, c)
 	if err != nil {
 		return err
 	}
 	req := apiv1.CreateHostRequest{
 		HostInstance: &apiv1.HostInstance{
 			GCP: &apiv1.GCPInstance{
-				MachineType:    c.LocalFlags().Lookup(gcpMachineTypeFlag).Value.String(),
-				MinCPUPlatform: c.LocalFlags().Lookup(gcpMinCPUPlatformFlag).Value.String(),
+				MachineType:    flags.MachineType,
+				MinCPUPlatform: flags.MinCPUPlatform,
 			},
 		},
 	}
@@ -171,8 +184,8 @@ func runCreateHostCommand(c *cobra.Command, _ []string) error {
 	return nil
 }
 
-func runListHostsCommand(c *cobra.Command, _ []string) error {
-	apiClient, err := buildAPIClient(c)
+func runListHostsCommand(flags *subCommandFlags, c *cobra.Command, _ []string) error {
+	apiClient, err := buildAPIClient(flags, c)
 	if err != nil {
 		return err
 	}
@@ -186,8 +199,8 @@ func runListHostsCommand(c *cobra.Command, _ []string) error {
 	return nil
 }
 
-func runDeleteHostsCommand(c *cobra.Command, args []string) error {
-	apiClient, err := buildAPIClient(c)
+func runDeleteHostsCommand(flags *subCommandFlags, c *cobra.Command, args []string) error {
+	apiClient, err := buildAPIClient(flags, c)
 	if err != nil {
 		return err
 	}
@@ -209,9 +222,9 @@ func runDeleteHostsCommand(c *cobra.Command, args []string) error {
 	return merr
 }
 
-func buildBaseURL(c *cobra.Command) string {
-	serviceURL := c.InheritedFlags().Lookup(serviceURLFlag).Value.String()
-	zone := c.InheritedFlags().Lookup(zoneFlag).Value.String()
+func buildBaseURL(flags *configFlags) string {
+	serviceURL := flags.ServiceURL
+	zone := flags.Zone
 	baseURL := serviceURL + "/v1"
 	if zone != "" {
 		baseURL += "/zones/" + zone

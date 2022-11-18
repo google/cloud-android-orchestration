@@ -111,7 +111,7 @@ func TestWaitOperatioSucceeds(t *testing.T) {
 	defer ts.Close()
 
 	res, _ := http.Post(
-		ts.URL+"/v1/zones/us-central1-a/operations/foo/wait", "application/json", strings.NewReader("{}"))
+		ts.URL+"/v1/zones/us-central1-a/operations/foo/:wait", "application/json", strings.NewReader("{}"))
 
 	expected := http.StatusOK
 	if res.StatusCode != expected {

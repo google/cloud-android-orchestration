@@ -83,7 +83,7 @@ func (h *createHostWaitOpReqFailsHandler) ServeHTTP(w http.ResponseWriter, r *ht
 	switch ep := r.Method + " " + r.URL.Path; ep {
 	case "POST /v1/hosts":
 		writeOK(w, &apiv1.Operation{Name: opName})
-	case "POST /v1/operations/" + opName + "/wait":
+	case "POST /v1/operations/" + opName + "/:wait":
 		writeErr(w, h.WithErrCode)
 	default:
 		panic("unexpected request")
@@ -96,7 +96,7 @@ func (h *createHostWaitOpNotDoneHandler) ServeHTTP(w http.ResponseWriter, r *htt
 	switch ep := r.Method + " " + r.URL.Path; ep {
 	case "POST /v1/hosts":
 		writeOK(w, &apiv1.Operation{Name: h.WithOpName})
-	case "POST /v1/operations/" + h.WithOpName + "/wait":
+	case "POST /v1/operations/" + h.WithOpName + "/:wait":
 		writeOK(w, &apiv1.Operation{Name: h.WithOpName})
 	default:
 		panic("unexpected request")
@@ -110,7 +110,7 @@ func (h *createHostOpFailedHandler) ServeHTTP(w http.ResponseWriter, r *http.Req
 	switch ep := r.Method + " " + r.URL.Path; ep {
 	case "POST /v1/hosts":
 		writeOK(w, &apiv1.Operation{Name: opName})
-	case "POST /v1/operations/" + opName + "/wait":
+	case "POST /v1/operations/" + opName + "/:wait":
 		op := &apiv1.Operation{
 			Done:   true,
 			Result: &apiv1.OperationResult{Error: &apiv1.Error{Code: strconv.Itoa(h.WithErrCode)}},
@@ -206,8 +206,8 @@ func (h *alwaysSucceedsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 	switch ep := r.Method + " " + r.URL.Path; ep {
 	case "POST /v1/hosts", "POST /v1/zones/" + testZone + "/hosts":
 		writeOK(w, &apiv1.Operation{Name: opName})
-	case "POST /v1/operations/" + opName + "/wait",
-		"POST /v1/zones/" + testZone + "/operations/" + opName + "/wait":
+	case "POST /v1/operations/" + opName + "/:wait",
+		"POST /v1/zones/" + testZone + "/operations/" + opName + "/:wait":
 		res, _ := json.Marshal(&apiv1.HostInstance{Name: h.WithHostName})
 		op := &apiv1.Operation{Done: true, Result: &apiv1.OperationResult{Response: string(res)}}
 		writeOK(w, op)

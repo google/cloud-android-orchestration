@@ -43,6 +43,7 @@ type CVDRemoteCommand struct {
 }
 
 const (
+	hostFlag       = "host"
 	serviceURLFlag = "service_url"
 	zoneFlag       = "zone"
 	httpProxyFlag  = "http_proxy"
@@ -53,6 +54,26 @@ type configFlags struct {
 	Zone       string
 	HTTPProxy  string
 }
+
+// Extends a cobra.Command object with cvdremote specific operations like
+// printing verbose logs
+type command struct {
+	*cobra.Command
+	verbose *bool
+}
+
+func (c *command) PrintVerboseln(arg ...any) {
+	if *c.verbose {
+		c.PrintErrln(arg...)
+	}
+}
+
+func (c *command) PrintVerbosef(format string, arg ...any) {
+	if *c.verbose {
+		c.PrintErrf(format, arg...)
+	}
+}
+
 
 func NewCVDRemoteCommand(o *CommandOptions) *CVDRemoteCommand {
 	configFlags := &configFlags{}
@@ -75,6 +96,7 @@ func NewCVDRemoteCommand(o *CommandOptions) *CVDRemoteCommand {
 	// Do not show a `help` command, users have always the `-h` and `--help` flags for help purpose.
 	rootCmd.SetHelpCommand(&cobra.Command{Hidden: true})
 	rootCmd.AddCommand(newHostCommand(configFlags))
+	rootCmd.AddCommand(newADBTunnelCommand(configFlags))
 	return &CVDRemoteCommand{rootCmd}
 }
 

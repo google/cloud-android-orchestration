@@ -64,7 +64,7 @@ func (c *Controller) Handler() http.Handler {
 	// Instance Manager Routes
 	router.Handle("/v1/zones/{zone}/hosts", c.createHostHTTPHandler()).Methods("POST")
 	router.Handle("/v1/zones/{zone}/hosts", HTTPHandler(c.accountManager.Authenticate(c.listHosts))).Methods("GET")
-	router.Handle("/v1/zones/{zone}/operations/{operation}/wait", HTTPHandler(c.accountManager.Authenticate(c.waitOperation))).Methods("POST")
+	router.Handle("/v1/zones/{zone}/operations/{operation}/:wait", HTTPHandler(c.accountManager.Authenticate(c.waitOperation))).Methods("POST")
 	router.Handle("/v1/zones/{zone}/hosts/{host}", HTTPHandler(c.accountManager.Authenticate(c.deleteHost))).Methods("DELETE")
 
 	// Host Orchestrator Proxy Routes

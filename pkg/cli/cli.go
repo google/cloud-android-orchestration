@@ -93,6 +93,7 @@ func NewCVDRemoteCommand(o *CommandOptions) *CVDRemoteCommand {
 	rootCmd.SetHelpCommand(&cobra.Command{Hidden: true})
 	rootCmd.AddCommand(newHostCommand(configFlags))
 	rootCmd.AddCommand(newADBTunnelCommand(configFlags))
+	rootCmd.AddCommand(newCVDCommand(configFlags))
 	return &CVDRemoteCommand{rootCmd}
 }
 

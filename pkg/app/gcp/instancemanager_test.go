@@ -474,7 +474,7 @@ func TestDeleteHostSucceeds(t *testing.T) {
 	}
 }
 
-func TestWaitOperationNotDoneOperationSucceeds(t *testing.T) {
+func TestWaitOperationAndOperationIsNotDone(t *testing.T) {
 	zone := "us-central1-a"
 	opName := "operation-1"
 	operation := &compute.Operation{
@@ -496,16 +496,12 @@ func TestWaitOperationNotDoneOperationSucceeds(t *testing.T) {
 		InstanceNameGenerator: testNameGenerator,
 	}
 
-	op, _ := im.WaitOperation(zone, &TestUserInfo{}, opName)
+	_, err := im.WaitOperation(zone, &TestUserInfo{}, opName)
 
-	if op.Name != opName {
-		t.Errorf("expected <<%q>>, got: %q", opName, op.Name)
-	}
-	if op.Done {
-		t.Error("expected not done.")
-	}
-	if op.Result != nil {
-		t.Error("expected nil result.")
+	if appErr, _ := err.(*app.AppError); true {
+		if diff := cmp.Diff(http.StatusServiceUnavailable, appErr.StatusCode); diff != "" {
+			t.Errorf("status code (-want +got):\n%s", diff)
+		}
 	}
 }
 
@@ -541,19 +537,11 @@ func TestWaitCreateInstanceOperationSucceeds(t *testing.T) {
 		InstanceNameGenerator: testNameGenerator,
 	}
 
-	op, _ := im.WaitOperation(zone, &TestUserInfo{}, opName)
+	res, _ := im.WaitOperation(zone, &TestUserInfo{}, opName)
 
-	if op.Name != opName {
-		t.Errorf("expected <<%q>>, got: %q", opName, op.Name)
-	}
-	if !op.Done {
-		t.Error("expected done.")
-	}
 	want, _ := BuildHostInstance(instance)
-	var got apiv1.HostInstance
-	json.Unmarshal([]byte(op.Result.Response), &got)
-	if diff := cmp.Diff(*want, got); diff != "" {
-		t.Errorf("operation response mismatch (-want +got):\n%s", diff)
+	if diff := cmp.Diff(want, res); diff != "" {
+		t.Errorf("instance mismatch (-want +got):\n%s", diff)
 	}
 }
 
@@ -576,16 +564,10 @@ func TestWaitDeleteInstanceOperationSucceeds(t *testing.T) {
 		InstanceNameGenerator: testNameGenerator,
 	}
 
-	op, _ := im.WaitOperation(zone, &TestUserInfo{}, opName)
+	res, _ := im.WaitOperation(zone, &TestUserInfo{}, opName)
 
-	if op.Name != opName {
-		t.Errorf("expected <<%q>>, got: %q", opName, op.Name)
-	}
-	if !op.Done {
-		t.Error("expected done.")
-	}
-	if op.Result.Response != "" {
-		t.Errorf("expected empty string, got %q", op.Result.Response)
+	if diff := cmp.Diff(struct{}{}, res); diff != "" {
+		t.Errorf("result mismatch (-want +got):\n%s", diff)
 	}
 }
 

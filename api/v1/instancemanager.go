@@ -32,7 +32,7 @@ type Operation struct {
 	// available.
 	Done bool `json:"done"`
 	// Result will contain either an error or a result object but never both.
-	Result *OperationResult `json:"result,omitempty"`
+	// Result *OperationResult `json:"result,omitempty"`
 }
 
 type OperationResult struct {

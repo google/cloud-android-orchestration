@@ -66,3 +66,7 @@ func NewInternalError(msg string, e error) error {
 func NewForbiddenError(msg string, e error) error {
 	return &AppError{Msg: msg, StatusCode: http.StatusForbidden, Err: e}
 }
+
+func NewServiceUnavailableError(msg string, e error) error {
+	return &AppError{Msg: msg, StatusCode: http.StatusServiceUnavailable, Err: e}
+}

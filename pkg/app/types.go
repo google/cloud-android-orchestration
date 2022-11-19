@@ -57,8 +57,10 @@ type InstanceManager interface {
 	ListHosts(zone string, user UserInfo, req *ListHostsRequest) (*apiv1.ListHostsResponse, error)
 	// Deletes the given host instance.
 	DeleteHost(zone string, user UserInfo, name string) (*apiv1.Operation, error)
-	// Waits until operation is DONE or earlier returning the current status.
-	WaitOperation(zone string, user UserInfo, name string) (*apiv1.Operation, error)
+	// Waits until operation is DONE or earlier. If DONE return the expected  response of the operation. If the
+	// original method returns no data on success, such as `Delete`, response will be empty. If the original method
+	// is standard `Get`/`Create`/`Update`, the response should be the relevant resource.
+	WaitOperation(zone string, user UserInfo, name string) (interface{}, error)
 }
 
 type ListHostsRequest struct {

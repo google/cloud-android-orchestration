@@ -16,7 +16,6 @@ package gcp
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/url"
@@ -115,7 +114,7 @@ func (m *InstanceManager) CreateHost(zone string, req *apiv1.CreateHostRequest, 
 	if err != nil {
 		return nil, err
 	}
-	return m.buildOperation(op)
+	return &apiv1.Operation{Name: op.Name, Done: op.Status == operationStatusDone}, nil
 }
 
 const listHostsRequestMaxResultsLimit uint32 = 500
@@ -174,15 +173,19 @@ func (m *InstanceManager) DeleteHost(zone string, user app.UserInfo, name string
 	if err != nil {
 		return nil, err
 	}
-	return m.buildOperation(op)
+	return &apiv1.Operation{Name: op.Name, Done: op.Status == operationStatusDone}, nil
 }
 
-func (m *InstanceManager) WaitOperation(zone string, user app.UserInfo, name string) (*apiv1.Operation, error) {
+func (m *InstanceManager) WaitOperation(zone string, user app.UserInfo, name string) (interface{}, error) {
 	op, err := m.Service.ZoneOperations.Wait(m.Config.GCP.ProjectID, zone, name).Do()
 	if err != nil {
 		return nil, err
 	}
-	return m.buildOperation(op)
+	if op.Status != operationStatusDone {
+		return nil, app.NewServiceUnavailableError("Wait for operation timed out", nil)
+	}
+	getter := opResultGetter{Service: m.Service, Op: op}
+	return getter.Get()
 }
 
 func (m *InstanceManager) getHostInstance(zone string, host string) (*compute.Instance, error) {
@@ -190,11 +193,6 @@ func (m *InstanceManager) getHostInstance(zone string, host string) (*compute.In
 		Get(m.Config.GCP.ProjectID, zone, host).
 		Context(context.TODO()).
 		Do()
-}
-
-func (m *InstanceManager) buildOperation(op *compute.Operation) (*apiv1.Operation, error) {
-	opBuilder := operationBuilder{Service: m.Service, Operation: op}
-	return opBuilder.Build()
 }
 
 func validateRequest(r *apiv1.CreateHostRequest) error {
@@ -249,86 +247,44 @@ var (
 	instanceTargetLinkRe = regexp.MustCompile(`^https://.+/compute/v1/projects/(.+)/zones/(.+)/instances/(.+)$`)
 )
 
-type operationBuilder struct {
-	Service   *compute.Service
-	Operation *compute.Operation
+type opResultGetter struct {
+	Service *compute.Service
+	Op      *compute.Operation
 }
 
-func (b *operationBuilder) Build() (*apiv1.Operation, error) {
-
-	done := b.Operation.Status == operationStatusDone
+func (g *opResultGetter) Get() (interface{}, error) {
+	done := g.Op.Status == operationStatusDone
 	if !done {
-		return b.buildNotDone()
+		return nil, app.NewInternalError("cannot get the result of an operation that is not done yet", nil)
 	}
-	return b.buildDone()
-}
-
-func (b *operationBuilder) buildNotDone() (*apiv1.Operation, error) {
-	return &apiv1.Operation{
-		Name: b.Operation.Name,
-		Done: false,
-	}, nil
-}
-
-func (b *operationBuilder) buildDone() (*apiv1.Operation, error) {
-	if b.Operation.Error != nil {
+	if g.Op.Error != nil {
 		return nil, &app.AppError{
-			Msg:        b.Operation.HttpErrorMessage,
-			StatusCode: int(b.Operation.HttpErrorStatusCode),
-			Err:        fmt.Errorf("gcp operation failed: %+v", b.Operation),
+			Msg:        g.Op.HttpErrorMessage,
+			StatusCode: int(g.Op.HttpErrorStatusCode),
+			Err:        fmt.Errorf("gcp operation failed: %+v", g.Op),
 		}
 	}
-	if b.isDeleteInstance() {
-		return &apiv1.Operation{
-			Name:   b.Operation.Name,
-			Done:   true,
-			Result: &apiv1.OperationResult{},
-		}, nil
-	} else if b.isCreateInstance() {
-		result, err := b.buildCreateInstanceResult()
-		if err != nil {
-			return nil, err
-		}
-		return &apiv1.Operation{
-			Name:   b.Operation.Name,
-			Done:   true,
-			Result: result,
-		}, nil
+	if g.Op.OperationType == "delete" && instanceTargetLinkRe.MatchString(g.Op.TargetLink) {
+		return struct{}{}, nil
 	}
-	return nil, fmt.Errorf("not handled operation type: %+v", b.Operation)
+	if g.Op.OperationType == "insert" && instanceTargetLinkRe.MatchString(g.Op.TargetLink) {
+		return g.buildCreateInstanceResult()
+	}
+	return nil, app.NewNotFoundError("operation result not found", nil)
 }
 
-func (b *operationBuilder) isDeleteInstance() bool {
-	return b.Operation.OperationType == "delete" &&
-		instanceTargetLinkRe.MatchString(b.Operation.TargetLink)
-}
-
-func (b *operationBuilder) isCreateInstance() bool {
-	return b.Operation.OperationType == "insert" &&
-		instanceTargetLinkRe.MatchString(b.Operation.TargetLink)
-}
-
-func (b *operationBuilder) buildCreateInstanceResult() (*apiv1.OperationResult, error) {
-	matches := instanceTargetLinkRe.FindStringSubmatch(b.Operation.TargetLink)
+func (g *opResultGetter) buildCreateInstanceResult() (*apiv1.HostInstance, error) {
+	matches := instanceTargetLinkRe.FindStringSubmatch(g.Op.TargetLink)
 	if len(matches) != 4 {
-		err := fmt.Errorf("invalid target link for instance insert operation: %q",
-			b.Operation.TargetLink)
+		err := fmt.Errorf("invalid target link for instance insert operation: %q", g.Op.TargetLink)
 		return nil, err
 	}
-	gcpInstance, err := b.Service.Instances.
+	ins, err := g.Service.Instances.
 		Get(matches[1], matches[2], matches[3]).
 		Context(context.TODO()).
 		Do()
 	if err != nil {
 		return nil, err
 	}
-	hostInstance, err := BuildHostInstance(gcpInstance)
-	if err != nil {
-		return nil, err
-	}
-	buf, err := json.Marshal(hostInstance)
-	if err != nil {
-		return nil, err
-	}
-	return &apiv1.OperationResult{Response: string(buf)}, nil
+	return BuildHostInstance(ins)
 }

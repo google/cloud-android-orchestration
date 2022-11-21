@@ -12,6 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-runtime: go116
+runtime: go119
 
 main: ./cmd/cloud_orchestrator

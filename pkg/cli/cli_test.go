@@ -90,37 +90,6 @@ func (h *createHostWaitOpReqFailsHandler) ServeHTTP(w http.ResponseWriter, r *ht
 	}
 }
 
-type createHostWaitOpNotDoneHandler struct{ WithOpName string }
-
-func (h *createHostWaitOpNotDoneHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	switch ep := r.Method + " " + r.URL.Path; ep {
-	case "POST /v1/hosts":
-		writeOK(w, &apiv1.Operation{Name: h.WithOpName})
-	case "POST /v1/operations/" + h.WithOpName + "/:wait":
-		writeOK(w, &apiv1.Operation{Name: h.WithOpName})
-	default:
-		panic("unexpected request")
-	}
-}
-
-type createHostOpFailedHandler struct{ WithErrCode int }
-
-func (h *createHostOpFailedHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	const opName = "op-foo"
-	switch ep := r.Method + " " + r.URL.Path; ep {
-	case "POST /v1/hosts":
-		writeOK(w, &apiv1.Operation{Name: opName})
-	case "POST /v1/operations/" + opName + "/:wait":
-		op := &apiv1.Operation{
-			Done:   true,
-			Result: &apiv1.OperationResult{Error: &apiv1.Error{Code: strconv.Itoa(h.WithErrCode)}},
-		}
-		writeOK(w, op)
-	default:
-		panic("unexpected request")
-	}
-}
-
 type listsHostReqFailsHandler struct{ WithErrCode int }
 
 func (h *listsHostReqFailsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -151,18 +120,6 @@ func TestCommandFails(t *testing.T) {
 			Args:       []string{"host", "create"},
 			SrvHandler: &createHostReqFailsHandler{WithErrCode: 503},
 			ExpErr:     &client.ApiCallError{&apiv1.Error{Code: "503"}},
-		},
-		{
-			Name:       "wait operation, operation not done",
-			Args:       []string{"host", "create"},
-			SrvHandler: &createHostWaitOpNotDoneHandler{WithOpName: "op-foo"},
-			ExpErr:     client.OpTimeoutError("op-foo"),
-		},
-		{
-			Name:       "failed operation",
-			Args:       []string{"host", "create"},
-			SrvHandler: &createHostOpFailedHandler{WithErrCode: 507},
-			ExpErr:     &client.ApiCallError{&apiv1.Error{Code: "507"}},
 		},
 		{
 			Name:       "list hosts api call fails",
@@ -208,9 +165,7 @@ func (h *alwaysSucceedsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 		writeOK(w, &apiv1.Operation{Name: opName})
 	case "POST /v1/operations/" + opName + "/:wait",
 		"POST /v1/zones/" + testZone + "/operations/" + opName + "/:wait":
-		res, _ := json.Marshal(&apiv1.HostInstance{Name: h.WithHostName})
-		op := &apiv1.Operation{Done: true, Result: &apiv1.OperationResult{Response: string(res)}}
-		writeOK(w, op)
+		writeOK(w, &apiv1.HostInstance{Name: h.WithHostName})
 	case "GET /v1/hosts", "GET /v1/zones/" + testZone + "/hosts":
 		writeOK(w, &apiv1.ListHostsResponse{Items: h.WithHostInstances})
 	case "DELETE /v1/hosts/" + h.getHost(r.URL.Path),

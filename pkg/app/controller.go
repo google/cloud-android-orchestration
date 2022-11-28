@@ -64,6 +64,12 @@ func (c *Controller) Handler() http.Handler {
 	// Instance Manager Routes
 	router.Handle("/v1/zones/{zone}/hosts", c.createHostHTTPHandler()).Methods("POST")
 	router.Handle("/v1/zones/{zone}/hosts", HTTPHandler(c.accountManager.Authenticate(c.listHosts))).Methods("GET")
+	// Waits for the specified operation to be DONE or for the request to approach the specified deadline,
+	// `503 Service Unavailable` error will be returned if the deadline is reached and the operation is not done.
+	// Be prepared to retry if the deadline was reached.
+	// It returns the expected response of the operation in case of success. If the original method returns no
+	// data on success, such as `Delete`, response will be empty. If the original method is standard
+	// `Get`/`Create`/`Update`, the response should be the relevant resource.
 	router.Handle("/v1/zones/{zone}/operations/{operation}/:wait", HTTPHandler(c.accountManager.Authenticate(c.waitOperation))).Methods("POST")
 	router.Handle("/v1/zones/{zone}/hosts/{host}", HTTPHandler(c.accountManager.Authenticate(c.deleteHost))).Methods("DELETE")
 

@@ -68,8 +68,8 @@ func (m *testInstanceManager) DeleteHost(zone string, user UserInfo, name string
 	return &apiv1.Operation{}, nil
 }
 
-func (m *testInstanceManager) WaitOperation(_ string, _ UserInfo, _ string) (*apiv1.Operation, error) {
-	return &apiv1.Operation{}, nil
+func (m *testInstanceManager) WaitOperation(_ string, _ UserInfo, _ string) (interface{}, error) {
+	return struct{}{}, nil
 }
 
 func TestCreateHostSucceeds(t *testing.T) {

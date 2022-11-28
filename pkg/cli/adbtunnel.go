@@ -17,6 +17,7 @@ package cli
 import (
 	"fmt"
 	"net"
+	"os/exec"
 	"sync/atomic"
 
 	wclient "github.com/google/cloud-android-orchestration/pkg/webrtcclient"
@@ -26,20 +27,33 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const connectFlag = "connect"
+
 type adbTunnelFlags struct {
 	*subCommandFlags
 	host string
 }
 
+type openADBTunnelFlags struct {
+	*adbTunnelFlags
+	connect bool
+}
+
 func newADBTunnelCommand(cfgFlags *configFlags) *cobra.Command {
 	adbTunnelFlags := &adbTunnelFlags{&subCommandFlags{cfgFlags, false}, ""}
+	openFlags := &openADBTunnelFlags{adbTunnelFlags, false}
 	open := &cobra.Command{
 		Use:   "open",
 		Short: "Opens an ADB tunnel.",
 		RunE: func(c *cobra.Command, args []string) error {
-			return runOpenADBTunnelCommand(adbTunnelFlags, &command{c, &adbTunnelFlags.Verbose}, args)
+			return runOpenADBTunnelCommand(openFlags, &command{c, &adbTunnelFlags.Verbose}, args)
 		},
 	}
+	open.PersistentFlags().BoolVarP(
+		&openFlags.connect, connectFlag,
+		"c",
+		false,
+		"Issue the `adb connect` command after the tunnel is open")
 	list := &cobra.Command{
 		Use:   "list",
 		Short: "Lists open ADB tunnels.",
@@ -62,7 +76,15 @@ func newADBTunnelCommand(cfgFlags *configFlags) *cobra.Command {
 	return adbTunnel
 }
 
-func runOpenADBTunnelCommand(flags *adbTunnelFlags, c *command, args []string) error {
+func runOpenADBTunnelCommand(flags *openADBTunnelFlags, c *command, args []string) error {
+	adbPath := ""
+	if flags.connect {
+		path, err := exec.LookPath("adb")
+		if err != nil {
+			return fmt.Errorf("Can't connect adb: %w", err)
+		}
+		adbPath = path
+	}
 	apiClient, err := buildAPIClient(flags.subCommandFlags, c.Command)
 	if err != nil {
 		return err
@@ -73,13 +95,13 @@ func runOpenADBTunnelCommand(flags *adbTunnelFlags, c *command, args []string) e
 
 	for _, device := range args {
 		observer := ADBForwarder{
-			cmd:    c,
-			host:   flags.host,
-			device: device,
+			cmd:     c,
+			device:  device,
+			adbPath: adbPath,
 		}
 		conn, err := apiClient.ConnectWebRTC(flags.host, device, &observer)
 		if err != nil {
-			err = fmt.Errorf("ADB tunnel creation failed for %q on %q: %w", device, flags.host, err)
+			err = fmt.Errorf("ADB tunnel creation failed for %q: %w", device, err)
 			c.PrintErrln(err)
 			merr = multierror.Append(merr, err)
 		} else {
@@ -101,8 +123,8 @@ func runOpenADBTunnelCommand(flags *adbTunnelFlags, c *command, args []string) e
 // Implements the Observer interface for the webrtc client.
 type ADBForwarder struct {
 	cmd      *command
-	host     string
 	device   string
+	adbPath  string
 	dc       *webrtc.DataChannel
 	listener net.Listener
 	conn     net.Conn
@@ -112,33 +134,50 @@ type ADBForwarder struct {
 
 func (f *ADBForwarder) OnADBDataChannel(dc *webrtc.DataChannel) {
 	f.dc = dc
-	f.cmd.PrintVerbosef("ADB data channel to %q on %q changed state: %v\n", f.device, f.host, dc.ReadyState())
+	f.cmd.PrintVerbosef("ADB data channel to %q changed state: %v\n", f.device, dc.ReadyState())
 	// Accept connections on the port only after the device is ready to accept messages
 	dc.OnOpen(func() {
 		if err := f.StartForwarding(); err != nil {
-			f.cmd.PrintErrf("Failed to bind to local port for %q on %q: %v", f.device, f.host, err)
+			f.cmd.PrintErrf("Failed to bind to local port for %q: %v", f.device, err)
+			return
 		}
 		dc.OnMessage(func(msg webrtc.DataChannelMessage) {
 			if err := f.Send(msg.Data); err != nil {
-				f.cmd.PrintErrf("Error writing to ADB server for %q on %q: %v", f.device, f.host, err)
+				f.cmd.PrintErrf("Error writing to ADB server for %q: %v", f.device, err)
 			}
 		})
 		dc.OnClose(func() {
 			f.StopForwarding()
 		})
+		// Connect after OnMessage and OnClose are setup, otherwise it will timeout.
+		adbSerial := fmt.Sprintf("127.0.0.1:%d", f.port)
+		if f.adbPath != "" {
+			cmd := exec.Command(f.adbPath, "connect", adbSerial)
+			// Make sure any adb errors are printed. Don't do the same for stdout: we'll print a
+			// similar message with the device name.
+			cmd.Stderr = f.cmd.ErrOrStderr()
+			if err := cmd.Run(); err != nil {
+				f.cmd.PrintErrf("Error attempting to connect adb to %q: %v", f.device, err)
+				return
+			}
+			f.cmd.PrintErrf("%s connected on: %s\n", f.device, adbSerial)
+		} else {
+			// Print the address to stdout if adb wasn't connected automatically
+			f.cmd.Printf("%s: %s\n", f.device, adbSerial)
+		}
 	})
 }
 
 func (f *ADBForwarder) OnError(err error) {
-	f.cmd.PrintErrf("Error on webrtc connection to %q on %q: %v\n", f.device, f.host, err)
+	f.cmd.PrintErrf("Error on webrtc connection to %q: %v\n", f.device, err)
 }
 
 func (f *ADBForwarder) OnFailure() {
-	f.cmd.PrintVerbosef("WebRTC connection to %q on %q set to failed state", f.device, f.host)
+	f.cmd.PrintVerbosef("WebRTC connection to %q set to failed state", f.device)
 }
 
 func (f *ADBForwarder) OnClose() {
-	f.cmd.PrintVerbosef("WebRTC connection to %q on %q closed", f.device, f.host)
+	f.cmd.PrintVerbosef("WebRTC connection to %q closed", f.device)
 }
 
 func (f *ADBForwarder) StartForwarding() error {
@@ -150,7 +189,6 @@ func (f *ADBForwarder) StartForwarding() error {
 	f.running.Store(true)
 	f.port = listener.Addr().(*net.TCPAddr).Port
 	go f.acceptLoop(listener)
-	f.cmd.Printf("127.0.0.1:%d\n", f.port)
 	return nil
 }
 
@@ -226,7 +264,7 @@ func (f *ADBForwarder) recvLoop() error {
 		}
 		err = f.dc.Send(buffer[:length])
 		if err != nil {
-			return fmt.Errorf("Failed to send ADB data to %q on %q: %v", f.device, f.host, err)
+			return fmt.Errorf("Failed to send ADB data to %q: %v", f.device, err)
 		}
 	}
 }

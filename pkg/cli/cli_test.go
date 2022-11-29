@@ -34,19 +34,26 @@ import (
 	"github.com/hashicorp/go-multierror"
 )
 
-func TestCVDRemoteRequiredFlags(t *testing.T) {
+func TestRequiredFlags(t *testing.T) {
 	tests := []struct {
-		FlagName string
-		Args     []string
+		Name      string
+		FlagNames []string
+		Args      []string
 	}{
 		{
-			FlagName: serviceURLFlag,
-			Args:     []string{"host", "create"},
+			Name:      "host create",
+			FlagNames: []string{serviceURLFlag},
+			Args:      []string{"host", "create"},
+		},
+		{
+			Name:      "cvd create",
+			FlagNames: []string{buildIDFlag, hostFlag, serviceURLFlag},
+			Args:      []string{"cvd", "create"},
 		},
 	}
 
 	for _, test := range tests {
-		t.Run(test.FlagName, func(t *testing.T) {
+		t.Run(test.Name, func(t *testing.T) {
 			io, _, _ := newTestIOStreams()
 			opts := &CommandOptions{
 				IOStreams: io,
@@ -57,8 +64,8 @@ func TestCVDRemoteRequiredFlags(t *testing.T) {
 
 			// Asserting against the error message itself as there's no specific error type for
 			// required flags based failures.
-			expErrMsg := fmt.Sprintf(`required flag(s) "%s" not set`, test.FlagName)
-			if diff := cmp.Diff(expErrMsg, err.Error()); diff != "" {
+			expErrMsg := fmt.Sprintf(`required flag(s) %s not set`, strings.Join(test.FlagNames, ", "))
+			if diff := cmp.Diff(expErrMsg, strings.ReplaceAll(err.Error(), "\"", "")); diff != "" {
 				t.Errorf("err mismatch (-want +got):\n%s", diff)
 			}
 		})
@@ -113,19 +120,19 @@ func TestCommandFails(t *testing.T) {
 			Name:       "create host api call fails",
 			Args:       []string{"host", "create"},
 			SrvHandler: &createHostReqFailsHandler{WithErrCode: 500},
-			ExpErr:     &client.ApiCallError{&apiv1.Error{Code: "500"}},
+			ExpErr:     &client.ApiCallError{Code: "500"},
 		},
 		{
 			Name:       "wait operation api call fails",
 			Args:       []string{"host", "create"},
 			SrvHandler: &createHostReqFailsHandler{WithErrCode: 503},
-			ExpErr:     &client.ApiCallError{&apiv1.Error{Code: "503"}},
+			ExpErr:     &client.ApiCallError{Code: "503"},
 		},
 		{
 			Name:       "list hosts api call fails",
 			Args:       []string{"host", "list"},
 			SrvHandler: &listsHostReqFailsHandler{WithErrCode: 500},
-			ExpErr:     &client.ApiCallError{&apiv1.Error{Code: "500"}},
+			ExpErr:     &client.ApiCallError{Code: "500"},
 		},
 	}
 	for _, test := range tests {
@@ -171,6 +178,12 @@ func (h *alwaysSucceedsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 	case "DELETE /v1/hosts/" + h.getHost(r.URL.Path),
 		"DELETE /v1/zones/" + testZone + "/hosts/" + h.getHost(r.URL.Path):
 		writeOK(w, "")
+	case "POST /v1/hosts/" + h.WithHostName + "/cvds",
+		"POST /v1/zones/" + testZone + "/hosts/" + h.WithHostName + "/cvds":
+		writeOK(w, &client.Operation{Name: opName})
+	case "POST /v1/hosts/" + h.WithHostName + "/operations/" + opName + "/:wait",
+		"POST /v1/zones/" + testZone + "/hosts/" + h.WithHostName + "/operations/" + opName + "/:wait":
+		writeOK(w, &client.CVD{Name: "cvd-1"})
 	default:
 		panic("unexpected endpoint: " + ep)
 	}
@@ -183,16 +196,19 @@ func (h *alwaysSucceedsHandler) getHost(path string) string {
 
 func TestCommandSucceeds(t *testing.T) {
 	tests := []struct {
+		Name       string
 		Args       []string
 		SrvHandler http.Handler
 		ExpOut     string
 	}{
 		{
+			Name:       "host create",
 			Args:       []string{"host", "create"},
 			SrvHandler: &alwaysSucceedsHandler{WithHostName: "foo"},
 			ExpOut:     "foo\n",
 		},
 		{
+			Name: "host list",
 			Args: []string{"host", "list"},
 			SrvHandler: &alwaysSucceedsHandler{
 				WithHostInstances: []*apiv1.HostInstance{{Name: "foo"}, {Name: "bar"}},
@@ -200,9 +216,16 @@ func TestCommandSucceeds(t *testing.T) {
 			ExpOut: "foo\nbar\n",
 		},
 		{
+			Name:       "host delete",
 			Args:       []string{"host", "delete", "foo", "bar"},
 			SrvHandler: &alwaysSucceedsHandler{},
 			ExpOut:     "",
+		},
+		{
+			Name:       "cvd create",
+			Args:       []string{"cvd", "create", "--host=foo", "--build_id=123"},
+			SrvHandler: &alwaysSucceedsHandler{WithHostName: "foo"},
+			ExpOut:     "cvd-1\n",
 		},
 	}
 	for _, test := range tests {

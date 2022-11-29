@@ -16,9 +16,11 @@ package cli
 
 import (
 	"fmt"
+	"sync"
 
 	client "github.com/google/cloud-android-orchestration/pkg/client"
 
+	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 )
 
@@ -67,7 +69,6 @@ func newCVDCommand(cfgFlags *configFlags) *cobra.Command {
 		},
 	}
 	list.Flags().StringVar(&listFlags.Host, hostFlag, "", "Specifies the host")
-	list.MarkFlagRequired(hostFlag)
 	cvd := &cobra.Command{
 		Use:   "cvd",
 		Short: "Work with CVDs",
@@ -104,19 +105,45 @@ func runListCVDsCommand(flags *listCVDsFlags, c *cobra.Command, _ []string) erro
 	if err != nil {
 		return err
 	}
-	cvds, err := apiClient.ListCVDs(flags.Host)
-	if err != nil {
-		return err
-	}
-	for _, cvd := range cvds {
-		output := CVDOutput{
-			BaseURL: buildBaseURL(flags.configFlags),
-			Host:    flags.Host,
-			CVD:     cvd,
+	var hosts []string
+	if flags.Host != "" {
+		hosts = append(hosts, flags.Host)
+	} else {
+		res, err := apiClient.ListHosts()
+		if err != nil {
+			return err
 		}
-		c.Printf("%s\n", output.String())
+		for _, host := range res.Items {
+			hosts = append(hosts, host.Name)
+		}
 	}
-	return nil
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	var merr error
+	for _, host := range hosts {
+		wg.Add(1)
+		go func(name string) {
+			defer wg.Done()
+			hostCVDs, err := apiClient.ListCVDs(name)
+			mu.Lock()
+			defer mu.Unlock()
+			if err != nil {
+				merr = multierror.Append(merr,
+					fmt.Errorf("lists cvds for host %q failed: %w", name, err))
+				return
+			}
+			for _, cvd := range hostCVDs {
+				output := CVDOutput{
+					BaseURL: buildBaseURL(flags.configFlags),
+					Host:    name,
+					CVD:     cvd,
+				}
+				c.Printf("%s\n", output.String())
+			}
+		}(host)
+	}
+	wg.Wait()
+	return merr
 }
 
 type CVDOutput struct {

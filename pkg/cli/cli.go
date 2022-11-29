@@ -17,6 +17,7 @@ package cli
 import (
 	"fmt"
 	"io"
+	"time"
 
 	client "github.com/google/cloud-android-orchestration/pkg/client"
 
@@ -120,7 +121,15 @@ func buildAPIClient(flags *subCommandFlags, c *cobra.Command) (*client.APIClient
 	if flags.Verbose {
 		dumpOut = c.ErrOrStderr()
 	}
-	return client.NewAPIClient(buildBaseURL(flags.configFlags), proxyURL, dumpOut, c.ErrOrStderr())
+	opts := &client.APIClientOptions{
+		BaseURL:       buildBaseURL(flags.configFlags),
+		ProxyURL:      proxyURL,
+		DumpOut:       dumpOut,
+		ErrOut:        c.ErrOrStderr(),
+		RetryAttempts: 3,
+		RetryDelay:    5 * time.Second,
+	}
+	return client.NewAPIClient(opts)
 }
 
 func addCommonSubcommandFlags(c *cobra.Command, flags *subCommandFlags) {

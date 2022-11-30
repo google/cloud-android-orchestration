@@ -15,8 +15,9 @@
 package app
 
 import (
-	toml "github.com/pelletier/go-toml/v2"
 	"os"
+
+	toml "github.com/pelletier/go-toml"
 )
 
 const DefaultConfFile = "conf.toml"
@@ -75,7 +76,6 @@ func LoadConfig() (*Config, error) {
 		return nil, err
 	}
 	decoder := toml.NewDecoder(file)
-	decoder.DisallowUnknownFields()
 	var cfg Config
 	err = decoder.Decode(&cfg)
 	return &cfg, err

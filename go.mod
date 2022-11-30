@@ -7,7 +7,7 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
 	github.com/hashicorp/go-multierror v1.1.1
-	github.com/pelletier/go-toml/v2 v2.0.0
+	github.com/pelletier/go-toml v1.9.5
 	github.com/pion/webrtc/v3 v3.1.47
 	github.com/sergi/go-diff v1.2.0
 	github.com/spf13/cobra v1.6.1

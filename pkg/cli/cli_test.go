@@ -119,20 +119,20 @@ func TestCommandFails(t *testing.T) {
 		{
 			Name:       "create host api call fails",
 			Args:       []string{"host", "create"},
-			SrvHandler: &createHostReqFailsHandler{WithErrCode: 500},
-			ExpErr:     &client.ApiCallError{Code: "500"},
+			SrvHandler: &createHostReqFailsHandler{WithErrCode: 404},
+			ExpErr:     &client.ApiCallError{Code: "404"},
 		},
 		{
 			Name:       "wait operation api call fails",
 			Args:       []string{"host", "create"},
-			SrvHandler: &createHostReqFailsHandler{WithErrCode: 503},
-			ExpErr:     &client.ApiCallError{Code: "503"},
+			SrvHandler: &createHostReqFailsHandler{WithErrCode: 404},
+			ExpErr:     &client.ApiCallError{Code: "404"},
 		},
 		{
 			Name:       "list hosts api call fails",
 			Args:       []string{"host", "list"},
-			SrvHandler: &listsHostReqFailsHandler{WithErrCode: 500},
-			ExpErr:     &client.ApiCallError{Code: "500"},
+			SrvHandler: &listsHostReqFailsHandler{WithErrCode: 404},
+			ExpErr:     &client.ApiCallError{Code: "404"},
 		},
 	}
 	for _, test := range tests {

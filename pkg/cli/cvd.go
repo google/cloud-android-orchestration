@@ -15,6 +15,8 @@
 package cli
 
 import (
+	"fmt"
+
 	client "github.com/google/cloud-android-orchestration/pkg/client"
 
 	"github.com/spf13/cobra"
@@ -30,6 +32,11 @@ type createCVDFlags struct {
 	BuildID string
 	Target  string
 	Host    string
+}
+
+type listCVDsFlags struct {
+	*subCommandFlags
+	Host string
 }
 
 func newCVDCommand(cfgFlags *configFlags) *cobra.Command {
@@ -51,12 +58,23 @@ func newCVDCommand(cfgFlags *configFlags) *cobra.Command {
 	create.MarkFlagRequired(buildIDFlag)
 	create.Flags().StringVar(&createFlags.Target, targetFlag, "aosp_cf_x86_64_phone-userdebug",
 		"Android build target")
+	listFlags := &listCVDsFlags{subCommandFlags: cvdFlags}
+	list := &cobra.Command{
+		Use:   "list",
+		Short: "List CVDs",
+		RunE: func(c *cobra.Command, args []string) error {
+			return runListCVDsCommand(listFlags, c, args)
+		},
+	}
+	list.Flags().StringVar(&listFlags.Host, hostFlag, "", "Specifies the host")
+	list.MarkFlagRequired(hostFlag)
 	cvd := &cobra.Command{
 		Use:   "cvd",
 		Short: "Work with CVDs",
 	}
 	addCommonSubcommandFlags(cvd, cvdFlags)
 	cvd.AddCommand(create)
+	cvd.AddCommand(list)
 	return cvd
 }
 
@@ -79,4 +97,39 @@ func runCreateCVDCommand(flags *createCVDFlags, c *cobra.Command, _ []string) er
 	}
 	c.Printf("%s\n", cvd.Name)
 	return nil
+}
+
+func runListCVDsCommand(flags *listCVDsFlags, c *cobra.Command, _ []string) error {
+	apiClient, err := buildAPIClient(flags.subCommandFlags, c)
+	if err != nil {
+		return err
+	}
+	cvds, err := apiClient.ListCVDs(flags.Host)
+	if err != nil {
+		return err
+	}
+	for _, cvd := range cvds {
+		output := CVDOutput{
+			BaseURL: buildBaseURL(flags.configFlags),
+			Host:    flags.Host,
+			CVD:     cvd,
+		}
+		c.Printf("%s\n", output.String())
+	}
+	return nil
+}
+
+type CVDOutput struct {
+	BaseURL string
+	Host    string
+	CVD     *client.CVD
+}
+
+func (o *CVDOutput) String() string {
+	res := fmt.Sprintf("%s (%s)", o.CVD.Name, o.Host)
+	res += "\n  " + "Status: " + o.CVD.Status
+	res += "\n  " + "Displays: " + fmt.Sprintf("%v", o.CVD.Displays)
+	res += "\n  " + "WebRTCStreamURL: " +
+		fmt.Sprintf("%s/hosts/%s/devices/%s/files/client.html", o.BaseURL, o.Host, o.CVD.Name)
+	return res
 }

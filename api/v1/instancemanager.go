@@ -43,11 +43,6 @@ type OperationResult struct {
 	Response string `json:"response,omitempty"`
 }
 
-type Error struct {
-	Code    string `json:"code,omitempty"`
-	Message string `json:"message,omitempty"`
-}
-
 type ListHostsResponse struct {
 	Items []*HostInstance `json:"items"`
 	// This token allows you to get the next page of results for list requests.

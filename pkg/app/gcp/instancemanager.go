@@ -26,6 +26,7 @@ import (
 	"github.com/google/cloud-android-orchestration/pkg/app"
 
 	"google.golang.org/api/compute/v1"
+	"google.golang.org/api/googleapi"
 )
 
 const (
@@ -112,7 +113,7 @@ func (m *InstanceManager) CreateHost(zone string, req *apiv1.CreateHostRequest, 
 		Context(context.TODO()).
 		Do()
 	if err != nil {
-		return nil, err
+		return nil, toAppError(err)
 	}
 	return &apiv1.Operation{Name: op.Name, Done: op.Status == operationStatusDone}, nil
 }
@@ -136,7 +137,7 @@ func (m *InstanceManager) ListHosts(zone string, user app.UserInfo, req *app.Lis
 		Filter(fmt.Sprintf("%s AND %s", ownerFilterExpr, statusFilterExpr)).
 		Do()
 	if err != nil {
-		return nil, err
+		return nil, toAppError(err)
 	}
 	var items []*apiv1.HostInstance
 	for _, i := range res.Items {
@@ -161,7 +162,7 @@ func (m *InstanceManager) DeleteHost(zone string, user app.UserInfo, name string
 		Filter(fmt.Sprintf("%s AND %s", nameFilterExpr, ownerFilterExpr)).
 		Do()
 	if err != nil {
-		return nil, err
+		return nil, toAppError(err)
 	}
 	if len(res.Items) == 0 {
 		return nil, app.NewBadRequestError(fmt.Sprintf("Host instance %q not found.", name), nil)
@@ -171,7 +172,7 @@ func (m *InstanceManager) DeleteHost(zone string, user app.UserInfo, name string
 		Context(context.TODO()).
 		Do()
 	if err != nil {
-		return nil, err
+		return nil, toAppError(err)
 	}
 	return &apiv1.Operation{Name: op.Name, Done: op.Status == operationStatusDone}, nil
 }
@@ -179,7 +180,7 @@ func (m *InstanceManager) DeleteHost(zone string, user app.UserInfo, name string
 func (m *InstanceManager) WaitOperation(zone string, user app.UserInfo, name string) (interface{}, error) {
 	op, err := m.Service.ZoneOperations.Wait(m.Config.GCP.ProjectID, zone, name).Do()
 	if err != nil {
-		return nil, err
+		return nil, toAppError(err)
 	}
 	if op.Status != operationStatusDone {
 		return nil, app.NewServiceUnavailableError("Wait for operation timed out", nil)
@@ -287,4 +288,17 @@ func (g *opResultGetter) buildCreateInstanceResult() (*apiv1.HostInstance, error
 		return nil, err
 	}
 	return BuildHostInstance(ins)
+}
+
+// Converts compute API errors to AppError if relevant, return the same error otherwise
+func toAppError(err error) error {
+	apiErr, ok := err.(*googleapi.Error)
+	if !ok {
+		return err
+	}
+	return &app.AppError{
+		Msg:        apiErr.Message,
+		StatusCode: apiErr.Code,
+		Err:        err,
+	}
 }

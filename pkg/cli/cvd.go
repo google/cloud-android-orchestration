@@ -156,7 +156,9 @@ func (o *CVDOutput) String() string {
 	res := fmt.Sprintf("%s (%s)", o.CVD.Name, o.Host)
 	res += "\n  " + "Status: " + o.CVD.Status
 	res += "\n  " + "Displays: " + fmt.Sprintf("%v", o.CVD.Displays)
-	res += "\n  " + "WebRTCStreamURL: " +
+	res += "\n  " + "WebRTCStream: " +
 		fmt.Sprintf("%s/hosts/%s/devices/%s/files/client.html", o.BaseURL, o.Host, o.CVD.Name)
+	res += "\n  " + "Logs: " +
+		fmt.Sprintf("%s/hosts/%s/cvds/%s/logs/", o.BaseURL, o.Host, o.CVD.Name)
 	return res
 }

@@ -38,7 +38,9 @@ func TestCVDOutput(t *testing.T) {
 	expected := `cvd-1 (bar)
   Status: Running
   Displays: [720 x 1280 ( 320 )]
-  WebRTCStreamURL: http://foo.com/hosts/bar/devices/cvd-1/files/client.html`
+  WebRTCStream: http://foo.com/hosts/bar/devices/cvd-1/files/client.html
+  Logs: http://foo.com/hosts/bar/cvds/cvd-1/logs/`
+
 	if diff := cmp.Diff(expected, got); diff != "" {
 		t.Errorf("mismatch (-want +got):\n%s", diff)
 	}

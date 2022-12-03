@@ -1,7 +1,8 @@
 package v1
 
-type ErrorMsg struct {
-	Error string `json:"error"`
+type Error struct {
+	Code     string `json:"code"`
+	ErrorMsg string `json:"error"`
 }
 
 type NewConnMsg struct {

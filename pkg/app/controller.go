@@ -106,7 +106,7 @@ func (h HTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if errors.As(err, &e) {
 			replyJSON(w, e.JSONResponse(), e.StatusCode)
 		} else {
-			replyJSON(w, apiv1.ErrorMsg{Error: "Internal Server Error"}, http.StatusInternalServerError)
+			replyJSON(w, apiv1.Error{ErrorMsg: "Internal Server Error"}, http.StatusInternalServerError)
 		}
 	}
 }

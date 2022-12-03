@@ -37,10 +37,10 @@ func (e *AppError) Unwrap() error {
 	return e.Err
 }
 
-func (e *AppError) JSONResponse() apiv1.ErrorMsg {
+func (e *AppError) JSONResponse() apiv1.Error {
 	// Include only the high level error message in the error response, the
 	// lower level errors are just for logging
-	return apiv1.ErrorMsg{Error: e.Msg}
+	return apiv1.Error{ErrorMsg: e.Msg}
 }
 
 func NewNotFoundError(msg string, e error) error {

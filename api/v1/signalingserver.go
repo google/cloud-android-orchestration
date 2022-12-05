@@ -1,7 +1,7 @@
 package v1
 
 type Error struct {
-	Code     string `json:"code"`
+	Code     int    `json:"code"`
 	ErrorMsg string `json:"error"`
 }
 

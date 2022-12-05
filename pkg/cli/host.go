@@ -48,7 +48,7 @@ func newHostCommand(cfgFlags *configFlags) *cobra.Command {
 			return runCreateHostCommand(createFlags, c, args)
 		},
 	}
-	create.Flags().StringVar(&createFlags.MachineType, gcpMachineTypeFlag, "n1-standard-4",
+	create.Flags().StringVar(&createFlags.MachineType, gcpMachineTypeFlag, "e2-standard-4",
 		"Indicates the machine type")
 	create.Flags().StringVar(&createFlags.MinCPUPlatform, gcpMinCPUPlatformFlag, "",
 		"Specifies a minimum CPU platform for the VM instance")

@@ -23,7 +23,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"regexp"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -120,19 +119,19 @@ func TestCommandFails(t *testing.T) {
 			Name:       "create host api call fails",
 			Args:       []string{"host", "create"},
 			SrvHandler: &createHostReqFailsHandler{WithErrCode: 404},
-			ExpErr:     &client.ApiCallError{Code: "404"},
+			ExpErr:     &client.ApiCallError{Code: 404},
 		},
 		{
 			Name:       "wait operation api call fails",
 			Args:       []string{"host", "create"},
 			SrvHandler: &createHostReqFailsHandler{WithErrCode: 404},
-			ExpErr:     &client.ApiCallError{Code: "404"},
+			ExpErr:     &client.ApiCallError{Code: 404},
 		},
 		{
 			Name:       "list hosts api call fails",
 			Args:       []string{"host", "list"},
 			SrvHandler: &listsHostReqFailsHandler{WithErrCode: 404},
-			ExpErr:     &client.ApiCallError{Code: "404"},
+			ExpErr:     &client.ApiCallError{Code: 404},
 		},
 	}
 	for _, test := range tests {
@@ -324,7 +323,7 @@ func newTestIOStreams() (IOStreams, *bytes.Buffer, *bytes.Buffer) {
 }
 
 func writeErr(w http.ResponseWriter, statusCode int) {
-	write(w, &apiv1.Error{Code: strconv.Itoa(statusCode)}, statusCode)
+	write(w, &apiv1.Error{Code: statusCode}, statusCode)
 }
 
 func writeOK(w http.ResponseWriter, data interface{}) {

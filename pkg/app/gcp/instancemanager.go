@@ -106,9 +106,6 @@ func (m *InstanceManager) CreateHost(zone string, req *apiv1.CreateHostRequest, 
 			},
 		},
 		Labels: labels,
-		// Required to enable nested virtualization
-		// https://cloud.google.com/compute/docs/instances/nested-virtualization/enabling#enabling_nested_virtualization_directly_on_a_new_vm
-		MinCpuPlatform: "Intel Haswell",
 		AdvancedMachineFeatures: &compute.AdvancedMachineFeatures{
 			EnableNestedVirtualization: true,
 		},

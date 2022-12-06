@@ -169,7 +169,6 @@ func TestCreateHostRequestBody(t *testing.T) {
     "created_by": "johndoe"
   },
   "machineType": "zones/us-central1-a/machineTypes/n1-standard-1",
-  "minCpuPlatform": "Intel Haswell",
   "name": "foo",
   "networkInterfaces": [
     {
@@ -353,16 +352,14 @@ func TestListHostsOverMaxResultsLimit(t *testing.T) {
 
 func TestListHostsSucceeds(t *testing.T) {
 	i1 := &compute.Instance{
-		Disks:          []*compute.AttachedDisk{{DiskSizeGb: 10}},
-		Name:           "foo",
-		MachineType:    "mt",
-		MinCpuPlatform: "mcp",
+		Disks:       []*compute.AttachedDisk{{DiskSizeGb: 10}},
+		Name:        "foo",
+		MachineType: "mt",
 	}
 	i2 := &compute.Instance{
-		Disks:          []*compute.AttachedDisk{{DiskSizeGb: 20}},
-		Name:           "bar",
-		MachineType:    "mtbaz",
-		MinCpuPlatform: "mcpbaz",
+		Disks:       []*compute.AttachedDisk{{DiskSizeGb: 20}},
+		Name:        "bar",
+		MachineType: "mtbaz",
 	}
 	nextPageToken := "test-token"
 	items := []*compute.Instance{i1, i2}
@@ -514,10 +511,9 @@ func TestWaitCreateInstanceOperationSucceeds(t *testing.T) {
 		Status:        "DONE",
 	}
 	instance := &compute.Instance{
-		Disks:          []*compute.AttachedDisk{{DiskSizeGb: 10}},
-		Name:           "foo",
-		MachineType:    "mt",
-		MinCpuPlatform: "mcp",
+		Disks:       []*compute.AttachedDisk{{DiskSizeGb: 10}},
+		Name:        "foo",
+		MachineType: "mt",
 	}
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch path := r.URL.Path; path {
@@ -647,10 +643,9 @@ func TestWaitOperationFailedOperation(t *testing.T) {
 
 func TestBuildHostInstance(t *testing.T) {
 	input := &compute.Instance{
-		Disks:          []*compute.AttachedDisk{{DiskSizeGb: 10}},
-		Name:           "foo",
-		MachineType:    "zones/us-central1-a/machineTypes/n1-standard-1",
-		MinCpuPlatform: "Intel Haswell",
+		Disks:       []*compute.AttachedDisk{{DiskSizeGb: 10}},
+		Name:        "foo",
+		MachineType: "zones/us-central1-a/machineTypes/n1-standard-1",
 	}
 
 	got, err := BuildHostInstance(input)
@@ -672,10 +667,9 @@ func TestBuildHostInstance(t *testing.T) {
 
 func TestBuildHostInstanceNoDisk(t *testing.T) {
 	input := &compute.Instance{
-		Disks:          []*compute.AttachedDisk{},
-		Name:           "foo",
-		MachineType:    "mt",
-		MinCpuPlatform: "mcp",
+		Disks:       []*compute.AttachedDisk{},
+		Name:        "foo",
+		MachineType: "mt",
 	}
 
 	result, err := BuildHostInstance(input)

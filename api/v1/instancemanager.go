@@ -18,8 +18,6 @@ type GCPInstance struct {
 	// [REQUIRED] Specifies the machine type of the VM Instance.
 	// Check https://cloud.google.com/compute/docs/regions-zones#available for available values.
 	MachineType string `json:"machine_type"`
-	// Specifies a minimum CPU platform for the VM instance.
-	MinCPUPlatform string `json:"min_cpu_platform"`
 }
 
 type Operation struct {

@@ -85,8 +85,7 @@ func (m *InstanceManager) CreateHost(zone string, req *apiv1.CreateHostRequest, 
 		Name: m.InstanceNameGenerator.NewName(),
 		// This is required in the format: "zones/zone/machineTypes/machine-type".
 		// Read more: https://cloud.google.com/compute/docs/reference/rest/v1/instances/insert#request-body
-		MachineType:    fmt.Sprintf("zones/%s/machineTypes/%s", zone, req.HostInstance.GCP.MachineType),
-		MinCpuPlatform: req.HostInstance.GCP.MinCPUPlatform,
+		MachineType: fmt.Sprintf("zones/%s/machineTypes/%s", zone, req.HostInstance.GCP.MachineType),
 		Disks: []*compute.AttachedDisk{
 			{
 				InitializeParams: &compute.AttachedDiskInitializeParams{
@@ -107,6 +106,12 @@ func (m *InstanceManager) CreateHost(zone string, req *apiv1.CreateHostRequest, 
 			},
 		},
 		Labels: labels,
+		// Required to enable nested virtualization
+		// https://cloud.google.com/compute/docs/instances/nested-virtualization/enabling#enabling_nested_virtualization_directly_on_a_new_vm
+		MinCpuPlatform: "Intel Haswell",
+		AdvancedMachineFeatures: &compute.AdvancedMachineFeatures{
+			EnableNestedVirtualization: true,
+		},
 	}
 	op, err := m.Service.Instances.
 		Insert(m.Config.GCP.ProjectID, zone, payload).
@@ -224,8 +229,7 @@ func BuildHostInstance(in *compute.Instance) (*apiv1.HostInstance, error) {
 		Name:           in.Name,
 		BootDiskSizeGB: in.Disks[0].DiskSizeGb,
 		GCP: &apiv1.GCPInstance{
-			MachineType:    path.Base(in.MachineType),
-			MinCPUPlatform: in.MinCpuPlatform,
+			MachineType: path.Base(in.MachineType),
 		},
 	}, nil
 }

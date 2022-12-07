@@ -66,7 +66,8 @@ func TestCreateHostInvalidRequests(t *testing.T) {
 		return &apiv1.CreateHostRequest{
 			HostInstance: &apiv1.HostInstance{
 				GCP: &apiv1.GCPInstance{
-					MachineType: "n1-standard-1",
+					MachineType:    "n1-standard-1",
+					MinCPUPlatform: "Intel Haswell",
 				},
 			},
 		}
@@ -115,7 +116,8 @@ func TestCreateHostRequestPath(t *testing.T) {
 		&apiv1.CreateHostRequest{
 			HostInstance: &apiv1.HostInstance{
 				GCP: &apiv1.GCPInstance{
-					MachineType: "n1-standard-1",
+					MachineType:    "n1-standard-1",
+					MinCPUPlatform: "Intel Haswell",
 				},
 			},
 		},
@@ -146,16 +148,14 @@ func TestCreateHostRequestBody(t *testing.T) {
 		&apiv1.CreateHostRequest{
 			HostInstance: &apiv1.HostInstance{
 				GCP: &apiv1.GCPInstance{
-					MachineType: "n1-standard-1",
+					MachineType:    "n1-standard-1",
+					MinCPUPlatform: "Intel Haswell",
 				},
 			},
 		},
 		&TestUserInfo{})
 
 	expected := `{
-  "advancedMachineFeatures": {
-    "enableNestedVirtualization": true
-  },
   "disks": [
     {
       "boot": true,
@@ -210,7 +210,8 @@ func TestCreateHostSuccess(t *testing.T) {
 		&apiv1.CreateHostRequest{
 			HostInstance: &apiv1.HostInstance{
 				GCP: &apiv1.GCPInstance{
-					MachineType: "n1-standard-1",
+					MachineType:    "n1-standard-1",
+					MinCPUPlatform: "Intel Haswell",
 				},
 			},
 		},
@@ -659,7 +660,8 @@ func TestBuildHostInstance(t *testing.T) {
 		Name:           "foo",
 		BootDiskSizeGB: 10,
 		GCP: &apiv1.GCPInstance{
-			MachineType: "n1-standard-1",
+			MachineType:    "n1-standard-1",
+			MinCPUPlatform: "Intel Haswell",
 		},
 	}
 	if diff := cmp.Diff(&want, got); diff != "" {

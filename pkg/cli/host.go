@@ -25,7 +25,8 @@ import (
 )
 
 const (
-	gcpMachineTypeFlag = "gcp_machine_type"
+	gcpMachineTypeFlag    = "gcp_machine_type"
+	gcpMinCPUPlatformFlag = "gcp_min_cpu_platform"
 )
 
 type createGCPHostFlags struct {
@@ -47,8 +48,10 @@ func newHostCommand(cfgFlags *configFlags) *cobra.Command {
 			return runCreateHostCommand(createFlags, c, args)
 		},
 	}
-	create.Flags().StringVar(&createFlags.MachineType, gcpMachineTypeFlag, "n1-standard-4",
+	create.Flags().StringVar(&createFlags.MachineType, gcpMachineTypeFlag, "e2-standard-4",
 		"Indicates the machine type")
+	create.Flags().StringVar(&createFlags.MinCPUPlatform, gcpMinCPUPlatformFlag, "",
+		"Specifies a minimum CPU platform for the VM instance")
 	list := &cobra.Command{
 		Use:   "list",
 		Short: "Lists hosts.",
@@ -82,7 +85,8 @@ func runCreateHostCommand(flags *createGCPHostFlags, c *cobra.Command, _ []strin
 	req := apiv1.CreateHostRequest{
 		HostInstance: &apiv1.HostInstance{
 			GCP: &apiv1.GCPInstance{
-				MachineType: flags.MachineType,
+				MachineType:    flags.MachineType,
+				MinCPUPlatform: flags.MinCPUPlatform,
 			},
 		},
 	}

@@ -74,7 +74,8 @@ func (c *Controller) Handler() http.Handler {
 	router.Handle("/v1/zones/{zone}/hosts/{host}", HTTPHandler(c.accountManager.Authenticate(c.deleteHost))).Methods("DELETE")
 
 	// Host Orchestrator Proxy Routes
-	router.PathPrefix("/v1/zones/{zone}/hosts/{host}/{resource:devices|operations|cvds}").Handler(hf.Handler())
+	router.PathPrefix(
+		"/v1/zones/{zone}/hosts/{host}/{resource:devices|operations|cvds|userartifacts}").Handler(hf.Handler())
 
 	// Infra route
 	router.HandleFunc("/v1/zones/{zone}/hosts/{host}/infra_config", func(w http.ResponseWriter, r *http.Request) {

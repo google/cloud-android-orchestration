@@ -17,8 +17,7 @@ package cli
 import (
 	"testing"
 
-	client "github.com/google/cloud-android-orchestration/pkg/client"
-
+	hoapi "github.com/google/android-cuttlefish/frontend/src/liboperator/api/v1"
 	"github.com/google/go-cmp/cmp"
 )
 
@@ -26,7 +25,7 @@ func TestCVDOutput(t *testing.T) {
 	output := CVDOutput{
 		BaseURL: "http://foo.com",
 		Host:    "bar",
-		CVD: &client.CVD{
+		CVD: &hoapi.CVD{
 			Name:     "cvd-1",
 			Status:   "Running",
 			Displays: []string{"720 x 1280 ( 320 )"},

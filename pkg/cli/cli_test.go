@@ -29,6 +29,7 @@ import (
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
 	"github.com/google/cloud-android-orchestration/pkg/client"
 
+	hoapi "github.com/google/android-cuttlefish/frontend/src/liboperator/api/v1"
 	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/go-multierror"
 )
@@ -179,10 +180,10 @@ func (h *alwaysSucceedsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 		writeOK(w, "")
 	case "POST /v1/hosts/" + h.WithHostName + "/cvds",
 		"POST /v1/zones/" + testZone + "/hosts/" + h.WithHostName + "/cvds":
-		writeOK(w, &client.Operation{Name: opName})
+		writeOK(w, &hoapi.Operation{Name: opName})
 	case "POST /v1/hosts/" + h.WithHostName + "/operations/" + opName + "/:wait",
 		"POST /v1/zones/" + testZone + "/hosts/" + h.WithHostName + "/operations/" + opName + "/:wait":
-		writeOK(w, &client.CVD{Name: "cvd-1"})
+		writeOK(w, &hoapi.CVD{Name: "cvd-1"})
 	default:
 		panic("unexpected endpoint: " + ep)
 	}

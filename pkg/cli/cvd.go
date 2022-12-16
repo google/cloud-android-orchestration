@@ -18,8 +18,7 @@ import (
 	"fmt"
 	"sync"
 
-	client "github.com/google/cloud-android-orchestration/pkg/client"
-
+	hoapi "github.com/google/android-cuttlefish/frontend/src/liboperator/api/v1"
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 )
@@ -84,11 +83,13 @@ func runCreateCVDCommand(flags *createCVDFlags, c *cobra.Command, _ []string) er
 	if err != nil {
 		return err
 	}
-	req := client.CreateCVDRequest{
-		CVD: &client.CVD{
-			BuildInfo: &client.BuildInfo{
-				BuildID: flags.BuildID,
-				Target:  flags.Target,
+	req := hoapi.CreateCVDRequest{
+		CVD: &hoapi.CVD{
+			BuildSource: &hoapi.BuildSource{
+				AndroidCIBuild: &hoapi.AndroidCIBuild{
+					BuildID: flags.BuildID,
+					Target:  flags.Target,
+				},
 			},
 		},
 	}
@@ -149,7 +150,7 @@ func runListCVDsCommand(flags *listCVDsFlags, c *cobra.Command, _ []string) erro
 type CVDOutput struct {
 	BaseURL string
 	Host    string
-	CVD     *client.CVD
+	CVD     *hoapi.CVD
 }
 
 func (o *CVDOutput) String() string {

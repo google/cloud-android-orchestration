@@ -15,16 +15,45 @@
 package main
 
 import (
-	"github.com/google/cloud-android-orchestration/pkg/cli"
+	"fmt"
 	"os"
+
+	"github.com/google/cloud-android-orchestration/pkg/cli"
 )
+
+const configPathVar = "CVDREMOTE_CONFIG_PATH"
+
+func readConfig(config *cli.Config) error {
+	configPath := os.Getenv(configPathVar)
+	if configPath == "" {
+		// No config file provided
+		return nil
+	}
+	configFile, err := os.Open(configPath)
+	if err != nil {
+		return fmt.Errorf("Error opening config file: %w", err)
+	}
+	defer configFile.Close()
+
+	if err := cli.ParseConfig(config, configFile); err != nil {
+		return fmt.Errorf("Error parsing config file: %w", err)
+	}
+	return nil
+}
 
 func main() {
 	opts := &cli.CommandOptions{
 		IOStreams: cli.IOStreams{In: os.Stdin, Out: os.Stdout, ErrOut: os.Stderr},
 		Args:      os.Args[1:],
 	}
-	if err := cli.NewCVDRemoteCommand(opts).Execute(); err != nil {
+
+	if err := readConfig(&opts.Config); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(2)
+	}
+
+	err := cli.NewCVDRemoteCommand(opts).Execute()
+	if err != nil {
 		os.Exit(1)
 	}
 }

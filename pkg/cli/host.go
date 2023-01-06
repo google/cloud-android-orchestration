@@ -35,7 +35,7 @@ type createGCPHostFlags struct {
 	MinCPUPlatform string
 }
 
-func newHostCommand(cfgFlags *configFlags) *cobra.Command {
+func newHostCommand(cfgFlags *configFlags, config *HostConfig) *cobra.Command {
 	hostFlags := &subCommandFlags{
 		cfgFlags,
 		false,
@@ -48,9 +48,10 @@ func newHostCommand(cfgFlags *configFlags) *cobra.Command {
 			return runCreateHostCommand(createFlags, c, args)
 		},
 	}
-	create.Flags().StringVar(&createFlags.MachineType, gcpMachineTypeFlag, "n1-standard-4",
-		"Indicates the machine type")
-	create.Flags().StringVar(&createFlags.MinCPUPlatform, gcpMinCPUPlatformFlag, "",
+	create.Flags().StringVar(&createFlags.MachineType, gcpMachineTypeFlag,
+		config.GCP.DefaultMachineType, "Indicates the machine type")
+	create.Flags().StringVar(&createFlags.MinCPUPlatform, gcpMinCPUPlatformFlag,
+		config.GCP.DefaultMinCPUPlatform,
 		"Specifies a minimum CPU platform for the VM instance")
 	list := &cobra.Command{
 		Use:   "list",

@@ -33,7 +33,8 @@ type IOStreams struct {
 
 type CommandOptions struct {
 	IOStreams
-	Args []string
+	Args   []string
+	Config Config
 }
 
 type CVDRemoteCommand struct {
@@ -84,15 +85,19 @@ func NewCVDRemoteCommand(o *CommandOptions) *CVDRemoteCommand {
 	rootCmd.SetArgs(o.Args)
 	rootCmd.SetOut(o.IOStreams.Out)
 	rootCmd.SetErr(o.IOStreams.ErrOut)
-	rootCmd.PersistentFlags().StringVar(&configFlags.ServiceURL, serviceURLFlag, "",
-		"Cloud orchestration service url.")
-	rootCmd.MarkPersistentFlagRequired(serviceURLFlag)
-	rootCmd.PersistentFlags().StringVar(&configFlags.Zone, zoneFlag, "", "Cloud zone.")
-	rootCmd.PersistentFlags().StringVar(&configFlags.HTTPProxy, httpProxyFlag, "",
-		"Proxy used to route the http communication through.")
+	rootCmd.PersistentFlags().StringVar(&configFlags.ServiceURL, serviceURLFlag,
+		o.Config.DefaultServiceURL, "Cloud orchestration service url.")
+	if o.Config.DefaultServiceURL == "" {
+		// Make it required if not configured
+		rootCmd.MarkPersistentFlagRequired(serviceURLFlag)
+	}
+	rootCmd.PersistentFlags().StringVar(&configFlags.Zone, zoneFlag, o.Config.DefaultZone,
+		"Cloud zone.")
+	rootCmd.PersistentFlags().StringVar(&configFlags.HTTPProxy, httpProxyFlag,
+		o.Config.DefaultHTTPProxy, "Proxy used to route the http communication through.")
 	// Do not show a `help` command, users have always the `-h` and `--help` flags for help purpose.
 	rootCmd.SetHelpCommand(&cobra.Command{Hidden: true})
-	rootCmd.AddCommand(newHostCommand(configFlags))
+	rootCmd.AddCommand(newHostCommand(configFlags, &o.Config.Host))
 	rootCmd.AddCommand(newADBTunnelCommand(configFlags))
 	rootCmd.AddCommand(newCVDCommand(configFlags))
 	return &CVDRemoteCommand{rootCmd}

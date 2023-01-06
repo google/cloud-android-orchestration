@@ -183,7 +183,7 @@ func (f *ADBForwarder) OnClose() {
 func (f *ADBForwarder) StartForwarding() error {
 	listener, err := net.Listen("tcp", "127.0.0.1:")
 	if err != nil {
-		return err
+		return fmt.Errorf("Error listening on port: %w", err)
 	}
 	f.listener = listener
 	f.running.Store(true)

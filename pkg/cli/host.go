@@ -92,7 +92,7 @@ func runCreateHostCommand(flags *createGCPHostFlags, c *cobra.Command, _ []strin
 	}
 	ins, err := apiClient.CreateHost(&req)
 	if err != nil {
-		return err
+		return fmt.Errorf("Error creating host: %w", err)
 	}
 	c.Printf("%s\n", ins.Name)
 	return nil
@@ -105,7 +105,7 @@ func runListHostsCommand(flags *subCommandFlags, c *cobra.Command, _ []string) e
 	}
 	hosts, err := apiClient.ListHosts()
 	if err != nil {
-		return err
+		return fmt.Errorf("Error listing hosts: %w", err)
 	}
 	for _, ins := range hosts.Items {
 		c.Printf("%s\n", ins.Name)

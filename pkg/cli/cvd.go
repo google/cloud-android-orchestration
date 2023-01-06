@@ -95,7 +95,7 @@ func runCreateCVDCommand(flags *createCVDFlags, c *cobra.Command, _ []string) er
 	}
 	cvd, err := apiClient.CreateCVD(flags.Host, &req)
 	if err != nil {
-		return err
+		return fmt.Errorf("Error creating CVD: %w", err)
 	}
 	c.Printf("%s\n", cvd.Name)
 	return nil
@@ -112,7 +112,7 @@ func runListCVDsCommand(flags *listCVDsFlags, c *cobra.Command, _ []string) erro
 	} else {
 		res, err := apiClient.ListHosts()
 		if err != nil {
-			return err
+			return fmt.Errorf("Error listing hosts: %w", err)
 		}
 		for _, host := range res.Items {
 			hosts = append(hosts, host.Name)

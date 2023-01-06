@@ -129,7 +129,11 @@ func buildAPIClient(flags *subCommandFlags, c *cobra.Command) (*client.APIClient
 		RetryAttempts: 3,
 		RetryDelay:    5 * time.Second,
 	}
-	return client.NewAPIClient(opts)
+	apiClient, err := client.NewAPIClient(opts)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to build API client: %w", err)
+	}
+	return apiClient, nil
 }
 
 func addCommonSubcommandFlags(c *cobra.Command, flags *subCommandFlags) {

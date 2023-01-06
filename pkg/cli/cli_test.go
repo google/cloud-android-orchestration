@@ -17,6 +17,7 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -151,8 +152,8 @@ func TestCommandFails(t *testing.T) {
 			if diff := cmp.Diff(test.ExpOut, string(b)); diff != "" {
 				t.Errorf("standard output mismatch (-want +got):\n%s", diff)
 			}
-			if diff := cmp.Diff(test.ExpErr, err); diff != "" {
-				t.Errorf("err mismatch (-want +got):\n%s", diff)
+			if !errors.Is(err, test.ExpErr) {
+				t.Errorf("err mismatch (-want +got):\n-%v\n+%v", test.ExpErr, err)
 			}
 		})
 	}

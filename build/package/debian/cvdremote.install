@@ -1,0 +1,3 @@
+host/etc/cvdremote.toml /etc/
+host/usr/bin/cvdremote /usr/bin/
+../../cvdremote /usr/libexec/

@@ -1,0 +1,16 @@
+Source: cvdremote
+Maintainer: Cuttlefish Team
+Section: misc
+Priority: optional
+Build-Depends: config-package-dev,
+               debhelper-compat (= 12),
+               golang (>= 2:1.13~) | golang-1.13
+Standards-Version: 4.5.0
+
+Package: cvdremote
+Architecture: any
+Depends: ${misc:Depends},
+         ${shlibs:Depends}
+Pre-Depends: ${misc:Pre-Depends}
+Description: CLI client for the Cloud Android Orchestration service.
+

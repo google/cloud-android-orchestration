@@ -1,0 +1,6 @@
+debian/cvdremote/
+debian/*.substvars
+debian/files
+debian/*.debhelper
+debian/debhelper-build-stamp
+

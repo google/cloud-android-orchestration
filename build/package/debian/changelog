@@ -1,0 +1,5 @@
+cvdremote (0.1.0) UNRELEASED; urgency=medium
+
+  * Deploys cvdremote binary and config
+
+ -- Jorge Moreira Broche <jemoreira@google.com>  Fri, 06 Jan 2023 17:42:34 -0700

@@ -1,0 +1,11 @@
+*.o
+*.buildinfo
+*.build
+*.changes
+*.deb
+*.dsc
+*.log
+
+cvdremote_*.*.*.tar.xz
+cvdremote_*.*.*.tar.gz
+

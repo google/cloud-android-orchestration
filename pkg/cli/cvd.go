@@ -15,8 +15,11 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"sync"
+
+	"github.com/google/cloud-android-orchestration/pkg/client"
 
 	hoapi "github.com/google/android-cuttlefish/frontend/src/liboperator/api/v1"
 	"github.com/hashicorp/go-multierror"
@@ -24,15 +27,17 @@ import (
 )
 
 const (
-	buildIDFlag = "build_id"
-	targetFlag  = "target"
+	buildIDFlag    = "build_id"
+	targetFlag     = "target"
+	localImageFlag = "local_image"
 )
 
 type createCVDFlags struct {
 	*subCommandFlags
-	BuildID string
-	Target  string
-	Host    string
+	BuildID    string
+	Target     string
+	Host       string
+	LocalImage bool
 }
 
 type listCVDsFlags struct {
@@ -56,9 +61,12 @@ func newCVDCommand(cfgFlags *configFlags) *cobra.Command {
 	create.Flags().StringVar(&createFlags.Host, hostFlag, "", "Specifies the host")
 	create.MarkFlagRequired(hostFlag)
 	create.Flags().StringVar(&createFlags.BuildID, buildIDFlag, "", "Android build identifier")
-	create.MarkFlagRequired(buildIDFlag)
 	create.Flags().StringVar(&createFlags.Target, targetFlag, "aosp_cf_x86_64_phone-userdebug",
 		"Android build target")
+	create.Flags().BoolVar(&createFlags.LocalImage, localImageFlag, false,
+		"Builds a CVD with image files built locally, the required files are https://cs.android.com/android/platform/superproject/+/master:device/google/cuttlefish/required_images and cvd-host-packages.tar.gz")
+	create.MarkFlagsMutuallyExclusive(buildIDFlag, localImageFlag)
+	create.MarkFlagsMutuallyExclusive(targetFlag, localImageFlag)
 	listFlags := &listCVDsFlags{subCommandFlags: cvdFlags}
 	list := &cobra.Command{
 		Use:   "list",
@@ -83,6 +91,13 @@ func runCreateCVDCommand(flags *createCVDFlags, c *cobra.Command, _ []string) er
 	if err != nil {
 		return err
 	}
+	if flags.LocalImage {
+		return errors.New("Not implemented yet")
+	}
+	return createCVDFromAndroidCI(apiClient, c, flags)
+}
+
+func createCVDFromAndroidCI(apiClient *client.APIClient, c *cobra.Command, flags *createCVDFlags) error {
 	req := hoapi.CreateCVDRequest{
 		CVD: &hoapi.CVD{
 			BuildSource: &hoapi.BuildSource{
@@ -95,7 +110,7 @@ func runCreateCVDCommand(flags *createCVDFlags, c *cobra.Command, _ []string) er
 	}
 	cvd, err := apiClient.CreateCVD(flags.Host, &req)
 	if err != nil {
-		return fmt.Errorf("Error creating CVD: %w", err)
+		return err
 	}
 	c.Printf("%s\n", cvd.Name)
 	return nil

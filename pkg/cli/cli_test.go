@@ -48,7 +48,7 @@ func TestRequiredFlags(t *testing.T) {
 		},
 		{
 			Name:      "cvd create",
-			FlagNames: []string{buildIDFlag, hostFlag, serviceURLFlag},
+			FlagNames: []string{hostFlag, serviceURLFlag},
 			Args:      []string{"cvd", "create"},
 		},
 	}

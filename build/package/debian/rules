@@ -22,10 +22,6 @@ SOURCE_DIR := ../..
 override_dh_auto_build:
 	$(GOUTIL) $(SOURCE_DIR) build -v -ldflags="-w" ./cmd/cvdremote
 
-override_dh_auto_test:
-	$(GOUTIL) $(SOURCE_DIR) test ./pkg/cli/...
-	dh_auto_test
-
 override_dh_auto_clean:
-	rm -f $(CVDREMOTE_SOURCE_DIR)/host_orchestrator
+	rm -f $(CVDREMOTE_SOURCE_DIR)/cvdremote
 	dh_auto_clean

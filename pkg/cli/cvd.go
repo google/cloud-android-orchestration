@@ -64,7 +64,7 @@ func newCVDCommand(cfgFlags *configFlags) *cobra.Command {
 	create.Flags().StringVar(&createFlags.Target, targetFlag, "aosp_cf_x86_64_phone-userdebug",
 		"Android build target")
 	create.Flags().BoolVar(&createFlags.LocalImage, localImageFlag, false,
-		"Builds a CVD with an image files locally built, the required files are https://cs.android.com/android/platform/superproject/+/master:device/google/cuttlefish/required_images")
+		"Builds a CVD with image files built locally, the required files are https://cs.android.com/android/platform/superproject/+/master:device/google/cuttlefish/required_images and cvd-host-packages.tar.gz")
 	create.MarkFlagsMutuallyExclusive(buildIDFlag, localImageFlag)
 	create.MarkFlagsMutuallyExclusive(targetFlag, localImageFlag)
 	listFlags := &listCVDsFlags{subCommandFlags: cvdFlags}

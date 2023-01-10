@@ -15,8 +15,11 @@
 package cli
 
 import (
-	"errors"
+	"bufio"
 	"fmt"
+	"io"
+	"os"
+	"strings"
 	"sync"
 
 	"github.com/google/cloud-android-orchestration/pkg/client"
@@ -89,9 +92,53 @@ func runCreateCVDCommand(c *cobra.Command, flags *createCVDFlags, opts *subComma
 		return err
 	}
 	if flags.LocalImage {
-		return errors.New("Not implemented yet")
+		return createCVDFromLocalBuild(service, c, flags)
 	}
 	return createCVDFromAndroidCI(service, c, flags)
+}
+
+const RequiredImagesFilename = "device/google/cuttlefish/required_images"
+
+type MissingEnvVarErr string
+
+func (s MissingEnvVarErr) Error() string {
+	return fmt.Sprintf("Missing environment variable: %q", string(s))
+}
+
+type MissingRequiredImagesFileErr string
+
+func (s MissingRequiredImagesFileErr) Error() string {
+	return fmt.Sprintf("Required images file not found at %q", string(s))
+}
+
+const (
+	AndroidBuildTopVarName   = "ANDROID_BUILD_TOP"
+	AndroidProductOutVarName = "ANDROID_PRODUCT_OUT"
+	AndroidHostOutVarName    = "ANDROID_HOST_OUT"
+)
+
+func createCVDFromLocalBuild(service client.Service, c *cobra.Command, flags *createCVDFlags) error {
+	androidEnvVars := []string{AndroidBuildTopVarName, AndroidProductOutVarName, AndroidHostOutVarName}
+	for _, name := range androidEnvVars {
+		if _, ok := os.LookupEnv(name); !ok {
+			return MissingEnvVarErr(name)
+		}
+	}
+	androidBuildTop, _ := os.LookupEnv(AndroidBuildTopVarName)
+	listFilename := androidBuildTop + "/" + RequiredImagesFilename
+	if _, err := os.Stat(listFilename); err != nil {
+		return MissingRequiredImagesFileErr(listFilename)
+	}
+	productOutDir, _ := os.LookupEnv(AndroidProductOutVarName)
+	hostOutDir, _ := os.LookupEnv(AndroidHostOutVarName)
+	names, err := listRequiredImageFilenames(listFilename, productOutDir, hostOutDir)
+	if err != nil {
+		return err
+	}
+	if err := service.UploadFiles(flags.Host, "abc", names); err != nil {
+		return err
+	}
+	return nil
 }
 
 func createCVDFromAndroidCI(service client.Service, c *cobra.Command, flags *createCVDFlags) error {
@@ -174,4 +221,29 @@ func (o *CVDOutput) String() string {
 	res += "\n  " + "Logs: " +
 		fmt.Sprintf("%s/hosts/%s/cvds/%s/logs/", o.BaseURL, o.Host, o.CVD.Name)
 	return res
+}
+
+const cvdHostPackageName = "cvd-host_package.tar.gz"
+
+func listRequiredImageFilenames(listFilename, androidProductOutDir, androidHostOutDir string) ([]string, error) {
+	var result []string
+	f, err := os.Open(listFilename)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	r := bufio.NewReader(f)
+	for {
+		line, err := r.ReadString('\n')
+		line = strings.TrimRight(line, "\n")
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, err
+		}
+		result = append(result, androidProductOutDir+"/"+line)
+	}
+	result = append(result, androidHostOutDir+"/"+cvdHostPackageName)
+	return result, nil
 }

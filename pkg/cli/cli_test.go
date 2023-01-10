@@ -315,6 +315,44 @@ func TestDeleteHostsCommandFails(t *testing.T) {
 
 }
 
+func TestCreateCVDLocalImageMissingEnvVariables(t *testing.T) {
+	androidEnvVars := []string{AndroidBuildTopVarName, AndroidProductOutVarName, AndroidHostOutVarName}
+	for _, envVar := range androidEnvVars {
+		io, _, _ := newTestIOStreams()
+		opts := &CommandOptions{
+			IOStreams: io,
+			Args:      []string{"--service_url=http://foo", "--host=bar", "cvd", "create", "--local_image"},
+			LookupEnv: func(key string) (string, bool) {
+				if key == envVar {
+					return "", false
+				}
+				return "foo", true
+			},
+		}
+
+		err := NewCVDRemoteCommand(opts).Execute()
+
+		if _, ok := err.(MissingEnvVarErr); !ok {
+			t.Errorf("expected %+v, got %+v", MissingEnvVarErr(envVar), err)
+		}
+	}
+}
+
+func TestCreateCVDLocalImageMissingRequiredImagesFile(t *testing.T) {
+	io, _, _ := newTestIOStreams()
+	opts := &CommandOptions{
+		IOStreams: io,
+		Args:      []string{"--service_url=http://foo", "--host=bar", "cvd", "create", "--local_image"},
+		LookupEnv: func(key string) (string, bool) { return "foo", true },
+	}
+
+	err := NewCVDRemoteCommand(opts).Execute()
+
+	if exp, ok := err.(MissingRequiredImagesFileErr); !ok {
+		t.Errorf("expected %T, got %T", exp, err)
+	}
+}
+
 func newTestIOStreams() (IOStreams, *bytes.Buffer, *bytes.Buffer) {
 	in := &bytes.Buffer{}
 	out := &bytes.Buffer{}

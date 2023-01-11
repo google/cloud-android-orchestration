@@ -29,23 +29,25 @@ const (
 	gcpMinCPUPlatformFlag = "gcp_min_cpu_platform"
 )
 
-type createGCPHostFlags struct {
+type hostFlags struct {
 	*subCommandFlags
+}
+
+type createGCPHostFlags struct {
+	*hostFlags
 	MachineType    string
 	MinCPUPlatform string
 }
 
-func newHostCommand(cfgFlags *configFlags, config *HostConfig) *cobra.Command {
-	hostFlags := &subCommandFlags{
-		cfgFlags,
-		false,
-	}
-	createFlags := &createGCPHostFlags{hostFlags, "", ""}
+func newHostCommand(configFlags *configFlags, config *HostConfig, opts *subCommandOpts) *cobra.Command {
+	subCommandFlags := &subCommandFlags{configFlags: configFlags}
+	hostFlags := &hostFlags{subCommandFlags: subCommandFlags}
+	createFlags := &createGCPHostFlags{hostFlags: hostFlags}
 	create := &cobra.Command{
 		Use:   "create",
 		Short: "Creates a host.",
 		RunE: func(c *cobra.Command, args []string) error {
-			return runCreateHostCommand(createFlags, c, args)
+			return runCreateHostCommand(c, createFlags, opts)
 		},
 	}
 	create.Flags().StringVar(&createFlags.MachineType, gcpMachineTypeFlag,
@@ -57,29 +59,29 @@ func newHostCommand(cfgFlags *configFlags, config *HostConfig) *cobra.Command {
 		Use:   "list",
 		Short: "Lists hosts.",
 		RunE: func(c *cobra.Command, args []string) error {
-			return runListHostsCommand(hostFlags, c, args)
+			return runListHostsCommand(c, hostFlags, opts)
 		},
 	}
 	del := &cobra.Command{
 		Use:   "delete <foo> <bar> <baz>",
 		Short: "Delete hosts.",
 		RunE: func(c *cobra.Command, args []string) error {
-			return runDeleteHostsCommand(hostFlags, c, args)
+			return runDeleteHostsCommand(c, args, hostFlags, opts)
 		},
 	}
 	host := &cobra.Command{
 		Use:   "host",
 		Short: "Work with hosts",
 	}
-	addCommonSubcommandFlags(host, hostFlags)
+	addCommonSubcommandFlags(host, subCommandFlags)
 	host.AddCommand(create)
 	host.AddCommand(list)
 	host.AddCommand(del)
 	return host
 }
 
-func runCreateHostCommand(flags *createGCPHostFlags, c *cobra.Command, _ []string) error {
-	apiClient, err := buildAPIClient(flags.subCommandFlags, c)
+func runCreateHostCommand(c *cobra.Command, flags *createGCPHostFlags, opts *subCommandOpts) error {
+	apiClient, err := opts.ServiceBuilder(flags.subCommandFlags, c)
 	if err != nil {
 		return err
 	}
@@ -99,8 +101,8 @@ func runCreateHostCommand(flags *createGCPHostFlags, c *cobra.Command, _ []strin
 	return nil
 }
 
-func runListHostsCommand(flags *subCommandFlags, c *cobra.Command, _ []string) error {
-	apiClient, err := buildAPIClient(flags, c)
+func runListHostsCommand(c *cobra.Command, flags *hostFlags, opts *subCommandOpts) error {
+	apiClient, err := opts.ServiceBuilder(flags.subCommandFlags, c)
 	if err != nil {
 		return err
 	}
@@ -114,8 +116,8 @@ func runListHostsCommand(flags *subCommandFlags, c *cobra.Command, _ []string) e
 	return nil
 }
 
-func runDeleteHostsCommand(flags *subCommandFlags, c *cobra.Command, args []string) error {
-	apiClient, err := buildAPIClient(flags, c)
+func runDeleteHostsCommand(c *cobra.Command, args []string, flags *hostFlags, opts *subCommandOpts) error {
+	apiClient, err := opts.ServiceBuilder(flags.subCommandFlags, c)
 	if err != nil {
 		return err
 	}

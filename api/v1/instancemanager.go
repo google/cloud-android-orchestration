@@ -26,7 +26,7 @@ type Operation struct {
 	Name string `json:"name"`
 	// Service-specific metadata associated with the operation.  It typically
 	// contains progress information and common metadata such as create time.
-	Metadata interface{} `json:"metadata,omitempty"`
+	Metadata any `json:"metadata,omitempty"`
 	// If the value is `false`, it means the operation is still in progress.
 	// If `true`, the operation is completed, and either `error` or `response` is
 	// available.

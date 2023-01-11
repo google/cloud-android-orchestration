@@ -68,7 +68,7 @@ func (m *testInstanceManager) DeleteHost(zone string, user UserInfo, name string
 	return &apiv1.Operation{}, nil
 }
 
-func (m *testInstanceManager) WaitOperation(_ string, _ UserInfo, _ string) (interface{}, error) {
+func (m *testInstanceManager) WaitOperation(_ string, _ UserInfo, _ string) (any, error) {
 	return struct{}{}, nil
 }
 

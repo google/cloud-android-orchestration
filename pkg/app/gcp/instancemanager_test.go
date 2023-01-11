@@ -703,7 +703,7 @@ func buildTestService(t *testing.T, s *httptest.Server) *compute.Service {
 	return srv
 }
 
-func prettyJSON(t *testing.T, obj interface{}) string {
+func prettyJSON(t *testing.T, obj any) string {
 	s, err := json.MarshalIndent(obj, "", "  ")
 	if err != nil {
 		t.Fatal(err)
@@ -717,7 +717,7 @@ func diffPrettyText(result string, expected string) string {
 	return dmp.DiffPrettyText(diffs)
 }
 
-func replyJSON(w http.ResponseWriter, obj interface{}) error {
+func replyJSON(w http.ResponseWriter, obj any) error {
 	w.Header().Set("Content-Type", "application/json")
 	encoder := json.NewEncoder(w)
 	return encoder.Encode(obj)

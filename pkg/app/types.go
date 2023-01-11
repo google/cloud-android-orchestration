@@ -60,7 +60,7 @@ type InstanceManager interface {
 	// Waits until operation is DONE or earlier. If DONE return the expected  response of the operation. If the
 	// original method returns no data on success, such as `Delete`, response will be empty. If the original method
 	// is standard `Get`/`Create`/`Update`, the response should be the relevant resource.
-	WaitOperation(zone string, user UserInfo, name string) (interface{}, error)
+	WaitOperation(zone string, user UserInfo, name string) (any, error)
 }
 
 type ListHostsRequest struct {

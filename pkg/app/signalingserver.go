@@ -70,7 +70,7 @@ func (s *ForwardingSignalingServer) Forward(zone string, host string, id string,
 		return nil, err
 	}
 	var resErr apiv1.Error
-	var reply interface{}
+	var reply any
 	status, err := POSTRequest(hostURL(hostAddr, "/polled_connections/"+connId+"/:forward", ""), msg, &reply, &resErr)
 	if err != nil {
 		return nil, err
@@ -93,7 +93,7 @@ func (s *ForwardingSignalingServer) Messages(zone string, host string, id string
 		query = fmt.Sprintf("%s&count=%d", query, count)
 	}
 	var resErr apiv1.Error
-	var reply interface{}
+	var reply any
 	status, err := GETRequest(hostURL(hostAddr, "/polled_connections/"+connId+"/messages", query), &reply, &resErr)
 	if err != nil {
 		return nil, err
@@ -132,7 +132,7 @@ func hostURL(addr string, path string, query string) string {
 // Returns the http response's status code or an error.
 // If the status code indicates success (in the 2xx range) the response will be
 // in resObj, otherwise resErr will contain the error message.
-func POSTRequest(url string, msg interface{}, resObj interface{}, resErr *apiv1.Error) (int, error) {
+func POSTRequest(url string, msg any, resObj any, resErr *apiv1.Error) (int, error) {
 	jsonBody, err := json.Marshal(msg)
 	if err != nil {
 		return -1, fmt.Errorf("Failed to parse JSON request: %w", err)
@@ -146,7 +146,7 @@ func POSTRequest(url string, msg interface{}, resObj interface{}, resErr *apiv1.
 	return parseReply(res, resObj, resErr)
 }
 
-func GETRequest(url string, resObj interface{}, resErr *apiv1.Error) (int, error) {
+func GETRequest(url string, resObj any, resErr *apiv1.Error) (int, error) {
 	res, err := http.Get(url)
 	if err != nil {
 		return -1, fmt.Errorf("Failed to connect to device host: %w", err)
@@ -155,7 +155,7 @@ func GETRequest(url string, resObj interface{}, resErr *apiv1.Error) (int, error
 	return parseReply(res, resObj, resErr)
 }
 
-func parseReply(res *http.Response, resObj interface{}, resErr *apiv1.Error) (int, error) {
+func parseReply(res *http.Response, resObj any, resErr *apiv1.Error) (int, error) {
 	var err error
 	dec := json.NewDecoder(res.Body)
 	if res.StatusCode < 200 || res.StatusCode > 299 {

@@ -10,16 +10,16 @@ type NewConnMsg struct {
 }
 
 type NewConnReply struct {
-	ConnId     string      `json:"connection_id"`
-	DeviceInfo interface{} `json:"device_info"`
+	ConnId     string `json:"connection_id"`
+	DeviceInfo any    `json:"device_info"`
 }
 
 type ForwardMsg struct {
-	Payload interface{} `json:"payload"`
+	Payload any `json:"payload"`
 }
 
 type SServerResponse struct {
-	Response   interface{}
+	Response   any
 	StatusCode int
 }
 

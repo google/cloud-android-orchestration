@@ -317,7 +317,7 @@ func intFormValue(r *http.Request, name string, def int) (int, error) {
 }
 
 // Send a JSON http response to the client
-func replyJSON(w http.ResponseWriter, obj interface{}, statusCode int) error {
+func replyJSON(w http.ResponseWriter, obj any, statusCode int) error {
 	if statusCode != http.StatusOK {
 		w.WriteHeader(statusCode)
 	}

@@ -177,7 +177,7 @@ func (m *InstanceManager) DeleteHost(zone string, user app.UserInfo, name string
 	return &apiv1.Operation{Name: op.Name, Done: op.Status == operationStatusDone}, nil
 }
 
-func (m *InstanceManager) WaitOperation(zone string, user app.UserInfo, name string) (interface{}, error) {
+func (m *InstanceManager) WaitOperation(zone string, user app.UserInfo, name string) (any, error) {
 	op, err := m.Service.ZoneOperations.Wait(m.Config.GCP.ProjectID, zone, name).Do()
 	if err != nil {
 		return nil, toAppError(err)
@@ -253,7 +253,7 @@ type opResultGetter struct {
 	Op      *compute.Operation
 }
 
-func (g *opResultGetter) Get() (interface{}, error) {
+func (g *opResultGetter) Get() (any, error) {
 	done := g.Op.Status == operationStatusDone
 	if !done {
 		return nil, app.NewInternalError("cannot get the result of an operation that is not done yet", nil)

@@ -56,6 +56,6 @@ func (m *InstanceManager) DeleteHost(zone string, user app.UserInfo, name string
 	return nil, app.NewInternalError(fmt.Sprintf("%T#DeleteHost is not implemented", *m), nil)
 }
 
-func (m *InstanceManager) WaitOperation(zone string, user app.UserInfo, name string) (interface{}, error) {
+func (m *InstanceManager) WaitOperation(zone string, user app.UserInfo, name string) (any, error) {
 	return nil, app.NewInternalError(fmt.Sprintf("%T#WaitOperation is not implemented", *m), nil)
 }

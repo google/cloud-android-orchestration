@@ -64,14 +64,14 @@ func (s *ForwardingSignalingServer) Forward(zone string, host string, id string,
 	if err != nil {
 		return nil, NewNotFoundError("Invalid connection Id", err)
 	}
-	connId := dec.ConnId
+	connID := dec.ConnId
 	hostAddr, err := s.instanceManager.GetHostAddr(zone, host)
 	if err != nil {
 		return nil, err
 	}
 	var resErr apiv1.Error
 	var reply any
-	status, err := POSTRequest(hostURL(hostAddr, "/polled_connections/"+connId+"/:forward", ""), msg, &reply, &resErr)
+	status, err := POSTRequest(hostURL(hostAddr, "/polled_connections/"+connID+"/:forward", ""), msg, &reply, &resErr)
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +83,7 @@ func (s *ForwardingSignalingServer) Messages(zone string, host string, id string
 	if err != nil {
 		return nil, NewNotFoundError("Invalid connection id", err)
 	}
-	connId := dec.ConnId
+	connID := dec.ConnId
 	hostAddr, err := s.instanceManager.GetHostAddr(zone, host)
 	if err != nil {
 		return nil, err
@@ -94,7 +94,7 @@ func (s *ForwardingSignalingServer) Messages(zone string, host string, id string
 	}
 	var resErr apiv1.Error
 	var reply any
-	status, err := GETRequest(hostURL(hostAddr, "/polled_connections/"+connId+"/messages", query), &reply, &resErr)
+	status, err := GETRequest(hostURL(hostAddr, "/polled_connections/"+connID+"/messages", query), &reply, &resErr)
 	if err != nil {
 		return nil, err
 	}
@@ -175,11 +175,11 @@ func shouldIntercept(path string) bool {
 
 const CONN_ID_SEPARATOR string = ":"
 
-func encodeConnId(connId string, deviceId string) string {
+func encodeConnId(connID string, deviceId string) string {
 	// Both the device id and the connection id could have any characters in it,
 	// the connection id is base64 enocoded to ensure it doesn't have the
 	// separator ('/').
-	return deviceId + CONN_ID_SEPARATOR + base64.StdEncoding.EncodeToString([]byte(connId))
+	return deviceId + CONN_ID_SEPARATOR + base64.StdEncoding.EncodeToString([]byte(connID))
 }
 
 type IdDecodeResult struct {
@@ -187,13 +187,13 @@ type IdDecodeResult struct {
 	DevId  string
 }
 
-func decodeConnId(connId string) (IdDecodeResult, error) {
-	idx := strings.LastIndex(connId, CONN_ID_SEPARATOR)
+func decodeConnId(connID string) (IdDecodeResult, error) {
+	idx := strings.LastIndex(connID, CONN_ID_SEPARATOR)
 	if idx < 0 {
-		return IdDecodeResult{}, fmt.Errorf("Malformed connection id (Missing separator): %s", connId)
+		return IdDecodeResult{}, fmt.Errorf("Malformed connection id (Missing separator): %s", connID)
 	}
-	devId := connId[:idx]
-	bytes, err := base64.StdEncoding.DecodeString(connId[idx+1:])
+	devId := connID[:idx]
+	bytes, err := base64.StdEncoding.DecodeString(connID[idx+1:])
 	if err != nil {
 		return IdDecodeResult{}, err
 	}

@@ -21,13 +21,13 @@ import (
 
 var encodingTests = []struct {
 	name   string
-	connId string
+	connID string
 	devId  string
 }{
 	{"Simple Encoding and Decoding", "exampleConnId", "exampleDevId"},
 	{
 		"Encoding and Decoding with separators",
-		strings.ReplaceAll("connId:with:some:separators and spaces", ":", CONN_ID_SEPARATOR),
+		strings.ReplaceAll("connID:with:some:separators and spaces", ":", CONN_ID_SEPARATOR),
 		strings.ReplaceAll("devId:with:separators and spaces too", ":", CONN_ID_SEPARATOR),
 	},
 }
@@ -35,20 +35,20 @@ var encodingTests = []struct {
 func TestIdEncodingAndDecoding(t *testing.T) {
 	for _, tt := range encodingTests {
 		t.Run(tt.name, func(t *testing.T) {
-			aux(tt.connId, tt.devId, t)
+			aux(tt.connID, tt.devId, t)
 		})
 	}
 }
 
-func aux(connId string, devId string, t *testing.T) {
-	enc := encodeConnId(connId, devId)
+func aux(connID string, devId string, t *testing.T) {
+	enc := encodeConnId(connID, devId)
 	dec, err := decodeConnId(enc)
 	if err != nil {
 		t.Errorf("Failed to decode encoded id: %s", err.Error())
 		return
 	}
-	if dec.ConnId != connId {
-		t.Errorf("Decoded connection id doesn't match original: %s vs %s", dec.ConnId, connId)
+	if dec.ConnId != connID {
+		t.Errorf("Decoded connection id doesn't match original: %s vs %s", dec.ConnId, connID)
 	}
 	if dec.DevId != devId {
 		t.Errorf("Decoded device id doesn't match original: %s vs %s", dec.DevId, devId)

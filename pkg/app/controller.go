@@ -56,8 +56,8 @@ func (c *Controller) Handler() http.Handler {
 	hf := &HostForwarder{URLResolver: c.instanceManager}
 
 	// Signaling Server Routes
-	router.Handle("/v1/zones/{zone}/hosts/{host}/connections/{connId}/messages", HTTPHandler(c.accountManager.Authenticate(c.messages))).Methods("GET")
-	router.Handle("/v1/zones/{zone}/hosts/{host}/connections/{connId}/:forward", HTTPHandler(c.accountManager.Authenticate(c.forward))).Methods("POST")
+	router.Handle("/v1/zones/{zone}/hosts/{host}/connections/{connID}/messages", HTTPHandler(c.accountManager.Authenticate(c.messages))).Methods("GET")
+	router.Handle("/v1/zones/{zone}/hosts/{host}/connections/{connID}/:forward", HTTPHandler(c.accountManager.Authenticate(c.forward))).Methods("POST")
 	router.Handle("/v1/zones/{zone}/hosts/{host}/connections", HTTPHandler(c.accountManager.Authenticate(c.createConnection))).Methods("POST")
 	router.Handle("/v1/zones/{zone}/hosts/{host}/devices/{deviceId}/files{path:/.+}", HTTPHandler(c.accountManager.Authenticate(c.getDeviceFiles))).Methods("GET")
 
@@ -179,7 +179,7 @@ func (c *Controller) createConnection(w http.ResponseWriter, r *http.Request, us
 }
 
 func (c *Controller) messages(w http.ResponseWriter, r *http.Request, user UserInfo) error {
-	id := mux.Vars(r)["connId"]
+	id := mux.Vars(r)["connID"]
 	start, err := intFormValue(r, "start", 0)
 	if err != nil {
 		return NewBadRequestError("Invalid value for start field", err)
@@ -198,7 +198,7 @@ func (c *Controller) messages(w http.ResponseWriter, r *http.Request, user UserI
 }
 
 func (c *Controller) forward(w http.ResponseWriter, r *http.Request, user UserInfo) error {
-	id := mux.Vars(r)["connId"]
+	id := mux.Vars(r)["connID"]
 	var msg apiv1.ForwardMsg
 	err := json.NewDecoder(r.Body).Decode(&msg)
 	if err != nil {

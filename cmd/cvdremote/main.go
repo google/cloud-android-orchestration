@@ -19,6 +19,7 @@ import (
 	"os"
 
 	"github.com/google/cloud-android-orchestration/pkg/cli"
+	"github.com/google/cloud-android-orchestration/pkg/client"
 )
 
 const configPathVar = "CVDREMOTE_CONFIG_PATH"
@@ -43,8 +44,9 @@ func readConfig(config *cli.Config) error {
 
 func main() {
 	opts := &cli.CommandOptions{
-		IOStreams: cli.IOStreams{In: os.Stdin, Out: os.Stdout, ErrOut: os.Stderr},
-		Args:      os.Args[1:],
+		IOStreams:      cli.IOStreams{In: os.Stdin, Out: os.Stdout, ErrOut: os.Stderr},
+		Args:           os.Args[1:],
+		ServiceBuilder: client.NewService,
 	}
 
 	if err := readConfig(&opts.Config); err != nil {

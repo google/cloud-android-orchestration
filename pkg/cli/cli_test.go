@@ -142,8 +142,9 @@ func TestCommandFails(t *testing.T) {
 			defer ts.Close()
 			io, _, out := newTestIOStreams()
 			opts := &CommandOptions{
-				IOStreams: io,
-				Args:      append([]string{"--service_url=" + ts.URL}, test.Args[:]...),
+				IOStreams:      io,
+				Args:           append([]string{"--service_url=" + ts.URL}, test.Args[:]...),
+				ServiceBuilder: client.NewService,
 			}
 
 			err := NewCVDRemoteCommand(opts).Execute()
@@ -252,8 +253,9 @@ func TestCommandSucceeds(t *testing.T) {
 				t.Run("with config "+cfg.Name, func(t *testing.T) {
 					io, _, out := newTestIOStreams()
 					opts := &CommandOptions{
-						IOStreams: io,
-						Args:      append(cfg.Args, test.Args[:]...),
+						IOStreams:      io,
+						Args:           append(cfg.Args, test.Args[:]...),
+						ServiceBuilder: client.NewService,
 					}
 
 					err := NewCVDRemoteCommand(opts).Execute()
@@ -298,8 +300,9 @@ func TestDeleteHostsCommandFails(t *testing.T) {
 	defer ts.Close()
 	io, _, _ := newTestIOStreams()
 	opts := &CommandOptions{
-		IOStreams: io,
-		Args:      append([]string{"--service_url=" + ts.URL}, "host", "delete", "foo", "bar", "baz", "quz"),
+		IOStreams:      io,
+		Args:           append([]string{"--service_url=" + ts.URL}, "host", "delete", "foo", "bar", "baz", "quz"),
+		ServiceBuilder: client.NewService,
 	}
 
 	err := NewCVDRemoteCommand(opts).Execute()

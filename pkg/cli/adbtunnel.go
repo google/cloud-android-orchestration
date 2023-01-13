@@ -39,14 +39,14 @@ type openADBTunnelFlags struct {
 	connect bool
 }
 
-func newADBTunnelCommand(cfgFlags *configFlags) *cobra.Command {
+func newADBTunnelCommand(cfgFlags *configFlags, opts *subCommandOpts) *cobra.Command {
 	adbTunnelFlags := &adbTunnelFlags{&subCommandFlags{cfgFlags, false}, ""}
 	openFlags := &openADBTunnelFlags{adbTunnelFlags, false}
 	open := &cobra.Command{
 		Use:   "open",
 		Short: "Opens an ADB tunnel.",
 		RunE: func(c *cobra.Command, args []string) error {
-			return runOpenADBTunnelCommand(openFlags, &command{c, &adbTunnelFlags.Verbose}, args)
+			return runOpenADBTunnelCommand(openFlags, &command{c, &adbTunnelFlags.Verbose}, args, opts)
 		},
 	}
 	open.PersistentFlags().BoolVarP(
@@ -76,7 +76,7 @@ func newADBTunnelCommand(cfgFlags *configFlags) *cobra.Command {
 	return adbTunnel
 }
 
-func runOpenADBTunnelCommand(flags *openADBTunnelFlags, c *command, args []string) error {
+func runOpenADBTunnelCommand(flags *openADBTunnelFlags, c *command, args []string, opts *subCommandOpts) error {
 	adbPath := ""
 	if flags.connect {
 		path, err := exec.LookPath("adb")
@@ -85,7 +85,7 @@ func runOpenADBTunnelCommand(flags *openADBTunnelFlags, c *command, args []strin
 		}
 		adbPath = path
 	}
-	apiClient, err := buildAPIClient(flags.subCommandFlags, c.Command)
+	service, err := opts.ServiceBuilder(flags.subCommandFlags, c.Command)
 	if err != nil {
 		return err
 	}
@@ -99,7 +99,7 @@ func runOpenADBTunnelCommand(flags *openADBTunnelFlags, c *command, args []strin
 			device:  device,
 			adbPath: adbPath,
 		}
-		conn, err := apiClient.ConnectWebRTC(flags.host, device, &observer)
+		conn, err := service.ConnectWebRTC(flags.host, device, &observer)
 		if err != nil {
 			err = fmt.Errorf("ADB tunnel creation failed for %q: %w", device, err)
 			c.PrintErrln(err)

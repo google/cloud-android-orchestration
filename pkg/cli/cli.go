@@ -33,8 +33,9 @@ type IOStreams struct {
 
 type CommandOptions struct {
 	IOStreams
-	Args   []string
-	Config Config
+	Args           []string
+	Config         Config
+	ServiceBuilder client.ServiceBuilder
 }
 
 type CVDRemoteCommand struct {
@@ -97,9 +98,12 @@ func NewCVDRemoteCommand(o *CommandOptions) *CVDRemoteCommand {
 		o.Config.DefaultHTTPProxy, "Proxy used to route the http communication through.")
 	// Do not show a `help` command, users have always the `-h` and `--help` flags for help purpose.
 	rootCmd.SetHelpCommand(&cobra.Command{Hidden: true})
-	rootCmd.AddCommand(newHostCommand(configFlags, &o.Config.Host))
-	rootCmd.AddCommand(newADBTunnelCommand(configFlags))
-	rootCmd.AddCommand(newCVDCommand(configFlags))
+	subCmdOpts := &subCommandOpts{
+		ServiceBuilder: buildServiceBuilder(o.ServiceBuilder),
+	}
+	rootCmd.AddCommand(newHostCommand(configFlags, &o.Config.Host, subCmdOpts))
+	rootCmd.AddCommand(newADBTunnelCommand(configFlags, subCmdOpts))
+	rootCmd.AddCommand(newCVDCommand(configFlags, subCmdOpts))
 	return &CVDRemoteCommand{rootCmd}
 }
 
@@ -120,25 +124,29 @@ type subCommandFlags struct {
 	Verbose bool
 }
 
-func buildAPIClient(flags *subCommandFlags, c *cobra.Command) (*client.APIClient, error) {
-	proxyURL := flags.HTTPProxy
-	var dumpOut io.Writer = io.Discard
-	if flags.Verbose {
-		dumpOut = c.ErrOrStderr()
+type serviceBuilder func(flags *subCommandFlags, c *cobra.Command) (client.Service, error)
+
+type subCommandOpts struct {
+	ServiceBuilder serviceBuilder
+}
+
+func buildServiceBuilder(builder client.ServiceBuilder) serviceBuilder {
+	return func(flags *subCommandFlags, c *cobra.Command) (client.Service, error) {
+		proxyURL := flags.HTTPProxy
+		var dumpOut io.Writer = io.Discard
+		if flags.Verbose {
+			dumpOut = c.ErrOrStderr()
+		}
+		opts := &client.ServiceOptions{
+			BaseURL:       buildBaseURL(flags.configFlags),
+			ProxyURL:      proxyURL,
+			DumpOut:       dumpOut,
+			ErrOut:        c.ErrOrStderr(),
+			RetryAttempts: 3,
+			RetryDelay:    5 * time.Second,
+		}
+		return builder(opts)
 	}
-	opts := &client.APIClientOptions{
-		BaseURL:       buildBaseURL(flags.configFlags),
-		ProxyURL:      proxyURL,
-		DumpOut:       dumpOut,
-		ErrOut:        c.ErrOrStderr(),
-		RetryAttempts: 3,
-		RetryDelay:    5 * time.Second,
-	}
-	apiClient, err := client.NewAPIClient(opts)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to build API client: %w", err)
-	}
-	return apiClient, nil
 }
 
 func addCommonSubcommandFlags(c *cobra.Command, flags *subCommandFlags) {

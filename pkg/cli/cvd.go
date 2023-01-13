@@ -45,17 +45,14 @@ type listCVDsFlags struct {
 	Host string
 }
 
-func newCVDCommand(cfgFlags *configFlags) *cobra.Command {
-	cvdFlags := &subCommandFlags{
-		cfgFlags,
-		false,
-	}
+func newCVDCommand(configFlags *configFlags, opts *subCommandOpts) *cobra.Command {
+	cvdFlags := &subCommandFlags{configFlags: configFlags}
 	createFlags := &createCVDFlags{subCommandFlags: cvdFlags}
 	create := &cobra.Command{
 		Use:   "create",
 		Short: "Creates a CVD.",
 		RunE: func(c *cobra.Command, args []string) error {
-			return runCreateCVDCommand(createFlags, c, args)
+			return runCreateCVDCommand(c, createFlags, opts)
 		},
 	}
 	create.Flags().StringVar(&createFlags.Host, hostFlag, "", "Specifies the host")
@@ -72,7 +69,7 @@ func newCVDCommand(cfgFlags *configFlags) *cobra.Command {
 		Use:   "list",
 		Short: "List CVDs",
 		RunE: func(c *cobra.Command, args []string) error {
-			return runListCVDsCommand(listFlags, c, args)
+			return runListCVDsCommand(c, listFlags, opts)
 		},
 	}
 	list.Flags().StringVar(&listFlags.Host, hostFlag, "", "Specifies the host")
@@ -86,18 +83,18 @@ func newCVDCommand(cfgFlags *configFlags) *cobra.Command {
 	return cvd
 }
 
-func runCreateCVDCommand(flags *createCVDFlags, c *cobra.Command, _ []string) error {
-	apiClient, err := buildAPIClient(flags.subCommandFlags, c)
+func runCreateCVDCommand(c *cobra.Command, flags *createCVDFlags, opts *subCommandOpts) error {
+	service, err := opts.ServiceBuilder(flags.subCommandFlags, c)
 	if err != nil {
 		return err
 	}
 	if flags.LocalImage {
 		return errors.New("Not implemented yet")
 	}
-	return createCVDFromAndroidCI(apiClient, c, flags)
+	return createCVDFromAndroidCI(service, c, flags)
 }
 
-func createCVDFromAndroidCI(apiClient *client.APIClient, c *cobra.Command, flags *createCVDFlags) error {
+func createCVDFromAndroidCI(service client.Service, c *cobra.Command, flags *createCVDFlags) error {
 	req := hoapi.CreateCVDRequest{
 		CVD: &hoapi.CVD{
 			BuildSource: &hoapi.BuildSource{
@@ -108,7 +105,7 @@ func createCVDFromAndroidCI(apiClient *client.APIClient, c *cobra.Command, flags
 			},
 		},
 	}
-	cvd, err := apiClient.CreateCVD(flags.Host, &req)
+	cvd, err := service.CreateCVD(flags.Host, &req)
 	if err != nil {
 		return err
 	}
@@ -116,8 +113,8 @@ func createCVDFromAndroidCI(apiClient *client.APIClient, c *cobra.Command, flags
 	return nil
 }
 
-func runListCVDsCommand(flags *listCVDsFlags, c *cobra.Command, _ []string) error {
-	apiClient, err := buildAPIClient(flags.subCommandFlags, c)
+func runListCVDsCommand(c *cobra.Command, flags *listCVDsFlags, opts *subCommandOpts) error {
+	service, err := opts.ServiceBuilder(flags.subCommandFlags, c)
 	if err != nil {
 		return err
 	}
@@ -125,7 +122,7 @@ func runListCVDsCommand(flags *listCVDsFlags, c *cobra.Command, _ []string) erro
 	if flags.Host != "" {
 		hosts = append(hosts, flags.Host)
 	} else {
-		res, err := apiClient.ListHosts()
+		res, err := service.ListHosts()
 		if err != nil {
 			return fmt.Errorf("Error listing hosts: %w", err)
 		}
@@ -140,7 +137,7 @@ func runListCVDsCommand(flags *listCVDsFlags, c *cobra.Command, _ []string) erro
 		wg.Add(1)
 		go func(name string) {
 			defer wg.Done()
-			hostCVDs, err := apiClient.ListCVDs(name)
+			hostCVDs, err := service.ListCVDs(name)
 			mu.Lock()
 			defer mu.Unlock()
 			if err != nil {

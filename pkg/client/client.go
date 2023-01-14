@@ -16,13 +16,19 @@ package client
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"math"
+	"mime/multipart"
 	"net/http"
+	"net/http/httptrace"
 	"net/http/httputil"
 	"net/url"
+	"os"
+	"path/filepath"
 	"time"
 
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
@@ -58,12 +64,13 @@ func (e *ApiCallError) Is(target error) bool {
 }
 
 type ServiceOptions struct {
-	BaseURL       string
-	ProxyURL      string
-	DumpOut       io.Writer
-	ErrOut        io.Writer
-	RetryAttempts int
-	RetryDelay    time.Duration
+	BaseURL        string
+	ProxyURL       string
+	DumpOut        io.Writer
+	ErrOut         io.Writer
+	RetryAttempts  int
+	RetryDelay     time.Duration
+	ChunkSizeBytes int64
 }
 
 type Service interface {
@@ -80,6 +87,10 @@ type Service interface {
 	CreateCVD(host string, req *hoapi.CreateCVDRequest) (*hoapi.CVD, error)
 
 	ListCVDs(host string) ([]*hoapi.CVD, error)
+
+	CreateUploadDir(host string) (string, error)
+
+	UploadFiles(host, uploadDir string, filenames []string) error
 }
 
 type serviceImpl struct {
@@ -292,6 +303,28 @@ func (c *serviceImpl) ListCVDs(host string) ([]*hoapi.CVD, error) {
 	return res.CVDs, nil
 }
 
+func (c *serviceImpl) CreateUploadDir(host string) (string, error) {
+	uploadDir := &hoapi.UploadDirectory{}
+	if err := c.doRequest("POST", "/hosts/"+host+"/userartifacts", nil, uploadDir); err != nil {
+		return "", err
+	}
+	return uploadDir.Name, nil
+}
+
+func (c *serviceImpl) UploadFiles(host, uploadDir string, filenames []string) error {
+	if c.ChunkSizeBytes == 0 {
+		panic("ChunkSizeBytes value cannot be zero")
+	}
+	uploader := &filesUploader{
+		Client:         c.client,
+		EndpointURL:    c.BaseURL + "/hosts/" + host + "/userartifacts/" + uploadDir,
+		Filenames:      filenames,
+		ChunkSizeBytes: c.ChunkSizeBytes,
+		DumpOut:        c.DumpOut,
+	}
+	return uploader.Upload()
+}
+
 // It either populates the passed response payload reference and returns nil
 // error or returns an error. For responses with non-2xx status code an error
 // will be returned.
@@ -348,6 +381,146 @@ func (c *serviceImpl) doRequest(method, path string, reqpl, respl any) error {
 		if err := dec.Decode(respl); err != nil {
 			return fmt.Errorf("Error decoding response: %w", err)
 		}
+	}
+	return nil
+}
+
+const openConnections = 10
+
+type filesUploader struct {
+	Client         *http.Client
+	EndpointURL    string
+	Filenames      []string
+	ChunkSizeBytes int64
+	DumpOut        io.Writer
+}
+
+type fileInfo struct {
+	Name        string
+	TotalChunks int
+}
+
+func (u *filesUploader) Upload() error {
+	var totalChunks int
+	var infos []fileInfo
+	for _, name := range u.Filenames {
+		stat, err := os.Stat(name)
+		if err != nil {
+			return nil
+		}
+		info := fileInfo{
+			Name:        name,
+			TotalChunks: int(math.Ceil(float64(stat.Size()) / float64(u.ChunkSizeBytes))),
+		}
+		infos = append(infos, info)
+		totalChunks += info.TotalChunks
+	}
+	jobsChan := make(chan *uploadChunkJob, openConnections)
+	resultsChan := make(chan error, 1)
+	defer close(jobsChan)
+	defer close(resultsChan)
+	for i := 0; i < openConnections; i++ {
+		w := &uploadChunkWorker{
+			Client:      u.Client,
+			EndpointURL: u.EndpointURL,
+			DumpOut:     u.DumpOut,
+			JobsChan:    jobsChan,
+			ResultsChan: resultsChan,
+		}
+		go w.Start()
+	}
+	go func() {
+		for _, info := range infos {
+			for i := 0; i < info.TotalChunks; i++ {
+				j := &uploadChunkJob{
+					Filename:       info.Name,
+					ChunkNumber:    i + 1,
+					TotalChunks:    info.TotalChunks,
+					ChunkSizeBytes: u.ChunkSizeBytes,
+				}
+				jobsChan <- j
+			}
+		}
+	}()
+	for i := 0; i < totalChunks; i++ {
+		if err := <-resultsChan; err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type uploadChunkJob struct {
+	Filename string
+	// Chunk numbers are 1-indexed.
+	ChunkNumber    int
+	TotalChunks    int
+	ChunkSizeBytes int64
+}
+
+type uploadChunkWorker struct {
+	Client      *http.Client
+	EndpointURL string
+	DumpOut     io.Writer
+	JobsChan    <-chan *uploadChunkJob
+	ResultsChan chan<- error
+
+	bodyBuff bytes.Buffer
+}
+
+func (w *uploadChunkWorker) Start() {
+	for j := range w.JobsChan {
+		w.ResultsChan <- w.upload(j)
+	}
+}
+
+func (w *uploadChunkWorker) upload(job *uploadChunkJob) error {
+	file, err := os.Open(job.Filename)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	if _, err := file.Seek(int64(job.ChunkNumber-1)*job.ChunkSizeBytes, 0); err != nil {
+		return err
+	}
+	mpWriter := multipart.NewWriter(&w.bodyBuff)
+	name := fmt.Sprintf("%s_%d_%d.chunked", filepath.Base(job.Filename), job.ChunkNumber, job.TotalChunks)
+	part, err := mpWriter.CreateFormFile("file", name)
+	if err != nil {
+		return err
+	}
+	if job.ChunkNumber < job.TotalChunks {
+		if _, err = io.CopyN(part, file, job.ChunkSizeBytes); err != nil {
+			return err
+		}
+	} else {
+		if _, err = io.Copy(part, file); err != nil {
+			return err
+		}
+	}
+	mpWriter.Close()
+	// client trace to log whether the request's underlying tcp connection was re-used
+	clientTrace := &httptrace.ClientTrace{
+		GotConn: func(info httptrace.GotConnInfo) {
+			if !info.Reused {
+				fmt.Fprint(w.DumpOut, "tcp connection was not reused when uploading file chunk\n")
+			}
+		},
+	}
+	traceCtx := httptrace.WithClientTrace(context.Background(), clientTrace)
+	req, err := http.NewRequestWithContext(
+		traceCtx, http.MethodPut, w.EndpointURL, bytes.NewReader(w.bodyBuff.Bytes()))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Transfer-Encoding", "chunked")
+	req.Header.Set("Content-Type", mpWriter.FormDataContentType())
+	res, err := w.Client.Do(req)
+	if err != nil {
+		return err
+	}
+	if res.StatusCode != 200 {
+		return errors.New(res.Status)
 	}
 	return nil
 }

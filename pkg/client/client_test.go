@@ -19,6 +19,9 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -43,7 +46,7 @@ func TestRetryLogic(t *testing.T) {
 			}
 			writeOK(w, &apiv1.HostInstance{Name: "foo"})
 		default:
-			panic("unexpected endpoint: " + ep)
+			t.Fatal("unexpected endpoint: " + ep)
 		}
 
 	}))
@@ -62,11 +65,106 @@ func TestRetryLogic(t *testing.T) {
 
 	expected := &apiv1.HostInstance{Name: "foo"}
 	if diff := cmp.Diff(expected, host); diff != "" {
-		t.Errorf("standard output mismatch (-want +got):\n%s", diff)
+		t.Errorf("host instance mismatch (-want +got):\n%s", diff)
 	}
 	if duration < opts.RetryDelay*2 {
 		t.Error("duration faster than expected")
 	}
+}
+
+func TestUploadFilesChunkSizeBytesIsZeroPanic(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("did not panic")
+		}
+	}()
+	opts := &ServiceOptions{
+		BaseURL: "https://test.com",
+		DumpOut: io.Discard,
+	}
+	srv, _ := NewService(opts)
+
+	srv.UploadFiles("foo", "bar", []string{"baz"})
+}
+
+func TestUploadFilesSucceeds(t *testing.T) {
+	host := "foo"
+	uploadDir := "bar"
+	tempDir := createTempDir(t)
+	defer os.RemoveAll(tempDir)
+	quxFile := createTempFile(t, tempDir, "qux", []byte("lorem"))
+	waldoFile := createTempFile(t, tempDir, "waldo", []byte("l"))
+	xyzzyFile := createTempFile(t, tempDir, "xyzzy", []byte("abraca"))
+	mu := sync.Mutex{}
+	uploads := map[string]struct{ Content []byte }{
+		// qux
+		"qux_1_3.chunked": {Content: []byte("lo")},
+		"qux_2_3.chunked": {Content: []byte("re")},
+		"qux_3_3.chunked": {Content: []byte("m")},
+		// waldo
+		"waldo_1_1.chunked": {Content: []byte("l")},
+		// xyzzy
+		"xyzzy_1_3.chunked": {Content: []byte("ab")},
+		"xyzzy_2_3.chunked": {Content: []byte("ra")},
+		"xyzzy_3_3.chunked": {Content: []byte("ca")},
+	}
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
+		switch ep := r.Method + " " + r.URL.Path; ep {
+		case "PUT /hosts/" + host + "/userartifacts/" + uploadDir:
+			f, fheader, err := r.FormFile("file")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer r.MultipartForm.RemoveAll()
+			val, ok := uploads[fheader.Filename]
+			if !ok {
+				t.Fatalf("unexpected chunk filename: %s", fheader.Filename)
+			}
+			delete(uploads, fheader.Filename)
+			b, err := io.ReadAll(f)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if diff := cmp.Diff(val.Content, b); diff != "" {
+				t.Fatalf("chunk content mismatch %q (-want +got):\n%s", fheader.Filename, diff)
+			}
+			writeOK(w, struct{}{})
+		default:
+			t.Fatal("unexpected endpoint: " + ep)
+		}
+
+	}))
+	defer ts.Close()
+	opts := &ServiceOptions{
+		BaseURL:        ts.URL,
+		DumpOut:        io.Discard,
+		ChunkSizeBytes: 2,
+	}
+	srv, _ := NewService(opts)
+
+	srv.UploadFiles(host, uploadDir, []string{quxFile, waldoFile, xyzzyFile})
+
+	if len(uploads) != 0 {
+		t.Errorf("missing chunk uploads:  %v", uploads)
+	}
+}
+
+func createTempDir(t *testing.T) string {
+	dir, err := os.MkdirTemp("", "cvdremoteTest")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return dir
+}
+
+func createTempFile(t *testing.T, dir, name string, content []byte) string {
+	file := filepath.Join(dir, name)
+	if err := os.WriteFile(file, content, 0666); err != nil {
+		t.Fatal(err)
+	}
+	return file
 }
 
 func writeErr(w http.ResponseWriter, statusCode int) {

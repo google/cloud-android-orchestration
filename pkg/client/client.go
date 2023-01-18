@@ -29,6 +29,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
@@ -88,7 +89,7 @@ type Service interface {
 
 	ListCVDs(host string) ([]*hoapi.CVD, error)
 
-	CreateUploadDir(host string) (string, error)
+	CreateUpload(host string) (string, error)
 
 	UploadFiles(host, uploadDir string, filenames []string) error
 }
@@ -303,7 +304,7 @@ func (c *serviceImpl) ListCVDs(host string) ([]*hoapi.CVD, error) {
 	return res.CVDs, nil
 }
 
-func (c *serviceImpl) CreateUploadDir(host string) (string, error) {
+func (c *serviceImpl) CreateUpload(host string) (string, error) {
 	uploadDir := &hoapi.UploadDirectory{}
 	if err := c.doRequest("POST", "/hosts/"+host+"/userartifacts", nil, uploadDir); err != nil {
 		return "", err
@@ -387,6 +388,11 @@ func (c *serviceImpl) doRequest(method, path string, reqpl, respl any) error {
 
 const openConnections = 10
 
+type fileInfo struct {
+	Name        string
+	TotalChunks int
+}
+
 type filesUploader struct {
 	Client         *http.Client
 	EndpointURL    string
@@ -395,59 +401,88 @@ type filesUploader struct {
 	DumpOut        io.Writer
 }
 
-type fileInfo struct {
-	Name        string
-	TotalChunks int
+func (u *filesUploader) Upload() error {
+	infos, err := u.getFilesInfos()
+	if err != nil {
+		return err
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	jobsChan := make(chan uploadChunkJob)
+	resultsChan := u.startWorkers(ctx, jobsChan)
+	go func() {
+		defer close(jobsChan)
+		for _, info := range infos {
+			for i := 0; i < info.TotalChunks; i++ {
+				select {
+				case <-ctx.Done():
+					return
+				default:
+					j := uploadChunkJob{
+						Filename:       info.Name,
+						ChunkNumber:    i + 1,
+						TotalChunks:    info.TotalChunks,
+						ChunkSizeBytes: u.ChunkSizeBytes,
+					}
+					jobsChan <- j
+				}
+			}
+		}
+	}()
+	// Only first error will be returned.
+	var returnErr error
+	for err := range resultsChan {
+		if returnErr != nil {
+			continue
+		}
+		if err != nil {
+			returnErr = err
+			cancel()
+			// Do not return from here and let the cancellation logic to propagate, resultsChan
+			// will be closed eventually.
+		}
+	}
+	return returnErr
 }
 
-func (u *filesUploader) Upload() error {
-	var totalChunks int
+func (u *filesUploader) getFilesInfos() ([]fileInfo, error) {
 	var infos []fileInfo
 	for _, name := range u.Filenames {
 		stat, err := os.Stat(name)
 		if err != nil {
-			return nil
+			return nil, err
 		}
 		info := fileInfo{
 			Name:        name,
 			TotalChunks: int(math.Ceil(float64(stat.Size()) / float64(u.ChunkSizeBytes))),
 		}
 		infos = append(infos, info)
-		totalChunks += info.TotalChunks
 	}
-	jobsChan := make(chan *uploadChunkJob, openConnections)
-	resultsChan := make(chan error, 1)
-	defer close(jobsChan)
-	defer close(resultsChan)
+	return infos, nil
+}
+
+func (u *filesUploader) startWorkers(ctx context.Context, jobsChan <-chan uploadChunkJob) <-chan error {
+	agg := make(chan error)
+	wg := sync.WaitGroup{}
 	for i := 0; i < openConnections; i++ {
-		w := &uploadChunkWorker{
+		wg.Add(1)
+		w := uploadChunkWorker{
 			Client:      u.Client,
 			EndpointURL: u.EndpointURL,
 			DumpOut:     u.DumpOut,
 			JobsChan:    jobsChan,
-			ResultsChan: resultsChan,
 		}
-		go w.Start()
+		go func(ch <-chan error) {
+			for err := range ch {
+				agg <- err
+			}
+			wg.Done()
+		}(w.Start())
 	}
 	go func() {
-		for _, info := range infos {
-			for i := 0; i < info.TotalChunks; i++ {
-				j := &uploadChunkJob{
-					Filename:       info.Name,
-					ChunkNumber:    i + 1,
-					TotalChunks:    info.TotalChunks,
-					ChunkSizeBytes: u.ChunkSizeBytes,
-				}
-				jobsChan <- j
-			}
-		}
+		wg.Wait()
+		close(agg)
 	}()
-	for i := 0; i < totalChunks; i++ {
-		if err := <-resultsChan; err != nil {
-			return err
-		}
-	}
-	return nil
+	return agg
 }
 
 type uploadChunkJob struct {
@@ -462,19 +497,24 @@ type uploadChunkWorker struct {
 	Client      *http.Client
 	EndpointURL string
 	DumpOut     io.Writer
-	JobsChan    <-chan *uploadChunkJob
-	ResultsChan chan<- error
+	JobsChan    <-chan uploadChunkJob
 
 	bodyBuff bytes.Buffer
 }
 
-func (w *uploadChunkWorker) Start() {
-	for j := range w.JobsChan {
-		w.ResultsChan <- w.upload(j)
-	}
+// Returns a channel that will return the result for each of the handled `uploadChunkJob` instances.
+func (w *uploadChunkWorker) Start() <-chan error {
+	ch := make(chan error)
+	go func() {
+		defer close(ch)
+		for job := range w.JobsChan {
+			ch <- w.upload(job)
+		}
+	}()
+	return ch
 }
 
-func (w *uploadChunkWorker) upload(job *uploadChunkJob) error {
+func (w *uploadChunkWorker) upload(job uploadChunkJob) error {
 	file, err := os.Open(job.Filename)
 	if err != nil {
 		return err

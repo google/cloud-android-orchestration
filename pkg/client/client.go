@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptrace"
@@ -29,6 +28,8 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -453,7 +454,7 @@ func (u *filesUploader) getFilesInfos() ([]fileInfo, error) {
 		}
 		info := fileInfo{
 			Name:        name,
-			TotalChunks: int(math.Ceil(float64(stat.Size()) / float64(u.ChunkSizeBytes))),
+			TotalChunks: int((stat.Size() + u.ChunkSizeBytes - 1) / u.ChunkSizeBytes),
 		}
 		infos = append(infos, info)
 	}
@@ -487,7 +488,8 @@ func (u *filesUploader) startWorkers(ctx context.Context, jobsChan <-chan upload
 
 type uploadChunkJob struct {
 	Filename string
-	// Chunk numbers are 1-indexed.
+	// A number between 1 and `TotalChunks`. The n-th chunk represents a segment of data within the file with size
+	// `ChunkSizeBytes` starting the `(n-1) * ChunkSizeBytes`-th byte.
 	ChunkNumber    int
 	TotalChunks    int
 	ChunkSizeBytes int64
@@ -523,27 +525,30 @@ func (w *uploadChunkWorker) upload(job uploadChunkJob) error {
 	if _, err := file.Seek(int64(job.ChunkNumber-1)*job.ChunkSizeBytes, 0); err != nil {
 		return err
 	}
-	mpWriter := multipart.NewWriter(&w.bodyBuff)
-	name := fmt.Sprintf("%s_%d_%d.chunked", filepath.Base(job.Filename), job.ChunkNumber, job.TotalChunks)
-	part, err := mpWriter.CreateFormFile("file", name)
+	writer := multipart.NewWriter(&w.bodyBuff)
+	addFormField(writer, "chunk_number", strconv.Itoa(job.ChunkNumber))
+	addFormField(writer, "chunk_total", strconv.Itoa(job.TotalChunks))
+	fw, err := writer.CreateFormFile("file", filepath.Base(job.Filename))
 	if err != nil {
 		return err
 	}
 	if job.ChunkNumber < job.TotalChunks {
-		if _, err = io.CopyN(part, file, job.ChunkSizeBytes); err != nil {
+		if _, err = io.CopyN(fw, file, job.ChunkSizeBytes); err != nil {
 			return err
 		}
 	} else {
-		if _, err = io.Copy(part, file); err != nil {
+		if _, err = io.Copy(fw, file); err != nil {
 			return err
 		}
 	}
-	mpWriter.Close()
+	writer.Close()
 	// client trace to log whether the request's underlying tcp connection was re-used
 	clientTrace := &httptrace.ClientTrace{
 		GotConn: func(info httptrace.GotConnInfo) {
 			if !info.Reused {
-				fmt.Fprint(w.DumpOut, "tcp connection was not reused when uploading file chunk\n")
+				const msg = "tcp connection was not reused uploading file chunk: %q," +
+					"chunk number: %d, chunk total: %d\n"
+				fmt.Fprintf(w.DumpOut, msg, job.Filename, job.ChunkNumber, job.TotalChunks)
 			}
 		},
 	}
@@ -553,8 +558,7 @@ func (w *uploadChunkWorker) upload(job uploadChunkJob) error {
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Transfer-Encoding", "chunked")
-	req.Header.Set("Content-Type", mpWriter.FormDataContentType())
+	req.Header.Set("Content-Type", writer.FormDataContentType())
 	res, err := w.Client.Do(req)
 	if err != nil {
 		return err
@@ -580,5 +584,17 @@ func dumpResponse(r *http.Response, w io.Writer) error {
 		return err
 	}
 	fmt.Fprintf(w, "%s\n", dump)
+	return nil
+}
+
+func addFormField(writer *multipart.Writer, field, value string) error {
+	fw, err := writer.CreateFormField(field)
+	if err != nil {
+		return err
+	}
+	_, err = io.Copy(fw, strings.NewReader(value))
+	if err != nil {
+		return err
+	}
 	return nil
 }

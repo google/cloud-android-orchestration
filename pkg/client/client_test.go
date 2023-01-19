@@ -16,6 +16,7 @@ package client
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -96,33 +97,37 @@ func TestUploadFilesSucceeds(t *testing.T) {
 	waldoFile := createTempFile(t, tempDir, "waldo", []byte("l"))
 	xyzzyFile := createTempFile(t, tempDir, "xyzzy", []byte("abraca"))
 	mu := sync.Mutex{}
+	// expected uploads are keyed by format %filename %chunknumber of %chunktotal with the chunk content as value
 	uploads := map[string]struct{ Content []byte }{
 		// qux
-		"qux_1_3.chunked": {Content: []byte("lo")},
-		"qux_2_3.chunked": {Content: []byte("re")},
-		"qux_3_3.chunked": {Content: []byte("m")},
+		"qux 1 of 3": {Content: []byte("lo")},
+		"qux 2 of 3": {Content: []byte("re")},
+		"qux 3 of 3": {Content: []byte("m")},
 		// waldo
-		"waldo_1_1.chunked": {Content: []byte("l")},
+		"waldo 1 of 1": {Content: []byte("l")},
 		// xyzzy
-		"xyzzy_1_3.chunked": {Content: []byte("ab")},
-		"xyzzy_2_3.chunked": {Content: []byte("ra")},
-		"xyzzy_3_3.chunked": {Content: []byte("ca")},
+		"xyzzy 1 of 3": {Content: []byte("ab")},
+		"xyzzy 2 of 3": {Content: []byte("ra")},
+		"xyzzy 3 of 3": {Content: []byte("ca")},
 	}
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
 		defer mu.Unlock()
 		switch ep := r.Method + " " + r.URL.Path; ep {
 		case "PUT /hosts/" + host + "/userartifacts/" + uploadDir:
+			chunkNumber := r.PostFormValue("chunk_number")
+			chunkTotal := r.PostFormValue("chunk_total")
 			f, fheader, err := r.FormFile("file")
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer r.MultipartForm.RemoveAll()
-			val, ok := uploads[fheader.Filename]
+			expectedUploadKey := fmt.Sprintf("%s %s of %s", fheader.Filename, chunkNumber, chunkTotal)
+			val, ok := uploads[expectedUploadKey]
 			if !ok {
-				t.Fatalf("unexpected chunk filename: %s", fheader.Filename)
+				t.Fatalf("unexpected upload with filename: %q, chunk number: %s, chunk total: %s",
+					fheader.Filename, chunkNumber, chunkTotal)
 			}
-			delete(uploads, fheader.Filename)
+			delete(uploads, expectedUploadKey)
 			b, err := io.ReadAll(f)
 			if err != nil {
 				t.Fatal(err)
@@ -144,7 +149,10 @@ func TestUploadFilesSucceeds(t *testing.T) {
 	}
 	srv, _ := NewService(opts)
 
-	srv.UploadFiles(host, uploadDir, []string{quxFile, waldoFile, xyzzyFile})
+	err := srv.UploadFiles(host, uploadDir, []string{quxFile, waldoFile, xyzzyFile})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if len(uploads) != 0 {
 		t.Errorf("missing chunk uploads:  %v", uploads)

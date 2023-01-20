@@ -412,22 +412,8 @@ func (u *filesUploader) Upload() error {
 	resultsChan := u.startWorkers(ctx, jobsChan)
 	go func() {
 		defer close(jobsChan)
-		for _, info := range infos {
-			for i := 0; i < info.TotalChunks; i++ {
-				select {
-				case <-ctx.Done():
-					return
-				default:
-					j := uploadChunkJob{
-						Filename:       info.Name,
-						ChunkNumber:    i + 1,
-						TotalChunks:    info.TotalChunks,
-						ChunkSizeBytes: u.ChunkSizeBytes,
-					}
-					jobsChan <- j
-				}
-			}
-		}
+		u.sendJobs(ctx, jobsChan, infos)
+
 	}()
 	// Only first error will be returned.
 	var returnErr error
@@ -461,6 +447,25 @@ func (u *filesUploader) getFilesInfos() ([]fileInfo, error) {
 	return infos, nil
 }
 
+func (u *filesUploader) sendJobs(ctx context.Context, jobsChan chan<- uploadChunkJob, infos []fileInfo) {
+	for _, info := range infos {
+		for i := 0; i < info.TotalChunks; i++ {
+			job := uploadChunkJob{
+				Filename:       info.Name,
+				ChunkNumber:    i + 1,
+				TotalChunks:    info.TotalChunks,
+				ChunkSizeBytes: u.ChunkSizeBytes,
+			}
+			select {
+			case <-ctx.Done():
+				return
+			case jobsChan <- job:
+				continue
+			}
+		}
+	}
+}
+
 func (u *filesUploader) startWorkers(ctx context.Context, jobsChan <-chan uploadChunkJob) <-chan error {
 	agg := make(chan error)
 	wg := sync.WaitGroup{}
@@ -472,12 +477,13 @@ func (u *filesUploader) startWorkers(ctx context.Context, jobsChan <-chan upload
 			DumpOut:     u.DumpOut,
 			JobsChan:    jobsChan,
 		}
-		go func(ch <-chan error) {
+		go func() {
+			defer wg.Done()
+			ch := w.Start()
 			for err := range ch {
 				agg <- err
 			}
-			wg.Done()
-		}(w.Start())
+		}()
 	}
 	go func() {
 		wg.Wait()
@@ -500,8 +506,6 @@ type uploadChunkWorker struct {
 	EndpointURL string
 	DumpOut     io.Writer
 	JobsChan    <-chan uploadChunkJob
-
-	bodyBuff bytes.Buffer
 }
 
 // Returns a channel that will return the result for each of the handled `uploadChunkJob` instances.
@@ -517,6 +521,46 @@ func (w *uploadChunkWorker) Start() <-chan error {
 }
 
 func (w *uploadChunkWorker) upload(job uploadChunkJob) error {
+	// return errors.New("abc")
+	pipeReader, pipeWriter := io.Pipe()
+	writer := multipart.NewWriter(pipeWriter)
+	go func() {
+		defer pipeWriter.Close()
+		defer writer.Close()
+		if err := writeMultipartRequest(writer, job); err != nil {
+			fmt.Fprintf(w.DumpOut, "Error writing multipart request %v", err)
+		}
+	}()
+	// client trace to log whether the request's underlying tcp connection was re-used
+	clientTrace := &httptrace.ClientTrace{
+		GotConn: func(info httptrace.GotConnInfo) {
+			if !info.Reused {
+				const msg = "tcp connection was not reused uploading file chunk: %q," +
+					"chunk number: %d, chunk total: %d\n"
+				fmt.Fprintf(w.DumpOut, msg,
+					filepath.Base(job.Filename), job.ChunkNumber, job.TotalChunks)
+			}
+		},
+	}
+	traceCtx := httptrace.WithClientTrace(context.Background(), clientTrace)
+	req, err := http.NewRequestWithContext(traceCtx, http.MethodPut, w.EndpointURL, pipeReader)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	res, err := w.Client.Do(req)
+	if err != nil {
+		return err
+	}
+	if res.StatusCode != 200 {
+		const msg = "Failed uploading file chunk with status code %q. " +
+			"File %q, chunk number: %d, chunk total: %d."
+		return fmt.Errorf(msg, res.Status, filepath.Base(job.Filename), job.ChunkNumber, job.TotalChunks)
+	}
+	return nil
+}
+
+func writeMultipartRequest(writer *multipart.Writer, job uploadChunkJob) error {
 	file, err := os.Open(job.Filename)
 	if err != nil {
 		return err
@@ -525,9 +569,12 @@ func (w *uploadChunkWorker) upload(job uploadChunkJob) error {
 	if _, err := file.Seek(int64(job.ChunkNumber-1)*job.ChunkSizeBytes, 0); err != nil {
 		return err
 	}
-	writer := multipart.NewWriter(&w.bodyBuff)
-	addFormField(writer, "chunk_number", strconv.Itoa(job.ChunkNumber))
-	addFormField(writer, "chunk_total", strconv.Itoa(job.TotalChunks))
+	if err := addFormField(writer, "chunk_number", strconv.Itoa(job.ChunkNumber)); err != nil {
+		return err
+	}
+	if err := addFormField(writer, "chunk_total", strconv.Itoa(job.TotalChunks)); err != nil {
+		return err
+	}
 	fw, err := writer.CreateFormFile("file", filepath.Base(job.Filename))
 	if err != nil {
 		return err
@@ -541,30 +588,17 @@ func (w *uploadChunkWorker) upload(job uploadChunkJob) error {
 			return err
 		}
 	}
-	writer.Close()
-	// client trace to log whether the request's underlying tcp connection was re-used
-	clientTrace := &httptrace.ClientTrace{
-		GotConn: func(info httptrace.GotConnInfo) {
-			if !info.Reused {
-				const msg = "tcp connection was not reused uploading file chunk: %q," +
-					"chunk number: %d, chunk total: %d\n"
-				fmt.Fprintf(w.DumpOut, msg, job.Filename, job.ChunkNumber, job.TotalChunks)
-			}
-		},
-	}
-	traceCtx := httptrace.WithClientTrace(context.Background(), clientTrace)
-	req, err := http.NewRequestWithContext(
-		traceCtx, http.MethodPut, w.EndpointURL, bytes.NewReader(w.bodyBuff.Bytes()))
+	return nil
+}
+
+func addFormField(writer *multipart.Writer, field, value string) error {
+	fw, err := writer.CreateFormField(field)
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Content-Type", writer.FormDataContentType())
-	res, err := w.Client.Do(req)
+	_, err = io.Copy(fw, strings.NewReader(value))
 	if err != nil {
 		return err
-	}
-	if res.StatusCode != 200 {
-		return errors.New(res.Status)
 	}
 	return nil
 }
@@ -584,17 +618,5 @@ func dumpResponse(r *http.Response, w io.Writer) error {
 		return err
 	}
 	fmt.Fprintf(w, "%s\n", dump)
-	return nil
-}
-
-func addFormField(writer *multipart.Writer, field, value string) error {
-	fw, err := writer.CreateFormField(field)
-	if err != nil {
-		return err
-	}
-	_, err = io.Copy(fw, strings.NewReader(value))
-	if err != nil {
-		return err
-	}
 	return nil
 }

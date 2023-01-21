@@ -471,6 +471,7 @@ func (u *filesUploader) startWorkers(ctx context.Context, jobsChan <-chan upload
 	for i := 0; i < openConnections; i++ {
 		wg.Add(1)
 		w := uploadChunkWorker{
+			Context:     ctx,
 			Client:      u.Client,
 			EndpointURL: u.EndpointURL,
 			DumpOut:     u.DumpOut,
@@ -501,6 +502,7 @@ type uploadChunkJob struct {
 }
 
 type uploadChunkWorker struct {
+	Context     context.Context
 	Client      *http.Client
 	EndpointURL string
 	DumpOut     io.Writer
@@ -520,7 +522,7 @@ func (w *uploadChunkWorker) Start() <-chan error {
 }
 
 func (w *uploadChunkWorker) upload(job uploadChunkJob) error {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(w.Context)
 	pipeReader, pipeWriter := io.Pipe()
 	writer := multipart.NewWriter(pipeWriter)
 	go func() {

@@ -413,7 +413,6 @@ func (u *filesUploader) Upload() error {
 	go func() {
 		defer close(jobsChan)
 		u.sendJobs(ctx, jobsChan, infos)
-
 	}()
 	// Only first error will be returned.
 	var returnErr error
@@ -521,7 +520,7 @@ func (w *uploadChunkWorker) Start() <-chan error {
 }
 
 func (w *uploadChunkWorker) upload(job uploadChunkJob) error {
-	// return errors.New("abc")
+	ctx, cancel := context.WithCancel(context.Background())
 	pipeReader, pipeWriter := io.Pipe()
 	writer := multipart.NewWriter(pipeWriter)
 	go func() {
@@ -529,6 +528,7 @@ func (w *uploadChunkWorker) upload(job uploadChunkJob) error {
 		defer writer.Close()
 		if err := writeMultipartRequest(writer, job); err != nil {
 			fmt.Fprintf(w.DumpOut, "Error writing multipart request %v", err)
+			cancel()
 		}
 	}()
 	// client trace to log whether the request's underlying tcp connection was re-used
@@ -542,7 +542,7 @@ func (w *uploadChunkWorker) upload(job uploadChunkJob) error {
 			}
 		},
 	}
-	traceCtx := httptrace.WithClientTrace(context.Background(), clientTrace)
+	traceCtx := httptrace.WithClientTrace(ctx, clientTrace)
 	req, err := http.NewRequestWithContext(traceCtx, http.MethodPut, w.EndpointURL, pipeReader)
 	if err != nil {
 		return err

@@ -15,6 +15,8 @@
 package cli
 
 import (
+	"os"
+	"path"
 	"testing"
 
 	hoapi "github.com/google/android-cuttlefish/frontend/src/liboperator/api/v1"
@@ -43,4 +45,62 @@ func TestCVDOutput(t *testing.T) {
 	if diff := cmp.Diff(expected, got); diff != "" {
 		t.Errorf("mismatch (-want +got):\n%s", diff)
 	}
+}
+
+func TestGetAndroidEnvVarValuesMissingVariable(t *testing.T) {
+	_, err := GetAndroidEnvVarValues()
+
+	if _, ok := err.(MissingEnvVarErr); !ok {
+		t.Errorf("expected %+v, got %+v", MissingEnvVarErr(""), err)
+	}
+
+}
+
+func TestGetAndroidEnvVarValues(t *testing.T) {
+	t.Setenv(AndroidBuildTopVarName, "foo")
+	t.Setenv(AndroidHostOutVarName, "bar")
+	t.Setenv(AndroidProductOutVarName, "baz")
+
+	got, _ := GetAndroidEnvVarValues()
+
+	expected := AndroidEnvVars{
+		BuildTop:   "foo",
+		HostOut:    "bar",
+		ProductOut: "baz",
+	}
+	if diff := cmp.Diff(expected, got); diff != "" {
+		t.Errorf("mismatch (-want +got):\n%s", diff)
+	}
+}
+
+func TestListLocalImageRequiredFiles(t *testing.T) {
+	tmpDir := t.TempDir()
+	reqImgsFileDir := tmpDir + "/" + path.Dir(RequiredImagesFilename)
+	imagesFile := tmpDir + "/" + RequiredImagesFilename
+	err := os.MkdirAll(reqImgsFileDir, 0750)
+	if err != nil && !os.IsExist(err) {
+		t.Fatal(err)
+	}
+	err = os.WriteFile(imagesFile, []byte("foo\nbar\nbaz\n"), 0660)
+	if err != nil {
+		t.Fatal(err)
+	}
+	vars := AndroidEnvVars{
+		BuildTop:   tmpDir,
+		HostOut:    "/product/vsoc_x86_64",
+		ProductOut: "/out/host/linux-x86",
+	}
+
+	got, err := ListLocalImageRequiredFiles(vars)
+
+	expected := []string{
+		"/out/host/linux-x86/foo",
+		"/out/host/linux-x86/bar",
+		"/out/host/linux-x86/baz",
+		"/product/vsoc_x86_64/cvd-host_package.tar.gz",
+	}
+	if diff := cmp.Diff(expected, got); diff != "" {
+		t.Errorf("mismatch (-want +got):\n%s", diff)
+	}
+
 }

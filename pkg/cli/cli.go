@@ -138,12 +138,13 @@ func buildServiceBuilder(builder client.ServiceBuilder) serviceBuilder {
 			dumpOut = c.ErrOrStderr()
 		}
 		opts := &client.ServiceOptions{
-			BaseURL:       buildBaseURL(flags.configFlags),
-			ProxyURL:      proxyURL,
-			DumpOut:       dumpOut,
-			ErrOut:        c.ErrOrStderr(),
-			RetryAttempts: 3,
-			RetryDelay:    5 * time.Second,
+			BaseURL:        buildBaseURL(flags.configFlags),
+			ProxyURL:       proxyURL,
+			DumpOut:        dumpOut,
+			ErrOut:         c.ErrOrStderr(),
+			RetryAttempts:  3,
+			RetryDelay:     5 * time.Second,
+			ChunkSizeBytes: 10 * 1024 * 1024,
 		}
 		return builder(opts)
 	}

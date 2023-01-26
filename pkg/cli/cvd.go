@@ -15,8 +15,9 @@
 package cli
 
 import (
-	"errors"
 	"fmt"
+	"os"
+	"strings"
 	"sync"
 
 	"github.com/google/cloud-android-orchestration/pkg/client"
@@ -89,9 +90,28 @@ func runCreateCVDCommand(c *cobra.Command, flags *createCVDFlags, opts *subComma
 		return err
 	}
 	if flags.LocalImage {
-		return errors.New("Not implemented yet")
+		return createCVDFromLocalBuild(service, c, flags)
 	}
 	return createCVDFromAndroidCI(service, c, flags)
+}
+
+func createCVDFromLocalBuild(service client.Service, c *cobra.Command, flags *createCVDFlags) error {
+	vars, err := GetAndroidEnvVarValues()
+	if err != nil {
+		return fmt.Errorf("Error retrieving Android Build environment variables: %w", err)
+	}
+	names, err := ListLocalImageRequiredFiles(vars)
+	if err != nil {
+		return fmt.Errorf("Error building list of required image files: %w", err)
+	}
+	uploadDir, err := service.CreateUpload(flags.Host)
+	if err != nil {
+		return err
+	}
+	if err := service.UploadFiles(flags.Host, uploadDir, names); err != nil {
+		return err
+	}
+	return nil
 }
 
 func createCVDFromAndroidCI(service client.Service, c *cobra.Command, flags *createCVDFlags) error {
@@ -174,4 +194,61 @@ func (o *CVDOutput) String() string {
 	res += "\n  " + "Logs: " +
 		fmt.Sprintf("%s/hosts/%s/cvds/%s/logs/", o.BaseURL, o.Host, o.CVD.Name)
 	return res
+}
+
+const RequiredImagesFilename = "device/google/cuttlefish/required_images"
+
+type MissingEnvVarErr string
+
+func (s MissingEnvVarErr) Error() string {
+	return fmt.Sprintf("Missing environment variable: %q", string(s))
+}
+
+const CVDHostPackageName = "cvd-host_package.tar.gz"
+
+const (
+	AndroidBuildTopVarName   = "ANDROID_BUILD_TOP"
+	AndroidHostOutVarName    = "ANDROID_HOST_OUT"
+	AndroidProductOutVarName = "ANDROID_PRODUCT_OUT"
+)
+
+type AndroidEnvVars struct {
+	BuildTop   string
+	ProductOut string
+	HostOut    string
+}
+
+func GetAndroidEnvVarValues() (AndroidEnvVars, error) {
+	androidEnvVars := []string{AndroidBuildTopVarName, AndroidProductOutVarName, AndroidHostOutVarName}
+	for _, name := range androidEnvVars {
+		if _, ok := os.LookupEnv(name); !ok {
+			return AndroidEnvVars{}, MissingEnvVarErr(name)
+		}
+	}
+	return AndroidEnvVars{
+		BuildTop:   os.Getenv(AndroidBuildTopVarName),
+		HostOut:    os.Getenv(AndroidHostOutVarName),
+		ProductOut: os.Getenv(AndroidProductOutVarName),
+	}, nil
+}
+
+func ListLocalImageRequiredFiles(vars AndroidEnvVars) ([]string, error) {
+	reqImgsFilename := vars.BuildTop + "/" + RequiredImagesFilename
+	f, err := os.Open(reqImgsFilename)
+	if err != nil {
+		return nil, fmt.Errorf("Error opening the required images list file: %w", err)
+	}
+	defer f.Close()
+	content, err := os.ReadFile(reqImgsFilename)
+	if err != nil {
+		return nil, fmt.Errorf("Error reading the required images list file: %w", err)
+	}
+	contentStr := strings.TrimRight(string(content), "\n")
+	lines := strings.Split(contentStr, "\n")
+	var result []string
+	for _, line := range lines {
+		result = append(result, vars.ProductOut+"/"+line)
+	}
+	result = append(result, vars.HostOut+"/"+CVDHostPackageName)
+	return result, nil
 }

@@ -111,6 +111,25 @@ func createCVDFromLocalBuild(service client.Service, c *cobra.Command, flags *cr
 	if err := service.UploadFiles(flags.Host, uploadDir, names); err != nil {
 		return err
 	}
+	req := hoapi.CreateCVDRequest{
+		CVD: &hoapi.CVD{
+			BuildSource: &hoapi.BuildSource{
+				UserBuild: &hoapi.UserBuild{
+					ArtifactsDir: uploadDir,
+				},
+			},
+		},
+	}
+	cvd, err := service.CreateCVD(flags.Host, &req)
+	if err != nil {
+		return fmt.Errorf("Error creating cvd: %w", err)
+	}
+	output := CVDOutput{
+		BaseURL: buildBaseURL(flags.configFlags),
+		Host:    flags.Host,
+		CVD:     cvd,
+	}
+	c.Printf("%s\n", output.String())
 	return nil
 }
 

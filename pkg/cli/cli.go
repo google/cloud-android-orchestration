@@ -144,7 +144,7 @@ func buildServiceBuilder(builder client.ServiceBuilder) serviceBuilder {
 			ErrOut:         c.ErrOrStderr(),
 			RetryAttempts:  3,
 			RetryDelay:     5 * time.Second,
-			ChunkSizeBytes: 10 * 1024 * 1024,
+			ChunkSizeBytes: 16 * 1024 * 1024,
 		}
 		return builder(opts)
 	}

@@ -102,7 +102,7 @@ func NewCVDRemoteCommand(o *CommandOptions) *CVDRemoteCommand {
 		ServiceBuilder: buildServiceBuilder(o.ServiceBuilder),
 	}
 	rootCmd.AddCommand(newHostCommand(configFlags, &o.Config.Host, subCmdOpts))
-	rootCmd.AddCommand(newADBTunnelCommand(configFlags, subCmdOpts))
+	rootCmd.AddCommand(newADBTunnelCommand(o.Config, configFlags, subCmdOpts))
 	rootCmd.AddCommand(newCVDCommand(configFlags, subCmdOpts))
 	return &CVDRemoteCommand{rootCmd}
 }

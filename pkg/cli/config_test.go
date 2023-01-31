@@ -25,6 +25,7 @@ const (
 DefaultServiceURL = "service_url"
 DefaultZone = "zone"
 DefaultHTTPProxy = "http_proxy"
+ADBControlDir = "~/.cvdremote/adb"
 [Host.GCP]
 DefaultMachineType = "machine_type"
 DefaultMinCPUPlatform = "cpu_platform"

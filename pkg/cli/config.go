@@ -33,6 +33,7 @@ type Config struct {
 	DefaultServiceURL string
 	DefaultZone       string
 	DefaultHTTPProxy  string
+	ADBControlDir     string
 	Host              HostConfig
 }
 

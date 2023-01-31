@@ -35,7 +35,7 @@ import (
 )
 
 const connectFlag = "connect"
-const adbTunnelDir = "~/.cvdremote/adbtunnel"
+const DefaultADBControlDir = "~/.cvdremote/adb"
 
 type adbTunnelFlags struct {
 	*subCommandFlags
@@ -47,14 +47,14 @@ type openADBTunnelFlags struct {
 	connect bool
 }
 
-func newADBTunnelCommand(cfgFlags *configFlags, opts *subCommandOpts) *cobra.Command {
+func newADBTunnelCommand(config Config, cfgFlags *configFlags, opts *subCommandOpts) *cobra.Command {
 	adbTunnelFlags := &adbTunnelFlags{&subCommandFlags{cfgFlags, false}, ""}
 	openFlags := &openADBTunnelFlags{adbTunnelFlags, false}
 	open := &cobra.Command{
 		Use:   "open",
 		Short: "Opens an ADB tunnel.",
 		RunE: func(c *cobra.Command, args []string) error {
-			return runOpenADBTunnelCommand(openFlags, &command{c, &adbTunnelFlags.Verbose}, args, opts)
+			return runOpenADBTunnelCommand(config, openFlags, &command{c, &adbTunnelFlags.Verbose}, args, opts)
 		},
 	}
 	open.PersistentFlags().BoolVarP(
@@ -84,7 +84,7 @@ func newADBTunnelCommand(cfgFlags *configFlags, opts *subCommandOpts) *cobra.Com
 	return adbTunnel
 }
 
-func runOpenADBTunnelCommand(flags *openADBTunnelFlags, c *command, args []string, opts *subCommandOpts) error {
+func runOpenADBTunnelCommand(config Config, flags *openADBTunnelFlags, c *command, args []string, opts *subCommandOpts) error {
 	adbPath := ""
 	if flags.connect {
 		path, err := exec.LookPath("adb")
@@ -93,6 +93,11 @@ func runOpenADBTunnelCommand(flags *openADBTunnelFlags, c *command, args []strin
 		}
 		adbPath = path
 	}
+
+	if config.ADBControlDir == "" {
+		config.ADBControlDir = DefaultADBControlDir
+	}
+
 	service, err := opts.ServiceBuilder(flags.subCommandFlags, c.Command)
 	if err != nil {
 		return err
@@ -110,7 +115,8 @@ func runOpenADBTunnelCommand(flags *openADBTunnelFlags, c *command, args []strin
 			host:       flags.host,
 			device:     device,
 		}
-		controller, err := NewTunnelController(service, devProps, logger, &wg)
+		controller, err := NewTunnelController(
+			config.ADBControlDir, service, devProps, logger, &wg)
 
 		if err != nil {
 			merr = multierror.Append(merr, err)
@@ -275,7 +281,7 @@ func (f *ADBForwarder) acceptLoop() {
 	f.statusMtx.Lock()
 	if f.status != ADBFwdReady {
 		// This function should always be called from StartForwarding
-		f.logger.Printf("Forwarder accept loop started in wrong state: %s", f.state)
+		f.logger.Printf("Forwarder accept loop started in wrong state: %s", f.status)
 	}
 	f.statusMtx.Unlock()
 
@@ -344,7 +350,7 @@ type TunnelController struct {
 	logger    *log.Logger
 }
 
-func NewTunnelController(service client.Service, devProps deviceProperties,
+func NewTunnelController(tunnelDir string, service client.Service, devProps deviceProperties,
 	logger *log.Logger, wg *sync.WaitGroup) (*TunnelController, error) {
 	// Bind the two local sockets before attempting to connect over WebRTC
 	tunnel, err := bindTCPSocket()
@@ -368,7 +374,7 @@ func NewTunnelController(service client.Service, devProps deviceProperties,
 
 	// Create the control socket as late as possible to reduce the chances of it
 	// being left behind if the user interrupts the command.
-	control, err := createControlSocket(port)
+	control, err := createControlSocket(tunnelDir, port)
 	if err != nil {
 		conn.Close()
 		return nil, fmt.Errorf("Control socket creation failed for %q: %w", f.device, err)
@@ -459,9 +465,9 @@ func bindTCPSocket() (net.Listener, error) {
 	return listener, nil
 }
 
-func createControlSocket(port int) (*net.UnixListener, error) {
+func createControlSocket(dir string, port int) (*net.UnixListener, error) {
 	home := os.Getenv("HOME")
-	dir := strings.ReplaceAll(adbTunnelDir, "~", home)
+	dir = strings.ReplaceAll(dir, "~", home)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return nil, fmt.Errorf("Failed to create dir %s: %w", dir, err)
 	}

@@ -130,6 +130,8 @@ type subCommandOpts struct {
 	ServiceBuilder serviceBuilder
 }
 
+const chunkSizeBytes = 16 * 1024 * 1024
+
 func buildServiceBuilder(builder client.ServiceBuilder) serviceBuilder {
 	return func(flags *subCommandFlags, c *cobra.Command) (client.Service, error) {
 		proxyURL := flags.HTTPProxy
@@ -144,7 +146,7 @@ func buildServiceBuilder(builder client.ServiceBuilder) serviceBuilder {
 			ErrOut:         c.ErrOrStderr(),
 			RetryAttempts:  3,
 			RetryDelay:     5 * time.Second,
-			ChunkSizeBytes: 16 * 1024 * 1024,
+			ChunkSizeBytes: chunkSizeBytes,
 		}
 		return builder(opts)
 	}

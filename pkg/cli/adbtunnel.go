@@ -116,16 +116,21 @@ func openADBTunnel(flags *OpenADBTunnelFlags, c *command, args []string, opts *s
 			device:     device,
 		}
 		controller, err := NewTunnelController(
-			opts.Config.ADBControlDir, service, devProps, logger, &wg)
+			opts.Config.ADBControlDir, service, devProps, logger)
 
 		if err != nil {
 			merr = multierror.Append(merr, err)
 			continue
 		}
 
+		wg.Add(1)
+		go func() {
+			controller.Run()
+			wg.Done()
+		}()
 		ctrls = append(ctrls, controller)
 
-		adbSerial := fmt.Sprintf("127.0.0.1:%d", controller.GetForwarderPort())
+		adbSerial := fmt.Sprintf("127.0.0.1:%d", controller.ForwarderPort())
 		if adbPath == "" {
 			// Print the address to stdout if adb wasn't connected automatically
 			c.Printf("%s: %s\n", device, adbSerial)
@@ -160,18 +165,35 @@ type ADBForwarder struct {
 	listener  net.Listener
 	conn      net.Conn
 	port      int
-	status    string
+	status    int
 	statusMtx sync.Mutex
 	logger    *log.Logger
 }
 
 const (
-	ADBFwdInitializing = "initializing"
-	ADBFwdReady        = "ready"
-	ADBFwdConnected    = "connected"
-	ADBFwdStopped      = "stopped"
-	ADBFwdFailed       = "failed"
+	ADBFwdInitializing = 0 // The initial state after creation
+	ADBFwdReady        = 1
+	ADBFwdConnected    = 2
+	ADBFwdStopped      = 4
+	ADBFwdFailed       = 8
 )
+
+func StatusAsStr(status int) string {
+	switch status {
+	case ADBFwdInitializing:
+		return "initializing"
+	case ADBFwdReady:
+		return "ready"
+	case ADBFwdConnected:
+		return "connected"
+	case ADBFwdStopped:
+		return "stopped"
+	case ADBFwdFailed:
+		return "failed"
+	default:
+		panic(fmt.Sprintf("No known string representation for status: %d", status))
+	}
+}
 
 func (f *ADBForwarder) OnADBDataChannel(dc *webrtc.DataChannel) {
 	f.dc = dc
@@ -204,11 +226,14 @@ func (f *ADBForwarder) OnClose() {
 }
 
 func (f *ADBForwarder) StartForwarding() {
-	f.setStatus(ADBFwdReady)
+	set, prev := f.compareAndSwapStatus(ADBFwdInitializing, ADBFwdReady)
+	if !set {
+		panic("StartForwarding called in wrong state: " + StatusAsStr(prev))
+	}
 	go f.acceptLoop()
 }
 
-func (f *ADBForwarder) StopForwarding(status string) {
+func (f *ADBForwarder) StopForwarding(status int) {
 	f.statusMtx.Lock()
 	defer f.statusMtx.Unlock()
 
@@ -252,9 +277,8 @@ type StatusMsg struct {
 }
 
 func (f *ADBForwarder) StatusJSON() []byte {
-	f.statusMtx.Lock()
-	status := f.status
-	f.statusMtx.Unlock()
+	// Pass equal values to get the current state without chaning it
+	_, status := f.compareAndSwapStatus(-1, -1)
 
 	msg := StatusMsg{
 		ServiceURL: f.serviceURL,
@@ -262,28 +286,44 @@ func (f *ADBForwarder) StatusJSON() []byte {
 		Host:       f.host,
 		Device:     f.device,
 		Port:       f.port,
-		Status:     status,
+		Status:     StatusAsStr(status),
 	}
 	ret, err := json.Marshal(&msg)
 	if err != nil {
-		panic("Couldn't marshal status map")
+		panic(fmt.Sprintf("Couldn't marshal status map: %v", err))
 	}
 	return ret
 }
 
-func (f *ADBForwarder) setStatus(status string) {
+// Changes f.status to newStatus if it had oldStatus. Returns whether the change was
+// made and the old status.
+func (f *ADBForwarder) compareAndSwapStatus(oldStatus, newStatus int) (bool, int) {
 	f.statusMtx.Lock()
 	defer f.statusMtx.Unlock()
-	f.status = status
+	if f.status == oldStatus {
+		f.status = newStatus
+		return true, oldStatus
+	}
+	return false, f.status
+}
+
+func (f *ADBForwarder) setConnection(conn net.Conn) bool {
+	f.statusMtx.Lock()
+	defer f.statusMtx.Unlock()
+	if f.status != ADBFwdReady {
+		return false
+	}
+	f.conn = conn
+	f.status = ADBFwdConnected
+	return true
 }
 
 func (f *ADBForwarder) acceptLoop() {
-	f.statusMtx.Lock()
-	if f.status != ADBFwdReady {
-		// This function should always be called from StartForwarding
-		f.logger.Printf("Forwarder accept loop started in wrong state: %s", f.status)
+	if changed, status := f.compareAndSwapStatus(ADBFwdReady, ADBFwdReady); !changed {
+		f.logger.Printf("Forwarder accept loop started in wrong state: %s", StatusAsStr(status))
+		// This isn't necessarily an error, StopForwarding could have been called already
+		return
 	}
-	f.statusMtx.Unlock()
 
 	defer f.listener.Close()
 	for {
@@ -294,25 +334,19 @@ func (f *ADBForwarder) acceptLoop() {
 			}
 			return
 		}
-		f.statusMtx.Lock()
-		f.conn = conn
-		if f.status != ADBFwdReady {
-			// A different state means this loop should end
-			f.conn.Close()
-			f.statusMtx.Unlock()
-			return
-		}
-		f.statusMtx.Unlock()
 		f.logger.Printf("Connection received on port %d", f.port)
-		f.recvLoop()
-		f.statusMtx.Lock()
-		if f.status != ADBFwdConnected {
-			// A different state means this loop should end
-			f.statusMtx.Unlock()
+		if !f.setConnection(conn) {
+			// StopForwarding was called.
+			conn.Close()
 			return
 		}
-		f.status = ADBFwdReady
-		f.statusMtx.Unlock()
+
+		f.recvLoop()
+
+		if changed, _ := f.compareAndSwapStatus(ADBFwdConnected, ADBFwdReady); !changed {
+			// A different state means this loop should end
+			return
+		}
 	}
 }
 
@@ -351,7 +385,7 @@ type TunnelController struct {
 }
 
 func NewTunnelController(tunnelDir string, service client.Service, devProps deviceProperties,
-	logger *log.Logger, wg *sync.WaitGroup) (*TunnelController, error) {
+	logger *log.Logger) (*TunnelController, error) {
 	// Bind the two local sockets before attempting to connect over WebRTC
 	tunnel, err := bindTCPSocket()
 	if err != nil {
@@ -388,8 +422,6 @@ func NewTunnelController(tunnelDir string, service client.Service, devProps devi
 	}
 
 	tc.forwarder.StartForwarding()
-	// Start control loop after forwarding loop to ensure the forwarder is in a valid state
-	tc.StartControlLoop(wg)
 
 	return tc, nil
 }
@@ -401,17 +433,11 @@ func (tc *TunnelController) Stop() {
 	tc.control.Close()
 }
 
-func (tc *TunnelController) StartControlLoop(wg *sync.WaitGroup) {
-	wg.Add(1)
-	go tc.controlSocketLoop(wg)
-}
-
-func (tc *TunnelController) GetForwarderPort() int {
+func (tc *TunnelController) ForwarderPort() int {
 	return tc.forwarder.port
 }
 
-func (tc *TunnelController) controlSocketLoop(wg *sync.WaitGroup) {
-	defer wg.Done()
+func (tc *TunnelController) Run() {
 	if tc.control == nil {
 		panic("The control socket has not been setup yet")
 	}

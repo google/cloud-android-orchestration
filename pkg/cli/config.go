@@ -29,7 +29,7 @@ type HostConfig struct {
 	GCP GCPHostConfig
 }
 
-type Config struct {
+type FileConfig struct {
 	DefaultServiceURL string
 	DefaultZone       string
 	DefaultHTTPProxy  string
@@ -37,7 +37,7 @@ type Config struct {
 	Host              HostConfig
 }
 
-func ParseConfig(config *Config, confFile io.Reader) error {
+func ParseConfig(config *FileConfig, confFile io.Reader) error {
 	decoder := toml.NewDecoder(confFile)
 	// Fail if there is some unknown configuration. This is better than silently
 	// ignoring a (perhaps mispelled) config entry.

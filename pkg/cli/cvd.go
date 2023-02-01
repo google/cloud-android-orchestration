@@ -33,27 +33,27 @@ const (
 	localImageFlag = "local_image"
 )
 
-type createCVDFlags struct {
-	*subCommandFlags
+type CreateCVDFlags struct {
+	*CommonSubcmdFlags
 	BuildID    string
 	Target     string
 	Host       string
 	LocalImage bool
 }
 
-type listCVDsFlags struct {
-	*subCommandFlags
+type ListCVDsFlags struct {
+	*CommonSubcmdFlags
 	Host string
 }
 
-func newCVDCommand(configFlags *configFlags, opts *subCommandOpts) *cobra.Command {
-	cvdFlags := &subCommandFlags{configFlags: configFlags}
-	createFlags := &createCVDFlags{subCommandFlags: cvdFlags}
+func newCVDCommand(opts *subCommandOpts) *cobra.Command {
+	cvdFlags := &CommonSubcmdFlags{CVDRemoteFlags: opts.RootFlags}
+	createFlags := &CreateCVDFlags{CommonSubcmdFlags: cvdFlags}
 	create := &cobra.Command{
 		Use:   "create",
 		Short: "Creates a CVD.",
 		RunE: func(c *cobra.Command, args []string) error {
-			return runCreateCVDCommand(c, createFlags, opts)
+			return createCVD(c, createFlags, opts)
 		},
 	}
 	create.Flags().StringVar(&createFlags.Host, hostFlag, "", "Specifies the host")
@@ -65,12 +65,12 @@ func newCVDCommand(configFlags *configFlags, opts *subCommandOpts) *cobra.Comman
 		"Builds a CVD with image files built locally, the required files are https://cs.android.com/android/platform/superproject/+/master:device/google/cuttlefish/required_images and cvd-host-packages.tar.gz")
 	create.MarkFlagsMutuallyExclusive(buildIDFlag, localImageFlag)
 	create.MarkFlagsMutuallyExclusive(targetFlag, localImageFlag)
-	listFlags := &listCVDsFlags{subCommandFlags: cvdFlags}
+	listFlags := &ListCVDsFlags{CommonSubcmdFlags: cvdFlags}
 	list := &cobra.Command{
 		Use:   "list",
 		Short: "List CVDs",
 		RunE: func(c *cobra.Command, args []string) error {
-			return runListCVDsCommand(c, listFlags, opts)
+			return listCVDs(c, listFlags, opts)
 		},
 	}
 	list.Flags().StringVar(&listFlags.Host, hostFlag, "", "Specifies the host")
@@ -84,8 +84,8 @@ func newCVDCommand(configFlags *configFlags, opts *subCommandOpts) *cobra.Comman
 	return cvd
 }
 
-func runCreateCVDCommand(c *cobra.Command, flags *createCVDFlags, opts *subCommandOpts) error {
-	service, err := opts.ServiceBuilder(flags.subCommandFlags, c)
+func createCVD(c *cobra.Command, flags *CreateCVDFlags, opts *subCommandOpts) error {
+	service, err := opts.ServiceBuilder(flags.CommonSubcmdFlags, c)
 	if err != nil {
 		return err
 	}
@@ -95,7 +95,7 @@ func runCreateCVDCommand(c *cobra.Command, flags *createCVDFlags, opts *subComma
 	return createCVDFromAndroidCI(service, c, flags)
 }
 
-func createCVDFromLocalBuild(service client.Service, c *cobra.Command, flags *createCVDFlags) error {
+func createCVDFromLocalBuild(service client.Service, c *cobra.Command, flags *CreateCVDFlags) error {
 	vars, err := GetAndroidEnvVarValues()
 	if err != nil {
 		return fmt.Errorf("Error retrieving Android Build environment variables: %w", err)
@@ -125,7 +125,7 @@ func createCVDFromLocalBuild(service client.Service, c *cobra.Command, flags *cr
 		return fmt.Errorf("Error creating cvd: %w", err)
 	}
 	output := CVDOutput{
-		BaseURL: buildBaseURL(flags.configFlags),
+		BaseURL: buildBaseURL(flags.CVDRemoteFlags),
 		Host:    flags.Host,
 		CVD:     cvd,
 	}
@@ -133,7 +133,7 @@ func createCVDFromLocalBuild(service client.Service, c *cobra.Command, flags *cr
 	return nil
 }
 
-func createCVDFromAndroidCI(service client.Service, c *cobra.Command, flags *createCVDFlags) error {
+func createCVDFromAndroidCI(service client.Service, c *cobra.Command, flags *CreateCVDFlags) error {
 	req := hoapi.CreateCVDRequest{
 		CVD: &hoapi.CVD{
 			BuildSource: &hoapi.BuildSource{
@@ -152,8 +152,8 @@ func createCVDFromAndroidCI(service client.Service, c *cobra.Command, flags *cre
 	return nil
 }
 
-func runListCVDsCommand(c *cobra.Command, flags *listCVDsFlags, opts *subCommandOpts) error {
-	service, err := opts.ServiceBuilder(flags.subCommandFlags, c)
+func listCVDs(c *cobra.Command, flags *ListCVDsFlags, opts *subCommandOpts) error {
+	service, err := opts.ServiceBuilder(flags.CommonSubcmdFlags, c)
 	if err != nil {
 		return err
 	}
@@ -186,7 +186,7 @@ func runListCVDsCommand(c *cobra.Command, flags *listCVDsFlags, opts *subCommand
 			}
 			for _, cvd := range hostCVDs {
 				output := CVDOutput{
-					BaseURL: buildBaseURL(flags.configFlags),
+					BaseURL: buildBaseURL(flags.CVDRemoteFlags),
 					Host:    name,
 					CVD:     cvd,
 				}

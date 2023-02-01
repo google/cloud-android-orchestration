@@ -35,26 +35,26 @@ import (
 )
 
 const connectFlag = "connect"
-const DefaultADBControlDir = "~/.cvdremote/adb"
+const defaultADBControlDir = "~/.cvdremote/adb"
 
-type adbTunnelFlags struct {
-	*subCommandFlags
+type ADBTunnelFlags struct {
+	*CommonSubcmdFlags
 	host string
 }
 
-type openADBTunnelFlags struct {
-	*adbTunnelFlags
+type OpenADBTunnelFlags struct {
+	*ADBTunnelFlags
 	connect bool
 }
 
-func newADBTunnelCommand(config Config, cfgFlags *configFlags, opts *subCommandOpts) *cobra.Command {
-	adbTunnelFlags := &adbTunnelFlags{&subCommandFlags{cfgFlags, false}, ""}
-	openFlags := &openADBTunnelFlags{adbTunnelFlags, false}
+func newADBTunnelCommand(opts *subCommandOpts) *cobra.Command {
+	adbTunnelFlags := &ADBTunnelFlags{&CommonSubcmdFlags{opts.RootFlags, false}, ""}
+	openFlags := &OpenADBTunnelFlags{adbTunnelFlags, false}
 	open := &cobra.Command{
 		Use:   "open",
 		Short: "Opens an ADB tunnel.",
 		RunE: func(c *cobra.Command, args []string) error {
-			return runOpenADBTunnelCommand(config, openFlags, &command{c, &adbTunnelFlags.Verbose}, args, opts)
+			return openADBTunnel(openFlags, &command{c, &adbTunnelFlags.Verbose}, args, opts)
 		},
 	}
 	open.PersistentFlags().BoolVarP(
@@ -76,7 +76,7 @@ func newADBTunnelCommand(config Config, cfgFlags *configFlags, opts *subCommandO
 		Use:   "adbtunnel",
 		Short: "Work with ADB tunnels",
 	}
-	addCommonSubcommandFlags(adbTunnel, adbTunnelFlags.subCommandFlags)
+	addCommonSubcommandFlags(adbTunnel, adbTunnelFlags.CommonSubcmdFlags)
 	adbTunnel.PersistentFlags().StringVar(&adbTunnelFlags.host, hostFlag, "", "Specifies the host")
 	adbTunnel.AddCommand(open)
 	adbTunnel.AddCommand(list)
@@ -84,7 +84,7 @@ func newADBTunnelCommand(config Config, cfgFlags *configFlags, opts *subCommandO
 	return adbTunnel
 }
 
-func runOpenADBTunnelCommand(config Config, flags *openADBTunnelFlags, c *command, args []string, opts *subCommandOpts) error {
+func openADBTunnel(flags *OpenADBTunnelFlags, c *command, args []string, opts *subCommandOpts) error {
 	adbPath := ""
 	if flags.connect {
 		path, err := exec.LookPath("adb")
@@ -94,11 +94,11 @@ func runOpenADBTunnelCommand(config Config, flags *openADBTunnelFlags, c *comman
 		adbPath = path
 	}
 
-	if config.ADBControlDir == "" {
-		config.ADBControlDir = DefaultADBControlDir
+	if opts.Config.ADBControlDir == "" {
+		opts.Config.ADBControlDir = defaultADBControlDir
 	}
 
-	service, err := opts.ServiceBuilder(flags.subCommandFlags, c.Command)
+	service, err := opts.ServiceBuilder(flags.CommonSubcmdFlags, c.Command)
 	if err != nil {
 		return err
 	}
@@ -116,7 +116,7 @@ func runOpenADBTunnelCommand(config Config, flags *openADBTunnelFlags, c *comman
 			device:     device,
 		}
 		controller, err := NewTunnelController(
-			config.ADBControlDir, service, devProps, logger, &wg)
+			opts.Config.ADBControlDir, service, devProps, logger, &wg)
 
 		if err != nil {
 			merr = multierror.Append(merr, err)

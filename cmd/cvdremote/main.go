@@ -24,7 +24,7 @@ import (
 
 const configPathVar = "CVDREMOTE_CONFIG_PATH"
 
-func readConfig(config *cli.Config) error {
+func readConfig(config *cli.FileConfig) error {
 	configPath := os.Getenv(configPathVar)
 	if configPath == "" {
 		// No config file provided
@@ -49,7 +49,7 @@ func main() {
 		ServiceBuilder: client.NewService,
 	}
 
-	if err := readConfig(&opts.Config); err != nil {
+	if err := readConfig(&opts.FileConfig); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
 	}

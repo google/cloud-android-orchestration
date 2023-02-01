@@ -166,11 +166,11 @@ type ADBForwarder struct {
 }
 
 const (
-	ADBFwdInitializing = 0 // The initial state after creation
-	ADBFwdReady        = 1
-	ADBFwdConnected    = 2
-	ADBFwdStopped      = 4
-	ADBFwdFailed       = 8
+	ADBFwdInitializing = iota // 0: The initial state after creation
+	ADBFwdReady        = iota
+	ADBFwdConnected    = iota
+	ADBFwdStopped      = iota
+	ADBFwdFailed       = iota
 )
 
 func StatusAsStr(status int) string {
@@ -290,14 +290,14 @@ func (f *ADBForwarder) StatusJSON() []byte {
 	return ret
 }
 
-// Changes f.status to newStatus if it had oldStatus. Returns whether the change was
+// Changes f.status to new if it had old. Returns whether the change was
 // made and the old status.
-func (f *ADBForwarder) compareAndSwapStatus(oldStatus, newStatus int) (bool, int) {
+func (f *ADBForwarder) compareAndSwapStatus(old, new int) (bool, int) {
 	f.statusMtx.Lock()
 	defer f.statusMtx.Unlock()
-	if f.status == oldStatus {
-		f.status = newStatus
-		return true, oldStatus
+	if f.status == old {
+		f.status = new
+		return true, old
 	}
 	return false, f.status
 }

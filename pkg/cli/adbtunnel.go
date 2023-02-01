@@ -156,13 +156,13 @@ type deviceProperties struct {
 // Implements the Observer interface for the webrtc client.
 type ADBForwarder struct {
 	deviceProperties
-	dc        *webrtc.DataChannel
-	listener  net.Listener
-	conn      net.Conn
-	port      int
-	status    int
-	statusMtx sync.Mutex
-	logger    *log.Logger
+	dc       *webrtc.DataChannel
+	listener net.Listener
+	conn     net.Conn
+	port     int
+	state    int
+	stateMtx sync.Mutex
+	logger   *log.Logger
 }
 
 const (
@@ -173,8 +173,8 @@ const (
 	ADBFwdFailed       = iota
 )
 
-func StatusAsStr(status int) string {
-	switch status {
+func StateAsStr(state int) string {
+	switch state {
 	case ADBFwdInitializing:
 		return "initializing"
 	case ADBFwdReady:
@@ -186,7 +186,7 @@ func StatusAsStr(status int) string {
 	case ADBFwdFailed:
 		return "failed"
 	default:
-		panic(fmt.Sprintf("No known string representation for status: %d", status))
+		panic(fmt.Sprintf("No known string representation for state: %d", state))
 	}
 }
 
@@ -221,21 +221,21 @@ func (f *ADBForwarder) OnClose() {
 }
 
 func (f *ADBForwarder) StartForwarding() {
-	set, prev := f.compareAndSwapStatus(ADBFwdInitializing, ADBFwdReady)
+	set, prev := f.compareAndSwapState(ADBFwdInitializing, ADBFwdReady)
 	if !set {
-		panic("StartForwarding called in wrong state: " + StatusAsStr(prev))
+		panic("StartForwarding called in wrong state: " + StateAsStr(prev))
 	}
 	go f.acceptLoop()
 }
 
-func (f *ADBForwarder) StopForwarding(status int) {
-	f.statusMtx.Lock()
-	defer f.statusMtx.Unlock()
+func (f *ADBForwarder) StopForwarding(state int) {
+	f.stateMtx.Lock()
+	defer f.stateMtx.Unlock()
 
-	if f.status == status {
+	if f.state == state {
 		return
 	}
-	f.status = status
+	f.state = state
 	// Prevent future writes to the channel too.
 	f.dc.Close()
 	// f.listener is guaranteed to be non-nil at this point
@@ -268,12 +268,12 @@ type StatusMsg struct {
 	Host       string `json:"host"`
 	Device     string `json:"device"`
 	Port       int    `json:"port"`
-	Status     string `json:"status"`
+	State      string `json:"state"`
 }
 
 func (f *ADBForwarder) StatusJSON() []byte {
 	// Pass equal values to get the current state without chaning it
-	_, status := f.compareAndSwapStatus(-1, -1)
+	_, state := f.compareAndSwapState(-1, -1)
 
 	msg := StatusMsg{
 		ServiceURL: f.serviceURL,
@@ -281,7 +281,7 @@ func (f *ADBForwarder) StatusJSON() []byte {
 		Host:       f.host,
 		Device:     f.device,
 		Port:       f.port,
-		Status:     StatusAsStr(status),
+		State:      StateAsStr(state),
 	}
 	ret, err := json.Marshal(&msg)
 	if err != nil {
@@ -290,32 +290,32 @@ func (f *ADBForwarder) StatusJSON() []byte {
 	return ret
 }
 
-// Changes f.status to new if it had old. Returns whether the change was
-// made and the old status.
-func (f *ADBForwarder) compareAndSwapStatus(old, new int) (bool, int) {
-	f.statusMtx.Lock()
-	defer f.statusMtx.Unlock()
-	if f.status == old {
-		f.status = new
+// Changes f.state to new if it had old. Returns whether the change was
+// made and the old state.
+func (f *ADBForwarder) compareAndSwapState(old, new int) (bool, int) {
+	f.stateMtx.Lock()
+	defer f.stateMtx.Unlock()
+	if f.state == old {
+		f.state = new
 		return true, old
 	}
-	return false, f.status
+	return false, f.state
 }
 
 func (f *ADBForwarder) setConnection(conn net.Conn) bool {
-	f.statusMtx.Lock()
-	defer f.statusMtx.Unlock()
-	if f.status != ADBFwdReady {
+	f.stateMtx.Lock()
+	defer f.stateMtx.Unlock()
+	if f.state != ADBFwdReady {
 		return false
 	}
 	f.conn = conn
-	f.status = ADBFwdConnected
+	f.state = ADBFwdConnected
 	return true
 }
 
 func (f *ADBForwarder) acceptLoop() {
-	if changed, status := f.compareAndSwapStatus(ADBFwdReady, ADBFwdReady); !changed {
-		f.logger.Printf("Forwarder accept loop started in wrong state: %s", StatusAsStr(status))
+	if changed, state := f.compareAndSwapState(ADBFwdReady, ADBFwdReady); !changed {
+		f.logger.Printf("Forwarder accept loop started in wrong state: %s", StateAsStr(state))
 		// This isn't necessarily an error, StopForwarding could have been called already
 		return
 	}
@@ -338,7 +338,7 @@ func (f *ADBForwarder) acceptLoop() {
 
 		f.recvLoop()
 
-		if changed, _ := f.compareAndSwapStatus(ADBFwdConnected, ADBFwdReady); !changed {
+		if changed, _ := f.compareAndSwapState(ADBFwdConnected, ADBFwdReady); !changed {
 			// A different state means this loop should end
 			return
 		}

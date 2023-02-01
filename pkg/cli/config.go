@@ -29,7 +29,7 @@ type HostConfig struct {
 	GCP GCPHostConfig
 }
 
-type FileConfig struct {
+type Config struct {
 	DefaultServiceURL string
 	DefaultZone       string
 	DefaultHTTPProxy  string
@@ -37,10 +37,22 @@ type FileConfig struct {
 	Host              HostConfig
 }
 
-func ParseConfig(config *FileConfig, confFile io.Reader) error {
+func DefaultConfig() Config {
+	const defaultADBControlDir = "~/.cvdremote/adb"
+
+	return Config{
+		ADBControlDir: defaultADBControlDir,
+	}
+}
+
+func ParseConfigFile(config *Config, confFile io.Reader) error {
 	decoder := toml.NewDecoder(confFile)
 	// Fail if there is some unknown configuration. This is better than silently
 	// ignoring a (perhaps mispelled) config entry.
 	decoder.Strict(true)
-	return decoder.Decode(config)
+	err := decoder.Decode(config)
+	if err != nil {
+		return err
+	}
+	return nil
 }

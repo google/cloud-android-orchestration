@@ -35,7 +35,6 @@ import (
 )
 
 const connectFlag = "connect"
-const defaultADBControlDir = "~/.cvdremote/adb"
 
 type ADBTunnelFlags struct {
 	*CommonSubcmdFlags
@@ -92,10 +91,6 @@ func openADBTunnel(flags *OpenADBTunnelFlags, c *command, args []string, opts *s
 			return fmt.Errorf("Can't connect adb: %w", err)
 		}
 		adbPath = path
-	}
-
-	if opts.Config.ADBControlDir == "" {
-		opts.Config.ADBControlDir = defaultADBControlDir
 	}
 
 	service, err := opts.ServiceBuilder(flags.CommonSubcmdFlags, c.Command)

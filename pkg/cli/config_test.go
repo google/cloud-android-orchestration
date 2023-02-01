@@ -25,7 +25,6 @@ const (
 DefaultServiceURL = "service_url"
 DefaultZone = "zone"
 DefaultHTTPProxy = "http_proxy"
-ADBControlDir = "~/.cvdremote/adb"
 [Host.GCP]
 DefaultMachineType = "machine_type"
 DefaultMinCPUPlatform = "cpu_platform"
@@ -33,12 +32,12 @@ DefaultMinCPUPlatform = "cpu_platform"
 	invalidConfig = "foo_bar_baz = \"unknown field\""
 )
 
-func TestParseConfig(t *testing.T) {
+func TestParseConfigFile(t *testing.T) {
 	// This test is little more than a change detector, however it's still
 	// useful to detect config parsing errors early, such as those introduced by
 	// a rename of the config properties.
-	var config FileConfig
-	err := ParseConfig(&config, strings.NewReader(validConfig))
+	config := DefaultConfig()
+	err := ParseConfigFile(&config, strings.NewReader(validConfig))
 	if err != nil {
 		t.Errorf("Failed to parse config: %v", err)
 	}
@@ -49,23 +48,23 @@ func TestParseConfig(t *testing.T) {
 }
 
 func TestParseAllConfig(t *testing.T) {
-	var config FileConfig
-	err := ParseConfig(&config, strings.NewReader(validConfig))
+	config := DefaultConfig()
+	err := ParseConfigFile(&config, strings.NewReader(validConfig))
 	if err != nil {
 		t.SkipNow()
 	}
 	// Ensure no field was left unparsed. This will fail everytime a new field is
-	// added to cli.FileConfig, just add it to the valid config above with a non zero
+	// added to cli.Config, just add it to the valid config above with a non zero
 	// value to make it pass and ensure these tests apply to that field in the
 	// future.
 	if has, f := HasZeroes(config); has {
-		t.Errorf("The FileConfig's %s field was not parsed", f)
+		t.Errorf("The Config's %s field was not parsed", f)
 	}
 }
 
 func TestParseInvalidConfig(t *testing.T) {
-	var config FileConfig
-	err := ParseConfig(&config, strings.NewReader(invalidConfig))
+	config := DefaultConfig()
+	err := ParseConfigFile(&config, strings.NewReader(invalidConfig))
 	if err == nil {
 		t.Errorf("Expected unknown config property to produce an error")
 	}

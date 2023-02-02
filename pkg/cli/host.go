@@ -29,59 +29,59 @@ const (
 	gcpMinCPUPlatformFlag = "gcp_min_cpu_platform"
 )
 
-type hostFlags struct {
-	*subCommandFlags
+type HostFlags struct {
+	*CommonSubcmdFlags
 }
 
-type createGCPHostFlags struct {
-	*hostFlags
+type CreateGCPHostFlags struct {
+	*HostFlags
 	MachineType    string
 	MinCPUPlatform string
 }
 
-func newHostCommand(configFlags *configFlags, config *HostConfig, opts *subCommandOpts) *cobra.Command {
-	subCommandFlags := &subCommandFlags{configFlags: configFlags}
-	hostFlags := &hostFlags{subCommandFlags: subCommandFlags}
-	createFlags := &createGCPHostFlags{hostFlags: hostFlags}
+func newHostCommand(opts *subCommandOpts) *cobra.Command {
+	commonSCFlags := &CommonSubcmdFlags{CVDRemoteFlags: opts.RootFlags}
+	hostFlags := &HostFlags{CommonSubcmdFlags: commonSCFlags}
+	createFlags := &CreateGCPHostFlags{HostFlags: hostFlags}
 	create := &cobra.Command{
 		Use:   "create",
 		Short: "Creates a host.",
 		RunE: func(c *cobra.Command, args []string) error {
-			return runCreateHostCommand(c, createFlags, opts)
+			return createHost(c, createFlags, opts)
 		},
 	}
 	create.Flags().StringVar(&createFlags.MachineType, gcpMachineTypeFlag,
-		config.GCP.DefaultMachineType, "Indicates the machine type")
+		opts.Config.Host.GCP.DefaultMachineType, "Indicates the machine type")
 	create.Flags().StringVar(&createFlags.MinCPUPlatform, gcpMinCPUPlatformFlag,
-		config.GCP.DefaultMinCPUPlatform,
+		opts.Config.Host.GCP.DefaultMinCPUPlatform,
 		"Specifies a minimum CPU platform for the VM instance")
 	list := &cobra.Command{
 		Use:   "list",
 		Short: "Lists hosts.",
 		RunE: func(c *cobra.Command, args []string) error {
-			return runListHostsCommand(c, hostFlags, opts)
+			return listHosts(c, hostFlags, opts)
 		},
 	}
 	del := &cobra.Command{
 		Use:   "delete <foo> <bar> <baz>",
 		Short: "Delete hosts.",
 		RunE: func(c *cobra.Command, args []string) error {
-			return runDeleteHostsCommand(c, args, hostFlags, opts)
+			return deleteHosts(c, args, hostFlags, opts)
 		},
 	}
 	host := &cobra.Command{
 		Use:   "host",
 		Short: "Work with hosts",
 	}
-	addCommonSubcommandFlags(host, subCommandFlags)
+	addCommonSubcommandFlags(host, commonSCFlags)
 	host.AddCommand(create)
 	host.AddCommand(list)
 	host.AddCommand(del)
 	return host
 }
 
-func runCreateHostCommand(c *cobra.Command, flags *createGCPHostFlags, opts *subCommandOpts) error {
-	apiClient, err := opts.ServiceBuilder(flags.subCommandFlags, c)
+func createHost(c *cobra.Command, flags *CreateGCPHostFlags, opts *subCommandOpts) error {
+	apiClient, err := opts.ServiceBuilder(flags.CommonSubcmdFlags, c)
 	if err != nil {
 		return err
 	}
@@ -101,8 +101,8 @@ func runCreateHostCommand(c *cobra.Command, flags *createGCPHostFlags, opts *sub
 	return nil
 }
 
-func runListHostsCommand(c *cobra.Command, flags *hostFlags, opts *subCommandOpts) error {
-	apiClient, err := opts.ServiceBuilder(flags.subCommandFlags, c)
+func listHosts(c *cobra.Command, flags *HostFlags, opts *subCommandOpts) error {
+	apiClient, err := opts.ServiceBuilder(flags.CommonSubcmdFlags, c)
 	if err != nil {
 		return err
 	}
@@ -116,8 +116,8 @@ func runListHostsCommand(c *cobra.Command, flags *hostFlags, opts *subCommandOpt
 	return nil
 }
 
-func runDeleteHostsCommand(c *cobra.Command, args []string, flags *hostFlags, opts *subCommandOpts) error {
-	apiClient, err := opts.ServiceBuilder(flags.subCommandFlags, c)
+func deleteHosts(c *cobra.Command, args []string, flags *HostFlags, opts *subCommandOpts) error {
+	apiClient, err := opts.ServiceBuilder(flags.CommonSubcmdFlags, c)
 	if err != nil {
 		return err
 	}

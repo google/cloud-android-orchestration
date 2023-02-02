@@ -15,6 +15,11 @@
 # An (optional) HTTP proxy.
 # DefaultHTTPProxy = "http://proxy.company.com:123456"
 
+# Directory where the control sockets for the ADB tunnels will be created and
+# log files will be placed. The directory path should be short enough for UNIX
+# sockets (limited to 108 characters).
+# ADBControlDir = "~/.cvdremote/adb"
+
 # The host.GCP section provides default configuration values for hosts created
 # using the GCP Cloud Provider. Other providers will have their own
 # host.<Provider> sections when added.

@@ -32,12 +32,12 @@ DefaultMinCPUPlatform = "cpu_platform"
 	invalidConfig = "foo_bar_baz = \"unknown field\""
 )
 
-func TestParseConfig(t *testing.T) {
+func TestParseConfigFile(t *testing.T) {
 	// This test is little more than a change detector, however it's still
 	// useful to detect config parsing errors early, such as those introduced by
 	// a rename of the config properties.
-	var config Config
-	err := ParseConfig(&config, strings.NewReader(validConfig))
+	config := DefaultConfig()
+	err := ParseConfigFile(&config, strings.NewReader(validConfig))
 	if err != nil {
 		t.Errorf("Failed to parse config: %v", err)
 	}
@@ -48,8 +48,8 @@ func TestParseConfig(t *testing.T) {
 }
 
 func TestParseAllConfig(t *testing.T) {
-	var config Config
-	err := ParseConfig(&config, strings.NewReader(validConfig))
+	config := DefaultConfig()
+	err := ParseConfigFile(&config, strings.NewReader(validConfig))
 	if err != nil {
 		t.SkipNow()
 	}
@@ -63,8 +63,8 @@ func TestParseAllConfig(t *testing.T) {
 }
 
 func TestParseInvalidConfig(t *testing.T) {
-	var config Config
-	err := ParseConfig(&config, strings.NewReader(invalidConfig))
+	config := DefaultConfig()
+	err := ParseConfigFile(&config, strings.NewReader(invalidConfig))
 	if err == nil {
 		t.Errorf("Expected unknown config property to produce an error")
 	}

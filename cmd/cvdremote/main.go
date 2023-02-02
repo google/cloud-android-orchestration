@@ -36,7 +36,7 @@ func readConfig(config *cli.Config) error {
 	}
 	defer configFile.Close()
 
-	if err := cli.ParseConfig(config, configFile); err != nil {
+	if err := cli.ParseConfigFile(config, configFile); err != nil {
 		return fmt.Errorf("Error parsing config file: %w", err)
 	}
 	return nil
@@ -47,6 +47,7 @@ func main() {
 		IOStreams:      cli.IOStreams{In: os.Stdin, Out: os.Stdout, ErrOut: os.Stderr},
 		Args:           os.Args[1:],
 		ServiceBuilder: client.NewService,
+		Config:         cli.DefaultConfig(),
 	}
 
 	if err := readConfig(&opts.Config); err != nil {

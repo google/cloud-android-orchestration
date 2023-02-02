@@ -49,7 +49,7 @@ const (
 	httpProxyFlag  = "http_proxy"
 )
 
-type configFlags struct {
+type CVDRemoteFlags struct {
 	ServiceURL string
 	Zone       string
 	HTTPProxy  string
@@ -75,7 +75,7 @@ func (c *command) PrintVerbosef(format string, arg ...any) {
 }
 
 func NewCVDRemoteCommand(o *CommandOptions) *CVDRemoteCommand {
-	configFlags := &configFlags{}
+	flags := &CVDRemoteFlags{}
 	rootCmd := &cobra.Command{
 		Use:               "cvdremote",
 		Short:             "Manages Cuttlefish Virtual Devices (CVDs) in the cloud.",
@@ -86,24 +86,26 @@ func NewCVDRemoteCommand(o *CommandOptions) *CVDRemoteCommand {
 	rootCmd.SetArgs(o.Args)
 	rootCmd.SetOut(o.IOStreams.Out)
 	rootCmd.SetErr(o.IOStreams.ErrOut)
-	rootCmd.PersistentFlags().StringVar(&configFlags.ServiceURL, serviceURLFlag,
+	rootCmd.PersistentFlags().StringVar(&flags.ServiceURL, serviceURLFlag,
 		o.Config.DefaultServiceURL, "Cloud orchestration service url.")
 	if o.Config.DefaultServiceURL == "" {
 		// Make it required if not configured
 		rootCmd.MarkPersistentFlagRequired(serviceURLFlag)
 	}
-	rootCmd.PersistentFlags().StringVar(&configFlags.Zone, zoneFlag, o.Config.DefaultZone,
+	rootCmd.PersistentFlags().StringVar(&flags.Zone, zoneFlag, o.Config.DefaultZone,
 		"Cloud zone.")
-	rootCmd.PersistentFlags().StringVar(&configFlags.HTTPProxy, httpProxyFlag,
+	rootCmd.PersistentFlags().StringVar(&flags.HTTPProxy, httpProxyFlag,
 		o.Config.DefaultHTTPProxy, "Proxy used to route the http communication through.")
 	// Do not show a `help` command, users have always the `-h` and `--help` flags for help purpose.
 	rootCmd.SetHelpCommand(&cobra.Command{Hidden: true})
 	subCmdOpts := &subCommandOpts{
 		ServiceBuilder: buildServiceBuilder(o.ServiceBuilder),
+		RootFlags:      flags,
+		Config:         &o.Config,
 	}
-	rootCmd.AddCommand(newHostCommand(configFlags, &o.Config.Host, subCmdOpts))
-	rootCmd.AddCommand(newADBTunnelCommand(configFlags, subCmdOpts))
-	rootCmd.AddCommand(newCVDCommand(configFlags, subCmdOpts))
+	rootCmd.AddCommand(newHostCommand(subCmdOpts))
+	rootCmd.AddCommand(newADBTunnelCommand(subCmdOpts))
+	rootCmd.AddCommand(newCVDCommand(subCmdOpts))
 	return &CVDRemoteCommand{rootCmd}
 }
 
@@ -119,28 +121,30 @@ const (
 	verboseFlag = "verbose"
 )
 
-type subCommandFlags struct {
-	*configFlags
+type CommonSubcmdFlags struct {
+	*CVDRemoteFlags
 	Verbose bool
 }
 
-type serviceBuilder func(flags *subCommandFlags, c *cobra.Command) (client.Service, error)
+type serviceBuilder func(flags *CommonSubcmdFlags, c *cobra.Command) (client.Service, error)
 
 type subCommandOpts struct {
 	ServiceBuilder serviceBuilder
+	RootFlags      *CVDRemoteFlags
+	Config         *Config
 }
 
 const chunkSizeBytes = 16 * 1024 * 1024
 
 func buildServiceBuilder(builder client.ServiceBuilder) serviceBuilder {
-	return func(flags *subCommandFlags, c *cobra.Command) (client.Service, error) {
+	return func(flags *CommonSubcmdFlags, c *cobra.Command) (client.Service, error) {
 		proxyURL := flags.HTTPProxy
 		var dumpOut io.Writer = io.Discard
 		if flags.Verbose {
 			dumpOut = c.ErrOrStderr()
 		}
 		opts := &client.ServiceOptions{
-			BaseURL:        buildBaseURL(flags.configFlags),
+			BaseURL:        buildBaseURL(flags.CVDRemoteFlags),
 			ProxyURL:       proxyURL,
 			DumpOut:        dumpOut,
 			ErrOut:         c.ErrOrStderr(),
@@ -152,7 +156,7 @@ func buildServiceBuilder(builder client.ServiceBuilder) serviceBuilder {
 	}
 }
 
-func addCommonSubcommandFlags(c *cobra.Command, flags *subCommandFlags) {
+func addCommonSubcommandFlags(c *cobra.Command, flags *CommonSubcmdFlags) {
 	c.PersistentFlags().BoolVarP(&flags.Verbose, verboseFlag, "v", false, "Be verbose.")
 }
 
@@ -160,7 +164,7 @@ func notImplementedCommand(c *cobra.Command, _ []string) error {
 	return fmt.Errorf("Command not implemented")
 }
 
-func buildBaseURL(flags *configFlags) string {
+func buildBaseURL(flags *CVDRemoteFlags) string {
 	serviceURL := flags.ServiceURL
 	zone := flags.Zone
 	baseURL := serviceURL + "/v1"

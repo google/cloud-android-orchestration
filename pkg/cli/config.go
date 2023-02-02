@@ -40,6 +40,11 @@ type Config struct {
 func DefaultConfig() Config {
 	return Config{
 		ADBControlDir: "~/.cvdremote/adb",
+		Host: HostConfig{
+			GCP: GCPHostConfig{
+				MachineType: "n1-standard-4",
+			},
+		},
 	}
 }
 

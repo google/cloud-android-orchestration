@@ -51,9 +51,9 @@ func newHostCommand(opts *subCommandOpts) *cobra.Command {
 		},
 	}
 	create.Flags().StringVar(&createFlags.MachineType, gcpMachineTypeFlag,
-		opts.Config.Host.GCP.DefaultMachineType, "Indicates the machine type")
+		opts.InitialConfig.Host.GCP.MachineType, "Indicates the machine type")
 	create.Flags().StringVar(&createFlags.MinCPUPlatform, gcpMinCPUPlatformFlag,
-		opts.Config.Host.GCP.DefaultMinCPUPlatform,
+		opts.InitialConfig.Host.GCP.MinCPUPlatform,
 		"Specifies a minimum CPU platform for the VM instance")
 	list := &cobra.Command{
 		Use:   "list",

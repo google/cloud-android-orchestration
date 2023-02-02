@@ -111,7 +111,7 @@ func openADBTunnel(flags *OpenADBTunnelFlags, c *command, args []string, opts *s
 			device:     device,
 		}
 		controller, err := NewTunnelController(
-			opts.Config.ADBControlDir, service, devProps, logger)
+			opts.InitialConfig.ADBControlDir, service, devProps, logger)
 
 		if err != nil {
 			merr = multierror.Append(merr, err)

@@ -34,7 +34,7 @@ type IOStreams struct {
 type CommandOptions struct {
 	IOStreams
 	Args           []string
-	Config         Config
+	InitialConfig  Config
 	ServiceBuilder client.ServiceBuilder
 }
 
@@ -86,22 +86,21 @@ func NewCVDRemoteCommand(o *CommandOptions) *CVDRemoteCommand {
 	rootCmd.SetArgs(o.Args)
 	rootCmd.SetOut(o.IOStreams.Out)
 	rootCmd.SetErr(o.IOStreams.ErrOut)
-	rootCmd.PersistentFlags().StringVar(&flags.ServiceURL, serviceURLFlag,
-		o.Config.DefaultServiceURL, "Cloud orchestration service url.")
-	if o.Config.DefaultServiceURL == "" {
+	rootCmd.PersistentFlags().StringVar(&flags.ServiceURL, serviceURLFlag, o.InitialConfig.ServiceURL,
+		"Cloud orchestration service url.")
+	if o.InitialConfig.ServiceURL == "" {
 		// Make it required if not configured
 		rootCmd.MarkPersistentFlagRequired(serviceURLFlag)
 	}
-	rootCmd.PersistentFlags().StringVar(&flags.Zone, zoneFlag, o.Config.DefaultZone,
-		"Cloud zone.")
-	rootCmd.PersistentFlags().StringVar(&flags.HTTPProxy, httpProxyFlag,
-		o.Config.DefaultHTTPProxy, "Proxy used to route the http communication through.")
+	rootCmd.PersistentFlags().StringVar(&flags.Zone, zoneFlag, o.InitialConfig.Zone, "Cloud zone.")
+	rootCmd.PersistentFlags().StringVar(&flags.HTTPProxy, httpProxyFlag, o.InitialConfig.HTTPProxy,
+		"Proxy used to route the http communication through.")
 	// Do not show a `help` command, users have always the `-h` and `--help` flags for help purpose.
 	rootCmd.SetHelpCommand(&cobra.Command{Hidden: true})
 	subCmdOpts := &subCommandOpts{
 		ServiceBuilder: buildServiceBuilder(o.ServiceBuilder),
 		RootFlags:      flags,
-		Config:         &o.Config,
+		InitialConfig:  o.InitialConfig,
 	}
 	rootCmd.AddCommand(newHostCommand(subCmdOpts))
 	rootCmd.AddCommand(newADBTunnelCommand(subCmdOpts))
@@ -131,7 +130,7 @@ type serviceBuilder func(flags *CommonSubcmdFlags, c *cobra.Command) (client.Ser
 type subCommandOpts struct {
 	ServiceBuilder serviceBuilder
 	RootFlags      *CVDRemoteFlags
-	Config         *Config
+	InitialConfig  Config
 }
 
 const chunkSizeBytes = 16 * 1024 * 1024

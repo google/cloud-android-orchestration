@@ -22,12 +22,12 @@ import (
 
 const (
 	validConfig = `
-DefaultServiceURL = "service_url"
-DefaultZone = "zone"
-DefaultHTTPProxy = "http_proxy"
+ServiceURL = "service_url"
+Zone = "zone"
+HTTPProxy = "http_proxy"
 [Host.GCP]
-DefaultMachineType = "machine_type"
-DefaultMinCPUPlatform = "cpu_platform"
+MachineType = "machine_type"
+MinCPUPlatform = "cpu_platform"
 `
 	invalidConfig = "foo_bar_baz = \"unknown field\""
 )

@@ -43,20 +43,20 @@ func readConfig(config *cli.Config) error {
 }
 
 func main() {
+	config := cli.DefaultConfig()
+	// Overrides relevant defaults with values set in config file.
+	if err := readConfig(&config); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(2)
+	}
 	opts := &cli.CommandOptions{
 		IOStreams:      cli.IOStreams{In: os.Stdin, Out: os.Stdout, ErrOut: os.Stderr},
 		Args:           os.Args[1:],
 		ServiceBuilder: client.NewService,
-		Config:         cli.DefaultConfig(),
+		InitialConfig:  config,
 	}
 
-	if err := readConfig(&opts.Config); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(2)
-	}
-
-	err := cli.NewCVDRemoteCommand(opts).Execute()
-	if err != nil {
+	if err := cli.NewCVDRemoteCommand(opts).Execute(); err != nil {
 		os.Exit(1)
 	}
 }

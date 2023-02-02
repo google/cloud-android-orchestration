@@ -21,8 +21,8 @@ import (
 )
 
 type GCPHostConfig struct {
-	DefaultMachineType    string
-	DefaultMinCPUPlatform string
+	MachineType    string
+	MinCPUPlatform string
 }
 
 type HostConfig struct {
@@ -30,18 +30,16 @@ type HostConfig struct {
 }
 
 type Config struct {
-	DefaultServiceURL string
-	DefaultZone       string
-	DefaultHTTPProxy  string
-	ADBControlDir     string
-	Host              HostConfig
+	ServiceURL    string
+	Zone          string
+	HTTPProxy     string
+	ADBControlDir string
+	Host          HostConfig
 }
 
 func DefaultConfig() Config {
-	const defaultADBControlDir = "~/.cvdremote/adb"
-
 	return Config{
-		ADBControlDir: defaultADBControlDir,
+		ADBControlDir: "~/.cvdremote/adb",
 	}
 }
 

@@ -32,33 +32,20 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const connectFlag = "connect"
-
 type ADBTunnelFlags struct {
 	*CommonSubcmdFlags
 	host string
 }
 
-type OpenADBTunnelFlags struct {
-	*ADBTunnelFlags
-	connect bool
-}
-
 func newADBTunnelCommand(opts *subCommandOpts) *cobra.Command {
 	adbTunnelFlags := &ADBTunnelFlags{&CommonSubcmdFlags{opts.RootFlags, false}, ""}
-	openFlags := &OpenADBTunnelFlags{adbTunnelFlags, false}
 	open := &cobra.Command{
 		Use:   "open",
 		Short: "Opens an ADB tunnel.",
 		RunE: func(c *cobra.Command, args []string) error {
-			return openADBTunnel(openFlags, &command{c, &adbTunnelFlags.Verbose}, args, opts)
+			return openADBTunnel(adbTunnelFlags, &command{c, &adbTunnelFlags.Verbose}, args, opts)
 		},
 	}
-	open.PersistentFlags().BoolVarP(
-		&openFlags.connect, connectFlag,
-		"c",
-		false,
-		"Issue the `adb connect` command after the tunnel is open")
 	list := &cobra.Command{
 		Use:   "list",
 		Short: "Lists open ADB tunnels.",
@@ -81,7 +68,7 @@ func newADBTunnelCommand(opts *subCommandOpts) *cobra.Command {
 	return adbTunnel
 }
 
-func openADBTunnel(flags *OpenADBTunnelFlags, c *command, args []string, opts *subCommandOpts) error {
+func openADBTunnel(flags *ADBTunnelFlags, c *command, args []string, opts *subCommandOpts) error {
 	service, err := opts.ServiceBuilder(flags.CommonSubcmdFlags, c.Command)
 	if err != nil {
 		return err
@@ -113,18 +100,6 @@ func openADBTunnel(flags *OpenADBTunnelFlags, c *command, args []string, opts *s
 			wg.Done()
 		}()
 		ctrls = append(ctrls, controller)
-
-		adbSerial := fmt.Sprintf("127.0.0.1:%d", controller.ForwarderPort())
-		if flags.connect {
-			if err := ADBConnect(adbSerial); err != nil {
-				c.PrintErrf("Error connecting ADB to %q (%s): %v", adbSerial, device, err)
-				merr = multierror.Append(merr, err)
-			} else {
-				c.PrintErrf("%s connected on: %s\n", device, adbSerial)
-			}
-		} else {
-			c.Printf("%s: %s\n", device, adbSerial)
-		}
 	}
 
 	// Wait for all controllers to stop
@@ -183,13 +158,15 @@ func (f *ADBForwarder) OnADBDataChannel(dc *webrtc.DataChannel) {
 	f.logger.Printf("ADB data channel to %q changed state: %v\n", f.device, dc.ReadyState())
 	dc.OnOpen(func() {
 		f.logger.Printf("ADB data channel to %q changed state: %v\n", f.device, dc.ReadyState())
-		dc.OnMessage(func(msg webrtc.DataChannelMessage) {
-			if err := f.Send(msg.Data); err != nil {
-				f.logger.Printf("Error writing to ADB server for %q: %v", f.device, err)
-			}
-		})
+		f.connectADB()
+	})
+	dc.OnMessage(func(msg webrtc.DataChannelMessage) {
+		if err := f.Send(msg.Data); err != nil {
+			f.logger.Printf("Error writing to ADB server for %q: %v", f.device, err)
+		}
 	})
 	dc.OnClose(func() {
+		f.logger.Printf("ADB data channel to %q changed state: %v\n", f.device, dc.ReadyState())
 		f.StopForwarding(ADBFwdFailed)
 	})
 }
@@ -353,6 +330,15 @@ func (f *ADBForwarder) recvLoop() {
 	}
 }
 
+func (f *ADBForwarder) connectADB() {
+	adbSerial := fmt.Sprintf("127.0.0.1:%d", f.port)
+	if err := ADBConnect(adbSerial); err != nil {
+		f.logger.Printf("Error connecting ADB to %q (%s): %v", adbSerial, f.device, err)
+	} else {
+		f.logger.Printf("%s connected on: %s\n", f.device, adbSerial)
+	}
+}
+
 const (
 	versionCmd = "version"
 	statusCmd  = "status"
@@ -415,10 +401,6 @@ func (tc *TunnelController) Stop() {
 	tc.conn.Close()
 	// This will cause the control loop to finish.
 	tc.control.Close()
-}
-
-func (tc *TunnelController) ForwarderPort() int {
-	return tc.forwarder.port
 }
 
 func (tc *TunnelController) Run() {

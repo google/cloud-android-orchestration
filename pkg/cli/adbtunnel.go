@@ -18,11 +18,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"os"
-	"os/exec"
 	"strings"
 	"sync"
 
@@ -84,15 +82,6 @@ func newADBTunnelCommand(opts *subCommandOpts) *cobra.Command {
 }
 
 func openADBTunnel(flags *OpenADBTunnelFlags, c *command, args []string, opts *subCommandOpts) error {
-	adbPath := ""
-	if flags.connect {
-		path, err := exec.LookPath("adb")
-		if err != nil {
-			return fmt.Errorf("Can't connect adb: %w", err)
-		}
-		adbPath = path
-	}
-
 	service, err := opts.ServiceBuilder(flags.CommonSubcmdFlags, c.Command)
 	if err != nil {
 		return err
@@ -126,17 +115,16 @@ func openADBTunnel(flags *OpenADBTunnelFlags, c *command, args []string, opts *s
 		ctrls = append(ctrls, controller)
 
 		adbSerial := fmt.Sprintf("127.0.0.1:%d", controller.ForwarderPort())
-		if adbPath == "" {
-			// Print the address to stdout if adb wasn't connected automatically
+		if flags.connect {
+			if err := ADBConnect(adbSerial); err != nil {
+				c.PrintErrf("Error connecting ADB to %q (%s): %v", adbSerial, device, err)
+				merr = multierror.Append(merr, err)
+			} else {
+				c.PrintErrf("%s connected on: %s\n", device, adbSerial)
+			}
+		} else {
 			c.Printf("%s: %s\n", device, adbSerial)
-			continue
 		}
-		if err := ADBConnect(adbSerial, adbPath, c.ErrOrStderr()); err != nil {
-			c.PrintErrf("Error connecting ADB to %q: %v", device, err)
-			// Just print the error, don't add it to merr since the forwarding is working
-			continue
-		}
-		c.PrintErrf("%s connected on: %s\n", device, adbSerial)
 	}
 
 	// Wait for all controllers to stop
@@ -194,14 +182,15 @@ func (f *ADBForwarder) OnADBDataChannel(dc *webrtc.DataChannel) {
 	f.dc = dc
 	f.logger.Printf("ADB data channel to %q changed state: %v\n", f.device, dc.ReadyState())
 	dc.OnOpen(func() {
+		f.logger.Printf("ADB data channel to %q changed state: %v\n", f.device, dc.ReadyState())
 		dc.OnMessage(func(msg webrtc.DataChannelMessage) {
 			if err := f.Send(msg.Data); err != nil {
 				f.logger.Printf("Error writing to ADB server for %q: %v", f.device, err)
 			}
 		})
-		dc.OnClose(func() {
-			f.StopForwarding(ADBFwdFailed)
-		})
+	})
+	dc.OnClose(func() {
+		f.StopForwarding(ADBFwdFailed)
 	})
 }
 
@@ -509,10 +498,22 @@ func createControlSocket(dir string, port int) (*net.UnixListener, error) {
 	return control, nil
 }
 
-func ADBConnect(adbSerial string, adbPath string, errOut io.Writer) error {
-	cmd := exec.Command(adbPath, "connect", adbSerial)
-	// Make sure any adb errors are printed. Don't do the same for stdout: we'll print a
-	// similar message with the device name.
-	cmd.Stderr = errOut
-	return cmd.Run()
+func ADBConnect(adbSerial string) error {
+	const ADBServerPort = 5037
+	conn, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", ADBServerPort))
+	if err != nil {
+		return fmt.Errorf("Unable to contact ADB server: %w", err)
+	}
+	defer conn.Close()
+	msg := fmt.Sprintf("host:connect:%s", adbSerial)
+	msg = fmt.Sprintf("%.4x%s", len(msg), msg)
+	written := 0
+	for written < len(msg) {
+		n, err := conn.Write([]byte(msg[written:]))
+		if err != nil {
+			return fmt.Errorf("Error sending message to ADB server: %w", err)
+		}
+		written += n
+	}
+	return nil
 }

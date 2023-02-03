@@ -59,7 +59,7 @@ func newADBTunnelCommand(opts *subCommandOpts) *cobra.Command {
 		Use:   "list",
 		Short: "Lists open ADB tunnels.",
 		RunE: func(c *cobra.Command, args []string) error {
-			return listADBTunnels(listFlags, &command{c, &adbTunnelFlags.Verbose}, args, opts)
+			return listADBTunnels(listFlags, &command{c, &adbTunnelFlags.Verbose}, opts)
 		},
 	}
 	list.PersistentFlags().BoolVarP(&listFlags.longFormat, "long", "l", false, "Print with long format.")
@@ -120,7 +120,7 @@ func openADBTunnel(flags *ADBTunnelFlags, c *command, args []string, opts *subCo
 	return merr
 }
 
-func listADBTunnels(flags *listADBTunnelFlags, c *command, args []string, opts *subCommandOpts) error {
+func listADBTunnels(flags *listADBTunnelFlags, c *command, opts *subCommandOpts) error {
 	controlDir := opts.InitialConfig.ADBControlDirExpanded()
 	entries, err := os.ReadDir(controlDir)
 	if err != nil {
@@ -144,6 +144,11 @@ func listADBTunnels(flags *listADBTunnelFlags, c *command, args []string, opts *
 			merr = multierror.Append(err)
 			continue
 		}
+
+		if flags.host != "" && status.Host != flags.host {
+			continue
+		}
+
 		line := fmt.Sprintf("%s/%s 127.0.0.1:%d %s",
 			status.Host, status.Device, status.Port, status.State)
 		if flags.longFormat {

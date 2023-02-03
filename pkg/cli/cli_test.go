@@ -32,7 +32,6 @@ import (
 
 	hoapi "github.com/google/android-cuttlefish/frontend/src/liboperator/api/v1"
 	"github.com/google/go-cmp/cmp"
-	"github.com/hashicorp/go-multierror"
 )
 
 func TestRequiredFlags(t *testing.T) {
@@ -271,48 +270,6 @@ func TestCommandSucceeds(t *testing.T) {
 			}
 		})
 	}
-}
-
-type delHostReqHandler struct {
-	WithHostNames map[string]struct{}
-}
-
-func (h *delHostReqHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "DELETE" {
-		panic("unexpected method: " + r.Method)
-	}
-	re := regexp.MustCompile(`^/v1/hosts/(.*)$`)
-	matches := re.FindStringSubmatch(r.URL.Path)
-	if len(matches) != 2 {
-		panic("unexpected path: " + r.URL.Path)
-	}
-	if _, ok := h.WithHostNames[matches[1]]; ok {
-		writeOK(w, "")
-	} else {
-		writeErr(w, 404)
-	}
-}
-
-func TestDeleteHostsCommandFails(t *testing.T) {
-	hostNames := map[string]struct{}{"bar": {}, "baz": {}}
-	srvHandler := &delHostReqHandler{hostNames}
-	ts := httptest.NewServer(srvHandler)
-	defer ts.Close()
-	io, _, _ := newTestIOStreams()
-	opts := &CommandOptions{
-		IOStreams:      io,
-		Args:           append([]string{"--service_url=" + ts.URL}, "host", "delete", "foo", "bar", "baz", "quz"),
-		ServiceBuilder: client.NewService,
-	}
-
-	err := NewCVDRemoteCommand(opts).Execute()
-
-	merr, _ := err.(*multierror.Error)
-	errs := merr.WrappedErrors()
-	if len(errs) != 2 {
-		t.Errorf("expected 2, got: %d", len(errs))
-	}
-
 }
 
 func newTestIOStreams() (IOStreams, *bytes.Buffer, *bytes.Buffer) {

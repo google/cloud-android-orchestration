@@ -18,10 +18,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log"
 	"net"
 	"os"
-	"strings"
 	"sync"
 
 	client "github.com/google/cloud-android-orchestration/pkg/client"
@@ -37,6 +37,11 @@ type ADBTunnelFlags struct {
 	host string
 }
 
+type listADBTunnelFlags struct {
+	*ADBTunnelFlags
+	longFormat bool
+}
+
 func newADBTunnelCommand(opts *subCommandOpts) *cobra.Command {
 	adbTunnelFlags := &ADBTunnelFlags{&CommonSubcmdFlags{opts.RootFlags, false}, ""}
 	open := &cobra.Command{
@@ -46,11 +51,18 @@ func newADBTunnelCommand(opts *subCommandOpts) *cobra.Command {
 			return openADBTunnel(adbTunnelFlags, &command{c, &adbTunnelFlags.Verbose}, args, opts)
 		},
 	}
+	listFlags := &listADBTunnelFlags{
+		ADBTunnelFlags: adbTunnelFlags,
+		longFormat:     false,
+	}
 	list := &cobra.Command{
 		Use:   "list",
 		Short: "Lists open ADB tunnels.",
-		RunE:  notImplementedCommand,
+		RunE: func(c *cobra.Command, args []string) error {
+			return listADBTunnels(listFlags, &command{c, &adbTunnelFlags.Verbose}, args, opts)
+		},
 	}
+	list.PersistentFlags().BoolVarP(&listFlags.longFormat, "long", "l", false, "Print with long format.")
 	close := &cobra.Command{
 		Use:   "close <foo> <bar> <baz>",
 		Short: "Close ADB tunnels.",
@@ -87,7 +99,7 @@ func openADBTunnel(flags *ADBTunnelFlags, c *command, args []string, opts *subCo
 			device:     device,
 		}
 		controller, err := NewTunnelController(
-			opts.InitialConfig.ADBControlDir, service, devProps, logger)
+			opts.InitialConfig.ADBControlDirExpanded(), service, devProps, logger)
 
 		if err != nil {
 			merr = multierror.Append(merr, err)
@@ -105,6 +117,40 @@ func openADBTunnel(flags *ADBTunnelFlags, c *command, args []string, opts *subCo
 	// Wait for all controllers to stop
 	wg.Wait()
 
+	return merr
+}
+
+func listADBTunnels(flags *listADBTunnelFlags, c *command, args []string, opts *subCommandOpts) error {
+	controlDir := opts.InitialConfig.ADBControlDirExpanded()
+	entries, err := os.ReadDir(controlDir)
+	if err != nil {
+		return fmt.Errorf("Error reading %s: %w", controlDir, err)
+	}
+	var merr error
+	for _, file := range entries {
+		if file.Type()&fs.ModeSocket == 0 {
+			// Skip non socket files in the control directory.
+			continue
+		}
+		path := fmt.Sprintf("%s/%s", controlDir, file.Name())
+		conn, err := net.Dial("unixpacket", path)
+		if err != nil {
+			merr = multierror.Append(fmt.Errorf("Unable to contact tunnel agent: %w", err))
+			continue
+		}
+		status, err := sendStatusCmd(conn)
+		conn.Close()
+		if err != nil {
+			merr = multierror.Append(err)
+			continue
+		}
+		line := fmt.Sprintf("%s/%s 127.0.0.1:%d %s",
+			status.Host, status.Device, status.Port, status.State)
+		if flags.longFormat {
+			line = fmt.Sprintf("%s: %s/%s", status.ServiceURL, status.Zone, line)
+		}
+		c.Printf("%s", line)
+	}
 	return merr
 }
 
@@ -228,7 +274,7 @@ func (f *ADBForwarder) Send(data []byte) error {
 	return nil
 }
 
-type StatusMsg struct {
+type ADBForwarderStatus struct {
 	ServiceURL string `json:"service_url"`
 	Zone       string `json:"zone"`
 	Host       string `json:"host"`
@@ -237,11 +283,11 @@ type StatusMsg struct {
 	State      string `json:"state"`
 }
 
-func (f *ADBForwarder) StatusJSON() []byte {
-	// Pass equal values to get the current state without chaning it
+func (f *ADBForwarder) Status() ADBForwarderStatus {
+	// Pass equal values to get the current state without changing it
 	_, state := f.compareAndSwapState(-1, -1)
 
-	msg := StatusMsg{
+	return ADBForwarderStatus{
 		ServiceURL: f.serviceURL,
 		Zone:       f.zone,
 		Host:       f.host,
@@ -249,11 +295,6 @@ func (f *ADBForwarder) StatusJSON() []byte {
 		Port:       f.port,
 		State:      StateAsStr(state),
 	}
-	ret, err := json.Marshal(&msg)
-	if err != nil {
-		panic(fmt.Sprintf("Couldn't marshal status map: %v", err))
-	}
-	return ret
 }
 
 // Changes f.state to new if it had old. Returns whether the change was
@@ -354,7 +395,7 @@ type TunnelController struct {
 	logger    *log.Logger
 }
 
-func NewTunnelController(tunnelDir string, service client.Service, devProps deviceProperties,
+func NewTunnelController(controlDir string, service client.Service, devProps deviceProperties,
 	logger *log.Logger) (*TunnelController, error) {
 	// Bind the two local sockets before attempting to connect over WebRTC
 	tunnel, err := bindTCPSocket()
@@ -378,7 +419,7 @@ func NewTunnelController(tunnelDir string, service client.Service, devProps devi
 
 	// Create the control socket as late as possible to reduce the chances of it
 	// being left behind if the user interrupts the command.
-	control, err := createControlSocket(tunnelDir, port)
+	control, err := createControlSocket(controlDir, port)
 	if err != nil {
 		conn.Close()
 		return nil, fmt.Errorf("Control socket creation failed for %q: %w", f.device, err)
@@ -438,7 +479,12 @@ func (tc *TunnelController) handleControlCommand(conn net.Conn) {
 			tc.logger.Printf("Error writing to control socket connection: %v", err)
 		}
 	case statusCmd:
-		_, err := conn.Write(tc.forwarder.StatusJSON())
+		status := tc.forwarder.Status()
+		msg, err := json.Marshal(&status)
+		if err != nil {
+			panic(fmt.Sprintf("Couldn't marshal status map: %v", err))
+		}
+		_, err = conn.Write(msg)
 		if err != nil {
 			tc.logger.Printf("Error writing to control socket connection: %v", err)
 		}
@@ -447,6 +493,26 @@ func (tc *TunnelController) handleControlCommand(conn net.Conn) {
 	default:
 		tc.logger.Printf("Unknown command on control socket: %q", cmd)
 	}
+}
+
+// The returned status is only valid if the error is nil
+func sendStatusCmd(conn net.Conn) (ADBForwarderStatus, error) {
+	var msg ADBForwarderStatus
+	// No need to write in a loop because it's a unixpacket socket, so all
+	// messages are delivered in full or not at all.
+	_, err := conn.Write([]byte(statusCmd))
+	if err != nil {
+		return msg, fmt.Errorf("Failed to send status command: %w", err)
+	}
+	buff := make([]byte, 512)
+	n, err := conn.Read(buff)
+	if err != nil {
+		return msg, fmt.Errorf("Failed to read status command response: %w", err)
+	}
+	if err := json.Unmarshal(buff[:n], &msg); err != nil {
+		return msg, fmt.Errorf("Failed to parse status command response: %w", err)
+	}
+	return msg, nil
 }
 
 func bindTCPSocket() (net.Listener, error) {
@@ -458,17 +524,16 @@ func bindTCPSocket() (net.Listener, error) {
 }
 
 func createControlSocket(dir string, port int) (*net.UnixListener, error) {
-	home := os.Getenv("HOME")
-	dir = strings.ReplaceAll(dir, "~", home)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return nil, fmt.Errorf("Failed to create dir %s: %w", dir, err)
 	}
 
 	// The canonical name is too long to use as a unix socket name, use the port
 	// instead and use the canonical name to create a symlink to the socket.
-	name := fmt.Sprintf("%d", port)
+	name := fmt.Sprintf("%d.sock", port)
 	path := fmt.Sprintf("%s/%s", dir, name)
 
+	// Use of "unixpacket" network is required to have message boundaries.
 	control, err := net.ListenUnix("unixpacket", &net.UnixAddr{Name: path, Net: "unixpacket"})
 	if err != nil {
 		fmt.Println(err)

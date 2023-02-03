@@ -33,12 +33,16 @@ const (
 	localImageFlag = "local_image"
 )
 
-type CreateCVDFlags struct {
-	*CommonSubcmdFlags
+type CreateCVDOpts struct {
 	BuildID    string
 	Target     string
 	Host       string
 	LocalImage bool
+}
+
+type CreateCVDFlags struct {
+	*CommonSubcmdFlags
+	*CreateCVDOpts
 }
 
 type ListCVDsFlags struct {
@@ -48,7 +52,7 @@ type ListCVDsFlags struct {
 
 func newCVDCommand(opts *subCommandOpts) *cobra.Command {
 	cvdFlags := &CommonSubcmdFlags{CVDRemoteFlags: opts.RootFlags}
-	createFlags := &CreateCVDFlags{CommonSubcmdFlags: cvdFlags}
+	createFlags := &CreateCVDFlags{CommonSubcmdFlags: cvdFlags, CreateCVDOpts: &CreateCVDOpts{}}
 	create := &cobra.Command{
 		Use:   "create",
 		Short: "Creates a CVD.",
@@ -87,42 +91,16 @@ func newCVDCommand(opts *subCommandOpts) *cobra.Command {
 func createCVD(c *cobra.Command, flags *CreateCVDFlags, opts *subCommandOpts) error {
 	service, err := opts.ServiceBuilder(flags.CommonSubcmdFlags, c)
 	if err != nil {
-		return err
-	}
-	if flags.LocalImage {
-		return createCVDFromLocalBuild(service, c, flags)
-	}
-	return createCVDFromAndroidCI(service, c, flags)
-}
+		return fmt.Errorf("Failed to build service instance: %w", err)
 
-func createCVDFromLocalBuild(service client.Service, c *cobra.Command, flags *CreateCVDFlags) error {
-	vars, err := GetAndroidEnvVarValues()
+	}
+	action := &createCVDAction{
+		Service: service,
+		Opts:    *flags.CreateCVDOpts,
+	}
+	cvd, err := action.Execute()
 	if err != nil {
-		return fmt.Errorf("Error retrieving Android Build environment variables: %w", err)
-	}
-	names, err := ListLocalImageRequiredFiles(vars)
-	if err != nil {
-		return fmt.Errorf("Error building list of required image files: %w", err)
-	}
-	uploadDir, err := service.CreateUpload(flags.Host)
-	if err != nil {
-		return err
-	}
-	if err := service.UploadFiles(flags.Host, uploadDir, names); err != nil {
-		return err
-	}
-	req := hoapi.CreateCVDRequest{
-		CVD: &hoapi.CVD{
-			BuildSource: &hoapi.BuildSource{
-				UserBuild: &hoapi.UserBuild{
-					ArtifactsDir: uploadDir,
-				},
-			},
-		},
-	}
-	cvd, err := service.CreateCVD(flags.Host, &req)
-	if err != nil {
-		return fmt.Errorf("Error creating cvd: %w", err)
+		return fmt.Errorf("Failed to create cvd: %w", err)
 	}
 	output := CVDOutput{
 		BaseURL: buildBaseURL(flags.CVDRemoteFlags),
@@ -133,23 +111,59 @@ func createCVDFromLocalBuild(service client.Service, c *cobra.Command, flags *Cr
 	return nil
 }
 
-func createCVDFromAndroidCI(service client.Service, c *cobra.Command, flags *CreateCVDFlags) error {
+type createCVDAction struct {
+	Service client.Service
+	Opts    CreateCVDOpts
+}
+
+func (a *createCVDAction) Execute() (*hoapi.CVD, error) {
+	if a.Opts.LocalImage {
+		return a.createCVDFromLocalBuild()
+	} else {
+		return a.createCVDFromAndroidCI()
+	}
+}
+
+func (a *createCVDAction) createCVDFromLocalBuild() (*hoapi.CVD, error) {
+	vars, err := GetAndroidEnvVarValues()
+	if err != nil {
+		return nil, fmt.Errorf("Error retrieving Android Build environment variables: %w", err)
+	}
+	names, err := ListLocalImageRequiredFiles(vars)
+	if err != nil {
+		return nil, fmt.Errorf("Error building list of required image files: %w", err)
+	}
+	uploadDir, err := a.Service.CreateUpload(a.Opts.Host)
+	if err != nil {
+		return nil, err
+	}
+	if err := a.Service.UploadFiles(a.Opts.Host, uploadDir, names); err != nil {
+		return nil, err
+	}
 	req := hoapi.CreateCVDRequest{
 		CVD: &hoapi.CVD{
 			BuildSource: &hoapi.BuildSource{
-				AndroidCIBuild: &hoapi.AndroidCIBuild{
-					BuildID: flags.BuildID,
-					Target:  flags.Target,
+				UserBuild: &hoapi.UserBuild{
+					ArtifactsDir: uploadDir,
 				},
 			},
 		},
 	}
-	cvd, err := service.CreateCVD(flags.Host, &req)
-	if err != nil {
-		return err
+	return a.Service.CreateCVD(a.Opts.Host, &req)
+}
+
+func (a *createCVDAction) createCVDFromAndroidCI() (*hoapi.CVD, error) {
+	req := hoapi.CreateCVDRequest{
+		CVD: &hoapi.CVD{
+			BuildSource: &hoapi.BuildSource{
+				AndroidCIBuild: &hoapi.AndroidCIBuild{
+					BuildID: a.Opts.BuildID,
+					Target:  a.Opts.Target,
+				},
+			},
+		},
 	}
-	c.Printf("%s\n", cvd.Name)
-	return nil
+	return a.Service.CreateCVD(a.Opts.Host, &req)
 }
 
 func listCVDs(c *cobra.Command, flags *ListCVDsFlags, opts *subCommandOpts) error {

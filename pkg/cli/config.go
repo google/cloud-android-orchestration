@@ -15,7 +15,10 @@
 package cli
 
 import (
+	"fmt"
 	"io"
+	"os"
+	"strings"
 
 	toml "github.com/pelletier/go-toml"
 )
@@ -37,6 +40,10 @@ type Config struct {
 	Host          HostConfig
 }
 
+func (c *Config) ADBControlDirExpanded() string {
+	return expandPath(c.ADBControlDir)
+}
+
 func DefaultConfig() Config {
 	return Config{
 		ADBControlDir: "~/.cvdremote/adb",
@@ -53,4 +60,15 @@ func ParseConfigFile(config *Config, confFile io.Reader) error {
 		return err
 	}
 	return nil
+}
+
+func expandPath(path string) string {
+	if !strings.Contains(path, "~") {
+		return path
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		panic(fmt.Sprintf("Unable to expand path %q: %v", path, err))
+	}
+	return strings.ReplaceAll(path, "~", home)
 }

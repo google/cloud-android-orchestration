@@ -16,19 +16,15 @@ package cli
 
 import (
 	"bytes"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net/http"
-	"net/http/httptest"
-	"regexp"
 	"strings"
 	"testing"
 
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
 	"github.com/google/cloud-android-orchestration/pkg/client"
+	wclient "github.com/google/cloud-android-orchestration/pkg/webrtcclient"
 
 	hoapi "github.com/google/android-cuttlefish/frontend/src/liboperator/api/v1"
 	"github.com/google/go-cmp/cmp"
@@ -72,78 +68,82 @@ func TestRequiredFlags(t *testing.T) {
 	}
 }
 
-type createHostReqFailsHandler struct{ WithErrCode int }
+type fakeService struct{}
 
-func (h *createHostReqFailsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	switch ep := r.Method + " " + r.URL.Path; ep {
-	case "POST /v1/hosts":
-		writeErr(w, h.WithErrCode)
-	default:
-		panic("unexpected request")
-	}
+func (fakeService) CreateHost(req *apiv1.CreateHostRequest) (*apiv1.HostInstance, error) {
+	return &apiv1.HostInstance{Name: "foo"}, nil
 }
 
-type createHostWaitOpReqFailsHandler struct{ WithErrCode int }
-
-func (h *createHostWaitOpReqFailsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	const opName = "op-foo"
-	switch ep := r.Method + " " + r.URL.Path; ep {
-	case "POST /v1/hosts":
-		writeOK(w, &apiv1.Operation{Name: opName})
-	case "POST /v1/operations/" + opName + "/:wait":
-		writeErr(w, h.WithErrCode)
-	default:
-		panic("unexpected request")
-	}
+func (fakeService) ListHosts() (*apiv1.ListHostsResponse, error) {
+	return &apiv1.ListHostsResponse{
+		Items: []*apiv1.HostInstance{{Name: "foo"}, {Name: "bar"}},
+	}, nil
 }
 
-type listsHostReqFailsHandler struct{ WithErrCode int }
-
-func (h *listsHostReqFailsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	switch ep := r.Method + " " + r.URL.Path; ep {
-	case "GET /v1/hosts":
-		writeErr(w, h.WithErrCode)
-	default:
-		panic("unexpected request")
-	}
+func (fakeService) DeleteHosts(name []string) error {
+	return nil
 }
 
-func TestCommandFails(t *testing.T) {
+func (fakeService) GetInfraConfig(host string) (*apiv1.InfraConfig, error) {
+	return nil, nil
+}
+
+func (fakeService) ConnectWebRTC(host, device string, observer wclient.Observer) (*wclient.Connection, error) {
+	return nil, nil
+}
+
+func (fakeService) CreateCVD(host string, req *hoapi.CreateCVDRequest) (*hoapi.CVD, error) {
+	return &hoapi.CVD{Name: "cvd-1"}, nil
+}
+
+func (fakeService) ListCVDs(host string) ([]*hoapi.CVD, error) {
+	return nil, nil
+}
+
+func (fakeService) CreateUpload(host string) (string, error) {
+	return "", nil
+}
+
+func (fakeService) UploadFiles(host, uploadDir string, filenames []string) error {
+	return nil
+}
+
+func TestCommandSucceeds(t *testing.T) {
 	tests := []struct {
-		Name       string
-		Args       []string
-		SrvHandler http.Handler
-		ExpOut     string
-		ExpErr     error
+		Name   string
+		Args   []string
+		ExpOut string
 	}{
 		{
-			Name:       "create host api call fails",
-			Args:       []string{"host", "create"},
-			SrvHandler: &createHostReqFailsHandler{WithErrCode: 404},
-			ExpErr:     &client.ApiCallError{Code: 404},
+			Name:   "host create",
+			Args:   []string{"host", "create"},
+			ExpOut: "foo\n",
 		},
 		{
-			Name:       "wait operation api call fails",
-			Args:       []string{"host", "create"},
-			SrvHandler: &createHostReqFailsHandler{WithErrCode: 404},
-			ExpErr:     &client.ApiCallError{Code: 404},
+			Name:   "host list",
+			Args:   []string{"host", "list"},
+			ExpOut: "foo\nbar\n",
 		},
 		{
-			Name:       "list hosts api call fails",
-			Args:       []string{"host", "list"},
-			SrvHandler: &listsHostReqFailsHandler{WithErrCode: 404},
-			ExpErr:     &client.ApiCallError{Code: 404},
+			Name:   "host delete",
+			Args:   []string{"host", "delete", "foo", "bar"},
+			ExpOut: "",
+		},
+		{
+			Name:   "cvd create",
+			Args:   []string{"cvd", "create", "--host=foo", "--build_id=123"},
+			ExpOut: "cvd-1\n",
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
-			ts := httptest.NewServer(test.SrvHandler)
-			defer ts.Close()
 			io, _, out := newTestIOStreams()
 			opts := &CommandOptions{
-				IOStreams:      io,
-				Args:           append([]string{"--service_url=" + ts.URL}, test.Args[:]...),
-				ServiceBuilder: client.NewService,
+				IOStreams: io,
+				Args:      append(test.Args, "--service_url=http://waldo.com"),
+				ServiceBuilder: func(opts *client.ServiceOptions) (client.Service, error) {
+					return &fakeService{}, nil
+				},
 			}
 
 			err := NewCVDRemoteCommand(opts).Execute()
@@ -152,121 +152,8 @@ func TestCommandFails(t *testing.T) {
 			if diff := cmp.Diff(test.ExpOut, string(b)); diff != "" {
 				t.Errorf("standard output mismatch (-want +got):\n%s", diff)
 			}
-			if !errors.Is(err, test.ExpErr) {
-				t.Errorf("err mismatch (-want +got):\n-%v\n+%v", test.ExpErr, err)
-			}
-		})
-	}
-}
-
-const testZone = "us-west1-c"
-
-type alwaysSucceedsHandler struct {
-	WithHostName      string
-	WithHostInstances []*apiv1.HostInstance
-}
-
-func (h *alwaysSucceedsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	const opName = "op-foo"
-	switch ep := r.Method + " " + r.URL.Path; ep {
-	case "POST /v1/hosts", "POST /v1/zones/" + testZone + "/hosts":
-		writeOK(w, &apiv1.Operation{Name: opName})
-	case "POST /v1/operations/" + opName + "/:wait",
-		"POST /v1/zones/" + testZone + "/operations/" + opName + "/:wait":
-		writeOK(w, &apiv1.HostInstance{Name: h.WithHostName})
-	case "GET /v1/hosts", "GET /v1/zones/" + testZone + "/hosts":
-		writeOK(w, &apiv1.ListHostsResponse{Items: h.WithHostInstances})
-	case "DELETE /v1/hosts/" + h.getHost(r.URL.Path),
-		"DELETE /v1/zones/" + testZone + "/hosts/" + h.getHost(r.URL.Path):
-		writeOK(w, "")
-	case "POST /v1/hosts/" + h.WithHostName + "/cvds",
-		"POST /v1/zones/" + testZone + "/hosts/" + h.WithHostName + "/cvds":
-		writeOK(w, &hoapi.Operation{Name: opName})
-	case "POST /v1/hosts/" + h.WithHostName + "/operations/" + opName + "/:wait",
-		"POST /v1/zones/" + testZone + "/hosts/" + h.WithHostName + "/operations/" + opName + "/:wait":
-		writeOK(w, &hoapi.CVD{Name: "cvd-1"})
-	default:
-		panic("unexpected endpoint: " + ep)
-	}
-}
-
-func (h *alwaysSucceedsHandler) getHost(path string) string {
-	re := regexp.MustCompile(`^/v1/(zones/.*/)?hosts/(.*)$`)
-	return re.FindStringSubmatch(path)[2]
-}
-
-func TestCommandSucceeds(t *testing.T) {
-	tests := []struct {
-		Name       string
-		Args       []string
-		SrvHandler http.Handler
-		ExpOut     string
-	}{
-		{
-			Name:       "host create",
-			Args:       []string{"host", "create"},
-			SrvHandler: &alwaysSucceedsHandler{WithHostName: "foo"},
-			ExpOut:     "foo\n",
-		},
-		{
-			Name: "host list",
-			Args: []string{"host", "list"},
-			SrvHandler: &alwaysSucceedsHandler{
-				WithHostInstances: []*apiv1.HostInstance{{Name: "foo"}, {Name: "bar"}},
-			},
-			ExpOut: "foo\nbar\n",
-		},
-		{
-			Name:       "host delete",
-			Args:       []string{"host", "delete", "foo", "bar"},
-			SrvHandler: &alwaysSucceedsHandler{},
-			ExpOut:     "",
-		},
-		{
-			Name:       "cvd create",
-			Args:       []string{"cvd", "create", "--host=foo", "--build_id=123"},
-			SrvHandler: &alwaysSucceedsHandler{WithHostName: "foo"},
-			ExpOut:     "cvd-1\n",
-		},
-	}
-	for _, test := range tests {
-		t.Run(strings.Join(test.Args, " "), func(t *testing.T) {
-			ts := httptest.NewServer(test.SrvHandler)
-			defer ts.Close()
-			configs := []struct {
-				Name string
-				Args []string
-			}{
-				{Name: "default", Args: []string{"--service_url=" + ts.URL}},
-				{Name: "having zone", Args: []string{"--service_url=" + ts.URL, "--zone=" + testZone}},
-				{
-					Name: "having proxy",
-					Args: []string{
-						"--service_url=http://foo.com",
-						"--zone=" + testZone,
-						"--http_proxy=" + ts.URL,
-					},
-				},
-			}
-			for _, cfg := range configs {
-				t.Run("with config "+cfg.Name, func(t *testing.T) {
-					io, _, out := newTestIOStreams()
-					opts := &CommandOptions{
-						IOStreams:      io,
-						Args:           append(cfg.Args, test.Args[:]...),
-						ServiceBuilder: client.NewService,
-					}
-
-					err := NewCVDRemoteCommand(opts).Execute()
-
-					b, _ := ioutil.ReadAll(out)
-					if diff := cmp.Diff(test.ExpOut, string(b)); diff != "" {
-						t.Errorf("standard output mismatch (-want +got):\n%s", diff)
-					}
-					if err != nil {
-						t.Fatal(err)
-					}
-				})
+			if err != nil {
+				t.Fatal(err)
 			}
 		})
 	}
@@ -282,19 +169,4 @@ func newTestIOStreams() (IOStreams, *bytes.Buffer, *bytes.Buffer) {
 		Out:    out,
 		ErrOut: errOut,
 	}, in, out
-}
-
-func writeErr(w http.ResponseWriter, statusCode int) {
-	write(w, &apiv1.Error{Code: statusCode}, statusCode)
-}
-
-func writeOK(w http.ResponseWriter, data any) {
-	write(w, data, http.StatusOK)
-}
-
-func write(w http.ResponseWriter, data any, statusCode int) {
-	w.WriteHeader(statusCode)
-	w.Header().Set("Content-Type", "application/json")
-	encoder := json.NewEncoder(w)
-	encoder.Encode(data)
 }

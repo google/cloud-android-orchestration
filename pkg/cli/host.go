@@ -16,11 +16,9 @@ package cli
 
 import (
 	"fmt"
-	"sync"
 
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
 
-	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 )
 
@@ -117,24 +115,9 @@ func listHosts(c *cobra.Command, flags *HostFlags, opts *subCommandOpts) error {
 }
 
 func deleteHosts(c *cobra.Command, args []string, flags *HostFlags, opts *subCommandOpts) error {
-	apiClient, err := opts.ServiceBuilder(flags.CommonSubcmdFlags, c)
+	service, err := opts.ServiceBuilder(flags.CommonSubcmdFlags, c)
 	if err != nil {
 		return err
 	}
-	var wg sync.WaitGroup
-	var mu sync.Mutex
-	var merr error
-	for _, arg := range args {
-		wg.Add(1)
-		go func(name string) {
-			defer wg.Done()
-			if err := apiClient.DeleteHost(name); err != nil {
-				mu.Lock()
-				defer mu.Unlock()
-				merr = multierror.Append(merr, fmt.Errorf("delete host %q failed: %w", name, err))
-			}
-		}(arg)
-	}
-	wg.Wait()
-	return merr
+	return service.DeleteHosts(args)
 }

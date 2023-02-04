@@ -74,6 +74,40 @@ func (c *command) PrintVerbosef(format string, arg ...any) {
 	}
 }
 
+type SelectionOption int32
+
+const (
+	AllowAll SelectionOption = 1 << iota
+)
+
+func (c *command) PromptSelection(choices []string, selOpt SelectionOption) ([]int, error) {
+	for i, v := range choices {
+		c.PrintErrf("%d) %s\n", i, v)
+	}
+	maxChoice := len(choices) - 1
+	if selOpt&AllowAll != 0 {
+		c.PrintErrf("%d) All\n", len(choices))
+		maxChoice = len(choices)
+	}
+	c.PrintErrf("Choose an option: ")
+	chosen := -1
+	_, err := fmt.Fscanln(c.InOrStdin(), &chosen)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to read choice: %w", err)
+	}
+	if chosen < 0 || chosen > maxChoice {
+		return nil, fmt.Errorf("Choice out of range: %d", chosen)
+	}
+	if chosen < len(choices) {
+		return []int{chosen}, nil
+	}
+	ret := make([]int, len(choices))
+	for i := range choices {
+		ret[i] = i
+	}
+	return ret, nil
+}
+
 func NewCVDRemoteCommand(o *CommandOptions) *CVDRemoteCommand {
 	flags := &CVDRemoteFlags{}
 	rootCmd := &cobra.Command{

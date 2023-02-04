@@ -42,6 +42,11 @@ type listADBTunnelFlags struct {
 	longFormat bool
 }
 
+type closeADBTunnelFlags struct {
+	*ADBTunnelFlags
+	skipConfirmation bool
+}
+
 func newADBTunnelCommand(opts *subCommandOpts) *cobra.Command {
 	adbTunnelFlags := &ADBTunnelFlags{&CommonSubcmdFlags{opts.RootFlags, false}, ""}
 	open := &cobra.Command{
@@ -62,12 +67,17 @@ func newADBTunnelCommand(opts *subCommandOpts) *cobra.Command {
 			return listADBTunnels(listFlags, &command{c, &adbTunnelFlags.Verbose}, opts)
 		},
 	}
-	list.PersistentFlags().BoolVarP(&listFlags.longFormat, "long", "l", false, "Print with long format.")
+	list.Flags().BoolVarP(&listFlags.longFormat, "long", "l", false, "Print with long format.")
+	closeFlags := &closeADBTunnelFlags{adbTunnelFlags, false /*skipConfirmation*/}
 	close := &cobra.Command{
 		Use:   "close <foo> <bar> <baz>",
 		Short: "Close ADB tunnels.",
-		RunE:  notImplementedCommand,
+		RunE: func(c *cobra.Command, args []string) error {
+			return closeADBTunnels(closeFlags, &command{c, &adbTunnelFlags.Verbose}, args, opts)
+		},
 	}
+	close.Flags().BoolVarP(&closeFlags.skipConfirmation, "yes", "y", false,
+		"Don't ask for confirmation for closing multiple tunnels.")
 	adbTunnel := &cobra.Command{
 		Use:   "adbtunnel",
 		Short: "Work with ADB tunnels",
@@ -120,13 +130,71 @@ func openADBTunnel(flags *ADBTunnelFlags, c *command, args []string, opts *subCo
 	return merr
 }
 
+func printADBTunnels(forwarders []ADBForwarderStatus, c *command, longFormat bool) {
+	for _, fwdr := range forwarders {
+		line := fmt.Sprintf("%s/%s 127.0.0.1:%d %s",
+			fwdr.Host, fwdr.Device, fwdr.Port, fwdr.State)
+		if longFormat {
+			line = fmt.Sprintf("%s: %s/%s", fwdr.ServiceURL, fwdr.Zone, line)
+		}
+		c.Println(line)
+	}
+}
+
 func listADBTunnels(flags *listADBTunnelFlags, c *command, opts *subCommandOpts) error {
 	controlDir := opts.InitialConfig.ADBControlDirExpanded()
+	forwarders, err := gatherADBTunnels(controlDir, flags.Zone, flags.host)
+	// Print the tunnels we may have found before an error was encountered if any.
+	printADBTunnels(forwarders, c, flags.longFormat)
+	return err
+}
+
+func closeADBTunnels(flags *closeADBTunnelFlags, c *command, args []string, opts *subCommandOpts) error {
+	devices := make(map[string]any)
+	for _, a := range args {
+		devices[a] = nil
+	}
+	controlDir := opts.InitialConfig.ADBControlDirExpanded()
+	forwarders, merr := gatherADBTunnels(controlDir, flags.Zone, flags.host)
+	if len(args) > 0 {
+		var inArgs []ADBForwarderStatus
+		for _, fwdr := range forwarders {
+			if _, in := devices[fwdr.Device]; in {
+				inArgs = append(inArgs, fwdr)
+			}
+		}
+		forwarders = inArgs
+	}
+	if len(forwarders) == 0 {
+		return fmt.Errorf("No ADB tunnels found")
+	}
+	if len(forwarders) > 1 && !flags.skipConfirmation {
+		var err error
+		forwarders, err = promptTunnelSelection(forwarders, c)
+		if err != nil {
+			// A failure to read user input cancels the entire command.
+			return err
+		}
+	}
+	for _, dev := range forwarders {
+		if err := closeTunnel(controlDir, dev); err != nil {
+			multierror.Append(merr, err)
+			continue
+		}
+		c.Printf("%s/%s: closed\n", dev.Host, dev.Device)
+	}
+	return merr
+}
+
+// Finds all existing ADB tunnels. Returns the list of ADB tunnels it was able
+// to gather along with a multierror detailing errors for the unreachable ones.
+func gatherADBTunnels(controlDir string, zone, host string) ([]ADBForwarderStatus, error) {
+	var merr error
+	forwarders := make([]ADBForwarderStatus, 0)
 	entries, err := os.ReadDir(controlDir)
 	if err != nil {
-		return fmt.Errorf("Error reading %s: %w", controlDir, err)
+		return forwarders, fmt.Errorf("Error reading %s: %w", controlDir, err)
 	}
-	var merr error
 	for _, file := range entries {
 		if file.Type()&fs.ModeSocket == 0 {
 			// Skip non socket files in the control directory.
@@ -138,25 +206,53 @@ func listADBTunnels(flags *listADBTunnelFlags, c *command, opts *subCommandOpts)
 			merr = multierror.Append(fmt.Errorf("Unable to contact tunnel agent: %w", err))
 			continue
 		}
-		status, err := sendStatusCmd(conn)
+		fwdr, err := sendStatusCmd(conn)
 		conn.Close()
 		if err != nil {
 			merr = multierror.Append(err)
 			continue
 		}
 
-		if flags.host != "" && status.Host != flags.host {
+		if zone != "" && zone != fwdr.Zone {
 			continue
 		}
 
-		line := fmt.Sprintf("%s/%s 127.0.0.1:%d %s",
-			status.Host, status.Device, status.Port, status.State)
-		if flags.longFormat {
-			line = fmt.Sprintf("%s: %s/%s", status.ServiceURL, status.Zone, line)
+		if host != "" && fwdr.Host != host {
+			continue
 		}
-		c.Printf("%s", line)
+
+		forwarders = append(forwarders, fwdr)
 	}
-	return merr
+	return forwarders, merr
+}
+
+func closeTunnel(controlDir string, dev ADBForwarderStatus) error {
+	conn, err := net.Dial("unixpacket", fmt.Sprintf("%s/%d.sock", controlDir, dev.Port))
+	if err != nil {
+		return fmt.Errorf("Failed to connect to %s/%s's agent: %w", dev.Host, dev.Device, err)
+	}
+	_, err = conn.Write([]byte(stopCmd))
+	if err != nil {
+		return fmt.Errorf("Failed to send stop command to %s/%s: %w", dev.Host, dev.Device, err)
+	}
+	return nil
+}
+
+func promptTunnelSelection(devices []ADBForwarderStatus, c *command) ([]ADBForwarderStatus, error) {
+	c.PrintErrln("Multiple ADB tunnels match:")
+	names := make([]string, len(devices))
+	for i, d := range devices {
+		names[i] = fmt.Sprintf("%s %s", d.Host, d.Device)
+	}
+	choices, err := c.PromptSelection(names, AllowAll)
+	if err != nil {
+		return nil, err
+	}
+	ret := make([]ADBForwarderStatus, len(choices))
+	for i, v := range choices {
+		ret[i] = devices[v]
+	}
+	return ret, nil
 }
 
 type deviceProperties struct {

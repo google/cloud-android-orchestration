@@ -16,6 +16,7 @@ package cli
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"sync"
@@ -102,12 +103,7 @@ func createCVD(c *cobra.Command, flags *CreateCVDFlags, opts *subCommandOpts) er
 	if err != nil {
 		return fmt.Errorf("Failed to create cvd: %w", err)
 	}
-	output := CVDOutput{
-		BaseURL: buildBaseURL(flags.CVDRemoteFlags),
-		Host:    flags.Host,
-		CVD:     cvd,
-	}
-	c.Printf("%s\n", output.String())
+	printCVDs(c.OutOrStdout(), buildBaseURL(flags.CVDRemoteFlags), flags.Host, []*hoapi.CVD{cvd})
 	return nil
 }
 
@@ -227,6 +223,17 @@ func (o *CVDOutput) String() string {
 	res += "\n  " + "Logs: " +
 		fmt.Sprintf("%s/hosts/%s/cvds/%s/logs/", o.BaseURL, o.Host, o.CVD.Name)
 	return res
+}
+
+func printCVDs(writer io.Writer, baseURL, host string, cvds []*hoapi.CVD) {
+	for _, cvd := range cvds {
+		o := CVDOutput{
+			BaseURL: baseURL,
+			Host:    host,
+			CVD:     cvd,
+		}
+		fmt.Fprintln(writer, o.String())
+	}
 }
 
 const RequiredImagesFilename = "device/google/cuttlefish/required_images"

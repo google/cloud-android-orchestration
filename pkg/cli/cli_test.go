@@ -133,7 +133,7 @@ func TestCommandSucceeds(t *testing.T) {
 		{
 			Name:   "cvd create",
 			Args:   []string{"cvd", "create", "--host=foo", "--build_id=123"},
-			ExpOut: cvdOutput(serviceURL, "foo", "cvd-1"),
+			ExpOut: cvdOutput(serviceURL+"/v1", "foo", hoapi.CVD{Name: "cvd-1"}),
 		},
 	}
 	for _, test := range tests {
@@ -172,13 +172,9 @@ func newTestIOStreams() (IOStreams, *bytes.Buffer, *bytes.Buffer) {
 	}, in, out
 }
 
-func cvdOutput(serviceURL, host, cvd string) string {
-	output := CVDOutput{
-		BaseURL: serviceURL + "/v1",
-		Host:    "foo",
-		CVD: &hoapi.CVD{
-			Name: "cvd-1",
-		},
-	}
-	return output.String() + "\n"
+func cvdOutput(serviceURL, host string, cvd hoapi.CVD) string {
+	out := &bytes.Buffer{}
+	printCVDs(out, serviceURL, host, []*hoapi.CVD{&cvd})
+	b, _ := ioutil.ReadAll(out)
+	return string(b)
 }

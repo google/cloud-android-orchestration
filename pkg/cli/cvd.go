@@ -95,11 +95,11 @@ func createCVD(c *cobra.Command, flags *CreateCVDFlags, opts *subCommandOpts) er
 		return fmt.Errorf("Failed to build service instance: %w", err)
 
 	}
-	action := &createCVDAction{
+	creator := &cvdCreator{
 		Service: service,
 		Opts:    *flags.CreateCVDOpts,
 	}
-	cvd, err := action.Execute()
+	cvd, err := creator.Create()
 	if err != nil {
 		return fmt.Errorf("Failed to create cvd: %w", err)
 	}
@@ -107,20 +107,20 @@ func createCVD(c *cobra.Command, flags *CreateCVDFlags, opts *subCommandOpts) er
 	return nil
 }
 
-type createCVDAction struct {
+type cvdCreator struct {
 	Service client.Service
 	Opts    CreateCVDOpts
 }
 
-func (a *createCVDAction) Execute() (*hoapi.CVD, error) {
-	if a.Opts.LocalImage {
-		return a.createCVDFromLocalBuild()
+func (c *cvdCreator) Create() (*hoapi.CVD, error) {
+	if c.Opts.LocalImage {
+		return c.createCVDFromLocalBuild()
 	} else {
-		return a.createCVDFromAndroidCI()
+		return c.createCVDFromAndroidCI()
 	}
 }
 
-func (a *createCVDAction) createCVDFromLocalBuild() (*hoapi.CVD, error) {
+func (c *cvdCreator) createCVDFromLocalBuild() (*hoapi.CVD, error) {
 	vars, err := GetAndroidEnvVarValues()
 	if err != nil {
 		return nil, fmt.Errorf("Error retrieving Android Build environment variables: %w", err)
@@ -129,11 +129,11 @@ func (a *createCVDAction) createCVDFromLocalBuild() (*hoapi.CVD, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Error building list of required image files: %w", err)
 	}
-	uploadDir, err := a.Service.CreateUpload(a.Opts.Host)
+	uploadDir, err := c.Service.CreateUpload(c.Opts.Host)
 	if err != nil {
 		return nil, err
 	}
-	if err := a.Service.UploadFiles(a.Opts.Host, uploadDir, names); err != nil {
+	if err := c.Service.UploadFiles(c.Opts.Host, uploadDir, names); err != nil {
 		return nil, err
 	}
 	req := hoapi.CreateCVDRequest{
@@ -145,21 +145,21 @@ func (a *createCVDAction) createCVDFromLocalBuild() (*hoapi.CVD, error) {
 			},
 		},
 	}
-	return a.Service.CreateCVD(a.Opts.Host, &req)
+	return c.Service.CreateCVD(c.Opts.Host, &req)
 }
 
-func (a *createCVDAction) createCVDFromAndroidCI() (*hoapi.CVD, error) {
+func (c *cvdCreator) createCVDFromAndroidCI() (*hoapi.CVD, error) {
 	req := hoapi.CreateCVDRequest{
 		CVD: &hoapi.CVD{
 			BuildSource: &hoapi.BuildSource{
 				AndroidCIBuild: &hoapi.AndroidCIBuild{
-					BuildID: a.Opts.BuildID,
-					Target:  a.Opts.Target,
+					BuildID: c.Opts.BuildID,
+					Target:  c.Opts.Target,
 				},
 			},
 		},
 	}
-	return a.Service.CreateCVD(a.Opts.Host, &req)
+	return c.Service.CreateCVD(c.Opts.Host, &req)
 }
 
 func listCVDs(c *cobra.Command, flags *ListCVDsFlags, opts *subCommandOpts) error {

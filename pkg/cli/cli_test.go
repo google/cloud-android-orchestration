@@ -109,6 +109,7 @@ func (fakeService) UploadFiles(host, uploadDir string, filenames []string) error
 }
 
 func TestCommandSucceeds(t *testing.T) {
+	const serviceURL = "http://waldo.com"
 	tests := []struct {
 		Name   string
 		Args   []string
@@ -132,7 +133,7 @@ func TestCommandSucceeds(t *testing.T) {
 		{
 			Name:   "cvd create",
 			Args:   []string{"cvd", "create", "--host=foo", "--build_id=123"},
-			ExpOut: "cvd-1\n",
+			ExpOut: cvdOutput(serviceURL+"/v1", "foo", hoapi.CVD{Name: "cvd-1"}),
 		},
 	}
 	for _, test := range tests {
@@ -140,7 +141,7 @@ func TestCommandSucceeds(t *testing.T) {
 			io, _, out := newTestIOStreams()
 			opts := &CommandOptions{
 				IOStreams: io,
-				Args:      append(test.Args, "--service_url=http://waldo.com"),
+				Args:      append(test.Args, "--service_url="+serviceURL),
 				ServiceBuilder: func(opts *client.ServiceOptions) (client.Service, error) {
 					return &fakeService{}, nil
 				},
@@ -148,12 +149,12 @@ func TestCommandSucceeds(t *testing.T) {
 
 			err := NewCVDRemoteCommand(opts).Execute()
 
+			if err != nil {
+				t.Fatal(err)
+			}
 			b, _ := ioutil.ReadAll(out)
 			if diff := cmp.Diff(test.ExpOut, string(b)); diff != "" {
 				t.Errorf("standard output mismatch (-want +got):\n%s", diff)
-			}
-			if err != nil {
-				t.Fatal(err)
 			}
 		})
 	}
@@ -169,4 +170,11 @@ func newTestIOStreams() (IOStreams, *bytes.Buffer, *bytes.Buffer) {
 		Out:    out,
 		ErrOut: errOut,
 	}, in, out
+}
+
+func cvdOutput(serviceURL, host string, cvd hoapi.CVD) string {
+	out := &bytes.Buffer{}
+	printCVDs(out, serviceURL, host, []*hoapi.CVD{&cvd})
+	b, _ := ioutil.ReadAll(out)
+	return string(b)
 }

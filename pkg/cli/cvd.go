@@ -16,6 +16,7 @@ package cli
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"sync"
@@ -33,12 +34,16 @@ const (
 	localImageFlag = "local_image"
 )
 
-type CreateCVDFlags struct {
-	*CommonSubcmdFlags
+type CreateCVDOpts struct {
 	BuildID    string
 	Target     string
 	Host       string
 	LocalImage bool
+}
+
+type CreateCVDFlags struct {
+	*CommonSubcmdFlags
+	*CreateCVDOpts
 }
 
 type ListCVDsFlags struct {
@@ -48,7 +53,7 @@ type ListCVDsFlags struct {
 
 func newCVDCommand(opts *subCommandOpts) *cobra.Command {
 	cvdFlags := &CommonSubcmdFlags{CVDRemoteFlags: opts.RootFlags}
-	createFlags := &CreateCVDFlags{CommonSubcmdFlags: cvdFlags}
+	createFlags := &CreateCVDFlags{CommonSubcmdFlags: cvdFlags, CreateCVDOpts: &CreateCVDOpts{}}
 	create := &cobra.Command{
 		Use:   "create",
 		Short: "Creates a CVD.",
@@ -87,29 +92,49 @@ func newCVDCommand(opts *subCommandOpts) *cobra.Command {
 func createCVD(c *cobra.Command, flags *CreateCVDFlags, opts *subCommandOpts) error {
 	service, err := opts.ServiceBuilder(flags.CommonSubcmdFlags, c)
 	if err != nil {
-		return err
+		return fmt.Errorf("Failed to build service instance: %w", err)
+
 	}
-	if flags.LocalImage {
-		return createCVDFromLocalBuild(service, c, flags)
+	creator := &cvdCreator{
+		Service: service,
+		Opts:    *flags.CreateCVDOpts,
 	}
-	return createCVDFromAndroidCI(service, c, flags)
+	cvd, err := creator.Create()
+	if err != nil {
+		return fmt.Errorf("Failed to create cvd: %w", err)
+	}
+	printCVDs(c.OutOrStdout(), buildBaseURL(flags.CVDRemoteFlags), flags.Host, []*hoapi.CVD{cvd})
+	return nil
 }
 
-func createCVDFromLocalBuild(service client.Service, c *cobra.Command, flags *CreateCVDFlags) error {
+type cvdCreator struct {
+	Service client.Service
+	Opts    CreateCVDOpts
+}
+
+func (c *cvdCreator) Create() (*hoapi.CVD, error) {
+	if c.Opts.LocalImage {
+		return c.createCVDFromLocalBuild()
+	} else {
+		return c.createCVDFromAndroidCI()
+	}
+}
+
+func (c *cvdCreator) createCVDFromLocalBuild() (*hoapi.CVD, error) {
 	vars, err := GetAndroidEnvVarValues()
 	if err != nil {
-		return fmt.Errorf("Error retrieving Android Build environment variables: %w", err)
+		return nil, fmt.Errorf("Error retrieving Android Build environment variables: %w", err)
 	}
 	names, err := ListLocalImageRequiredFiles(vars)
 	if err != nil {
-		return fmt.Errorf("Error building list of required image files: %w", err)
+		return nil, fmt.Errorf("Error building list of required image files: %w", err)
 	}
-	uploadDir, err := service.CreateUpload(flags.Host)
+	uploadDir, err := c.Service.CreateUpload(c.Opts.Host)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	if err := service.UploadFiles(flags.Host, uploadDir, names); err != nil {
-		return err
+	if err := c.Service.UploadFiles(c.Opts.Host, uploadDir, names); err != nil {
+		return nil, err
 	}
 	req := hoapi.CreateCVDRequest{
 		CVD: &hoapi.CVD{
@@ -120,36 +145,21 @@ func createCVDFromLocalBuild(service client.Service, c *cobra.Command, flags *Cr
 			},
 		},
 	}
-	cvd, err := service.CreateCVD(flags.Host, &req)
-	if err != nil {
-		return fmt.Errorf("Error creating cvd: %w", err)
-	}
-	output := CVDOutput{
-		BaseURL: buildBaseURL(flags.CVDRemoteFlags),
-		Host:    flags.Host,
-		CVD:     cvd,
-	}
-	c.Printf("%s\n", output.String())
-	return nil
+	return c.Service.CreateCVD(c.Opts.Host, &req)
 }
 
-func createCVDFromAndroidCI(service client.Service, c *cobra.Command, flags *CreateCVDFlags) error {
+func (c *cvdCreator) createCVDFromAndroidCI() (*hoapi.CVD, error) {
 	req := hoapi.CreateCVDRequest{
 		CVD: &hoapi.CVD{
 			BuildSource: &hoapi.BuildSource{
 				AndroidCIBuild: &hoapi.AndroidCIBuild{
-					BuildID: flags.BuildID,
-					Target:  flags.Target,
+					BuildID: c.Opts.BuildID,
+					Target:  c.Opts.Target,
 				},
 			},
 		},
 	}
-	cvd, err := service.CreateCVD(flags.Host, &req)
-	if err != nil {
-		return err
-	}
-	c.Printf("%s\n", cvd.Name)
-	return nil
+	return c.Service.CreateCVD(c.Opts.Host, &req)
 }
 
 func listCVDs(c *cobra.Command, flags *ListCVDsFlags, opts *subCommandOpts) error {
@@ -213,6 +223,17 @@ func (o *CVDOutput) String() string {
 	res += "\n  " + "Logs: " +
 		fmt.Sprintf("%s/hosts/%s/cvds/%s/logs/", o.BaseURL, o.Host, o.CVD.Name)
 	return res
+}
+
+func printCVDs(writer io.Writer, baseURL, host string, cvds []*hoapi.CVD) {
+	for _, cvd := range cvds {
+		o := CVDOutput{
+			BaseURL: baseURL,
+			Host:    host,
+			CVD:     cvd,
+		}
+		fmt.Fprintln(writer, o.String())
+	}
 }
 
 const RequiredImagesFilename = "device/google/cuttlefish/required_images"

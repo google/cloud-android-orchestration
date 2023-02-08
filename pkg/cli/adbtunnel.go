@@ -23,6 +23,7 @@ import (
 	"net"
 	"os"
 	"sync"
+	"time"
 
 	client "github.com/google/cloud-android-orchestration/pkg/client"
 	wclient "github.com/google/cloud-android-orchestration/pkg/webrtcclient"
@@ -101,16 +102,19 @@ func openADBTunnel(flags *ADBTunnelFlags, c *command, args []string, opts *subCo
 	var wg sync.WaitGroup
 
 	for _, device := range args {
-		logger := log.New(c.ErrOrStderr(), "", log.LstdFlags)
 		devProps := deviceProperties{
 			serviceURL: flags.ServiceURL,
 			zone:       flags.Zone,
 			host:       flags.host,
 			device:     device,
 		}
+		logger, err := createLogger(opts.InitialConfig.ADBControlDirExpanded(), devProps)
+		if err != nil {
+			merr = multierror.Append(merr, err)
+			continue
+		}
 		controller, err := NewTunnelController(
 			opts.InitialConfig.ADBControlDirExpanded(), service, devProps, logger)
-
 		if err != nil {
 			merr = multierror.Append(merr, err)
 			continue
@@ -664,4 +668,18 @@ func ADBConnect(adbSerial string) error {
 		written += n
 	}
 	return nil
+}
+
+func createLogger(controlDir string, dev deviceProperties) (*log.Logger, error) {
+	logsDir := controlDir + "/logs"
+	if err := os.MkdirAll(logsDir, 0755); err != nil {
+		return nil, fmt.Errorf("Failed to create logs dir %s: %w", logsDir, err)
+	}
+	// The name looks like 123456_us-central1-c_cf-12345-12345_cvd-1.log
+	path := fmt.Sprintf("%s/%d_%s_%s_%s.log", logsDir, time.Now().Unix(), dev.zone, dev.host, dev.device)
+	logsFile, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0660)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create log file %s: %w", path, err)
+	}
+	return log.New(logsFile, "", log.LstdFlags), nil
 }

@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
+	"github.com/google/cloud-android-orchestration/pkg/client"
 
 	"github.com/spf13/cobra"
 )
@@ -27,30 +28,33 @@ const (
 	gcpMinCPUPlatformFlag = "gcp_min_cpu_platform"
 )
 
-type HostFlags struct {
-	*CommonSubcmdFlags
+type CreateHostOpts struct {
+	GCP CreateGCPHostOpts
 }
 
-type CreateGCPHostFlags struct {
-	*HostFlags
+type CreateGCPHostOpts struct {
 	MachineType    string
 	MinCPUPlatform string
 }
 
+type CreateHostFlags struct {
+	*CommonSubcmdFlags
+	*CreateHostOpts
+}
+
 func newHostCommand(opts *subCommandOpts) *cobra.Command {
-	commonSCFlags := &CommonSubcmdFlags{CVDRemoteFlags: opts.RootFlags}
-	hostFlags := &HostFlags{CommonSubcmdFlags: commonSCFlags}
-	createFlags := &CreateGCPHostFlags{HostFlags: hostFlags}
+	hostFlags := &CommonSubcmdFlags{CVDRemoteFlags: opts.RootFlags}
+	createFlags := &CreateHostFlags{CommonSubcmdFlags: hostFlags, CreateHostOpts: &CreateHostOpts{}}
 	create := &cobra.Command{
 		Use:   "create",
 		Short: "Creates a host.",
 		RunE: func(c *cobra.Command, args []string) error {
-			return createHost(c, createFlags, opts)
+			return runCreateHostCommand(c, createFlags, opts)
 		},
 	}
-	create.Flags().StringVar(&createFlags.MachineType, gcpMachineTypeFlag,
+	create.Flags().StringVar(&createFlags.GCP.MachineType, gcpMachineTypeFlag,
 		opts.InitialConfig.Host.GCP.MachineType, "Indicates the machine type")
-	create.Flags().StringVar(&createFlags.MinCPUPlatform, gcpMinCPUPlatformFlag,
+	create.Flags().StringVar(&createFlags.GCP.MinCPUPlatform, gcpMinCPUPlatformFlag,
 		opts.InitialConfig.Host.GCP.MinCPUPlatform,
 		"Specifies a minimum CPU platform for the VM instance")
 	list := &cobra.Command{
@@ -71,36 +75,41 @@ func newHostCommand(opts *subCommandOpts) *cobra.Command {
 		Use:   "host",
 		Short: "Work with hosts",
 	}
-	addCommonSubcommandFlags(host, commonSCFlags)
+	addCommonSubcommandFlags(host, hostFlags)
 	host.AddCommand(create)
 	host.AddCommand(list)
 	host.AddCommand(del)
 	return host
 }
 
-func createHost(c *cobra.Command, flags *CreateGCPHostFlags, opts *subCommandOpts) error {
-	apiClient, err := opts.ServiceBuilder(flags.CommonSubcmdFlags, c)
+func runCreateHostCommand(c *cobra.Command, flags *CreateHostFlags, opts *subCommandOpts) error {
+	service, err := opts.ServiceBuilder(flags.CommonSubcmdFlags, c)
 	if err != nil {
-		return err
+		return fmt.Errorf("Failed to build service instance: %w", err)
+
 	}
-	req := apiv1.CreateHostRequest{
-		HostInstance: &apiv1.HostInstance{
-			GCP: &apiv1.GCPInstance{
-				MachineType:    flags.MachineType,
-				MinCPUPlatform: flags.MinCPUPlatform,
-			},
-		},
-	}
-	ins, err := apiClient.CreateHost(&req)
+	ins, err := createHost(service, *flags.CreateHostOpts)
 	if err != nil {
-		return fmt.Errorf("Error creating host: %w", err)
+		return fmt.Errorf("Failed to create host: %w", err)
 	}
 	c.Printf("%s\n", ins.Name)
 	return nil
 }
 
-func listHosts(c *cobra.Command, flags *HostFlags, opts *subCommandOpts) error {
-	apiClient, err := opts.ServiceBuilder(flags.CommonSubcmdFlags, c)
+func createHost(service client.Service, opts CreateHostOpts) (*apiv1.HostInstance, error) {
+	req := apiv1.CreateHostRequest{
+		HostInstance: &apiv1.HostInstance{
+			GCP: &apiv1.GCPInstance{
+				MachineType:    opts.GCP.MachineType,
+				MinCPUPlatform: opts.GCP.MinCPUPlatform,
+			},
+		},
+	}
+	return service.CreateHost(&req)
+}
+
+func listHosts(c *cobra.Command, flags *CommonSubcmdFlags, opts *subCommandOpts) error {
+	apiClient, err := opts.ServiceBuilder(flags, c)
 	if err != nil {
 		return err
 	}
@@ -114,8 +123,8 @@ func listHosts(c *cobra.Command, flags *HostFlags, opts *subCommandOpts) error {
 	return nil
 }
 
-func deleteHosts(c *cobra.Command, args []string, flags *HostFlags, opts *subCommandOpts) error {
-	service, err := opts.ServiceBuilder(flags.CommonSubcmdFlags, c)
+func deleteHosts(c *cobra.Command, args []string, flags *CommonSubcmdFlags, opts *subCommandOpts) error {
+	service, err := opts.ServiceBuilder(flags, c)
 	if err != nil {
 		return err
 	}

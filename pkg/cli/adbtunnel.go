@@ -133,6 +133,12 @@ func openADBTunnel(flags *ADBTunnelFlags, c *command, args []string, opts *subCo
 		ctrls = append(ctrls, controller)
 	}
 
+	if merr != nil {
+		// Print any errors before blocking indefinitely.
+		c.PrintErrf("%v\n", merr)
+		merr = fmt.Errorf("Errors occurred")
+	}
+
 	// Wait for all controllers to stop
 	wg.Wait()
 

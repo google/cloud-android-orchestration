@@ -25,8 +25,8 @@ import (
 
 func TestCVDOutput(t *testing.T) {
 	output := CVDOutput{
-		BaseURL: "http://foo.com",
-		Host:    "bar",
+		ServiceRootEndpoint: "http://foo.com",
+		Host:                "bar",
 		CVD: &hoapi.CVD{
 			Name:     "cvd-1",
 			Status:   "Running",

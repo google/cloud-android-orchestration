@@ -92,7 +92,7 @@ func (fakeService) CreateCVD(host string, req *hoapi.CreateCVDRequest) (*hoapi.C
 }
 
 func (fakeService) ListCVDs(host string) ([]*hoapi.CVD, error) {
-	return nil, nil
+	return []*hoapi.CVD{{Name: "cvd-1"}}, nil
 }
 
 func (fakeService) CreateUpload(host string) (string, error) {
@@ -133,6 +133,11 @@ func TestCommandSucceeds(t *testing.T) {
 		{
 			Name:   "cvd create with --host",
 			Args:   []string{"cvd", "create", "--host=bar", "--build_id=123"},
+			ExpOut: cvdOutput(serviceURL+"/v1", "bar", hoapi.CVD{Name: "cvd-1"}),
+		},
+		{
+			Name:   "cvd list with --host",
+			Args:   []string{"cvd", "list", "--host=bar"},
 			ExpOut: cvdOutput(serviceURL+"/v1", "bar", hoapi.CVD{Name: "cvd-1"}),
 		},
 	}

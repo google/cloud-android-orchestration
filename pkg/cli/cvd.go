@@ -239,12 +239,7 @@ func listCVDs(c *cobra.Command, flags *ListCVDsFlags, opts *subCommandOpts) erro
 				return
 			}
 			for _, cvd := range hostCVDs {
-				output := CVDOutput{
-					BaseURL: buildBaseURL(flags.CVDRemoteFlags),
-					Host:    name,
-					CVD:     cvd,
-				}
-				c.Printf("%s\n", output.String())
+				printCVDs(c.OutOrStdout(), buildBaseURL(flags.CVDRemoteFlags), name, []*hoapi.CVD{cvd})
 			}
 		}(host)
 	}

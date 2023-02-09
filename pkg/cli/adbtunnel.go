@@ -120,6 +120,11 @@ func openADBTunnel(flags *ADBTunnelFlags, c *command, args []string, opts *subCo
 			continue
 		}
 
+		if err := ADBConnect(controller.Port()); err != nil {
+			c.PrintErrf("Error connecting ADB to %q: %v\n", device, err)
+		}
+		c.Printf("%s/%s: %d\n", flags.host, device, controller.Port())
+
 		wg.Add(1)
 		go func() {
 			controller.Run()
@@ -270,13 +275,46 @@ type deviceProperties struct {
 // Implements the Observer interface for the webrtc client.
 type ADBForwarder struct {
 	deviceProperties
-	dc       *webrtc.DataChannel
-	listener net.Listener
-	conn     net.Conn
-	port     int
-	state    int
-	stateMtx sync.Mutex
-	logger   *log.Logger
+	webrtcConn *wclient.Connection
+	dc         *webrtc.DataChannel
+	listener   net.Listener
+	conn       net.Conn
+	port       int
+	state      int
+	stateMtx   sync.Mutex
+	logger     *log.Logger
+	readyCh    chan struct{}
+}
+
+func NewADBForwarder(service client.Service, devProps deviceProperties, logger *log.Logger) (*ADBForwarder, error) {
+	// Bind the two local sockets before attempting to connect over WebRTC
+	tunnel, err := bindTCPSocket()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to bind to local port for %q: %w", devProps.device, err)
+	}
+	port := tunnel.Addr().(*net.TCPAddr).Port
+
+	f := &ADBForwarder{
+		deviceProperties: devProps,
+		listener:         tunnel,
+		port:             port,
+		logger:           logger,
+		readyCh:          make(chan struct{}),
+	}
+
+	conn, err := service.ConnectWebRTC(f.host, f.device, f)
+	if err != nil {
+		return nil, fmt.Errorf("ADB tunnel creation failed for %q: %w", f.device, err)
+	}
+	f.webrtcConn = conn
+	// TODO(jemoreira): close everything except the ADB data channel.
+
+	// Wait until the webrtc connection fails or the data channel opens.
+	<-f.readyCh
+
+	f.startForwarding()
+
+	return f, nil
 }
 
 const (
@@ -309,7 +347,7 @@ func (f *ADBForwarder) OnADBDataChannel(dc *webrtc.DataChannel) {
 	f.logger.Printf("ADB data channel to %q changed state: %v\n", f.device, dc.ReadyState())
 	dc.OnOpen(func() {
 		f.logger.Printf("ADB data channel to %q changed state: %v\n", f.device, dc.ReadyState())
-		f.connectADB()
+		close(f.readyCh)
 	})
 	dc.OnMessage(func(msg webrtc.DataChannelMessage) {
 		if err := f.Send(msg.Data); err != nil {
@@ -325,6 +363,8 @@ func (f *ADBForwarder) OnADBDataChannel(dc *webrtc.DataChannel) {
 func (f *ADBForwarder) OnError(err error) {
 	f.StopForwarding(ADBFwdFailed)
 	f.logger.Printf("Error on webrtc connection to %q: %v\n", f.device, err)
+	// Unblock anyone waiting for the ADB channel to open.
+	close(f.readyCh)
 }
 
 func (f *ADBForwarder) OnFailure() {
@@ -337,10 +377,10 @@ func (f *ADBForwarder) OnClose() {
 	f.logger.Printf("WebRTC connection to %q closed", f.device)
 }
 
-func (f *ADBForwarder) StartForwarding() {
-	set, prev := f.compareAndSwapState(ADBFwdInitializing, ADBFwdReady)
-	if !set {
-		panic("StartForwarding called in wrong state: " + StateAsStr(prev))
+func (f *ADBForwarder) startForwarding() {
+	if set, prev := f.compareAndSwapState(ADBFwdInitializing, ADBFwdReady); !set {
+		f.logger.Printf("Forwarding not started in unexpected state: %v", StateAsStr(prev))
+		return
 	}
 	go f.acceptLoop()
 }
@@ -476,15 +516,6 @@ func (f *ADBForwarder) recvLoop() {
 	}
 }
 
-func (f *ADBForwarder) connectADB() {
-	adbSerial := fmt.Sprintf("127.0.0.1:%d", f.port)
-	if err := ADBConnect(adbSerial); err != nil {
-		f.logger.Printf("Error connecting ADB to %q (%s): %v", adbSerial, f.device, err)
-	} else {
-		f.logger.Printf("%s connected on: %s\n", f.device, adbSerial)
-	}
-}
-
 const (
 	versionCmd = "version"
 	statusCmd  = "status"
@@ -495,58 +526,42 @@ const (
 
 type TunnelController struct {
 	control   *net.UnixListener
-	conn      *wclient.Connection
 	forwarder *ADBForwarder
 	logger    *log.Logger
 }
 
 func NewTunnelController(controlDir string, service client.Service, devProps deviceProperties,
 	logger *log.Logger) (*TunnelController, error) {
-	// Bind the two local sockets before attempting to connect over WebRTC
-	tunnel, err := bindTCPSocket()
+	f, err := NewADBForwarder(service, devProps, logger)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to bind to local port for %q: %w", devProps.device, err)
+		return nil, err
 	}
-	port := tunnel.Addr().(*net.TCPAddr).Port
-
-	f := &ADBForwarder{
-		deviceProperties: devProps,
-		listener:         tunnel,
-		port:             port,
-		logger:           logger,
-	}
-
-	conn, err := service.ConnectWebRTC(f.host, f.device, f)
-	if err != nil {
-		return nil, fmt.Errorf("ADB tunnel creation failed for %q: %w", f.device, err)
-	}
-	// TODO(jemoreira): close everything except the ADB data channel.
 
 	// Create the control socket as late as possible to reduce the chances of it
 	// being left behind if the user interrupts the command.
-	control, err := createControlSocket(controlDir, port)
+	control, err := createControlSocket(controlDir, f.port)
 	if err != nil {
-		conn.Close()
+		f.StopForwarding(ADBFwdFailed)
 		return nil, fmt.Errorf("Control socket creation failed for %q: %w", f.device, err)
 	}
 
 	tc := &TunnelController{
 		control:   control,
-		conn:      conn,
 		forwarder: f,
 		logger:    logger,
 	}
-
-	tc.forwarder.StartForwarding()
 
 	return tc, nil
 }
 
 func (tc *TunnelController) Stop() {
-	// This will cause the forwarding loop to finish.
-	tc.conn.Close()
+	tc.forwarder.StopForwarding(ADBFwdStopped)
 	// This will cause the control loop to finish.
 	tc.control.Close()
+}
+
+func (tc *TunnelController) Port() int {
+	return tc.forwarder.port
 }
 
 func (tc *TunnelController) Run() {
@@ -650,7 +665,8 @@ func createControlSocket(dir string, port int) (*net.UnixListener, error) {
 	return control, nil
 }
 
-func ADBConnect(adbSerial string) error {
+func ADBConnect(port int) error {
+	adbSerial := fmt.Sprintf("127.0.0.1:%d", port)
 	const ADBServerPort = 5037
 	conn, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", ADBServerPort))
 	if err != nil {

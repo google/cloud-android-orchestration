@@ -41,11 +41,6 @@ func TestRequiredFlags(t *testing.T) {
 			FlagNames: []string{serviceURLFlag},
 			Args:      []string{"host", "create"},
 		},
-		{
-			Name:      "cvd create",
-			FlagNames: []string{hostFlag, serviceURLFlag},
-			Args:      []string{"cvd", "create"},
-		},
 	}
 
 	for _, test := range tests {
@@ -132,8 +127,13 @@ func TestCommandSucceeds(t *testing.T) {
 		},
 		{
 			Name:   "cvd create",
-			Args:   []string{"cvd", "create", "--host=foo", "--build_id=123"},
+			Args:   []string{"cvd", "create", "--build_id=123"},
 			ExpOut: cvdOutput(serviceURL+"/v1", "foo", hoapi.CVD{Name: "cvd-1"}),
+		},
+		{
+			Name:   "cvd create with --host",
+			Args:   []string{"cvd", "create", "--host=bar", "--build_id=123"},
+			ExpOut: cvdOutput(serviceURL+"/v1", "bar", hoapi.CVD{Name: "cvd-1"}),
 		},
 	}
 	for _, test := range tests {

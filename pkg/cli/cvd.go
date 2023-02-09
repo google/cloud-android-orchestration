@@ -34,16 +34,22 @@ const (
 	localImageFlag = "local_image"
 )
 
+const (
+	hostGCPMachineTypeFlag    = "host_gcp_machine_type"
+	hostGCPMinCPUPlatformFlag = "host_gcp_min_cpu_platform"
+)
+
 type CreateCVDOpts struct {
+	Host       string
 	BuildID    string
 	Target     string
-	Host       string
 	LocalImage bool
 }
 
 type CreateCVDFlags struct {
 	*CommonSubcmdFlags
 	*CreateCVDOpts
+	*CreateHostOpts
 }
 
 type ListCVDsFlags struct {
@@ -53,7 +59,11 @@ type ListCVDsFlags struct {
 
 func newCVDCommand(opts *subCommandOpts) *cobra.Command {
 	cvdFlags := &CommonSubcmdFlags{CVDRemoteFlags: opts.RootFlags}
-	createFlags := &CreateCVDFlags{CommonSubcmdFlags: cvdFlags, CreateCVDOpts: &CreateCVDOpts{}}
+	createFlags := &CreateCVDFlags{
+		CommonSubcmdFlags: cvdFlags,
+		CreateCVDOpts:     &CreateCVDOpts{},
+		CreateHostOpts:    &CreateHostOpts{},
+	}
 	create := &cobra.Command{
 		Use:   "create",
 		Short: "Creates a CVD.",
@@ -62,7 +72,6 @@ func newCVDCommand(opts *subCommandOpts) *cobra.Command {
 		},
 	}
 	create.Flags().StringVar(&createFlags.Host, hostFlag, "", "Specifies the host")
-	create.MarkFlagRequired(hostFlag)
 	create.Flags().StringVar(&createFlags.BuildID, buildIDFlag, "", "Android build identifier")
 	create.Flags().StringVar(&createFlags.Target, targetFlag, "aosp_cf_x86_64_phone-userdebug",
 		"Android build target")
@@ -70,6 +79,31 @@ func newCVDCommand(opts *subCommandOpts) *cobra.Command {
 		"Builds a CVD with image files built locally, the required files are https://cs.android.com/android/platform/superproject/+/master:device/google/cuttlefish/required_images and cvd-host-packages.tar.gz")
 	create.MarkFlagsMutuallyExclusive(buildIDFlag, localImageFlag)
 	create.MarkFlagsMutuallyExclusive(targetFlag, localImageFlag)
+	// Host flags
+	createHostFlags := []struct {
+		ValueRef *string
+		Name     string
+		Default  string
+		Desc     string
+	}{
+		{
+			ValueRef: &createFlags.GCP.MachineType,
+			Name:     gcpMachineTypeFlag,
+			Default:  opts.InitialConfig.Host.GCP.MachineType,
+			Desc:     "Indicates the machine type",
+		},
+		{
+			ValueRef: &createFlags.GCP.MinCPUPlatform,
+			Name:     gcpMinCPUPlatformFlag,
+			Default:  opts.InitialConfig.Host.GCP.MinCPUPlatform,
+			Desc:     "Specifies a minimum CPU platform for the VM instance",
+		},
+	}
+	for _, f := range createHostFlags {
+		name := "host_" + f.Name
+		create.Flags().StringVar(f.ValueRef, name, f.Default, f.Desc)
+		create.MarkFlagsMutuallyExclusive(hostFlag, name)
+	}
 	listFlags := &ListCVDsFlags{CommonSubcmdFlags: cvdFlags}
 	list := &cobra.Command{
 		Use:   "list",
@@ -95,6 +129,16 @@ func createCVD(c *cobra.Command, flags *CreateCVDFlags, opts *subCommandOpts) er
 		return fmt.Errorf("Failed to build service instance: %w", err)
 
 	}
+	host := flags.CreateCVDOpts.Host
+	if host == "" {
+		ins, err := createHost(service, *flags.CreateHostOpts)
+		if err != nil {
+			return fmt.Errorf("Failed to create host: %w", err)
+		}
+		host = ins.Name
+	}
+	createOpts := *flags.CreateCVDOpts
+	createOpts.Host = host
 	creator := &cvdCreator{
 		Service: service,
 		Opts:    *flags.CreateCVDOpts,
@@ -103,7 +147,7 @@ func createCVD(c *cobra.Command, flags *CreateCVDFlags, opts *subCommandOpts) er
 	if err != nil {
 		return fmt.Errorf("Failed to create cvd: %w", err)
 	}
-	printCVDs(c.OutOrStdout(), buildBaseURL(flags.CVDRemoteFlags), flags.Host, []*hoapi.CVD{cvd})
+	printCVDs(c.OutOrStdout(), buildBaseURL(flags.CVDRemoteFlags), host, []*hoapi.CVD{cvd})
 	return nil
 }
 

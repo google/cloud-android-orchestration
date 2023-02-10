@@ -206,8 +206,8 @@ func (c *cvdCreator) createCVDFromAndroidCI() (*hoapi.CVD, error) {
 	return c.Service.CreateCVD(c.Opts.Host, &req)
 }
 
-type result[T any] struct {
-	Result T
+type cvdListResult struct {
+	Result []*hoapi.CVD
 	Error  error
 }
 
@@ -228,19 +228,14 @@ func listCVDs(c *cobra.Command, flags *ListCVDsFlags, opts *subCommandOpts) erro
 			hosts = append(hosts, host.Name)
 		}
 	}
-	var chans []chan result[[]*hoapi.CVD]
+	var chans []chan cvdListResult
 	for _, host := range hosts {
-		ch := make(chan result[[]*hoapi.CVD])
+		ch := make(chan cvdListResult)
 		chans = append(chans, ch)
-		go func(name string, ch chan<- result[[]*hoapi.CVD]) {
+		go func(name string, ch chan<- cvdListResult) {
 			cvds, err := service.ListCVDs(name)
-			if err != nil {
-				ch <- result[[]*hoapi.CVD]{Error: err}
-				return
-			}
-			ch <- result[[]*hoapi.CVD]{Result: cvds}
+			ch <- cvdListResult{Result: cvds, Error: err}
 		}(host, ch)
-
 	}
 	var merr error
 	for i, ch := range chans {

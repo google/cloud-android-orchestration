@@ -147,7 +147,8 @@ func createCVD(c *cobra.Command, flags *CreateCVDFlags, opts *subCommandOpts) er
 	if err != nil {
 		return fmt.Errorf("Failed to create cvd: %w", err)
 	}
-	printCVDs(c.OutOrStdout(), buildBaseURL(flags.CVDRemoteFlags), host, []*hoapi.CVD{cvd})
+	rootEndpoint := buildServiceRootEndpoint(flags.ServiceURL, flags.Zone)
+	printCVDs(c.OutOrStdout(), rootEndpoint, host, []*hoapi.CVD{cvd})
 	return nil
 }
 
@@ -237,6 +238,7 @@ func listCVDs(c *cobra.Command, flags *ListCVDsFlags, opts *subCommandOpts) erro
 			ch <- cvdListResult{Result: cvds, Error: err}
 		}(host, ch)
 	}
+	rootEndpoint := buildServiceRootEndpoint(flags.ServiceURL, flags.Zone)
 	var merr error
 	for i, ch := range chans {
 		host := hosts[i]
@@ -245,34 +247,32 @@ func listCVDs(c *cobra.Command, flags *ListCVDsFlags, opts *subCommandOpts) erro
 			merr = multierror.Append(merr, fmt.Errorf("lists cvds for host %q failed: %w", host, err))
 			continue
 		}
-		printCVDs(c.OutOrStdout(), buildBaseURL(flags.CVDRemoteFlags), host, result.Result)
+		printCVDs(c.OutOrStdout(), rootEndpoint, host, result.Result)
 	}
 	return merr
 }
 
 type CVDOutput struct {
-	BaseURL string
-	Host    string
-	CVD     *hoapi.CVD
+	ServiceRootEndpoint string
+	Host                string
+	CVD                 *hoapi.CVD
 }
 
 func (o *CVDOutput) String() string {
 	res := fmt.Sprintf("%s (%s)", o.CVD.Name, o.Host)
 	res += "\n  " + "Status: " + o.CVD.Status
 	res += "\n  " + "Displays: " + fmt.Sprintf("%v", o.CVD.Displays)
-	res += "\n  " + "WebRTCStream: " +
-		fmt.Sprintf("%s/hosts/%s/devices/%s/files/client.html", o.BaseURL, o.Host, o.CVD.Name)
-	res += "\n  " + "Logs: " +
-		fmt.Sprintf("%s/hosts/%s/cvds/%s/logs/", o.BaseURL, o.Host, o.CVD.Name)
+	res += "\n  " + "WebRTCStream: " + client.BuildWebRTCStreamURL(o.ServiceRootEndpoint, o.Host, o.CVD.Name)
+	res += "\n  " + "Logs: " + client.BuildCVDLogsURL(o.ServiceRootEndpoint, o.Host, o.CVD.Name)
 	return res
 }
 
-func printCVDs(writer io.Writer, baseURL, host string, cvds []*hoapi.CVD) {
+func printCVDs(writer io.Writer, rootEndpoint, host string, cvds []*hoapi.CVD) {
 	for _, cvd := range cvds {
 		o := CVDOutput{
-			BaseURL: baseURL,
-			Host:    host,
-			CVD:     cvd,
+			ServiceRootEndpoint: rootEndpoint,
+			Host:                host,
+			CVD:                 cvd,
 		}
 		fmt.Fprintln(writer, o.String())
 	}

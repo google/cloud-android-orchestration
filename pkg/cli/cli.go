@@ -177,7 +177,7 @@ func buildServiceBuilder(builder client.ServiceBuilder) serviceBuilder {
 			dumpOut = c.ErrOrStderr()
 		}
 		opts := &client.ServiceOptions{
-			BaseURL:        buildBaseURL(flags.CVDRemoteFlags),
+			RootEndpoint:   buildServiceRootEndpoint(flags.ServiceURL, flags.Zone),
 			ProxyURL:       proxyURL,
 			DumpOut:        dumpOut,
 			ErrOut:         c.ErrOrStderr(),
@@ -197,12 +197,7 @@ func notImplementedCommand(c *cobra.Command, _ []string) error {
 	return fmt.Errorf("Command not implemented")
 }
 
-func buildBaseURL(flags *CVDRemoteFlags) string {
-	serviceURL := flags.ServiceURL
-	zone := flags.Zone
-	baseURL := serviceURL + "/v1"
-	if zone != "" {
-		baseURL += "/zones/" + zone
-	}
-	return baseURL
+func buildServiceRootEndpoint(serviceURL, zone string) string {
+	const version = "v1"
+	return client.BuildRootEndpoint(serviceURL, version, zone)
 }

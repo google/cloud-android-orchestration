@@ -49,10 +49,25 @@ const (
 	httpProxyFlag  = "http_proxy"
 )
 
+type AsArgs interface {
+	AsArgs() []string
+}
+
 type CVDRemoteFlags struct {
 	ServiceURL string
 	Zone       string
 	HTTPProxy  string
+}
+
+func (f *CVDRemoteFlags) AsArgs() []string {
+	args := []string{
+		"--" + serviceURLFlag, f.ServiceURL,
+		"--" + zoneFlag, f.Zone,
+	}
+	if f.HTTPProxy != "" {
+		args = append(args, "--"+httpProxyFlag, f.HTTPProxy)
+	}
+	return args
 }
 
 // Extends a cobra.Command object with cvdremote specific operations like
@@ -72,6 +87,14 @@ func (c *command) PrintVerbosef(format string, arg ...any) {
 	if *c.verbose {
 		c.PrintErrf(format, arg...)
 	}
+}
+
+func (c *command) Parent() *command {
+	p := c.Command.Parent()
+	if p == nil {
+		return nil
+	}
+	return &command{p, c.verbose}
 }
 
 type SelectionOption int32
@@ -157,6 +180,14 @@ const (
 type CommonSubcmdFlags struct {
 	*CVDRemoteFlags
 	Verbose bool
+}
+
+func (f *CommonSubcmdFlags) AsArgs() []string {
+	args := f.CVDRemoteFlags.AsArgs()
+	if f.Verbose {
+		args = append(args, "-v")
+	}
+	return args
 }
 
 type serviceBuilder func(flags *CommonSubcmdFlags, c *cobra.Command) (client.Service, error)

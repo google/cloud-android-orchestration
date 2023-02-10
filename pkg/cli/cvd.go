@@ -15,9 +15,11 @@
 package cli
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"strings"
 	"sync"
 
@@ -135,6 +137,7 @@ func createCVD(c *cobra.Command, flags *CreateCVDFlags, opts *subCommandOpts) er
 		if err != nil {
 			return fmt.Errorf("Failed to create host: %w", err)
 		}
+
 		host = ins.Name
 	}
 	createOpts := *flags.CreateCVDOpts
@@ -226,9 +229,10 @@ func listCVDs(c *cobra.Command, flags *ListCVDsFlags, opts *subCommandOpts) erro
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	var merr error
-	for _, host := range hosts {
+	sortedWriter := newSortedWriter(c.OutOrStdout())
+	for i, host := range hosts {
 		wg.Add(1)
-		go func(name string) {
+		go func(index int, name string) {
 			defer wg.Done()
 			hostCVDs, err := service.ListCVDs(name)
 			mu.Lock()
@@ -238,13 +242,60 @@ func listCVDs(c *cobra.Command, flags *ListCVDsFlags, opts *subCommandOpts) erro
 					fmt.Errorf("lists cvds for host %q failed: %w", name, err))
 				return
 			}
-			for _, cvd := range hostCVDs {
-				printCVDs(c.OutOrStdout(), buildBaseURL(flags.CVDRemoteFlags), name, []*hoapi.CVD{cvd})
-			}
-		}(host)
+			out := &bytes.Buffer{}
+			printCVDs(out, buildBaseURL(flags.CVDRemoteFlags), name, hostCVDs)
+			b, _ := io.ReadAll(out)
+			sortedWriter.Push(index, string(b))
+		}(i, host)
 	}
 	wg.Wait()
+	sortedWriter.Flush()
 	return merr
+}
+
+// Writes payloads in order.
+type sortedWriter struct {
+	w           io.Writer
+	payloadsMap map[int]string
+	currIndex   int
+	mu          sync.Mutex
+}
+
+func newSortedWriter(w io.Writer) *sortedWriter {
+	return &sortedWriter{
+		w:           w,
+		payloadsMap: make(map[int]string),
+	}
+}
+
+func (w *sortedWriter) Push(index int, payload string) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.payloadsMap[index] = payload
+	for {
+		val, ok := w.payloadsMap[w.currIndex]
+		if !ok {
+			return
+		}
+		fmt.Fprint(w.w, val)
+		delete(w.payloadsMap, w.currIndex)
+		w.currIndex += 1
+	}
+}
+
+func (w *sortedWriter) Flush() {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	keys := make([]int, 0)
+	for k := range w.payloadsMap {
+		keys = append(keys, k)
+	}
+	sort.Ints(keys)
+	for _, key := range keys {
+		fmt.Fprint(w.w, w.payloadsMap[key])
+		delete(w.payloadsMap, key)
+		w.currIndex = key
+	}
 }
 
 type CVDOutput struct {

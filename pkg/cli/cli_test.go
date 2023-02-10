@@ -136,6 +136,12 @@ func TestCommandSucceeds(t *testing.T) {
 			ExpOut: cvdOutput(serviceURL+"/v1", "bar", hoapi.CVD{Name: "cvd-1"}),
 		},
 		{
+			Name: "cvd list",
+			Args: []string{"cvd", "list"},
+			ExpOut: cvdOutput(serviceURL+"/v1", "foo", hoapi.CVD{Name: "cvd-1"}) +
+				cvdOutput(serviceURL+"/v1", "bar", hoapi.CVD{Name: "cvd-1"}),
+		},
+		{
 			Name:   "cvd list with --host",
 			Args:   []string{"cvd", "list", "--host=bar"},
 			ExpOut: cvdOutput(serviceURL+"/v1", "bar", hoapi.CVD{Name: "cvd-1"}),

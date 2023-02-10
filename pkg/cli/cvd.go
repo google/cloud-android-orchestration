@@ -15,13 +15,10 @@
 package cli
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"os"
-	"sort"
 	"strings"
-	"sync"
 
 	"github.com/google/cloud-android-orchestration/pkg/client"
 
@@ -209,6 +206,11 @@ func (c *cvdCreator) createCVDFromAndroidCI() (*hoapi.CVD, error) {
 	return c.Service.CreateCVD(c.Opts.Host, &req)
 }
 
+type result[T any] struct {
+	Result T
+	Error  error
+}
+
 func listCVDs(c *cobra.Command, flags *ListCVDsFlags, opts *subCommandOpts) error {
 	service, err := opts.ServiceBuilder(flags.CommonSubcmdFlags, c)
 	if err != nil {
@@ -226,76 +228,31 @@ func listCVDs(c *cobra.Command, flags *ListCVDsFlags, opts *subCommandOpts) erro
 			hosts = append(hosts, host.Name)
 		}
 	}
-	var wg sync.WaitGroup
-	var mu sync.Mutex
-	var merr error
-	sortedWriter := newSortedWriter(c.OutOrStdout())
-	for i, host := range hosts {
-		wg.Add(1)
-		go func(index int, name string) {
-			defer wg.Done()
-			hostCVDs, err := service.ListCVDs(name)
-			mu.Lock()
-			defer mu.Unlock()
+	var chans []chan result[[]*hoapi.CVD]
+	for _, host := range hosts {
+		ch := make(chan result[[]*hoapi.CVD])
+		chans = append(chans, ch)
+		go func(name string, ch chan<- result[[]*hoapi.CVD]) {
+			cvds, err := service.ListCVDs(name)
 			if err != nil {
-				merr = multierror.Append(merr,
-					fmt.Errorf("lists cvds for host %q failed: %w", name, err))
+				ch <- result[[]*hoapi.CVD]{Error: err}
 				return
 			}
-			out := &bytes.Buffer{}
-			printCVDs(out, buildBaseURL(flags.CVDRemoteFlags), name, hostCVDs)
-			b, _ := io.ReadAll(out)
-			sortedWriter.Push(index, string(b))
-		}(i, host)
+			ch <- result[[]*hoapi.CVD]{Result: cvds}
+		}(host, ch)
+
 	}
-	wg.Wait()
-	sortedWriter.Flush()
-	return merr
-}
-
-// Writes payloads in order.
-type sortedWriter struct {
-	w           io.Writer
-	payloadsMap map[int]string
-	currIndex   int
-	mu          sync.Mutex
-}
-
-func newSortedWriter(w io.Writer) *sortedWriter {
-	return &sortedWriter{
-		w:           w,
-		payloadsMap: make(map[int]string),
-	}
-}
-
-func (w *sortedWriter) Push(index int, payload string) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	w.payloadsMap[index] = payload
-	for {
-		val, ok := w.payloadsMap[w.currIndex]
-		if !ok {
-			return
+	var merr error
+	for i, ch := range chans {
+		host := hosts[i]
+		result := <-ch
+		if result.Error != nil {
+			merr = multierror.Append(merr, fmt.Errorf("lists cvds for host %q failed: %w", host, err))
+			continue
 		}
-		fmt.Fprint(w.w, val)
-		delete(w.payloadsMap, w.currIndex)
-		w.currIndex += 1
+		printCVDs(c.OutOrStdout(), buildBaseURL(flags.CVDRemoteFlags), host, result.Result)
 	}
-}
-
-func (w *sortedWriter) Flush() {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	keys := make([]int, 0)
-	for k := range w.payloadsMap {
-		keys = append(keys, k)
-	}
-	sort.Ints(keys)
-	for _, key := range keys {
-		fmt.Fprint(w.w, w.payloadsMap[key])
-		delete(w.payloadsMap, key)
-		w.currIndex = key
-	}
+	return merr
 }
 
 type CVDOutput struct {

@@ -19,7 +19,6 @@ import (
 	"io"
 	"os"
 	"strings"
-	"sync"
 
 	"github.com/google/cloud-android-orchestration/pkg/client"
 
@@ -135,6 +134,7 @@ func createCVD(c *cobra.Command, flags *CreateCVDFlags, opts *subCommandOpts) er
 		if err != nil {
 			return fmt.Errorf("Failed to create host: %w", err)
 		}
+
 		host = ins.Name
 	}
 	createOpts := *flags.CreateCVDOpts
@@ -206,6 +206,11 @@ func (c *cvdCreator) createCVDFromAndroidCI() (*hoapi.CVD, error) {
 	return c.Service.CreateCVD(c.Opts.Host, &req)
 }
 
+type cvdListResult struct {
+	Result []*hoapi.CVD
+	Error  error
+}
+
 func listCVDs(c *cobra.Command, flags *ListCVDsFlags, opts *subCommandOpts) error {
 	service, err := opts.ServiceBuilder(flags.CommonSubcmdFlags, c)
 	if err != nil {
@@ -223,27 +228,25 @@ func listCVDs(c *cobra.Command, flags *ListCVDsFlags, opts *subCommandOpts) erro
 			hosts = append(hosts, host.Name)
 		}
 	}
-	var wg sync.WaitGroup
-	var mu sync.Mutex
-	var merr error
+	var chans []chan cvdListResult
 	for _, host := range hosts {
-		wg.Add(1)
-		go func(name string) {
-			defer wg.Done()
-			hostCVDs, err := service.ListCVDs(name)
-			mu.Lock()
-			defer mu.Unlock()
-			if err != nil {
-				merr = multierror.Append(merr,
-					fmt.Errorf("lists cvds for host %q failed: %w", name, err))
-				return
-			}
-			for _, cvd := range hostCVDs {
-				printCVDs(c.OutOrStdout(), buildBaseURL(flags.CVDRemoteFlags), name, []*hoapi.CVD{cvd})
-			}
-		}(host)
+		ch := make(chan cvdListResult)
+		chans = append(chans, ch)
+		go func(name string, ch chan<- cvdListResult) {
+			cvds, err := service.ListCVDs(name)
+			ch <- cvdListResult{Result: cvds, Error: err}
+		}(host, ch)
 	}
-	wg.Wait()
+	var merr error
+	for i, ch := range chans {
+		host := hosts[i]
+		result := <-ch
+		if result.Error != nil {
+			merr = multierror.Append(merr, fmt.Errorf("lists cvds for host %q failed: %w", host, err))
+			continue
+		}
+		printCVDs(c.OutOrStdout(), buildBaseURL(flags.CVDRemoteFlags), host, result.Result)
+	}
 	return merr
 }
 

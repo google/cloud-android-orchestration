@@ -19,6 +19,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"time"
 
 	toml "github.com/pelletier/go-toml"
 )
@@ -33,20 +34,26 @@ type HostConfig struct {
 }
 
 type Config struct {
-	ServiceURL    string
-	Zone          string
-	HTTPProxy     string
-	ADBControlDir string
-	Host          HostConfig
+	ServiceURL       string
+	Zone             string
+	HTTPProxy        string
+	ADBControlDir    string
+	KeepLogFilesDays int
+	Host             HostConfig
 }
 
 func (c *Config) ADBControlDirExpanded() string {
 	return expandPath(c.ADBControlDir)
 }
 
+func (c *Config) LogFilesDeleteThreshold() time.Duration {
+	return time.Duration(c.KeepLogFilesDays*24) * time.Hour
+}
+
 func DefaultConfig() Config {
 	return Config{
-		ADBControlDir: "~/.cvdremote/adb",
+		ADBControlDir:    "~/.cvdremote/adb",
+		KeepLogFilesDays: 30, // A default is needed to not keep forever
 	}
 }
 

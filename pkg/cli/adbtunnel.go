@@ -58,10 +58,18 @@ type closeADBTunnelFlags struct {
 	skipConfirmation bool
 }
 
+const (
+	ADBTunnelCommandName      = "adbtunnel"
+	ADBTunnelOpenCommandName  = "open"
+	ADBTunnelCloseCommandName = "close"
+	ADBTunnelListCommandName  = "list"
+	ADBTunnelAgentCommandName = "agent"
+)
+
 func newADBTunnelCommand(opts *subCommandOpts) *cobra.Command {
 	adbTunnelFlags := &ADBTunnelFlags{&CommonSubcmdFlags{opts.RootFlags, false}, ""}
 	open := &cobra.Command{
-		Use:   "open",
+		Use:   ADBTunnelOpenCommandName,
 		Short: "Opens an ADB tunnel.",
 		RunE: func(c *cobra.Command, args []string) error {
 			return openADBTunnel(adbTunnelFlags, &command{c, &adbTunnelFlags.Verbose}, args, opts)
@@ -74,7 +82,7 @@ func newADBTunnelCommand(opts *subCommandOpts) *cobra.Command {
 		longFormat:     false,
 	}
 	list := &cobra.Command{
-		Use:   "list",
+		Use:   ADBTunnelListCommandName,
 		Short: "Lists open ADB tunnels.",
 		RunE: func(c *cobra.Command, args []string) error {
 			return listADBTunnels(listFlags, &command{c, &adbTunnelFlags.Verbose}, opts)
@@ -84,7 +92,7 @@ func newADBTunnelCommand(opts *subCommandOpts) *cobra.Command {
 	list.Flags().BoolVarP(&listFlags.longFormat, "long", "l", false, "Print with long format.")
 	closeFlags := &closeADBTunnelFlags{adbTunnelFlags, false /*skipConfirmation*/}
 	close := &cobra.Command{
-		Use:   "close <foo> <bar> <baz>",
+		Use:   fmt.Sprintf("%s <foo> <bar> <baz>", ADBTunnelCloseCommandName),
 		Short: "Close ADB tunnels.",
 		RunE: func(c *cobra.Command, args []string) error {
 			return closeADBTunnels(closeFlags, &command{c, &adbTunnelFlags.Verbose}, args, opts)
@@ -95,7 +103,7 @@ func newADBTunnelCommand(opts *subCommandOpts) *cobra.Command {
 		"Don't ask for confirmation for closing multiple tunnels.")
 	agent := &cobra.Command{
 		Hidden: true,
-		Use:    "agent",
+		Use:    ADBTunnelAgentCommandName,
 		RunE: func(c *cobra.Command, args []string) error {
 			return adbTunnelAgentLoop(adbTunnelFlags, &command{c, &adbTunnelFlags.Verbose}, args, opts)
 		},
@@ -103,7 +111,7 @@ func newADBTunnelCommand(opts *subCommandOpts) *cobra.Command {
 	agent.Flags().StringVar(&adbTunnelFlags.host, hostFlag, "", "Specifies the host")
 	agent.MarkPersistentFlagRequired(hostFlag)
 	adbTunnel := &cobra.Command{
-		Use:   "adbtunnel",
+		Use:   ADBTunnelCommandName,
 		Short: "Work with ADB tunnels",
 	}
 	addCommonSubcommandFlags(adbTunnel, adbTunnelFlags.CommonSubcmdFlags)
@@ -187,8 +195,8 @@ func openADBTunnel(flags *ADBTunnelFlags, c *command, args []string, opts *subCo
 
 func buildAgentCmdArgs(flags *ADBTunnelFlags, device string) []string {
 	args := []string{
-		"adbtunnel",
-		"agent",
+		ADBTunnelCommandName,
+		ADBTunnelAgentCommandName,
 		device,
 	}
 	return append(args, flags.AsArgs()...)

@@ -89,13 +89,13 @@ func newCVDCommand(opts *subCommandOpts) *cobra.Command {
 			ValueRef: &createFlags.GCP.MachineType,
 			Name:     gcpMachineTypeFlag,
 			Default:  opts.InitialConfig.Host.GCP.MachineType,
-			Desc:     "Indicates the machine type",
+			Desc:     gcpMachineTypeFlagDesc,
 		},
 		{
 			ValueRef: &createFlags.GCP.MinCPUPlatform,
 			Name:     gcpMinCPUPlatformFlag,
 			Default:  opts.InitialConfig.Host.GCP.MinCPUPlatform,
-			Desc:     "Specifies a minimum CPU platform for the VM instance",
+			Desc:     gcpMinCPUPlatformFlagDesc,
 		},
 	}
 	for _, f := range createHostFlags {

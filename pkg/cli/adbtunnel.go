@@ -24,6 +24,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"strings"
 	"sync"
 	"time"
 
@@ -171,6 +172,15 @@ func openADBTunnel(flags *ADBTunnelFlags, c *command, args []string, opts *subCo
 			}
 			ch <- port
 		}(portChs[i], device)
+	}
+
+	// Connecting over webrtc takes some time, so this is the best time to do some clean up
+	minAge := opts.InitialConfig.LogFilesDeleteThreshold()
+	if cnt, err := maybeCleanOldLogs(opts.InitialConfig.ADBControlDirExpanded(), minAge); err != nil {
+		// This is not a fatal error, just inform the user
+		c.PrintErrf("Error deleting old logs: %v\n", err)
+	} else if cnt > 0 {
+		c.PrintErrf("Deleted %d old log files\n", cnt)
 	}
 
 	errorCnt := 0
@@ -812,8 +822,12 @@ func ADBDisconnect(port int) error {
 	return ADBSendMsg(msg)
 }
 
+func logsDir(controlDir string) string {
+	return controlDir + "/logs"
+}
+
 func createLogger(controlDir string, dev deviceProperties) (*log.Logger, error) {
-	logsDir := controlDir + "/logs"
+	logsDir := logsDir(controlDir)
 	if err := os.MkdirAll(logsDir, 0755); err != nil {
 		return nil, fmt.Errorf("Failed to create logs dir: %w", err)
 	}
@@ -824,4 +838,38 @@ func createLogger(controlDir string, dev deviceProperties) (*log.Logger, error) 
 		return nil, fmt.Errorf("Failed to create log: %w", err)
 	}
 	return log.New(logsFile, "", log.LstdFlags), nil
+}
+
+func maybeCleanOldLogs(controlDir string, inactiveTime time.Duration) (int, error) {
+	if inactiveTime <= 0 {
+		// A non-positive value causes to logs to never be deleted.
+		return 0, nil
+	}
+	logsDir := logsDir(controlDir)
+	entries, err := os.ReadDir(logsDir)
+	if err != nil {
+		return 0, fmt.Errorf("Failed to read logs dir: %w", err)
+	}
+	var merr error
+	now := time.Now()
+	cnt := 0
+	for _, entry := range entries {
+		if !strings.HasSuffix(entry.Name(), ".log") {
+			// skip non-log files
+			continue
+		}
+		info, err := entry.Info()
+		if err != nil {
+			merr = multierror.Append(merr, err)
+			continue
+		}
+		if now.Sub(info.ModTime()) > inactiveTime {
+			if err := os.Remove(fmt.Sprintf("%s/%s", logsDir, entry.Name())); err != nil {
+				merr = multierror.Append(merr, err)
+			} else {
+				cnt++
+			}
+		}
+	}
+	return cnt, merr
 }

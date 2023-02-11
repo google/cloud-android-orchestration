@@ -25,6 +25,7 @@ const (
 ServiceURL = "service_url"
 Zone = "zone"
 HTTPProxy = "http_proxy"
+KeepLogFilesDays = 30
 [Host.GCP]
 MachineType = "machine_type"
 MinCPUPlatform = "cpu_platform"

@@ -20,6 +20,11 @@
 # sockets (limited to 108 characters).
 # ADBControlDir = "~/.cvdremote/adb"
 
+# Every time a new ADB connection is open, old log files are deleted. Files not
+# modified for KeepLogFilesDays days are considered old. Set to -1 to keep log
+# files forever.
+# KeepLogFilesDays = 30
+
 # The host.GCP section provides default configuration values for hosts created
 # using the GCP Cloud Provider. Other providers will have their own
 # host.<Provider> sections when added.

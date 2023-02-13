@@ -88,6 +88,9 @@ func (fakeService) ConnectWebRTC(host, device string, observer wclient.Observer)
 }
 
 func (fakeService) CreateCVD(host string, req *hoapi.CreateCVDRequest) (*hoapi.CVD, error) {
+	if host == "" {
+		panic("empty host")
+	}
 	return &hoapi.CVD{Name: "cvd-1"}, nil
 }
 

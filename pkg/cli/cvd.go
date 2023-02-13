@@ -75,6 +75,7 @@ func newCVDCommand(opts *subCommandOpts) *cobra.Command {
 	create.Flags().StringVar(&createFlags.Host, hostFlag, "", "Specifies the host")
 	create.Flags().StringVar(&createFlags.Branch, branchFlag, "aosp-master", "The branch name")
 	create.Flags().StringVar(&createFlags.BuildID, buildIDFlag, "", "Android build identifier")
+	create.MarkFlagsMutuallyExclusive(branchFlag, buildIDFlag)
 	create.Flags().StringVar(&createFlags.Target, targetFlag, "aosp_cf_x86_64_phone-userdebug",
 		"Android build target")
 	create.Flags().BoolVar(&createFlags.LocalImage, localImageFlag, false,

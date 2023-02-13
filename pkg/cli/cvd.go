@@ -128,27 +128,24 @@ func createCVD(c *cobra.Command, flags *CreateCVDFlags, opts *subCommandOpts) er
 		return fmt.Errorf("Failed to build service instance: %w", err)
 
 	}
-	host := flags.CreateCVDOpts.Host
-	if host == "" {
+	createOpts := *flags.CreateCVDOpts
+	if createOpts.Host == "" {
 		ins, err := createHost(service, *flags.CreateHostOpts)
 		if err != nil {
 			return fmt.Errorf("Failed to create host: %w", err)
 		}
-
-		host = ins.Name
+		createOpts.Host = ins.Name
 	}
-	createOpts := *flags.CreateCVDOpts
-	createOpts.Host = host
 	creator := &cvdCreator{
 		Service: service,
-		Opts:    *flags.CreateCVDOpts,
+		Opts:    createOpts,
 	}
 	cvd, err := creator.Create()
 	if err != nil {
 		return fmt.Errorf("Failed to create cvd: %w", err)
 	}
 	rootEndpoint := buildServiceRootEndpoint(flags.ServiceURL, flags.Zone)
-	printCVDs(c.OutOrStdout(), rootEndpoint, host, []*hoapi.CVD{cvd})
+	printCVDs(c.OutOrStdout(), rootEndpoint, createOpts.Host, []*hoapi.CVD{cvd})
 	return nil
 }
 

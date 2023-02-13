@@ -166,7 +166,7 @@ func TestCreateHostRequestBody(t *testing.T) {
   ],
   "labels": {
     "cf-created_by": "johndoe",
-    "created_by": "johndoe"
+    "created_by": "cvdremote-johndoe"
   },
   "machineType": "zones/us-central1-a/machineTypes/n1-standard-1",
   "minCpuPlatform": "Intel Haswell",
@@ -315,7 +315,7 @@ func TestListHostsRequestQuery(t *testing.T) {
 	im.ListHosts("us-central1-a", &TestUserInfo{}, req)
 
 	m, _ := url.ParseQuery(usedQuery)
-	got, expected := m["filter"][0], "labels.created_by:johndoe AND status=RUNNING"
+	got, expected := m["filter"][0], "labels.cf-created_by:johndoe AND status=RUNNING"
 	if got != expected {
 		t.Errorf("expected <<%q>>, got %q", expected, got)
 	}
@@ -415,7 +415,7 @@ func TestDeleteHostVerifyUserOwnsTheHost(t *testing.T) {
 
 	im.DeleteHost("us-central1-a", &TestUserInfo{}, "foo")
 
-	expected := "alt=json&filter=name%3Dfoo+AND+labels.created_by%3Ajohndoe&prettyPrint=false"
+	expected := "alt=json&filter=name%3Dfoo+AND+labels.cf-created_by%3Ajohndoe&prettyPrint=false"
 	if usedListQuery != expected {
 		t.Errorf("expected <<%q>>, got %q", expected, usedListQuery)
 	}

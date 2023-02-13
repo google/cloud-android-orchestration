@@ -28,6 +28,7 @@ import (
 )
 
 const (
+	branchFlag     = "branch"
 	buildIDFlag    = "build_id"
 	targetFlag     = "target"
 	localImageFlag = "local_image"
@@ -40,6 +41,7 @@ const (
 
 type CreateCVDOpts struct {
 	Host       string
+	Branch     string
 	BuildID    string
 	Target     string
 	LocalImage bool
@@ -71,13 +73,17 @@ func newCVDCommand(opts *subCommandOpts) *cobra.Command {
 		},
 	}
 	create.Flags().StringVar(&createFlags.Host, hostFlag, "", "Specifies the host")
+	create.Flags().StringVar(&createFlags.Branch, branchFlag, "aosp-master", "The branch name")
 	create.Flags().StringVar(&createFlags.BuildID, buildIDFlag, "", "Android build identifier")
+	create.MarkFlagsMutuallyExclusive(branchFlag, buildIDFlag)
 	create.Flags().StringVar(&createFlags.Target, targetFlag, "aosp_cf_x86_64_phone-userdebug",
 		"Android build target")
 	create.Flags().BoolVar(&createFlags.LocalImage, localImageFlag, false,
 		"Builds a CVD with image files built locally, the required files are https://cs.android.com/android/platform/superproject/+/master:device/google/cuttlefish/required_images and cvd-host-packages.tar.gz")
-	create.MarkFlagsMutuallyExclusive(buildIDFlag, localImageFlag)
-	create.MarkFlagsMutuallyExclusive(targetFlag, localImageFlag)
+	localImgMutuallyExFlags := []string{branchFlag, buildIDFlag, targetFlag}
+	for _, f := range localImgMutuallyExFlags {
+		create.MarkFlagsMutuallyExclusive(f, localImageFlag)
+	}
 	// Host flags
 	createHostFlags := []struct {
 		ValueRef *string
@@ -195,6 +201,7 @@ func (c *cvdCreator) createCVDFromAndroidCI() (*hoapi.CVD, error) {
 		CVD: &hoapi.CVD{
 			BuildSource: &hoapi.BuildSource{
 				AndroidCIBuild: &hoapi.AndroidCIBuild{
+					Branch:  c.Opts.Branch,
 					BuildID: c.Opts.BuildID,
 					Target:  c.Opts.Target,
 				},

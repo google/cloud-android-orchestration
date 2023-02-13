@@ -78,7 +78,8 @@ func (m *InstanceManager) CreateHost(zone string, req *apiv1.CreateHostRequest, 
 		return nil, err
 	}
 	labels := map[string]string{
-		labelAcloudCreatedBy: user.Username(),
+		// Use prefix `cvdremote` for now so these instances are not yet visible to acloud users.
+		labelAcloudCreatedBy: "cvdremote-" + user.Username(),
 		labelCreatedBy:       user.Username(),
 	}
 	payload := &compute.Instance{
@@ -128,7 +129,7 @@ func (m *InstanceManager) ListHosts(zone string, user app.UserInfo, req *app.Lis
 		maxResults = listHostsRequestMaxResultsLimit
 	}
 	statusFilterExpr := "status=RUNNING"
-	ownerFilterExpr := fmt.Sprintf("labels.%s:%s", labelAcloudCreatedBy, user.Username())
+	ownerFilterExpr := fmt.Sprintf("labels.%s:%s", labelCreatedBy, user.Username())
 	res, err := m.Service.Instances.
 		List(m.Config.GCP.ProjectID, zone).
 		Context(context.TODO()).
@@ -155,7 +156,7 @@ func (m *InstanceManager) ListHosts(zone string, user app.UserInfo, req *app.Lis
 
 func (m *InstanceManager) DeleteHost(zone string, user app.UserInfo, name string) (*apiv1.Operation, error) {
 	nameFilterExpr := "name=" + name
-	ownerFilterExpr := fmt.Sprintf("labels.%s:%s", labelAcloudCreatedBy, user.Username())
+	ownerFilterExpr := fmt.Sprintf("labels.%s:%s", labelCreatedBy, user.Username())
 	res, err := m.Service.Instances.
 		List(m.Config.GCP.ProjectID, zone).
 		Context(context.TODO()).

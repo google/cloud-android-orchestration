@@ -48,12 +48,16 @@ func TestCVDOutput(t *testing.T) {
 }
 
 func TestGetAndroidEnvVarValuesMissingVariable(t *testing.T) {
+	// testing.T doesn't have an equivalent Unsetenv function.
+	os.Unsetenv(AndroidBuildTopVarName)
+	os.Unsetenv(AndroidHostOutVarName)
+	os.Unsetenv(AndroidProductOutVarName)
+
 	_, err := GetAndroidEnvVarValues()
 
 	if _, ok := err.(MissingEnvVarErr); !ok {
 		t.Errorf("expected %+v, got %+v", MissingEnvVarErr(""), err)
 	}
-
 }
 
 func TestGetAndroidEnvVarValues(t *testing.T) {

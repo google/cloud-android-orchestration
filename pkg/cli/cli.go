@@ -71,11 +71,6 @@ const (
 )
 
 const (
-	hostGCPMachineTypeFlag    = "host_gcp_machine_type"
-	hostGCPMinCPUPlatformFlag = "host_gcp_min_cpu_platform"
-)
-
-const (
 	ADBTunnelCommandName      = "adbtunnel"
 	ADBTunnelOpenCommandName  = "open"
 	ADBTunnelCloseCommandName = "close"

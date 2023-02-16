@@ -106,8 +106,13 @@ func (fakeService) UploadFiles(host, uploadDir string, filenames []string) error
 	return nil
 }
 
+const serviceURL = "http://waldo.com"
+
+func (fakeService) RootURI() string {
+	return serviceURL + "/v1"
+}
+
 func TestCommandSucceeds(t *testing.T) {
-	const serviceURL = "http://waldo.com"
 	tests := []struct {
 		Name   string
 		Args   []string
@@ -188,7 +193,12 @@ func newTestIOStreams() (IOStreams, *bytes.Buffer, *bytes.Buffer) {
 
 func cvdOutput(serviceURL, host string, cvd hoapi.CVD) string {
 	out := &bytes.Buffer{}
-	printCVDs(out, buildServiceRootEndpoint(serviceURL, ""), host, []*hoapi.CVD{&cvd})
+	cvdOut := CVDOutput{
+		ServiceRootEndpoint: buildServiceRootEndpoint(serviceURL, ""),
+		Host:                host,
+		CVD:                 &cvd,
+	}
+	fmt.Fprintln(out, cvdOut.String())
 	b, _ := ioutil.ReadAll(out)
 	return string(b)
 }

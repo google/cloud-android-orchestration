@@ -16,7 +16,6 @@ package cli
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"strings"
 
@@ -24,20 +23,22 @@ import (
 
 	hoapi "github.com/google/android-cuttlefish/frontend/src/liboperator/api/v1"
 	"github.com/hashicorp/go-multierror"
-	"github.com/spf13/cobra"
 )
 
-const (
-	branchFlag     = "branch"
-	buildIDFlag    = "build_id"
-	targetFlag     = "target"
-	localImageFlag = "local_image"
-)
+type CVDOutput struct {
+	ServiceRootEndpoint string
+	Host                string
+	CVD                 *hoapi.CVD
+}
 
-const (
-	hostGCPMachineTypeFlag    = "host_gcp_machine_type"
-	hostGCPMinCPUPlatformFlag = "host_gcp_min_cpu_platform"
-)
+func (o *CVDOutput) String() string {
+	res := fmt.Sprintf("%s (%s)", o.CVD.Name, o.Host)
+	res += "\n  " + "Status: " + o.CVD.Status
+	res += "\n  " + "Displays: " + fmt.Sprintf("%v", o.CVD.Displays)
+	res += "\n  " + "WebRTCStream: " + client.BuildWebRTCStreamURL(o.ServiceRootEndpoint, o.Host, o.CVD.Name)
+	res += "\n  " + "Logs: " + client.BuildCVDLogsURL(o.ServiceRootEndpoint, o.Host, o.CVD.Name)
+	return res
+}
 
 type CreateCVDOpts struct {
 	Host       string
@@ -47,112 +48,20 @@ type CreateCVDOpts struct {
 	LocalImage bool
 }
 
-type CreateCVDFlags struct {
-	*CommonSubcmdFlags
-	*CreateCVDOpts
-	*CreateHostOpts
-}
-
-type ListCVDsFlags struct {
-	*CommonSubcmdFlags
-	Host string
-}
-
-func newCVDCommand(opts *subCommandOpts) *cobra.Command {
-	cvdFlags := &CommonSubcmdFlags{CVDRemoteFlags: opts.RootFlags}
-	createFlags := &CreateCVDFlags{
-		CommonSubcmdFlags: cvdFlags,
-		CreateCVDOpts:     &CreateCVDOpts{},
-		CreateHostOpts:    &CreateHostOpts{},
-	}
-	create := &cobra.Command{
-		Use:   "create",
-		Short: "Creates a CVD.",
-		RunE: func(c *cobra.Command, args []string) error {
-			return createCVD(c, createFlags, opts)
-		},
-	}
-	create.Flags().StringVar(&createFlags.Host, hostFlag, "", "Specifies the host")
-	create.Flags().StringVar(&createFlags.Branch, branchFlag, "aosp-master", "The branch name")
-	create.Flags().StringVar(&createFlags.BuildID, buildIDFlag, "", "Android build identifier")
-	create.MarkFlagsMutuallyExclusive(branchFlag, buildIDFlag)
-	create.Flags().StringVar(&createFlags.Target, targetFlag, "aosp_cf_x86_64_phone-userdebug",
-		"Android build target")
-	create.Flags().BoolVar(&createFlags.LocalImage, localImageFlag, false,
-		"Builds a CVD with image files built locally, the required files are https://cs.android.com/android/platform/superproject/+/master:device/google/cuttlefish/required_images and cvd-host-packages.tar.gz")
-	localImgMutuallyExFlags := []string{branchFlag, buildIDFlag, targetFlag}
-	for _, f := range localImgMutuallyExFlags {
-		create.MarkFlagsMutuallyExclusive(f, localImageFlag)
-	}
-	// Host flags
-	createHostFlags := []struct {
-		ValueRef *string
-		Name     string
-		Default  string
-		Desc     string
-	}{
-		{
-			ValueRef: &createFlags.GCP.MachineType,
-			Name:     gcpMachineTypeFlag,
-			Default:  opts.InitialConfig.Host.GCP.MachineType,
-			Desc:     gcpMachineTypeFlagDesc,
-		},
-		{
-			ValueRef: &createFlags.GCP.MinCPUPlatform,
-			Name:     gcpMinCPUPlatformFlag,
-			Default:  opts.InitialConfig.Host.GCP.MinCPUPlatform,
-			Desc:     gcpMinCPUPlatformFlagDesc,
-		},
-	}
-	for _, f := range createHostFlags {
-		name := "host_" + f.Name
-		create.Flags().StringVar(f.ValueRef, name, f.Default, f.Desc)
-		create.MarkFlagsMutuallyExclusive(hostFlag, name)
-	}
-	listFlags := &ListCVDsFlags{CommonSubcmdFlags: cvdFlags}
-	list := &cobra.Command{
-		Use:   "list",
-		Short: "List CVDs",
-		RunE: func(c *cobra.Command, args []string) error {
-			return listCVDs(c, listFlags, opts)
-		},
-	}
-	list.Flags().StringVar(&listFlags.Host, hostFlag, "", "Specifies the host")
-	cvd := &cobra.Command{
-		Use:   "cvd",
-		Short: "Work with CVDs",
-	}
-	addCommonSubcommandFlags(cvd, cvdFlags)
-	cvd.AddCommand(create)
-	cvd.AddCommand(list)
-	return cvd
-}
-
-func createCVD(c *cobra.Command, flags *CreateCVDFlags, opts *subCommandOpts) error {
-	service, err := opts.ServiceBuilder(flags.CommonSubcmdFlags, c)
-	if err != nil {
-		return fmt.Errorf("Failed to build service instance: %w", err)
-
-	}
-	createOpts := *flags.CreateCVDOpts
-	if createOpts.Host == "" {
-		ins, err := createHost(service, *flags.CreateHostOpts)
-		if err != nil {
-			return fmt.Errorf("Failed to create host: %w", err)
-		}
-		createOpts.Host = ins.Name
-	}
+func createCVD(service client.Service, createOpts CreateCVDOpts) (*CVDOutput, error) {
 	creator := &cvdCreator{
 		Service: service,
 		Opts:    createOpts,
 	}
 	cvd, err := creator.Create()
 	if err != nil {
-		return fmt.Errorf("Failed to create cvd: %w", err)
+		return nil, fmt.Errorf("Failed to create cvd: %w", err)
 	}
-	rootEndpoint := buildServiceRootEndpoint(flags.ServiceURL, flags.Zone)
-	printCVDs(c.OutOrStdout(), rootEndpoint, createOpts.Host, []*hoapi.CVD{cvd})
-	return nil
+	return &CVDOutput{
+		ServiceRootEndpoint: service.RootURI(),
+		Host:                createOpts.Host,
+		CVD:                 cvd,
+	}, nil
 }
 
 type cvdCreator struct {
@@ -212,38 +121,30 @@ func (c *cvdCreator) createCVDFromAndroidCI() (*hoapi.CVD, error) {
 }
 
 type cvdListResult struct {
-	Result []*hoapi.CVD
+	Result []*CVDOutput
 	Error  error
 }
 
-func listCVDs(c *cobra.Command, flags *ListCVDsFlags, opts *subCommandOpts) error {
-	service, err := opts.ServiceBuilder(flags.CommonSubcmdFlags, c)
+func listAllCVDs(service client.Service) ([]*CVDOutput, error) {
+	hl, err := service.ListHosts()
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("Error listing hosts: %w", err)
 	}
 	var hosts []string
-	if flags.Host != "" {
-		hosts = append(hosts, flags.Host)
-	} else {
-		res, err := service.ListHosts()
-		if err != nil {
-			return fmt.Errorf("Error listing hosts: %w", err)
-		}
-		for _, host := range res.Items {
-			hosts = append(hosts, host.Name)
-		}
+	for _, host := range hl.Items {
+		hosts = append(hosts, host.Name)
 	}
 	var chans []chan cvdListResult
 	for _, host := range hosts {
 		ch := make(chan cvdListResult)
 		chans = append(chans, ch)
 		go func(name string, ch chan<- cvdListResult) {
-			cvds, err := service.ListCVDs(name)
+			cvds, err := listHostCVDs(service, name)
 			ch <- cvdListResult{Result: cvds, Error: err}
 		}(host, ch)
 	}
-	rootEndpoint := buildServiceRootEndpoint(flags.ServiceURL, flags.Zone)
 	var merr error
+	var cvds []*CVDOutput
 	for i, ch := range chans {
 		host := hosts[i]
 		result := <-ch
@@ -251,35 +152,25 @@ func listCVDs(c *cobra.Command, flags *ListCVDsFlags, opts *subCommandOpts) erro
 			merr = multierror.Append(merr, fmt.Errorf("lists cvds for host %q failed: %w", host, err))
 			continue
 		}
-		printCVDs(c.OutOrStdout(), rootEndpoint, host, result.Result)
+		cvds = append(cvds, result.Result...)
 	}
-	return merr
+	return cvds, merr
 }
 
-type CVDOutput struct {
-	ServiceRootEndpoint string
-	Host                string
-	CVD                 *hoapi.CVD
-}
-
-func (o *CVDOutput) String() string {
-	res := fmt.Sprintf("%s (%s)", o.CVD.Name, o.Host)
-	res += "\n  " + "Status: " + o.CVD.Status
-	res += "\n  " + "Displays: " + fmt.Sprintf("%v", o.CVD.Displays)
-	res += "\n  " + "WebRTCStream: " + client.BuildWebRTCStreamURL(o.ServiceRootEndpoint, o.Host, o.CVD.Name)
-	res += "\n  " + "Logs: " + client.BuildCVDLogsURL(o.ServiceRootEndpoint, o.Host, o.CVD.Name)
-	return res
-}
-
-func printCVDs(writer io.Writer, rootEndpoint, host string, cvds []*hoapi.CVD) {
-	for _, cvd := range cvds {
-		o := CVDOutput{
-			ServiceRootEndpoint: rootEndpoint,
+func listHostCVDs(service client.Service, host string) ([]*CVDOutput, error) {
+	cvds, err := service.ListCVDs(host)
+	if err != nil {
+		return nil, err
+	}
+	ret := make([]*CVDOutput, len(cvds))
+	for i, c := range cvds {
+		ret[i] = &CVDOutput{
+			ServiceRootEndpoint: service.RootURI(),
 			Host:                host,
-			CVD:                 cvd,
+			CVD:                 c,
 		}
-		fmt.Fprintln(writer, o.String())
 	}
+	return ret, nil
 }
 
 const RequiredImagesFilename = "device/google/cuttlefish/required_images"

@@ -18,12 +18,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"io/fs"
 	"log"
 	"net"
 	"os"
-	"os/exec"
 	"strings"
 	"sync"
 	"time"
@@ -33,303 +31,65 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/pion/webrtc/v3"
-	"github.com/spf13/cobra"
 )
-
-type ADBTunnelFlags struct {
-	*CommonSubcmdFlags
-	host string
-}
-
-func (f *ADBTunnelFlags) AsArgs() []string {
-	args := f.CommonSubcmdFlags.AsArgs()
-	if f.host != "" {
-		args = append(args, "--"+hostFlag, f.host)
-	}
-	return args
-}
-
-type listADBTunnelFlags struct {
-	*ADBTunnelFlags
-	longFormat bool
-}
-
-type closeADBTunnelFlags struct {
-	*ADBTunnelFlags
-	skipConfirmation bool
-}
-
-const (
-	ADBTunnelCommandName      = "adbtunnel"
-	ADBTunnelOpenCommandName  = "open"
-	ADBTunnelCloseCommandName = "close"
-	ADBTunnelListCommandName  = "list"
-	ADBTunnelAgentCommandName = "agent"
-)
-
-func newADBTunnelCommand(opts *subCommandOpts) *cobra.Command {
-	adbTunnelFlags := &ADBTunnelFlags{&CommonSubcmdFlags{opts.RootFlags, false}, ""}
-	open := &cobra.Command{
-		Use:   ADBTunnelOpenCommandName,
-		Short: "Opens an ADB tunnel.",
-		RunE: func(c *cobra.Command, args []string) error {
-			return openADBTunnel(adbTunnelFlags, &command{c, &adbTunnelFlags.Verbose}, args, opts)
-		},
-	}
-	open.PersistentFlags().StringVar(&adbTunnelFlags.host, hostFlag, "", "Specifies the host")
-	open.MarkPersistentFlagRequired(hostFlag)
-	listFlags := &listADBTunnelFlags{
-		ADBTunnelFlags: adbTunnelFlags,
-		longFormat:     false,
-	}
-	list := &cobra.Command{
-		Use:   ADBTunnelListCommandName,
-		Short: "Lists open ADB tunnels.",
-		RunE: func(c *cobra.Command, args []string) error {
-			return listADBTunnels(listFlags, &command{c, &adbTunnelFlags.Verbose}, opts)
-		},
-	}
-	list.Flags().StringVar(&adbTunnelFlags.host, hostFlag, "", "Specifies the host")
-	list.Flags().BoolVarP(&listFlags.longFormat, "long", "l", false, "Print with long format.")
-	closeFlags := &closeADBTunnelFlags{adbTunnelFlags, false /*skipConfirmation*/}
-	close := &cobra.Command{
-		Use:   fmt.Sprintf("%s <foo> <bar> <baz>", ADBTunnelCloseCommandName),
-		Short: "Close ADB tunnels.",
-		RunE: func(c *cobra.Command, args []string) error {
-			return closeADBTunnels(closeFlags, &command{c, &adbTunnelFlags.Verbose}, args, opts)
-		},
-	}
-	close.Flags().StringVar(&adbTunnelFlags.host, hostFlag, "", "Specifies the host")
-	close.Flags().BoolVarP(&closeFlags.skipConfirmation, "yes", "y", false,
-		"Don't ask for confirmation for closing multiple tunnels.")
-	agent := &cobra.Command{
-		Hidden: true,
-		Use:    ADBTunnelAgentCommandName,
-		RunE: func(c *cobra.Command, args []string) error {
-			return adbTunnelAgentLoop(adbTunnelFlags, &command{c, &adbTunnelFlags.Verbose}, args, opts)
-		},
-	}
-	agent.Flags().StringVar(&adbTunnelFlags.host, hostFlag, "", "Specifies the host")
-	agent.MarkPersistentFlagRequired(hostFlag)
-	adbTunnel := &cobra.Command{
-		Use:   ADBTunnelCommandName,
-		Short: "Work with ADB tunnels",
-	}
-	addCommonSubcommandFlags(adbTunnel, adbTunnelFlags.CommonSubcmdFlags)
-	adbTunnel.AddCommand(open)
-	adbTunnel.AddCommand(list)
-	adbTunnel.AddCommand(close)
-	adbTunnel.AddCommand(agent)
-	return adbTunnel
-}
 
 // Starts an ADB agent process for each device. Waits for all started subprocesses
 // to report the tunnel was successfully created or an error occurred. Returns a
 // summary of errors reported by the ADB agents or nil if all succeeded. Some
 // tunnels may have been established even if this function returns an error. Those
-// are discoverable through gatherADBTunnels() after this function returns.
-func openADBTunnel(flags *ADBTunnelFlags, c *command, args []string, opts *subCommandOpts) error {
-	portChs := make([]chan int, len(args))
-	for i, device := range args {
+// are discoverable through listADBTunnels() after this function returns.
+func openADBTunnels(devices []string, launchAgent func(string) int, reportTunnel func(string, int)) error {
+	portChs := make([]chan int, len(devices))
+	for i, device := range devices {
 		portChs[i] = make(chan int)
 		go func(ch chan int, device string) {
 			defer close(ch)
-			args := buildAgentCmdArgs(flags, device)
-
-			cmd := exec.Command(os.Args[0], args...)
-			cmd.Stderr = c.ErrOrStderr()
-			cmd.Stdin = c.InOrStdin()
-			pipe, err := cmd.StdoutPipe()
-			if err != nil {
-				c.PrintErrf("Unable to pipe agent output for %s: %v\n", device, err)
-				return
+			port := launchAgent(device)
+			if port > 0 {
+				ch <- port
 			}
-			defer pipe.Close()
-			if err := cmd.Start(); err != nil {
-				c.PrintErrf("Unable to start agent for %s: %v\n", device, err)
-				return
-			}
-			// This process will remain running in background once the command exits.
-			defer cmd.Process.Release()
-
-			output, err := io.ReadAll(pipe)
-			if err != nil {
-				c.PrintErrf("Error reading agent output for %s: %v", device, err)
-				return
-			}
-
-			if len(output) == 0 {
-				// The pipe was closed before any data was written because no connection was established.
-				// No need to print error: the agent took care of that.
-				// This is not equivalent to reading more than zero bytes from stderr since the agent
-				// could write messages and warnings there without failing.
-				return
-			}
-			var port int
-			if _, err := fmt.Sscan(string(output), &port); err != nil {
-				c.PrintErrf("Failed to parse port from agent output: %v\n", err)
-				return
-			}
-			ch <- port
 		}(portChs[i], device)
 	}
 
-	// Connecting over webrtc takes some time, so this is the best time to do some clean up
-	minAge := opts.InitialConfig.LogFilesDeleteThreshold()
-	if cnt, err := maybeCleanOldLogs(opts.InitialConfig.ADBControlDirExpanded(), minAge); err != nil {
-		// This is not a fatal error, just inform the user
-		c.PrintErrf("Error deleting old logs: %v\n", err)
-	} else if cnt > 0 {
-		c.PrintErrf("Deleted %d old log files\n", cnt)
-	}
-
-	errorCnt := 0
-	for i, device := range args {
+	failed := 0
+	var merr error
+	for i, device := range devices {
 		port, read := <-portChs[i]
 		if !read {
 			// Channel close without sending port number indicates a failure
-			errorCnt++
+			failed++
 			continue
 		}
+		reportTunnel(device, port)
 
 		if err := ADBConnect(port); err != nil {
-			c.PrintErrf("Error connecting ADB to %q: %v\n", device, err)
-		}
-		c.Printf("%s/%s: %d\n", flags.host, device, port)
-	}
-	if errorCnt == 0 {
-		return nil
-	}
-	return fmt.Errorf("Failed to tunnel %d out of %d devices", errorCnt, len(args))
-}
-
-func buildAgentCmdArgs(flags *ADBTunnelFlags, device string) []string {
-	args := []string{
-		ADBTunnelCommandName,
-		ADBTunnelAgentCommandName,
-		device,
-	}
-	return append(args, flags.AsArgs()...)
-}
-
-// Handler for the agent command. This is not meant to be called by the user
-// directly, but instead is started by the open command.
-// The process starts executing in the foreground, with its stderr connected to
-// the terminal. If an error occurs the process exits with a non-zero exit code
-// and the error is printed to stderr. If the connection is successfully
-// established, the process closes all its standard IO channels and continues
-// execution in the background. Any errors detected when the process is in
-// background are written to the log file instead.
-func adbTunnelAgentLoop(flags *ADBTunnelFlags, c *command, args []string, opts *subCommandOpts) error {
-	if len(args) > 1 {
-		return fmt.Errorf("ADB tunnel agent only supports a single device, received: %v", args)
-	}
-	if len(args) == 0 {
-		return fmt.Errorf("Missing device")
-	}
-	device := args[0]
-	service, err := opts.ServiceBuilder(flags.CommonSubcmdFlags, c.Command)
-	if err != nil {
-		return err
-	}
-
-	devSpec := DeviceSpec{
-		ServiceURL: flags.ServiceURL,
-		Zone:       flags.Zone,
-		Host:       flags.host,
-		Device:     device,
-	}
-
-	controlDir := opts.InitialConfig.ADBControlDirExpanded()
-	ret, err := findOrCreateTunnel(controlDir, devSpec, service)
-	if err != nil {
-		return err
-	}
-	if ret.Error != nil {
-		// A tunnel was found or created, but a non-fatal error occurred.
-		c.PrintErrln(ret.Error)
-	}
-
-	// The agent's only output is the port
-	c.Println(ret.Port)
-
-	if ret.Controller == nil {
-		// A tunnel already exist, this process is done.
-		return nil
-	}
-
-	// Signal the caller that the agent is moving to the background.
-	os.Stdin.Close()
-	os.Stdout.Close()
-	os.Stderr.Close()
-
-	ret.Controller.Run()
-
-	// There is no point in returning error codes from a background process, errors
-	// will be written to the log file instead.
-	return nil
-}
-
-func printADBTunnels(forwarders []ADBForwarderStatus, c *command, longFormat bool) {
-	for _, fwdr := range forwarders {
-		line := fmt.Sprintf("%s/%s 127.0.0.1:%d %s",
-			fwdr.Host, fwdr.Device, fwdr.Port, fwdr.State)
-		if longFormat {
-			line = fmt.Sprintf("%s: %s/%s", fwdr.ServiceURL, fwdr.Zone, line)
-		}
-		c.Println(line)
-	}
-}
-
-func listADBTunnels(flags *listADBTunnelFlags, c *command, opts *subCommandOpts) error {
-	controlDir := opts.InitialConfig.ADBControlDirExpanded()
-	forwarders, err := gatherADBTunnels(controlDir, flags.Zone, flags.host)
-	// Print the tunnels we may have found before an error was encountered if any.
-	printADBTunnels(forwarders, c, flags.longFormat)
-	return err
-}
-
-func closeADBTunnels(flags *closeADBTunnelFlags, c *command, args []string, opts *subCommandOpts) error {
-	devices := make(map[string]any)
-	for _, a := range args {
-		devices[a] = nil
-	}
-	controlDir := opts.InitialConfig.ADBControlDirExpanded()
-	forwarders, merr := gatherADBTunnels(controlDir, flags.Zone, flags.host)
-	if len(args) > 0 {
-		var inArgs []ADBForwarderStatus
-		for _, fwdr := range forwarders {
-			if _, in := devices[fwdr.Device]; in {
-				inArgs = append(inArgs, fwdr)
-			}
-		}
-		forwarders = inArgs
-	}
-	if len(forwarders) == 0 {
-		return fmt.Errorf("No ADB tunnels found")
-	}
-	if len(forwarders) > 1 && !flags.skipConfirmation {
-		var err error
-		forwarders, err = promptTunnelSelection(forwarders, c)
-		if err != nil {
-			// A failure to read user input cancels the entire command.
-			return err
+			err = fmt.Errorf("Error connecting ADB to %q: %w\n", device, err)
+			merr = multierror.Append(merr, err)
 		}
 	}
-	for _, dev := range forwarders {
-		if err := closeTunnel(controlDir, dev); err != nil {
-			multierror.Append(merr, err)
-			continue
-		}
-		ADBDisconnect(dev.Port)
-		c.Printf("%s/%s: closed\n", dev.Host, dev.Device)
+	if failed > 0 {
+		err := fmt.Errorf("Failed to tunnel %d out of %d devices", failed, len(devices))
+		merr = multierror.Append(merr, err)
 	}
 	return merr
 }
 
+func closeTunnel(controlDir string, dev ADBForwarderStatus) error {
+	conn, err := net.Dial("unixpacket", fmt.Sprintf("%s/%d.sock", controlDir, dev.Port))
+	if err != nil {
+		return fmt.Errorf("Failed to connect to %s/%s's agent: %w", dev.Host, dev.Device, err)
+	}
+	_, err = conn.Write([]byte(stopCmd))
+	if err != nil {
+		return fmt.Errorf("Failed to send stop command to %s/%s: %w", dev.Host, dev.Device, err)
+	}
+	ADBDisconnect(dev.Port)
+	return nil
+}
+
 // Finds all existing ADB tunnels. Returns the list of ADB tunnels it was able
 // to gather along with a multierror detailing errors for the unreachable ones.
-func gatherADBTunnels(controlDir string, zone, host string) ([]ADBForwarderStatus, error) {
+func listADBTunnels(controlDir string, zone, host string) ([]ADBForwarderStatus, error) {
 	var merr error
 	forwarders := make([]ADBForwarderStatus, 0)
 	entries, err := os.ReadDir(controlDir)
@@ -374,7 +134,7 @@ type findOrCreateRet struct {
 }
 
 func findOrCreateTunnel(controlDir string, devSpec DeviceSpec, service client.Service) (findOrCreateRet, error) {
-	forwarders, err := gatherADBTunnels(controlDir, devSpec.Zone, devSpec.Host)
+	forwarders, err := listADBTunnels(controlDir, devSpec.Zone, devSpec.Host)
 	// Even with an error some connections may have been listed.
 	for _, fwd := range forwarders {
 		if fwd.DeviceSpec == devSpec {
@@ -391,35 +151,6 @@ func findOrCreateTunnel(controlDir string, devSpec DeviceSpec, service client.Se
 		return findOrCreateRet{}, fmt.Errorf("Failed to create tunnel controller: %w", tErr)
 	}
 	return findOrCreateRet{controller.Port(), controller, err}, nil
-}
-
-func closeTunnel(controlDir string, dev ADBForwarderStatus) error {
-	conn, err := net.Dial("unixpacket", fmt.Sprintf("%s/%d.sock", controlDir, dev.Port))
-	if err != nil {
-		return fmt.Errorf("Failed to connect to %s/%s's agent: %w", dev.Host, dev.Device, err)
-	}
-	_, err = conn.Write([]byte(stopCmd))
-	if err != nil {
-		return fmt.Errorf("Failed to send stop command to %s/%s: %w", dev.Host, dev.Device, err)
-	}
-	return nil
-}
-
-func promptTunnelSelection(devices []ADBForwarderStatus, c *command) ([]ADBForwarderStatus, error) {
-	c.PrintErrln("Multiple ADB tunnels match:")
-	names := make([]string, len(devices))
-	for i, d := range devices {
-		names[i] = fmt.Sprintf("%s %s", d.Host, d.Device)
-	}
-	choices, err := c.PromptSelection(names, AllowAll)
-	if err != nil {
-		return nil, err
-	}
-	ret := make([]ADBForwarderStatus, len(choices))
-	for i, v := range choices {
-		ret[i] = devices[v]
-	}
-	return ret, nil
 }
 
 type DeviceSpec struct {

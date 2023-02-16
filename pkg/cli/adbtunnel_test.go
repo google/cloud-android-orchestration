@@ -27,12 +27,10 @@ func TestBuildAgentCmdline(t *testing.T) {
 	// are modified. This should help the developer realize they also need to
 	// modify the corresponding AsArgs method.
 	flags := ADBTunnelFlags{
-		&CommonSubcmdFlags{
-			&CVDRemoteFlags{
-				"service url",
-				"zone",
-				"http proxy",
-			},
+		&CVDRemoteFlags{
+			"service url",
+			"zone",
+			"http proxy",
 			true, // verbose
 		},
 		"host",

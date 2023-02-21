@@ -238,9 +238,17 @@ func NewCVDRemoteCommand(o *CommandOptions) *CVDRemoteCommand {
 		RootFlags:      flags,
 		InitialConfig:  o.InitialConfig,
 	}
-	rootCmd.AddCommand(newHostCommand(subCmdOpts))
-	rootCmd.AddCommand(newADBTunnelCommand(subCmdOpts))
-	rootCmd.AddCommand(newCVDCommand(subCmdOpts))
+	cvdGroup := &cobra.Group{
+		ID:    "cvd",
+		Title: "Commands:",
+	}
+	rootCmd.AddGroup(cvdGroup)
+	for _, c := range cvdCommands(subCmdOpts) {
+		c.GroupID = cvdGroup.ID
+		rootCmd.AddCommand(c)
+	}
+	rootCmd.AddCommand(hostCommand(subCmdOpts))
+	rootCmd.AddCommand(adbTunnelCommand(subCmdOpts))
 	return &CVDRemoteCommand{rootCmd}
 }
 
@@ -252,7 +260,7 @@ func (c *CVDRemoteCommand) Execute() error {
 	return err
 }
 
-func newHostCommand(opts *subCommandOpts) *cobra.Command {
+func hostCommand(opts *subCommandOpts) *cobra.Command {
 	createFlags := &CreateHostFlags{CVDRemoteFlags: opts.RootFlags, CreateHostOpts: &CreateHostOpts{}}
 	create := &cobra.Command{
 		Use:   "create",
@@ -289,7 +297,7 @@ func newHostCommand(opts *subCommandOpts) *cobra.Command {
 	return host
 }
 
-func newCVDCommand(opts *subCommandOpts) *cobra.Command {
+func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 	createFlags := &CreateCVDFlags{
 		CVDRemoteFlags: opts.RootFlags,
 		CreateCVDOpts:  &CreateCVDOpts{},
@@ -297,7 +305,7 @@ func newCVDCommand(opts *subCommandOpts) *cobra.Command {
 	}
 	create := &cobra.Command{
 		Use:   "create",
-		Short: "Creates a CVD.",
+		Short: "Creates a CVD",
 		RunE: func(c *cobra.Command, args []string) error {
 			return runCreateCVDCommand(c, createFlags, opts)
 		},
@@ -348,16 +356,10 @@ func newCVDCommand(opts *subCommandOpts) *cobra.Command {
 		},
 	}
 	list.Flags().StringVar(&listFlags.Host, hostFlag, "", "Specifies the host")
-	cvd := &cobra.Command{
-		Use:   "cvd",
-		Short: "Work with CVDs",
-	}
-	cvd.AddCommand(create)
-	cvd.AddCommand(list)
-	return cvd
+	return []*cobra.Command{create, list}
 }
 
-func newADBTunnelCommand(opts *subCommandOpts) *cobra.Command {
+func adbTunnelCommand(opts *subCommandOpts) *cobra.Command {
 	adbTunnelFlags := &ADBTunnelFlags{opts.RootFlags, ""}
 	open := &cobra.Command{
 		Use:   ADBTunnelOpenCommandName,

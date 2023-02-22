@@ -52,7 +52,7 @@ func (c *Config) LogFilesDeleteThreshold() time.Duration {
 
 func DefaultConfig() Config {
 	return Config{
-		ADBControlDir:    "~/.cvdremote/adb",
+		ADBControlDir:    "~/.cvdr/adb",
 		KeepLogFilesDays: 30, // A default is needed to not keep forever
 	}
 }

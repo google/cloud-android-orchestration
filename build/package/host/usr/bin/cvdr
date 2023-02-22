@@ -1,0 +1,5 @@
+#!/bin/bash
+
+export CVDR_CONFIG_PATH=/etc/cvdr.toml
+
+exec /usr/libexec/cvdr "$@"

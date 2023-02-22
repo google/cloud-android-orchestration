@@ -1,10 +1,10 @@
-# Configuration for the cvdremote program, the CLI client to the Cloud Android
+# Configuration for the cvdr program, the CLI client to the Cloud Android
 # Orchestration service. For instructions on the TOML format see https://toml.io
 
 # This property should be set on real deployments to avoid forcing users to
 #  specify --service_url=<url> everytime.
 # The URL should be the full path to the service API without including the api
-# version, which will be appended by the cvdremote binary.
+# version, which will be appended by the cvdr binary.
 # ServiceURL = "https://cloud.android.company.com/api"
 
 # The zone where the users' host VMs will be created. The value typically
@@ -18,7 +18,7 @@
 # Directory where the control sockets for the ADB tunnels will be created and
 # log files will be placed. The directory path should be short enough for UNIX
 # sockets (limited to 108 characters).
-# ADBControlDir = "~/.cvdremote/adb"
+# ADBControlDir = "~/.cvdr/adb"
 
 # Every time a new ADB connection is open, old log files are deleted. Files not
 # modified for KeepLogFilesDays days are considered old. Set to -1 to keep log

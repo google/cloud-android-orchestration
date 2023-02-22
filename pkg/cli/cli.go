@@ -148,7 +148,7 @@ type closeADBTunnelFlags struct {
 	skipConfirmation bool
 }
 
-// Extends a cobra.Command object with cvdremote specific operations like
+// Extends a cobra.Command object with cvdr specific operations like
 // printing verbose logs
 type command struct {
 	*cobra.Command
@@ -212,7 +212,7 @@ func (c *command) PromptSelection(choices []string, selOpt SelectionOption) ([]i
 func NewCVDRemoteCommand(o *CommandOptions) *CVDRemoteCommand {
 	flags := &CVDRemoteFlags{}
 	rootCmd := &cobra.Command{
-		Use:               "cvdremote",
+		Use:               "cvdr",
 		Short:             "Manages Cuttlefish Virtual Devices (CVDs) in the cloud.",
 		SilenceUsage:      true,
 		SilenceErrors:     true,

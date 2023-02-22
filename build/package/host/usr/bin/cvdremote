@@ -1,5 +1,0 @@
-#!/bin/bash
-
-export CVDREMOTE_CONFIG_PATH=/etc/cvdremote.toml
-
-exec /usr/libexec/cvdremote "$@"

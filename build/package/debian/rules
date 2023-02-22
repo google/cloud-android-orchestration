@@ -20,8 +20,8 @@ GOUTIL := ../../scripts/goutil
 SOURCE_DIR := ../..
 
 override_dh_auto_build:
-	$(GOUTIL) $(SOURCE_DIR) build -v -ldflags="-w" ./cmd/cvdremote
+	$(GOUTIL) $(SOURCE_DIR) build -v -ldflags="-w" ./cmd/cvdr
 
 override_dh_auto_clean:
-	rm -f $(SOURCE_DIR)/cvdremote
+	rm -f $(SOURCE_DIR)/cvdr
 	dh_auto_clean

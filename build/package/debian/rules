@@ -23,5 +23,5 @@ override_dh_auto_build:
 	$(GOUTIL) $(SOURCE_DIR) build -v -ldflags="-w" ./cmd/cvdremote
 
 override_dh_auto_clean:
-	rm -f $(CVDREMOTE_SOURCE_DIR)/cvdremote
+	rm -f $(SOURCE_DIR)/cvdremote
 	dh_auto_clean

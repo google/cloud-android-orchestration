@@ -1,4 +1,4 @@
-cvdremote (0.1.0) UNRELEASED; urgency=medium
+cuttlefish-cvdremote (0.1.0) UNRELEASED; urgency=medium
 
   * Deploys cvdremote binary and config
 

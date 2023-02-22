@@ -1,4 +1,4 @@
-debian/cvdremote/
+debian/cuttlefish-cvdremote/
 debian/*.substvars
 debian/files
 debian/*.debhelper

@@ -1,4 +1,4 @@
-Source: cvdremote
+Source: cuttlefish-cvdremote
 Maintainer: Cuttlefish Team
 Section: misc
 Priority: optional
@@ -7,7 +7,7 @@ Build-Depends: config-package-dev,
                golang (>= 2:1.13~) | golang-1.13
 Standards-Version: 4.5.0
 
-Package: cvdremote
+Package: cuttlefish-cvdremote
 Architecture: any
 Depends: ${misc:Depends},
          ${shlibs:Depends}

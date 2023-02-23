@@ -22,7 +22,7 @@ import (
 	"github.com/google/cloud-android-orchestration/pkg/client"
 )
 
-const configPathVar = "CVDREMOTE_CONFIG_PATH"
+const configPathVar = "CVDR_CONFIG_PATH"
 
 func readConfig(config *cli.Config) error {
 	configPath := os.Getenv(configPathVar)

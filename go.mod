@@ -19,7 +19,7 @@ require (
 	github.com/cenkalti/backoff/v4 v4.2.0 // indirect
 	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
-	github.com/google/android-cuttlefish/frontend/src/liboperator v0.0.0-20230209193357-0a7657d06cde // indirect
+	github.com/google/android-cuttlefish/frontend/src/liboperator v0.0.0-20230222235741-0bb785a63989 // indirect
 	github.com/googleapis/gax-go/v2 v2.1.1 // indirect
 	github.com/hashicorp/errwrap v1.0.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.1 // indirect

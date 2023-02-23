@@ -96,7 +96,7 @@ func (c *cvdCreator) createCVDFromLocalBuild() (*hoapi.CVD, error) {
 	req := hoapi.CreateCVDRequest{
 		CVD: &hoapi.CVD{
 			BuildSource: &hoapi.BuildSource{
-				UserBuild: &hoapi.UserBuild{
+				UserBuildSource: &hoapi.UserBuildSource{
 					ArtifactsDir: uploadDir,
 				},
 			},
@@ -109,10 +109,12 @@ func (c *cvdCreator) createCVDFromAndroidCI() (*hoapi.CVD, error) {
 	req := hoapi.CreateCVDRequest{
 		CVD: &hoapi.CVD{
 			BuildSource: &hoapi.BuildSource{
-				AndroidCIBuild: &hoapi.AndroidCIBuild{
-					Branch:  c.Opts.Branch,
-					BuildID: c.Opts.BuildID,
-					Target:  c.Opts.Target,
+				AndroidCIBuildSource: &hoapi.AndroidCIBuildSource{
+					MainBuild: &hoapi.AndroidCIBuild{
+						Branch:  c.Opts.Branch,
+						BuildID: c.Opts.BuildID,
+						Target:  c.Opts.Target,
+					},
 				},
 			},
 		},

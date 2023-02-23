@@ -127,6 +127,8 @@ github.com/google/android-cuttlefish/frontend/src/liboperator v0.0.0-20221213213
 github.com/google/android-cuttlefish/frontend/src/liboperator v0.0.0-20221213213126-ab0e5101c631/go.mod h1:E3WxEUke776p+K3arlyhysebg/3pwSz84v3mHB5S6WQ=
 github.com/google/android-cuttlefish/frontend/src/liboperator v0.0.0-20230209193357-0a7657d06cde h1:quXXqCxnqzp1KIKhugffVl89g/bsdqor722Wfy5aSto=
 github.com/google/android-cuttlefish/frontend/src/liboperator v0.0.0-20230209193357-0a7657d06cde/go.mod h1:E3WxEUke776p+K3arlyhysebg/3pwSz84v3mHB5S6WQ=
+github.com/google/android-cuttlefish/frontend/src/liboperator v0.0.0-20230222235741-0bb785a63989 h1:bB1gEXet4D8DdaPC6nBdt58ObuHv202oQ1cQJLYMbLo=
+github.com/google/android-cuttlefish/frontend/src/liboperator v0.0.0-20230222235741-0bb785a63989/go.mod h1:E3WxEUke776p+K3arlyhysebg/3pwSz84v3mHB5S6WQ=
 github.com/google/btree v0.0.0-20180813153112-4030bb1f1f0c/go.mod h1:lNA+9X1NB3Zf8V7Ke586lFgjr2dZNuvo3lPJSGZ5JPQ=
 github.com/google/btree v1.0.0/go.mod h1:lNA+9X1NB3Zf8V7Ke586lFgjr2dZNuvo3lPJSGZ5JPQ=
 github.com/google/go-cmp v0.2.0/go.mod h1:oXzfMopK8JAjlY9xF4vHSVASa0yLyX7SntLO5aqRK0M=

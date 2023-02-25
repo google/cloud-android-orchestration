@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"time"
 
 	"github.com/google/cloud-android-orchestration/pkg/client"
@@ -34,11 +33,21 @@ type IOStreams struct {
 	ErrOut io.Writer
 }
 
+type CommandRunner interface {
+	// Start a command and doesn't wait for it to exit. Instead it reads its entire
+	// standard output and returns that or an error. The commands stdin and stderr
+	// should be connected to sensible IO channels.
+	StartBgCommand(...string) (string, error)
+	// When needed RunCommand can be added, returning the exit code, the output and
+	// an error.
+}
+
 type CommandOptions struct {
 	IOStreams
 	Args           []string
 	InitialConfig  Config
 	ServiceBuilder client.ServiceBuilder
+	CommandRunner  CommandRunner
 }
 
 type CVDRemoteCommand struct {
@@ -123,6 +132,7 @@ type subCommandOpts struct {
 	ServiceBuilder serviceBuilder
 	RootFlags      *CVDRemoteFlags
 	InitialConfig  Config
+	CommandRunner  CommandRunner
 }
 
 type ADBTunnelFlags struct {
@@ -237,6 +247,7 @@ func NewCVDRemoteCommand(o *CommandOptions) *CVDRemoteCommand {
 		ServiceBuilder: buildServiceBuilder(o.ServiceBuilder),
 		RootFlags:      flags,
 		InitialConfig:  o.InitialConfig,
+		CommandRunner:  o.CommandRunner,
 	}
 	cvdGroup := &cobra.Group{
 		ID:    "cvd",
@@ -365,7 +376,7 @@ func adbTunnelCommand(opts *subCommandOpts) *cobra.Command {
 		Use:   ADBTunnelOpenCommandName,
 		Short: "Opens an ADB tunnel.",
 		RunE: func(c *cobra.Command, args []string) error {
-			return runOpenADBTunnelCommand(adbTunnelFlags, &command{c, &adbTunnelFlags.Verbose}, args, opts)
+			return runConnectCommand(adbTunnelFlags, &command{c, &adbTunnelFlags.Verbose}, args, opts)
 		},
 	}
 	open.PersistentFlags().StringVar(&adbTunnelFlags.host, hostFlag, "", "Specifies the host")
@@ -466,8 +477,17 @@ func runCreateCVDCommand(c *cobra.Command, flags *CreateCVDFlags, opts *subComma
 	if err != nil {
 		return err
 	}
+	connectFlags := &ADBTunnelFlags{
+		CVDRemoteFlags: flags.CVDRemoteFlags,
+		host:           flags.CreateCVDOpts.Host,
+	}
+	cvd.ADBPort = -1
+	onConn := func(_ string, p int) {
+		cvd.ADBPort = p
+	}
+	err = ConnectDevices(connectFlags, &command{c, &flags.Verbose}, []string{cvd.CVD.Name}, opts, onConn)
 	c.Println(cvd)
-	return nil
+	return err
 }
 
 func runListCVDsCommand(c *cobra.Command, flags *ListCVDsFlags, opts *subCommandOpts) error {
@@ -492,7 +512,7 @@ func runListCVDsCommand(c *cobra.Command, flags *ListCVDsFlags, opts *subCommand
 // summary of errors reported by the ADB agents or nil if all succeeded. Some
 // tunnels may have been established even if this function returns an error. Those
 // are discoverable through listADBTunnels() after this function returns.
-func runOpenADBTunnelCommand(flags *ADBTunnelFlags, c *command, args []string, opts *subCommandOpts) error {
+func ConnectDevices(flags *ADBTunnelFlags, c *command, args []string, opts *subCommandOpts, connReporter func(string, int)) error {
 	// Clean old logs files as we are about to create new ones.
 	defer func() {
 		minAge := opts.InitialConfig.LogFilesDeleteThreshold()
@@ -507,25 +527,9 @@ func runOpenADBTunnelCommand(flags *ADBTunnelFlags, c *command, args []string, o
 	agentLauncher := func(device string) int {
 		cmdArgs := buildAgentCmdArgs(flags, device)
 
-		cmd := exec.Command(os.Args[0], cmdArgs...)
-		cmd.Stderr = c.ErrOrStderr()
-		cmd.Stdin = c.InOrStdin()
-		pipe, err := cmd.StdoutPipe()
+		output, err := opts.CommandRunner.StartBgCommand(cmdArgs...)
 		if err != nil {
-			c.PrintErrf("Unable to pipe agent output for %s: %v\n", device, err)
-			return -1
-		}
-		defer pipe.Close()
-		if err := cmd.Start(); err != nil {
-			c.PrintErrf("Unable to start agent for %s: %v\n", device, err)
-			return -1
-		}
-		// This process will remain running in background once the command exits.
-		defer cmd.Process.Release()
-
-		output, err := io.ReadAll(pipe)
-		if err != nil {
-			c.PrintErrf("Error reading agent output for %s: %v", device, err)
+			c.PrintErrf("Unable to start connection agent: %v\n", err)
 			return -1
 		}
 
@@ -536,18 +540,23 @@ func runOpenADBTunnelCommand(flags *ADBTunnelFlags, c *command, args []string, o
 			// could write messages and warnings there without failing.
 			return -1
 		}
+
 		var port int
 		if _, err := fmt.Sscan(string(output), &port); err != nil {
 			c.PrintErrf("Failed to parse port from agent output: %v\n", err)
 			return -1
 		}
+
 		return port
 	}
 
-	tunnelReporter := func(device string, port int) {
+	return openADBTunnels(args, agentLauncher, connReporter)
+}
+func runConnectCommand(flags *ADBTunnelFlags, c *command, args []string, opts *subCommandOpts) error {
+	connReporter := func(device string, port int) {
 		c.Printf("%s/%s: %d\n", flags.host, device, port)
 	}
-	return openADBTunnels(args, agentLauncher, tunnelReporter)
+	return ConnectDevices(flags, c, args, opts, connReporter)
 }
 
 func buildAgentCmdArgs(flags *ADBTunnelFlags, device string) []string {

@@ -47,8 +47,9 @@ func TestRequiredFlags(t *testing.T) {
 		t.Run(test.Name, func(t *testing.T) {
 			io, _, _ := newTestIOStreams()
 			opts := &CommandOptions{
-				IOStreams: io,
-				Args:      test.Args,
+				IOStreams:     io,
+				Args:          test.Args,
+				CommandRunner: &fakeCommandRunner{},
 			}
 
 			err := NewCVDRemoteCommand(opts).Execute()
@@ -61,6 +62,13 @@ func TestRequiredFlags(t *testing.T) {
 			}
 		})
 	}
+}
+
+type fakeCommandRunner struct{}
+
+func (_ *fakeCommandRunner) StartBgCommand(...string) (string, error) {
+	// The only command started for now is the connection agent, which only returns the port.
+	return "12345", nil
 }
 
 type fakeService struct{}
@@ -136,23 +144,23 @@ func TestCommandSucceeds(t *testing.T) {
 		{
 			Name:   "create",
 			Args:   []string{"create", "--build_id=123"},
-			ExpOut: cvdOutput(serviceURL, "foo", hoapi.CVD{Name: "cvd-1"}),
+			ExpOut: cvdOutput(serviceURL, "foo", hoapi.CVD{Name: "cvd-1"}, 12345),
 		},
 		{
 			Name:   "create with --host",
 			Args:   []string{"create", "--host=bar", "--build_id=123"},
-			ExpOut: cvdOutput(serviceURL, "bar", hoapi.CVD{Name: "cvd-1"}),
+			ExpOut: cvdOutput(serviceURL, "bar", hoapi.CVD{Name: "cvd-1"}, 12345),
 		},
 		{
 			Name: "list",
 			Args: []string{"list"},
-			ExpOut: cvdOutput(serviceURL, "foo", hoapi.CVD{Name: "cvd-1"}) +
-				cvdOutput(serviceURL, "bar", hoapi.CVD{Name: "cvd-1"}),
+			ExpOut: cvdOutput(serviceURL, "foo", hoapi.CVD{Name: "cvd-1"}, 0) +
+				cvdOutput(serviceURL, "bar", hoapi.CVD{Name: "cvd-1"}, 0),
 		},
 		{
 			Name:   "list with --host",
 			Args:   []string{"list", "--host=bar"},
-			ExpOut: cvdOutput(serviceURL, "bar", hoapi.CVD{Name: "cvd-1"}),
+			ExpOut: cvdOutput(serviceURL, "bar", hoapi.CVD{Name: "cvd-1"}, 0),
 		},
 	}
 	for _, test := range tests {
@@ -164,6 +172,7 @@ func TestCommandSucceeds(t *testing.T) {
 				ServiceBuilder: func(opts *client.ServiceOptions) (client.Service, error) {
 					return &fakeService{}, nil
 				},
+				CommandRunner: &fakeCommandRunner{},
 			}
 
 			err := NewCVDRemoteCommand(opts).Execute()
@@ -191,12 +200,13 @@ func newTestIOStreams() (IOStreams, *bytes.Buffer, *bytes.Buffer) {
 	}, in, out
 }
 
-func cvdOutput(serviceURL, host string, cvd hoapi.CVD) string {
+func cvdOutput(serviceURL, host string, cvd hoapi.CVD, port int) string {
 	out := &bytes.Buffer{}
 	cvdOut := CVDOutput{
 		ServiceRootEndpoint: buildServiceRootEndpoint(serviceURL, ""),
 		Host:                host,
 		CVD:                 &cvd,
+		ADBPort:             port,
 	}
 	fmt.Fprintln(out, cvdOut.String())
 	b, _ := ioutil.ReadAll(out)

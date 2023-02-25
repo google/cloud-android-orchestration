@@ -16,7 +16,9 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
+	"os/exec"
 
 	"github.com/google/cloud-android-orchestration/pkg/cli"
 	"github.com/google/cloud-android-orchestration/pkg/client"
@@ -42,6 +44,28 @@ func readConfig(config *cli.Config) error {
 	return nil
 }
 
+type cmdRunner struct{}
+
+func (_ *cmdRunner) StartBgCommand(args ...string) (string, error) {
+	cmd := exec.Command(os.Args[0], args...)
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+	pipe, err := cmd.StdoutPipe()
+	if err != nil {
+		return "", fmt.Errorf("Failed to create pipe: %w", err)
+	}
+	defer pipe.Close()
+	if err := cmd.Start(); err != nil {
+		return "", fmt.Errorf("Unable to start command: %w", err)
+	}
+	defer cmd.Process.Release()
+	output, err := io.ReadAll(pipe)
+	if err != nil {
+		return "", fmt.Errorf("Error reading command output: %v", err)
+	}
+	return string(output), nil
+}
+
 func main() {
 	config := cli.DefaultConfig()
 	// Overrides relevant defaults with values set in config file.
@@ -54,6 +78,7 @@ func main() {
 		Args:           os.Args[1:],
 		ServiceBuilder: client.NewService,
 		InitialConfig:  config,
+		CommandRunner:  &cmdRunner{},
 	}
 
 	if err := cli.NewCVDRemoteCommand(opts).Execute(); err != nil {

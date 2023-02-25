@@ -29,11 +29,19 @@ type CVDOutput struct {
 	ServiceRootEndpoint string
 	Host                string
 	CVD                 *hoapi.CVD
+	ADBPort             int
 }
 
 func (o *CVDOutput) String() string {
 	res := fmt.Sprintf("%s (%s)", o.CVD.Name, o.Host)
 	res += "\n  " + "Status: " + o.CVD.Status
+	adbState := ""
+	if o.ADBPort > 0 {
+		adbState = fmt.Sprintf("127.0.0.1:%d", o.ADBPort)
+	} else {
+		adbState = "disconnected"
+	}
+	res += "\n  " + "ADB: " + adbState
 	res += "\n  " + "Displays: " + fmt.Sprintf("%v", o.CVD.Displays)
 	res += "\n  " + "WebRTCStream: " + client.BuildWebRTCStreamURL(o.ServiceRootEndpoint, o.Host, o.CVD.Name)
 	res += "\n  " + "Logs: " + client.BuildCVDLogsURL(o.ServiceRootEndpoint, o.Host, o.CVD.Name)

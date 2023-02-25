@@ -32,12 +32,14 @@ func TestCVDOutput(t *testing.T) {
 			Status:   "Running",
 			Displays: []string{"720 x 1280 ( 320 )"},
 		},
+		ADBPort: 12345,
 	}
 
 	got := output.String()
 
 	expected := `cvd-1 (bar)
   Status: Running
+  ADB: 127.0.0.1:12345
   Displays: [720 x 1280 ( 320 )]
   WebRTCStream: http://foo.com/hosts/bar/devices/cvd-1/files/client.html
   Logs: http://foo.com/hosts/bar/cvds/cvd-1/logs/`

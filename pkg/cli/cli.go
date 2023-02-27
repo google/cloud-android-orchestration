@@ -185,6 +185,27 @@ func (c *command) Parent() *command {
 	return &command{p, c.verbose}
 }
 
+type CVDOutput struct {
+	*CVDInfo
+	ADBPort int
+}
+
+func (o *CVDOutput) String() string {
+	res := fmt.Sprintf("%s (%s)", o.Name, o.Host)
+	res += "\n  " + "Status: " + o.Status
+	adbState := ""
+	if o.ADBPort > 0 {
+		adbState = fmt.Sprintf("127.0.0.1:%d", o.ADBPort)
+	} else {
+		adbState = "disconnected"
+	}
+	res += "\n  " + "ADB: " + adbState
+	res += "\n  " + "Displays: " + fmt.Sprintf("%v", o.Displays)
+	res += "\n  " + "WebRTCStream: " + client.BuildWebRTCStreamURL(o.ServiceRootEndpoint, o.Host, o.Name)
+	res += "\n  " + "Logs: " + client.BuildCVDLogsURL(o.ServiceRootEndpoint, o.Host, o.Name)
+	return res
+}
+
 type SelectionOption int32
 
 const (
@@ -481,12 +502,12 @@ func runCreateCVDCommand(c *cobra.Command, flags *CreateCVDFlags, opts *subComma
 		CVDRemoteFlags: flags.CVDRemoteFlags,
 		host:           flags.CreateCVDOpts.Host,
 	}
-	cvd.ADBPort = -1
+	cvdO := &CVDOutput{cvd, -1}
 	onConn := func(_ string, p int) {
-		cvd.ADBPort = p
+		cvdO.ADBPort = p
 	}
-	err = ConnectDevices(connectFlags, &command{c, &flags.Verbose}, []string{cvd.CVD.Name}, opts, onConn)
-	c.Println(cvd)
+	err = ConnectDevices(connectFlags, &command{c, &flags.Verbose}, []string{cvd.Name}, opts, onConn)
+	c.Println(cvdO)
 	return err
 }
 
@@ -495,14 +516,14 @@ func runListCVDsCommand(c *cobra.Command, flags *ListCVDsFlags, opts *subCommand
 	if err != nil {
 		return err
 	}
-	var cvds []*CVDOutput
+	var cvds []*CVDInfo
 	if flags.Host != "" {
 		cvds, err = listHostCVDs(service, flags.Host)
 	} else {
 		cvds, err = listAllCVDs(service)
 	}
 	for _, cvd := range cvds {
-		c.Println(cvd)
+		c.Println(&CVDOutput{cvd, -1})
 	}
 	return err
 }
@@ -589,11 +610,10 @@ func runADBTunnelAgentCommand(flags *ADBTunnelFlags, c *command, args []string, 
 		return err
 	}
 
-	devSpec := DeviceSpec{
-		ServiceURL: flags.ServiceURL,
-		Zone:       flags.Zone,
-		Host:       flags.host,
-		Device:     device,
+	devSpec := CVD{
+		ServiceRootEndpoint: service.RootURI(),
+		Host:                flags.host,
+		Name:                device,
 	}
 
 	controlDir := opts.InitialConfig.ADBControlDirExpanded()
@@ -629,9 +649,9 @@ func runADBTunnelAgentCommand(flags *ADBTunnelFlags, c *command, args []string, 
 func printADBTunnels(forwarders []ADBForwarderStatus, c *command, longFormat bool) {
 	for _, fwdr := range forwarders {
 		line := fmt.Sprintf("%s/%s 127.0.0.1:%d %s",
-			fwdr.Host, fwdr.Device, fwdr.Port, fwdr.State)
+			fwdr.Host, fwdr.Name, fwdr.Port, fwdr.State)
 		if longFormat {
-			line = fmt.Sprintf("%s: %s/%s", fwdr.ServiceURL, fwdr.Zone, line)
+			line = fmt.Sprintf("%s: %s", fwdr.ServiceRootEndpoint, line)
 		}
 		c.Println(line)
 	}
@@ -639,7 +659,7 @@ func printADBTunnels(forwarders []ADBForwarderStatus, c *command, longFormat boo
 
 func runListADBTunnelsCommand(flags *listADBTunnelFlags, c *command, opts *subCommandOpts) error {
 	controlDir := opts.InitialConfig.ADBControlDirExpanded()
-	forwarders, err := listADBTunnels(controlDir, flags.Zone, flags.host)
+	forwarders, err := listADBTunnels(controlDir, flags.host)
 	// Print the tunnels we may have found before an error was encountered if any.
 	printADBTunnels(forwarders, c, flags.longFormat)
 	return err
@@ -651,7 +671,7 @@ func runCloseADBTunnelsCommand(flags *closeADBTunnelFlags, c *command, args []st
 		devices[a] = nil
 	}
 	controlDir := opts.InitialConfig.ADBControlDirExpanded()
-	forwarders, merr := listADBTunnels(controlDir, flags.Zone, flags.host)
+	forwarders, merr := listADBTunnels(controlDir, flags.host)
 	if len(forwarders) == 0 {
 		return fmt.Errorf("No ADB tunnels found")
 	}
@@ -659,9 +679,9 @@ func runCloseADBTunnelsCommand(flags *closeADBTunnelFlags, c *command, args []st
 	if len(args) > 0 {
 		var inArgs []ADBForwarderStatus
 		for _, fwdr := range forwarders {
-			if _, in := devices[fwdr.Device]; in {
+			if _, in := devices[fwdr.Name]; in {
 				inArgs = append(inArgs, fwdr)
-				delete(devices, fwdr.Device)
+				delete(devices, fwdr.Name)
 			}
 		}
 		forwarders = inArgs
@@ -682,7 +702,7 @@ func runCloseADBTunnelsCommand(flags *closeADBTunnelFlags, c *command, args []st
 			multierror.Append(merr, err)
 			continue
 		}
-		c.Printf("%s/%s: closed\n", dev.Host, dev.Device)
+		c.Printf("%s/%s: closed\n", dev.Host, dev.Name)
 	}
 	return merr
 }
@@ -691,7 +711,7 @@ func promptTunnelSelection(devices []ADBForwarderStatus, c *command) ([]ADBForwa
 	c.PrintErrln("Multiple ADB tunnels match:")
 	names := make([]string, len(devices))
 	for i, d := range devices {
-		names[i] = fmt.Sprintf("%s %s", d.Host, d.Device)
+		names[i] = fmt.Sprintf("%s %s", d.Host, d.Name)
 	}
 	choices, err := c.PromptSelection(names, AllowAll)
 	if err != nil {

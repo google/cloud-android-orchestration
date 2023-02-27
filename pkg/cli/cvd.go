@@ -25,27 +25,28 @@ import (
 	"github.com/hashicorp/go-multierror"
 )
 
-type CVDOutput struct {
-	ServiceRootEndpoint string
-	Host                string
-	CVD                 *hoapi.CVD
-	ADBPort             int
+type CVD struct {
+	ServiceRootEndpoint string `json:"service_root_endpoint"`
+	Host                string `json:"host"`
+	Name                string `json:"name"`
 }
 
-func (o *CVDOutput) String() string {
-	res := fmt.Sprintf("%s (%s)", o.CVD.Name, o.Host)
-	res += "\n  " + "Status: " + o.CVD.Status
-	adbState := ""
-	if o.ADBPort > 0 {
-		adbState = fmt.Sprintf("127.0.0.1:%d", o.ADBPort)
-	} else {
-		adbState = "disconnected"
+type CVDInfo struct {
+	CVD
+	Status   string
+	Displays []string
+}
+
+func NewCVDInfo(url, host string, cvd *hoapi.CVD) *CVDInfo {
+	return &CVDInfo{
+		CVD: CVD{
+			ServiceRootEndpoint: url,
+			Host:                host,
+			Name:                cvd.Name,
+		},
+		Status:   cvd.Status,
+		Displays: cvd.Displays,
 	}
-	res += "\n  " + "ADB: " + adbState
-	res += "\n  " + "Displays: " + fmt.Sprintf("%v", o.CVD.Displays)
-	res += "\n  " + "WebRTCStream: " + client.BuildWebRTCStreamURL(o.ServiceRootEndpoint, o.Host, o.CVD.Name)
-	res += "\n  " + "Logs: " + client.BuildCVDLogsURL(o.ServiceRootEndpoint, o.Host, o.CVD.Name)
-	return res
 }
 
 type CreateCVDOpts struct {
@@ -56,7 +57,7 @@ type CreateCVDOpts struct {
 	LocalImage bool
 }
 
-func createCVD(service client.Service, createOpts CreateCVDOpts) (*CVDOutput, error) {
+func createCVD(service client.Service, createOpts CreateCVDOpts) (*CVDInfo, error) {
 	creator := &cvdCreator{
 		Service: service,
 		Opts:    createOpts,
@@ -65,11 +66,7 @@ func createCVD(service client.Service, createOpts CreateCVDOpts) (*CVDOutput, er
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create cvd: %w", err)
 	}
-	return &CVDOutput{
-		ServiceRootEndpoint: service.RootURI(),
-		Host:                createOpts.Host,
-		CVD:                 cvd,
-	}, nil
+	return NewCVDInfo(service.RootURI(), createOpts.Host, cvd), nil
 }
 
 type cvdCreator struct {
@@ -131,11 +128,11 @@ func (c *cvdCreator) createCVDFromAndroidCI() (*hoapi.CVD, error) {
 }
 
 type cvdListResult struct {
-	Result []*CVDOutput
+	Result []*CVDInfo
 	Error  error
 }
 
-func listAllCVDs(service client.Service) ([]*CVDOutput, error) {
+func listAllCVDs(service client.Service) ([]*CVDInfo, error) {
 	hl, err := service.ListHosts()
 	if err != nil {
 		return nil, fmt.Errorf("Error listing hosts: %w", err)
@@ -154,7 +151,7 @@ func listAllCVDs(service client.Service) ([]*CVDOutput, error) {
 		}(host, ch)
 	}
 	var merr error
-	var cvds []*CVDOutput
+	var cvds []*CVDInfo
 	for i, ch := range chans {
 		host := hosts[i]
 		result := <-ch
@@ -167,18 +164,14 @@ func listAllCVDs(service client.Service) ([]*CVDOutput, error) {
 	return cvds, merr
 }
 
-func listHostCVDs(service client.Service, host string) ([]*CVDOutput, error) {
+func listHostCVDs(service client.Service, host string) ([]*CVDInfo, error) {
 	cvds, err := service.ListCVDs(host)
 	if err != nil {
 		return nil, err
 	}
-	ret := make([]*CVDOutput, len(cvds))
+	ret := make([]*CVDInfo, len(cvds))
 	for i, c := range cvds {
-		ret[i] = &CVDOutput{
-			ServiceRootEndpoint: service.RootURI(),
-			Host:                host,
-			CVD:                 c,
-		}
+		ret[i] = NewCVDInfo(service.RootURI(), host, c)
 	}
 	return ret, nil
 }

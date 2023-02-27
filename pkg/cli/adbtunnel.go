@@ -77,11 +77,11 @@ func openADBTunnels(devices []string, launchAgent func(string) int, reportTunnel
 func closeTunnel(controlDir string, dev ADBForwarderStatus) error {
 	conn, err := net.Dial("unixpacket", fmt.Sprintf("%s/%d.sock", controlDir, dev.Port))
 	if err != nil {
-		return fmt.Errorf("Failed to connect to %s/%s's agent: %w", dev.Host, dev.Device, err)
+		return fmt.Errorf("Failed to connect to %s/%s's agent: %w", dev.Host, dev.Name, err)
 	}
 	_, err = conn.Write([]byte(stopCmd))
 	if err != nil {
-		return fmt.Errorf("Failed to send stop command to %s/%s: %w", dev.Host, dev.Device, err)
+		return fmt.Errorf("Failed to send stop command to %s/%s: %w", dev.Host, dev.Name, err)
 	}
 	ADBDisconnect(dev.Port)
 	return nil
@@ -89,7 +89,7 @@ func closeTunnel(controlDir string, dev ADBForwarderStatus) error {
 
 // Finds all existing ADB tunnels. Returns the list of ADB tunnels it was able
 // to gather along with a multierror detailing errors for the unreachable ones.
-func listADBTunnels(controlDir string, zone, host string) ([]ADBForwarderStatus, error) {
+func listADBTunnels(controlDir string, host string) ([]ADBForwarderStatus, error) {
 	var merr error
 	forwarders := make([]ADBForwarderStatus, 0)
 	entries, err := os.ReadDir(controlDir)
@@ -114,10 +114,6 @@ func listADBTunnels(controlDir string, zone, host string) ([]ADBForwarderStatus,
 			continue
 		}
 
-		if zone != "" && zone != fwdr.Zone {
-			continue
-		}
-
 		if host != "" && fwdr.Host != host {
 			continue
 		}
@@ -133,11 +129,11 @@ type findOrCreateRet struct {
 	Error      error
 }
 
-func findOrCreateTunnel(controlDir string, devSpec DeviceSpec, service client.Service) (findOrCreateRet, error) {
-	forwarders, err := listADBTunnels(controlDir, devSpec.Zone, devSpec.Host)
+func findOrCreateTunnel(controlDir string, devSpec CVD, service client.Service) (findOrCreateRet, error) {
+	forwarders, err := listADBTunnels(controlDir, devSpec.Host)
 	// Even with an error some connections may have been listed.
 	for _, fwd := range forwarders {
-		if fwd.DeviceSpec == devSpec {
+		if fwd.CVD == devSpec {
 			return findOrCreateRet{fwd.Port, nil, err}, nil
 		}
 	}
@@ -153,17 +149,10 @@ func findOrCreateTunnel(controlDir string, devSpec DeviceSpec, service client.Se
 	return findOrCreateRet{controller.Port(), controller, err}, nil
 }
 
-type DeviceSpec struct {
-	ServiceURL string `json:"service_url"`
-	Zone       string `json:"zone"`
-	Host       string `json:"host"`
-	Device     string `json:"device"`
-}
-
 // Forwards ADB messages between a local ADB server and a remote CVD.
 // Implements the Observer interface for the webrtc client.
 type ADBForwarder struct {
-	DeviceSpec
+	CVD
 	webrtcConn *wclient.Connection
 	dc         *webrtc.DataChannel
 	listener   net.Listener
@@ -175,25 +164,25 @@ type ADBForwarder struct {
 	readyCh    chan struct{}
 }
 
-func NewADBForwarder(service client.Service, devSpec DeviceSpec, logger *log.Logger) (*ADBForwarder, error) {
+func NewADBForwarder(service client.Service, devSpec CVD, logger *log.Logger) (*ADBForwarder, error) {
 	// Bind the two local sockets before attempting to connect over WebRTC
 	tunnel, err := bindTCPSocket()
 	if err != nil {
-		return nil, fmt.Errorf("Failed to bind to local port for %q: %w", devSpec.Device, err)
+		return nil, fmt.Errorf("Failed to bind to local port for %q: %w", devSpec.Name, err)
 	}
 	port := tunnel.Addr().(*net.TCPAddr).Port
 
 	f := &ADBForwarder{
-		DeviceSpec: devSpec,
-		listener:   tunnel,
-		port:       port,
-		logger:     logger,
-		readyCh:    make(chan struct{}),
+		CVD:      devSpec,
+		listener: tunnel,
+		port:     port,
+		logger:   logger,
+		readyCh:  make(chan struct{}),
 	}
 
-	conn, err := service.ConnectWebRTC(f.Host, f.Device, f)
+	conn, err := service.ConnectWebRTC(f.Host, f.Name, f)
 	if err != nil {
-		return nil, fmt.Errorf("ADB tunnel creation failed for %q: %w", f.Device, err)
+		return nil, fmt.Errorf("ADB tunnel creation failed for %q: %w", f.Name, err)
 	}
 	f.webrtcConn = conn
 	// TODO(jemoreira): close everything except the ADB data channel.
@@ -233,37 +222,37 @@ func StateAsStr(state int) string {
 
 func (f *ADBForwarder) OnADBDataChannel(dc *webrtc.DataChannel) {
 	f.dc = dc
-	f.logger.Printf("ADB data channel to %q changed state: %v\n", f.Device, dc.ReadyState())
+	f.logger.Printf("ADB data channel to %q changed state: %v\n", f.Name, dc.ReadyState())
 	dc.OnOpen(func() {
-		f.logger.Printf("ADB data channel to %q changed state: %v\n", f.Device, dc.ReadyState())
+		f.logger.Printf("ADB data channel to %q changed state: %v\n", f.Name, dc.ReadyState())
 		close(f.readyCh)
 	})
 	dc.OnMessage(func(msg webrtc.DataChannelMessage) {
 		if err := f.Send(msg.Data); err != nil {
-			f.logger.Printf("Error writing to ADB server for %q: %v", f.Device, err)
+			f.logger.Printf("Error writing to ADB server for %q: %v", f.Name, err)
 		}
 	})
 	dc.OnClose(func() {
-		f.logger.Printf("ADB data channel to %q changed state: %v\n", f.Device, dc.ReadyState())
+		f.logger.Printf("ADB data channel to %q changed state: %v\n", f.Name, dc.ReadyState())
 		f.StopForwarding(ADBFwdFailed)
 	})
 }
 
 func (f *ADBForwarder) OnError(err error) {
 	f.StopForwarding(ADBFwdFailed)
-	f.logger.Printf("Error on webrtc connection to %q: %v\n", f.Device, err)
+	f.logger.Printf("Error on webrtc connection to %q: %v\n", f.Name, err)
 	// Unblock anyone waiting for the ADB channel to open.
 	close(f.readyCh)
 }
 
 func (f *ADBForwarder) OnFailure() {
 	f.StopForwarding(ADBFwdFailed)
-	f.logger.Printf("WebRTC connection to %q set to failed state", f.Device)
+	f.logger.Printf("WebRTC connection to %q set to failed state", f.Name)
 }
 
 func (f *ADBForwarder) OnClose() {
 	f.StopForwarding(ADBFwdStopped)
-	f.logger.Printf("WebRTC connection to %q closed", f.Device)
+	f.logger.Printf("WebRTC connection to %q closed", f.Name)
 }
 
 func (f *ADBForwarder) startForwarding() {
@@ -309,7 +298,7 @@ func (f *ADBForwarder) Send(data []byte) error {
 }
 
 type ADBForwarderStatus struct {
-	DeviceSpec
+	CVD
 	Port  int    `json:"port"`
 	State string `json:"state"`
 }
@@ -319,11 +308,10 @@ func (f *ADBForwarder) Status() ADBForwarderStatus {
 	_, state := f.compareAndSwapState(-1, -1)
 
 	return ADBForwarderStatus{
-		DeviceSpec: DeviceSpec{
-			ServiceURL: f.ServiceURL,
-			Zone:       f.Zone,
-			Host:       f.Host,
-			Device:     f.Device,
+		CVD: CVD{
+			ServiceRootEndpoint: f.ServiceRootEndpoint,
+			Host:                f.Host,
+			Name:                f.Name,
 		},
 		Port:  f.port,
 		State: StateAsStr(state),
@@ -398,7 +386,7 @@ func (f *ADBForwarder) recvLoop() {
 		}
 		err = f.dc.Send(buffer[:length])
 		if err != nil {
-			f.logger.Printf("Failed to send ADB data to %q: %v", f.Device, err)
+			f.logger.Printf("Failed to send ADB data to %q: %v", f.Name, err)
 			return
 		}
 	}
@@ -418,7 +406,7 @@ type TunnelController struct {
 	logger    *log.Logger
 }
 
-func NewTunnelController(controlDir string, service client.Service, devSpec DeviceSpec) (*TunnelController, error) {
+func NewTunnelController(controlDir string, service client.Service, devSpec CVD) (*TunnelController, error) {
 	logger, err := createLogger(controlDir, devSpec)
 	if err != nil {
 		return nil, err
@@ -433,7 +421,7 @@ func NewTunnelController(controlDir string, service client.Service, devSpec Devi
 	control, err := createControlSocket(controlDir, f.port)
 	if err != nil {
 		f.StopForwarding(ADBFwdFailed)
-		return nil, fmt.Errorf("Control socket creation failed for %q: %w", f.Device, err)
+		return nil, fmt.Errorf("Control socket creation failed for %q: %w", f.Name, err)
 	}
 
 	tc := &TunnelController{
@@ -591,13 +579,13 @@ func logsDir(controlDir string) string {
 	return controlDir + "/logs"
 }
 
-func createLogger(controlDir string, dev DeviceSpec) (*log.Logger, error) {
+func createLogger(controlDir string, dev CVD) (*log.Logger, error) {
 	logsDir := logsDir(controlDir)
 	if err := os.MkdirAll(logsDir, 0755); err != nil {
 		return nil, fmt.Errorf("Failed to create logs dir: %w", err)
 	}
 	// The name looks like 123456_us-central1-c_cf-12345-12345_cvd-1.log
-	path := fmt.Sprintf("%s/%d_%s_%s_%s.log", logsDir, time.Now().Unix(), dev.Zone, dev.Host, dev.Device)
+	path := fmt.Sprintf("%s/%d_%s_%s.log", logsDir, time.Now().Unix(), dev.Host, dev.Name)
 	logsFile, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0660)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create log file: %w", err)

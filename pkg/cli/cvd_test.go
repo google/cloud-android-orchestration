@@ -25,13 +25,11 @@ import (
 
 func TestCVDOutput(t *testing.T) {
 	output := CVDOutput{
-		ServiceRootEndpoint: "http://foo.com",
-		Host:                "bar",
-		CVD: &hoapi.CVD{
+		CVDInfo: NewCVDInfo("http://foo.com", "bar", &hoapi.CVD{
 			Name:     "cvd-1",
 			Status:   "Running",
 			Displays: []string{"720 x 1280 ( 320 )"},
-		},
+		}),
 		ADBPort: 12345,
 	}
 

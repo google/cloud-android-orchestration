@@ -203,10 +203,8 @@ func newTestIOStreams() (IOStreams, *bytes.Buffer, *bytes.Buffer) {
 func cvdOutput(serviceURL, host string, cvd hoapi.CVD, port int) string {
 	out := &bytes.Buffer{}
 	cvdOut := CVDOutput{
-		ServiceRootEndpoint: buildServiceRootEndpoint(serviceURL, ""),
-		Host:                host,
-		CVD:                 &cvd,
-		ADBPort:             port,
+		CVDInfo: NewCVDInfo(fakeService{}.RootURI(), host, &cvd),
+		ADBPort: port,
 	}
 	fmt.Fprintln(out, cvdOut.String())
 	b, _ := ioutil.ReadAll(out)

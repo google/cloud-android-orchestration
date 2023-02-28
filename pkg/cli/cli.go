@@ -479,7 +479,29 @@ func runDeleteHostsCommand(c *cobra.Command, args []string, flags *CVDRemoteFlag
 	if err != nil {
 		return err
 	}
+	// Close connections first to avoid spurious error messages later.
+	for _, host := range args {
+		if err := closeTunnelsByHost(host, opts); err != nil {
+			c.PrintErrf("Error disconecting devices for host %s: %v\n", host, err)
+		}
+	}
 	return service.DeleteHosts(args)
+}
+
+func closeTunnelsByHost(host string, opts *subCommandOpts) error {
+	controlDir := opts.InitialConfig.ADBControlDirExpanded()
+	statuses, err := listADBTunnelsByHost(controlDir, host)
+	if err != nil {
+		// Warn only, the host can still be deleted
+		return fmt.Errorf("Errors listing connections: %w", err)
+	}
+	for _, f := range statuses {
+		if err := closeTunnel(controlDir, f); err != nil {
+			// Warn only, the host can still be deleted
+			return fmt.Errorf("Errors closing connection to %s: %w", f.Name, err)
+		}
+	}
+	return nil
 }
 
 func runCreateCVDCommand(c *cobra.Command, flags *CreateCVDFlags, opts *subCommandOpts) error {

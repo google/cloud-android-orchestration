@@ -18,7 +18,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"os"
 	"time"
 
 	"github.com/google/cloud-android-orchestration/pkg/client"
@@ -663,11 +662,17 @@ func runConnectionAgentCommand(flags *ConnectFlags, c *command, args []string, o
 		return nil
 	}
 
-	// Signal the caller that the agent is moving to the background.
-	// Ideally, this should close the command's streams, but those are not closeable.
-	os.Stdin.Close()
-	os.Stdout.Close()
-	os.Stderr.Close()
+	// Signal the caller that the agent is moving to the background by closing
+	// the command's standard IO channels.
+	if cin, ok := c.InOrStdin().(io.Closer); ok {
+		cin.Close()
+	}
+	if cout, ok := c.OutOrStdout().(io.Closer); ok {
+		cout.Close()
+	}
+	if cerr, ok := c.ErrOrStderr().(io.Closer); ok {
+		cerr.Close()
+	}
 
 	ret.Controller.Run()
 

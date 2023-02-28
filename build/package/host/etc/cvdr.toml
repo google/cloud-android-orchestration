@@ -15,10 +15,10 @@
 # An (optional) HTTP proxy.
 # HTTPProxy = "http://proxy.company.com:123456"
 
-# Directory where the control sockets for the ADB tunnels will be created and
+# Directory where the control sockets for the CVD connections will be created and
 # log files will be placed. The directory path should be short enough for UNIX
 # sockets (limited to 108 characters).
-# ADBControlDir = "~/.cvdr/adb"
+# ConnectionControlDir = "~/.cvdr/connections"
 
 # Every time a new ADB connection is open, old log files are deleted. Files not
 # modified for KeepLogFilesDays days are considered old. Set to -1 to keep log

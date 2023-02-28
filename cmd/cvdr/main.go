@@ -46,24 +46,24 @@ func readConfig(config *cli.Config) error {
 
 type cmdRunner struct{}
 
-func (_ *cmdRunner) StartBgCommand(args ...string) (string, error) {
+func (_ *cmdRunner) StartBgCommand(args ...string) ([]byte, error) {
 	cmd := exec.Command(os.Args[0], args...)
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
 	pipe, err := cmd.StdoutPipe()
 	if err != nil {
-		return "", fmt.Errorf("Failed to create pipe: %w", err)
+		return nil, fmt.Errorf("Failed to create pipe: %w", err)
 	}
 	defer pipe.Close()
 	if err := cmd.Start(); err != nil {
-		return "", fmt.Errorf("Unable to start command: %w", err)
+		return nil, fmt.Errorf("Unable to start command: %w", err)
 	}
 	defer cmd.Process.Release()
 	output, err := io.ReadAll(pipe)
 	if err != nil {
-		return "", fmt.Errorf("Error reading command output: %v", err)
+		return nil, fmt.Errorf("Error reading command output: %v", err)
 	}
-	return string(output), nil
+	return output, nil
 }
 
 func main() {

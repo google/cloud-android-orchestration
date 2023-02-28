@@ -34,16 +34,16 @@ type HostConfig struct {
 }
 
 type Config struct {
-	ServiceURL       string
-	Zone             string
-	HTTPProxy        string
-	ADBControlDir    string
-	KeepLogFilesDays int
-	Host             HostConfig
+	ServiceURL           string
+	Zone                 string
+	HTTPProxy            string
+	ConnectionControlDir string
+	KeepLogFilesDays     int
+	Host                 HostConfig
 }
 
-func (c *Config) ADBControlDirExpanded() string {
-	return expandPath(c.ADBControlDir)
+func (c *Config) ConnectionControlDirExpanded() string {
+	return expandPath(c.ConnectionControlDir)
 }
 
 func (c *Config) LogFilesDeleteThreshold() time.Duration {
@@ -52,8 +52,8 @@ func (c *Config) LogFilesDeleteThreshold() time.Duration {
 
 func DefaultConfig() Config {
 	return Config{
-		ADBControlDir:    "~/.cvdr/adb",
-		KeepLogFilesDays: 30, // A default is needed to not keep forever
+		ConnectionControlDir: "~/.cvdr/connections",
+		KeepLogFilesDays:     30, // A default is needed to not keep forever
 	}
 }
 

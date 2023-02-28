@@ -33,55 +33,58 @@ import (
 	"github.com/pion/webrtc/v3"
 )
 
-type ADBForwarderStatus struct {
-	CVD
+type ForwarderState struct {
 	Port  int    `json:"port"`
 	State string `json:"state"`
 }
 
-// Starts an ADB agent process for each device. Waits for all started subprocesses
-// to report the tunnel was successfully created or an error occurred. Returns a
-// summary of errors reported by the ADB agents or nil if all succeeded. Some
-// tunnels may have been established even if this function returns an error. Those
-// are discoverable through listADBTunnels() after this function returns.
-func openADBTunnels(devices []string, launchAgent func(string) int, reportTunnel func(string, int)) error {
-	portChs := make([]chan int, len(devices))
+type ConnStatus struct {
+	CVD
+	ADB ForwarderState
+}
+
+func (cs *ConnStatus) ControlSocketName() string {
+	// The canonical name is too long to use as a unix socket name, use the port
+	// instead and use the canonical name to create a symlink to the socket.
+	return fmt.Sprintf("%d.sock", cs.ADB.Port)
+}
+
+// Starts a connection agent process for each device. Waits for all started subprocesses
+// to report the connection was successfully created or an error occurred. Returns a
+// summary of errors reported by the connection agents or nil if all succeeded. Some
+// connections may have been established even if this function returns an error. Those
+// are discoverable through listCVDConnections() after this function returns.
+func ConnectCVDs(devices []string, launchAgent func(string) *ConnStatus, reportConnection func(string, *ConnStatus)) error {
+	portChs := make([]chan *ConnStatus, len(devices))
 	for i, device := range devices {
-		portChs[i] = make(chan int)
-		go func(ch chan int, device string) {
+		portChs[i] = make(chan *ConnStatus)
+		go func(ch chan *ConnStatus, device string) {
 			defer close(ch)
-			port := launchAgent(device)
-			if port > 0 {
-				ch <- port
+			status := launchAgent(device)
+			if status != nil {
+				ch <- status
 			}
 		}(portChs[i], device)
 	}
 
 	failed := 0
-	var merr error
 	for i, device := range devices {
-		port, read := <-portChs[i]
+		status, read := <-portChs[i]
 		if !read {
 			// Channel close without sending port number indicates a failure
 			failed++
 			continue
 		}
-		reportTunnel(device, port)
-
-		if err := ADBConnect(port); err != nil {
-			err = fmt.Errorf("Error connecting ADB to %q: %w\n", device, err)
-			merr = multierror.Append(merr, err)
-		}
+		reportConnection(device, status)
 	}
 	if failed > 0 {
-		err := fmt.Errorf("Failed to tunnel %d out of %d devices", failed, len(devices))
-		merr = multierror.Append(merr, err)
+		return fmt.Errorf("Failed to connect to %d out of %d devices", failed, len(devices))
 	}
-	return merr
+	return nil
 }
 
-func closeTunnel(controlDir string, dev ADBForwarderStatus) error {
-	conn, err := net.Dial("unixpacket", fmt.Sprintf("%s/%d.sock", controlDir, dev.Port))
+func DisconnectCVD(controlDir string, dev ConnStatus) error {
+	conn, err := net.Dial("unixpacket", fmt.Sprintf("%s/%s", controlDir, dev.ControlSocketName()))
 	if err != nil {
 		return fmt.Errorf("Failed to connect to %s/%s's agent: %w", dev.Host, dev.Name, err)
 	}
@@ -89,15 +92,14 @@ func closeTunnel(controlDir string, dev ADBForwarderStatus) error {
 	if err != nil {
 		return fmt.Errorf("Failed to send stop command to %s/%s: %w", dev.Host, dev.Name, err)
 	}
-	ADBDisconnect(dev.Port)
 	return nil
 }
 
-// Finds all existing ADB tunnels. Returns the list of ADB tunnels it was able
-// to gather along with a multierror detailing errors for the unreachable ones.
-func listADBTunnels(controlDir string) ([]ADBForwarderStatus, error) {
+// Finds all existing connection agents. Returns the list of connection agents it was able
+// to gather along with a multierror detailing the unreachable ones.
+func listCVDConnections(controlDir string) ([]ConnStatus, error) {
 	var merr error
-	forwarders := make([]ADBForwarderStatus, 0)
+	forwarders := make([]ConnStatus, 0)
 	entries, err := os.ReadDir(controlDir)
 	if err != nil {
 		return forwarders, fmt.Errorf("Error reading %s: %w", controlDir, err)
@@ -110,7 +112,7 @@ func listADBTunnels(controlDir string) ([]ADBForwarderStatus, error) {
 		path := fmt.Sprintf("%s/%s", controlDir, file.Name())
 		conn, err := net.Dial("unixpacket", path)
 		if err != nil {
-			merr = multierror.Append(merr, fmt.Errorf("Unable to contact tunnel agent: %w", err))
+			merr = multierror.Append(merr, fmt.Errorf("Unable to contact connection agent: %w", err))
 			continue
 		}
 		fwdr, err := sendStatusCmd(conn)
@@ -125,9 +127,9 @@ func listADBTunnels(controlDir string) ([]ADBForwarderStatus, error) {
 	return forwarders, merr
 }
 
-func listADBTunnelsByHost(controlDir string, host string) ([]ADBForwarderStatus, error) {
-	l, err := listADBTunnels(controlDir)
-	ret := make([]ADBForwarderStatus, 0)
+func listCVDConnectionsByHost(controlDir string, host string) ([]ConnStatus, error) {
+	l, err := listCVDConnections(controlDir)
+	ret := make([]ConnStatus, 0)
 	for _, f := range l {
 		if host != f.Host {
 			continue
@@ -137,147 +139,115 @@ func listADBTunnelsByHost(controlDir string, host string) ([]ADBForwarderStatus,
 	return ret, err
 }
 
-type findOrCreateRet struct {
-	Port       int
-	Controller *TunnelController
+type findOrConnRet struct {
+	Status     *ConnStatus
+	Controller *ConnController
 	Error      error
 }
 
-func findOrCreateTunnel(controlDir string, cvd CVD, service client.Service) (findOrCreateRet, error) {
-	forwarders, err := listADBTunnelsByHost(controlDir, cvd.Host)
+func FindOrConnect(controlDir string, cvd CVD, service client.Service) (findOrConnRet, error) {
+	connStatuses, err := listCVDConnectionsByHost(controlDir, cvd.Host)
 	// Even with an error some connections may have been listed.
-	for _, fwd := range forwarders {
-		if fwd.CVD == cvd {
-			return findOrCreateRet{fwd.Port, nil, err}, nil
+	for _, status := range connStatuses {
+		if status.CVD == cvd {
+			return findOrConnRet{&status, nil, err}, nil
 		}
 	}
-	// There is a race here since a tunnel could be created by a different process
+	// There is a race here since a connection could be created by a different process
 	// after the checks were made above but before the socket was created below.
 	// The likelihood of hitting that is very low though, and the effort required
 	// to prevent it high, so we are choosing to live with it for the time being.
-	controller, tErr := NewTunnelController(controlDir, service, cvd)
+	controller, tErr := NewConnController(controlDir, service, cvd)
 	if tErr != nil {
 		// This error is fatal, ingore any previous ones to avoid unnecessary noise.
-		return findOrCreateRet{}, fmt.Errorf("Failed to create tunnel controller: %w", tErr)
+		return findOrConnRet{}, fmt.Errorf("Failed to create connection controller: %w", tErr)
 	}
-	return findOrCreateRet{controller.Port(), controller, err}, nil
+	if cErr := ADBConnect(controller.adbForwarder.port); cErr != nil {
+		err = multierror.Append(err, fmt.Errorf("Error connecting ADB to %q: %v\n", cvd.Name, cErr))
+	}
+
+	return findOrConnRet{controller.Status(), controller, err}, nil
 }
 
-// Forwards ADB messages between a local ADB server and a remote CVD.
-// Implements the Observer interface for the webrtc client.
-type ADBForwarder struct {
-	CVD
-	webrtcConn *wclient.Connection
-	dc         *webrtc.DataChannel
-	listener   net.Listener
-	conn       net.Conn
-	port       int
-	state      int
-	stateMtx   sync.Mutex
-	logger     *log.Logger
-	readyCh    chan struct{}
+// Forwards messages between a local TCP server and a webrtc data channel.
+type Forwarder struct {
+	dc       *webrtc.DataChannel
+	listener net.Listener
+	conn     net.Conn
+	port     int
+	state    int
+	stateMtx sync.Mutex
+	logger   *log.Logger
+	readyCh  chan struct{}
 }
 
-func NewADBForwarder(service client.Service, cvd CVD, logger *log.Logger) (*ADBForwarder, error) {
-	// Bind the two local sockets before attempting to connect over WebRTC
-	tunnel, err := bindTCPSocket()
+func NewForwarder(logger *log.Logger) (*Forwarder, error) {
+	// Bind the local socket before attempting to connect over WebRTC
+	sock, err := bindTCPSocket()
 	if err != nil {
-		return nil, fmt.Errorf("Failed to bind to local port for %q: %w", cvd.Name, err)
+		return nil, fmt.Errorf("Failed to bind to local: %w", err)
 	}
-	port := tunnel.Addr().(*net.TCPAddr).Port
+	port := sock.Addr().(*net.TCPAddr).Port
 
-	f := &ADBForwarder{
-		CVD:      cvd,
-		listener: tunnel,
+	f := &Forwarder{
+		listener: sock,
 		port:     port,
 		logger:   logger,
 		readyCh:  make(chan struct{}),
 	}
 
-	conn, err := service.ConnectWebRTC(f.Host, f.Name, f)
-	if err != nil {
-		return nil, fmt.Errorf("ADB tunnel creation failed for %q: %w", f.Name, err)
-	}
-	f.webrtcConn = conn
-	// TODO(jemoreira): close everything except the ADB data channel.
-
-	// Wait until the webrtc connection fails or the data channel opens.
-	<-f.readyCh
-
-	f.startForwarding()
-
 	return f, nil
 }
 
 const (
-	ADBFwdInitializing = iota // 0: The initial state after creation
-	ADBFwdReady        = iota
-	ADBFwdConnected    = iota
-	ADBFwdStopped      = iota
-	ADBFwdFailed       = iota
+	FwdInitializing = iota // 0: The initial state after creation
+	FwdReady        = iota
+	FwdConnected    = iota
+	FwdStopped      = iota
+	FwdFailed       = iota
 )
 
 func StateAsStr(state int) string {
 	switch state {
-	case ADBFwdInitializing:
+	case FwdInitializing:
 		return "initializing"
-	case ADBFwdReady:
+	case FwdReady:
 		return "ready"
-	case ADBFwdConnected:
+	case FwdConnected:
 		return "connected"
-	case ADBFwdStopped:
+	case FwdStopped:
 		return "stopped"
-	case ADBFwdFailed:
+	case FwdFailed:
 		return "failed"
 	default:
 		panic(fmt.Sprintf("No known string representation for state: %d", state))
 	}
 }
 
-func (f *ADBForwarder) OnADBDataChannel(dc *webrtc.DataChannel) {
+func (f *Forwarder) OnDataChannel(dc *webrtc.DataChannel) {
 	f.dc = dc
-	f.logger.Printf("ADB data channel to %q changed state: %v\n", f.Name, dc.ReadyState())
 	dc.OnOpen(func() {
-		f.logger.Printf("ADB data channel to %q changed state: %v\n", f.Name, dc.ReadyState())
+		f.logger.Printf("Data channel changed state: %v\n", dc.ReadyState())
+		if set, prev := f.compareAndSwapState(FwdInitializing, FwdReady); !set {
+			f.logger.Printf("Forwarding not started in unexpected state: %v", StateAsStr(prev))
+			return
+		}
+		go f.acceptLoop()
 		close(f.readyCh)
 	})
 	dc.OnMessage(func(msg webrtc.DataChannelMessage) {
 		if err := f.Send(msg.Data); err != nil {
-			f.logger.Printf("Error writing to ADB server for %q: %v", f.Name, err)
+			f.logger.Printf("Error writing to socket: %v", err)
 		}
 	})
 	dc.OnClose(func() {
-		f.logger.Printf("ADB data channel to %q changed state: %v\n", f.Name, dc.ReadyState())
-		f.StopForwarding(ADBFwdFailed)
+		f.logger.Printf("Data channel changed state: %v\n", dc.ReadyState())
+		f.StopForwarding(FwdFailed)
+		close(f.readyCh)
 	})
 }
 
-func (f *ADBForwarder) OnError(err error) {
-	f.StopForwarding(ADBFwdFailed)
-	f.logger.Printf("Error on webrtc connection to %q: %v\n", f.Name, err)
-	// Unblock anyone waiting for the ADB channel to open.
-	close(f.readyCh)
-}
-
-func (f *ADBForwarder) OnFailure() {
-	f.StopForwarding(ADBFwdFailed)
-	f.logger.Printf("WebRTC connection to %q set to failed state", f.Name)
-}
-
-func (f *ADBForwarder) OnClose() {
-	f.StopForwarding(ADBFwdStopped)
-	f.logger.Printf("WebRTC connection to %q closed", f.Name)
-}
-
-func (f *ADBForwarder) startForwarding() {
-	if set, prev := f.compareAndSwapState(ADBFwdInitializing, ADBFwdReady); !set {
-		f.logger.Printf("Forwarding not started in unexpected state: %v", StateAsStr(prev))
-		return
-	}
-	go f.acceptLoop()
-}
-
-func (f *ADBForwarder) StopForwarding(state int) {
+func (f *Forwarder) StopForwarding(state int) {
 	f.stateMtx.Lock()
 	defer f.stateMtx.Unlock()
 
@@ -294,7 +264,7 @@ func (f *ADBForwarder) StopForwarding(state int) {
 	}
 }
 
-func (f *ADBForwarder) Send(data []byte) error {
+func (f *Forwarder) Send(data []byte) error {
 	if f.conn == nil {
 		return fmt.Errorf("No connection yet on port %d", f.port)
 	}
@@ -311,16 +281,11 @@ func (f *ADBForwarder) Send(data []byte) error {
 	return nil
 }
 
-func (f *ADBForwarder) Status() ADBForwarderStatus {
+func (f *Forwarder) State() ForwarderState {
 	// Pass equal values to get the current state without changing it
 	_, state := f.compareAndSwapState(-1, -1)
 
-	return ADBForwarderStatus{
-		CVD: CVD{
-			ServiceRootEndpoint: f.ServiceRootEndpoint,
-			Host:                f.Host,
-			Name:                f.Name,
-		},
+	return ForwarderState{
 		Port:  f.port,
 		State: StateAsStr(state),
 	}
@@ -328,7 +293,7 @@ func (f *ADBForwarder) Status() ADBForwarderStatus {
 
 // Changes f.state to new if it had old. Returns whether the change was
 // made and the old state.
-func (f *ADBForwarder) compareAndSwapState(old, new int) (bool, int) {
+func (f *Forwarder) compareAndSwapState(old, new int) (bool, int) {
 	f.stateMtx.Lock()
 	defer f.stateMtx.Unlock()
 	if f.state == old {
@@ -338,19 +303,19 @@ func (f *ADBForwarder) compareAndSwapState(old, new int) (bool, int) {
 	return false, f.state
 }
 
-func (f *ADBForwarder) setConnection(conn net.Conn) bool {
+func (f *Forwarder) setConnection(conn net.Conn) bool {
 	f.stateMtx.Lock()
 	defer f.stateMtx.Unlock()
-	if f.state != ADBFwdReady {
+	if f.state != FwdReady {
 		return false
 	}
 	f.conn = conn
-	f.state = ADBFwdConnected
+	f.state = FwdConnected
 	return true
 }
 
-func (f *ADBForwarder) acceptLoop() {
-	if changed, state := f.compareAndSwapState(ADBFwdReady, ADBFwdReady); !changed {
+func (f *Forwarder) acceptLoop() {
+	if changed, state := f.compareAndSwapState(FwdReady, FwdReady); !changed {
 		f.logger.Printf("Forwarder accept loop started in wrong state: %s", StateAsStr(state))
 		// This isn't necessarily an error, StopForwarding could have been called already
 		return
@@ -374,14 +339,14 @@ func (f *ADBForwarder) acceptLoop() {
 
 		f.recvLoop()
 
-		if changed, _ := f.compareAndSwapState(ADBFwdConnected, ADBFwdReady); !changed {
+		if changed, _ := f.compareAndSwapState(FwdConnected, FwdReady); !changed {
 			// A different state means this loop should end
 			return
 		}
 	}
 }
 
-func (f *ADBForwarder) recvLoop() {
+func (f *Forwarder) recvLoop() {
 	defer f.conn.Close()
 	var buffer [4096]byte
 	for {
@@ -394,7 +359,7 @@ func (f *ADBForwarder) recvLoop() {
 		}
 		err = f.dc.Send(buffer[:length])
 		if err != nil {
-			f.logger.Printf("Failed to send ADB data to %q: %v", f.Name, err)
+			f.logger.Printf("Failed to send data to data channel from port %d: %v", f.port, err)
 			return
 		}
 	}
@@ -408,53 +373,101 @@ const (
 	controlSocketCommsVersion = 1
 )
 
-type TunnelController struct {
-	control   *net.UnixListener
-	forwarder *ADBForwarder
-	logger    *log.Logger
+// Controls the webrtc connection maintained between the connection agent and a cvd.
+// Implements the Observer interface for the webrtc client.
+type ConnController struct {
+	cvd          CVD
+	control      *net.UnixListener
+	adbForwarder *Forwarder
+	logger       *log.Logger
+	webrtcConn   *wclient.Connection
 }
 
-func NewTunnelController(controlDir string, service client.Service, cvd CVD) (*TunnelController, error) {
+func NewConnController(controlDir string, service client.Service, cvd CVD) (*ConnController, error) {
 	logger, err := createLogger(controlDir, cvd)
 	if err != nil {
 		return nil, err
 	}
-	f, err := NewADBForwarder(service, cvd, logger)
+	f, err := NewForwarder(logger)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Failed to instantiate ADB forwarder for %q: %w", cvd.Name, err)
 	}
+
+	tc := &ConnController{
+		cvd:          cvd,
+		adbForwarder: f,
+		logger:       logger,
+	}
+
+	conn, err := service.ConnectWebRTC(cvd.Host, cvd.Name, tc)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to connect to %q: %w", cvd.Name, err)
+	}
+	tc.webrtcConn = conn
+	// TODO(jemoreira): close everything except the relevant data channels.
+
+	// Wait for the ADB forwarder to be setup before connecting the ADB server.
+	<-f.readyCh
 
 	// Create the control socket as late as possible to reduce the chances of it
 	// being left behind if the user interrupts the command.
-	control, err := createControlSocket(controlDir, f.port)
+	control, err := createControlSocket(controlDir, tc.Status().ControlSocketName())
 	if err != nil {
-		f.StopForwarding(ADBFwdFailed)
-		return nil, fmt.Errorf("Control socket creation failed for %q: %w", f.Name, err)
+		f.StopForwarding(FwdFailed)
+		tc.webrtcConn.Close()
+		return nil, fmt.Errorf("Control socket creation failed for %q: %w", cvd.Name, err)
 	}
-
-	tc := &TunnelController{
-		control:   control,
-		forwarder: f,
-		logger:    logger,
-	}
+	tc.control = control
 
 	return tc, nil
 }
 
-func (tc *TunnelController) Stop() {
-	tc.forwarder.StopForwarding(ADBFwdStopped)
+func (tc *ConnController) OnADBDataChannel(dc *webrtc.DataChannel) {
+	tc.logger.Printf("ADB data channel to %q changed state: %v\n", tc.cvd.Name, dc.ReadyState())
+	tc.adbForwarder.OnDataChannel(dc)
+}
+
+func (tc *ConnController) OnError(err error) {
+	tc.adbForwarder.StopForwarding(FwdFailed)
+	tc.logger.Printf("Error on webrtc connection to %q: %v\n", tc.cvd.Name, err)
+}
+
+func (tc *ConnController) OnFailure() {
+	tc.adbForwarder.StopForwarding(FwdFailed)
+	tc.logger.Printf("WebRTC connection to %q set to failed state", tc.cvd.Name)
+}
+
+func (tc *ConnController) OnClose() {
+	tc.adbForwarder.StopForwarding(FwdStopped)
+	tc.logger.Printf("WebRTC connection to %q closed", tc.cvd.Name)
+}
+
+func (tc *ConnController) Stop() {
+	tc.adbForwarder.StopForwarding(FwdStopped)
 	// This will cause the control loop to finish.
 	tc.control.Close()
 }
 
-func (tc *TunnelController) Port() int {
-	return tc.forwarder.port
+func (tc *ConnController) ADBPort() int {
+	return tc.adbForwarder.port
 }
 
-func (tc *TunnelController) Run() {
+func (tc *ConnController) Status() *ConnStatus {
+	return &ConnStatus{
+		CVD: tc.cvd,
+		ADB: tc.adbForwarder.State(),
+	}
+}
+
+func (tc *ConnController) Run() {
 	if tc.control == nil {
 		panic("The control socket has not been setup yet")
 	}
+	defer func() {
+		if err := ADBDisconnect(tc.adbForwarder.port); err != nil {
+			tc.logger.Printf("Error disconnecting ADB to %q: %v\n", tc.cvd.Name, err)
+		}
+	}()
 	for {
 		conn, err := tc.control.Accept()
 		if err != nil {
@@ -471,7 +484,7 @@ func (tc *TunnelController) Run() {
 }
 
 // TODO(jemoreira) add timeouts
-func (tc *TunnelController) handleControlCommand(conn net.Conn) {
+func (tc *ConnController) handleControlCommand(conn net.Conn) {
 	buff := make([]byte, 100)
 	n, err := conn.Read(buff)
 	if err != nil {
@@ -486,8 +499,8 @@ func (tc *TunnelController) handleControlCommand(conn net.Conn) {
 			tc.logger.Printf("Error writing to control socket connection: %v", err)
 		}
 	case statusCmd:
-		status := tc.forwarder.Status()
-		msg, err := json.Marshal(&status)
+		status := tc.Status()
+		msg, err := json.Marshal(status)
 		if err != nil {
 			panic(fmt.Sprintf("Couldn't marshal status map: %v", err))
 		}
@@ -503,8 +516,8 @@ func (tc *TunnelController) handleControlCommand(conn net.Conn) {
 }
 
 // The returned status is only valid if the error is nil
-func sendStatusCmd(conn net.Conn) (ADBForwarderStatus, error) {
-	var msg ADBForwarderStatus
+func sendStatusCmd(conn net.Conn) (ConnStatus, error) {
+	var msg ConnStatus
 	// No need to write in a loop because it's a unixpacket socket, so all
 	// messages are delivered in full or not at all.
 	_, err := conn.Write([]byte(statusCmd))
@@ -530,20 +543,16 @@ func bindTCPSocket() (net.Listener, error) {
 	return listener, nil
 }
 
-func createControlSocket(dir string, port int) (*net.UnixListener, error) {
+func createControlSocket(dir, name string) (*net.UnixListener, error) {
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return nil, fmt.Errorf("Failed to create dir %s: %w", dir, err)
 	}
 
-	// The canonical name is too long to use as a unix socket name, use the port
-	// instead and use the canonical name to create a symlink to the socket.
-	name := fmt.Sprintf("%d.sock", port)
 	path := fmt.Sprintf("%s/%s", dir, name)
 
 	// Use of "unixpacket" network is required to have message boundaries.
 	control, err := net.ListenUnix("unixpacket", &net.UnixAddr{Name: path, Net: "unixpacket"})
 	if err != nil {
-		fmt.Println(err)
 		return nil, fmt.Errorf("Failed to create control socket: %w", err)
 	}
 

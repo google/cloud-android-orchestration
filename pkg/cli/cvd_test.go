@@ -30,7 +30,11 @@ func TestCVDOutput(t *testing.T) {
 			Status:   "Running",
 			Displays: []string{"720 x 1280 ( 320 )"},
 		}),
-		ADBPort: 12345,
+		connStatus: &ConnStatus{
+			ADB: ForwarderState{
+				Port: 12345,
+			},
+		},
 	}
 
 	got := output.String()

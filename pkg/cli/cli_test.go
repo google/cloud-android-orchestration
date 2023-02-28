@@ -16,9 +16,11 @@ package cli
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -66,9 +68,9 @@ func TestRequiredFlags(t *testing.T) {
 
 type fakeCommandRunner struct{}
 
-func (_ *fakeCommandRunner) StartBgCommand(...string) (string, error) {
-	// The only command started for now is the connection agent, which only returns the port.
-	return "12345", nil
+func (_ *fakeCommandRunner) StartBgCommand(...string) ([]byte, error) {
+	// The only command started for now is the connection agent.
+	return json.Marshal(&ConnStatus{ADB: ForwarderState{Port: 12345}})
 }
 
 type fakeService struct{}
@@ -170,7 +172,7 @@ func TestCommandSucceeds(t *testing.T) {
 				IOStreams: io,
 				Args:      append(test.Args, "--service_url="+serviceURL),
 				InitialConfig: Config{
-					ADBControlDir: t.TempDir(),
+					ConnectionControlDir: t.TempDir(),
 				},
 				ServiceBuilder: func(opts *client.ServiceOptions) (client.Service, error) {
 					return &fakeService{}, nil
@@ -191,6 +193,42 @@ func TestCommandSucceeds(t *testing.T) {
 	}
 }
 
+func TestBuildAgentCmdline(t *testing.T) {
+	/*****************************************************************
+	If this test fails you most likely need to fix an AsArgs function!
+	******************************************************************/
+	// Don't name the fields to force a compiler error when the flag structures
+	// are modified. This should help the developer realize they also need to
+	// modify the corresponding AsArgs method.
+	flags := ConnectFlags{
+		&CVDRemoteFlags{
+			"service url",
+			"zone",
+			"http proxy",
+			true, // verbose
+		},
+		"host",
+	}
+	device := "device"
+	args := buildAgentCmdArgs(&flags, device)
+	var options CommandOptions
+	cmd := NewCVDRemoteCommand(&options)
+	subCmd, args, err := cmd.command.Traverse(args)
+	// This at least ensures no required flags were left blank.
+	if err != nil {
+		t.Errorf("Failed to parse args: %v", err)
+	}
+	// Just a sanity check that all flags were parsed and only the device was
+	// left as possitional argument.
+	if reflect.DeepEqual(args, []string{device}) {
+		t.Errorf("Expected resulting args to just have [%q], but found %v", device, args)
+	}
+	if subCmd.Name() != ConnectionAgentCommandName {
+		t.Errorf("Expected it to parse %q command, found: %q", ConnectionAgentCommandName, subCmd.Name())
+	}
+	// TODO(jemoreira): Compare the parsed flags with used flags
+}
+
 func newTestIOStreams() (IOStreams, *bytes.Buffer, *bytes.Buffer) {
 	in := &bytes.Buffer{}
 	out := &bytes.Buffer{}
@@ -207,7 +245,12 @@ func cvdOutput(serviceURL, host string, cvd hoapi.CVD, port int) string {
 	out := &bytes.Buffer{}
 	cvdOut := CVDOutput{
 		CVDInfo: NewCVDInfo(fakeService{}.RootURI(), host, &cvd),
-		ADBPort: port,
+		connStatus: &ConnStatus{
+			ADB: ForwarderState{
+				State: "not connected",
+				Port:  port,
+			},
+		},
 	}
 	fmt.Fprintln(out, cvdOut.String())
 	b, _ := ioutil.ReadAll(out)

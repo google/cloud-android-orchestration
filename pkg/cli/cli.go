@@ -522,8 +522,22 @@ func runListCVDsCommand(c *cobra.Command, flags *ListCVDsFlags, opts *subCommand
 	} else {
 		cvds, err = listAllCVDs(service)
 	}
+	fwds, err := listADBTunnels(opts.InitialConfig.ADBControlDirExpanded())
+	if err != nil {
+		// Non fata error, the list of CVDs is still valid
+		c.PrintErrf("Error found listing CVD connections: %v\n", err)
+	}
+	fwMap := make(map[CVD]*ADBForwarderStatus)
+	for _, f := range fwds {
+		fwMap[f.CVD] = &f
+	}
+
 	for _, cvd := range cvds {
-		c.Println(&CVDOutput{cvd, -1})
+		o := &CVDOutput{cvd, -1}
+		if f := fwMap[cvd.CVD]; f != nil {
+			o.ADBPort = f.Port
+		}
+		c.Println(o)
 	}
 	return err
 }
@@ -659,7 +673,13 @@ func printADBTunnels(forwarders []ADBForwarderStatus, c *command, longFormat boo
 
 func runListADBTunnelsCommand(flags *listADBTunnelFlags, c *command, opts *subCommandOpts) error {
 	controlDir := opts.InitialConfig.ADBControlDirExpanded()
-	forwarders, err := listADBTunnels(controlDir, flags.host)
+	var forwarders []ADBForwarderStatus
+	var err error
+	if flags.host != "" {
+		forwarders, err = listADBTunnelsByHost(controlDir, flags.host)
+	} else {
+		forwarders, err = listADBTunnels(controlDir)
+	}
 	// Print the tunnels we may have found before an error was encountered if any.
 	printADBTunnels(forwarders, c, flags.longFormat)
 	return err
@@ -671,7 +691,13 @@ func runCloseADBTunnelsCommand(flags *closeADBTunnelFlags, c *command, args []st
 		devices[a] = nil
 	}
 	controlDir := opts.InitialConfig.ADBControlDirExpanded()
-	forwarders, merr := listADBTunnels(controlDir, flags.host)
+	var forwarders []ADBForwarderStatus
+	var merr error
+	if flags.host != "" {
+		forwarders, merr = listADBTunnelsByHost(controlDir, flags.host)
+	} else {
+		forwarders, merr = listADBTunnels(controlDir)
+	}
 	if len(forwarders) == 0 {
 		return fmt.Errorf("No ADB tunnels found")
 	}

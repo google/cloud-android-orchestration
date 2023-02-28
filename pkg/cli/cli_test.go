@@ -169,6 +169,9 @@ func TestCommandSucceeds(t *testing.T) {
 			opts := &CommandOptions{
 				IOStreams: io,
 				Args:      append(test.Args, "--service_url="+serviceURL),
+				InitialConfig: Config{
+					ADBControlDir: t.TempDir(),
+				},
 				ServiceBuilder: func(opts *client.ServiceOptions) (client.Service, error) {
 					return &fakeService{}, nil
 				},

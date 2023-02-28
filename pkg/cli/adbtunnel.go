@@ -33,6 +33,12 @@ import (
 	"github.com/pion/webrtc/v3"
 )
 
+type ADBForwarderStatus struct {
+	CVD
+	Port  int    `json:"port"`
+	State string `json:"state"`
+}
+
 // Starts an ADB agent process for each device. Waits for all started subprocesses
 // to report the tunnel was successfully created or an error occurred. Returns a
 // summary of errors reported by the ADB agents or nil if all succeeded. Some
@@ -89,7 +95,7 @@ func closeTunnel(controlDir string, dev ADBForwarderStatus) error {
 
 // Finds all existing ADB tunnels. Returns the list of ADB tunnels it was able
 // to gather along with a multierror detailing errors for the unreachable ones.
-func listADBTunnels(controlDir string, host string) ([]ADBForwarderStatus, error) {
+func listADBTunnels(controlDir string) ([]ADBForwarderStatus, error) {
 	var merr error
 	forwarders := make([]ADBForwarderStatus, 0)
 	entries, err := os.ReadDir(controlDir)
@@ -114,13 +120,21 @@ func listADBTunnels(controlDir string, host string) ([]ADBForwarderStatus, error
 			continue
 		}
 
-		if host != "" && fwdr.Host != host {
-			continue
-		}
-
 		forwarders = append(forwarders, fwdr)
 	}
 	return forwarders, merr
+}
+
+func listADBTunnelsByHost(controlDir string, host string) ([]ADBForwarderStatus, error) {
+	l, err := listADBTunnels(controlDir)
+	ret := make([]ADBForwarderStatus, 0)
+	for _, f := range l {
+		if host != f.Host {
+			continue
+		}
+		ret = append(ret, f)
+	}
+	return ret, err
 }
 
 type findOrCreateRet struct {
@@ -129,11 +143,11 @@ type findOrCreateRet struct {
 	Error      error
 }
 
-func findOrCreateTunnel(controlDir string, devSpec CVD, service client.Service) (findOrCreateRet, error) {
-	forwarders, err := listADBTunnels(controlDir, devSpec.Host)
+func findOrCreateTunnel(controlDir string, cvd CVD, service client.Service) (findOrCreateRet, error) {
+	forwarders, err := listADBTunnelsByHost(controlDir, cvd.Host)
 	// Even with an error some connections may have been listed.
 	for _, fwd := range forwarders {
-		if fwd.CVD == devSpec {
+		if fwd.CVD == cvd {
 			return findOrCreateRet{fwd.Port, nil, err}, nil
 		}
 	}
@@ -141,7 +155,7 @@ func findOrCreateTunnel(controlDir string, devSpec CVD, service client.Service) 
 	// after the checks were made above but before the socket was created below.
 	// The likelihood of hitting that is very low though, and the effort required
 	// to prevent it high, so we are choosing to live with it for the time being.
-	controller, tErr := NewTunnelController(controlDir, service, devSpec)
+	controller, tErr := NewTunnelController(controlDir, service, cvd)
 	if tErr != nil {
 		// This error is fatal, ingore any previous ones to avoid unnecessary noise.
 		return findOrCreateRet{}, fmt.Errorf("Failed to create tunnel controller: %w", tErr)
@@ -164,16 +178,16 @@ type ADBForwarder struct {
 	readyCh    chan struct{}
 }
 
-func NewADBForwarder(service client.Service, devSpec CVD, logger *log.Logger) (*ADBForwarder, error) {
+func NewADBForwarder(service client.Service, cvd CVD, logger *log.Logger) (*ADBForwarder, error) {
 	// Bind the two local sockets before attempting to connect over WebRTC
 	tunnel, err := bindTCPSocket()
 	if err != nil {
-		return nil, fmt.Errorf("Failed to bind to local port for %q: %w", devSpec.Name, err)
+		return nil, fmt.Errorf("Failed to bind to local port for %q: %w", cvd.Name, err)
 	}
 	port := tunnel.Addr().(*net.TCPAddr).Port
 
 	f := &ADBForwarder{
-		CVD:      devSpec,
+		CVD:      cvd,
 		listener: tunnel,
 		port:     port,
 		logger:   logger,
@@ -297,12 +311,6 @@ func (f *ADBForwarder) Send(data []byte) error {
 	return nil
 }
 
-type ADBForwarderStatus struct {
-	CVD
-	Port  int    `json:"port"`
-	State string `json:"state"`
-}
-
 func (f *ADBForwarder) Status() ADBForwarderStatus {
 	// Pass equal values to get the current state without changing it
 	_, state := f.compareAndSwapState(-1, -1)
@@ -406,12 +414,12 @@ type TunnelController struct {
 	logger    *log.Logger
 }
 
-func NewTunnelController(controlDir string, service client.Service, devSpec CVD) (*TunnelController, error) {
-	logger, err := createLogger(controlDir, devSpec)
+func NewTunnelController(controlDir string, service client.Service, cvd CVD) (*TunnelController, error) {
+	logger, err := createLogger(controlDir, cvd)
 	if err != nil {
 		return nil, err
 	}
-	f, err := NewADBForwarder(service, devSpec, logger)
+	f, err := NewADBForwarder(service, cvd, logger)
 	if err != nil {
 		return nil, err
 	}

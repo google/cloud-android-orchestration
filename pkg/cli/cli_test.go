@@ -93,7 +93,7 @@ func (fakeService) GetInfraConfig(host string) (*apiv1.InfraConfig, error) {
 	return nil, nil
 }
 
-func (fakeService) ConnectWebRTC(host, device string, observer wclient.Observer) (*wclient.Connection, error) {
+func (fakeService) ConnectWebRTC(host, device string, observer wclient.Observer, logger io.Writer) (*wclient.Connection, error) {
 	return nil, nil
 }
 

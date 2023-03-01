@@ -162,9 +162,6 @@ func FindOrConnect(controlDir string, cvd CVD, service client.Service) (findOrCo
 		// This error is fatal, ingore any previous ones to avoid unnecessary noise.
 		return findOrConnRet{}, fmt.Errorf("Failed to create connection controller: %w", tErr)
 	}
-	if cErr := ADBConnect(controller.adbForwarder.port); cErr != nil {
-		err = multierror.Append(err, fmt.Errorf("Error connecting ADB to %q: %v\n", cvd.Name, cErr))
-	}
 
 	return findOrConnRet{controller.Status(), controller, err}, nil
 }
@@ -463,11 +460,6 @@ func (tc *ConnController) Run() {
 	if tc.control == nil {
 		panic("The control socket has not been setup yet")
 	}
-	defer func() {
-		if err := ADBDisconnect(tc.adbForwarder.port); err != nil {
-			tc.logger.Printf("Error disconnecting ADB to %q: %v\n", tc.cvd.Name, err)
-		}
-	}()
 	for {
 		conn, err := tc.control.Accept()
 		if err != nil {
@@ -559,37 +551,6 @@ func createControlSocket(dir, name string) (*net.UnixListener, error) {
 	control.SetUnlinkOnClose(true)
 
 	return control, nil
-}
-
-func ADBSendMsg(msg string) error {
-	msg = fmt.Sprintf("%.4x%s", len(msg), msg)
-	const ADBServerPort = 5037
-	conn, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", ADBServerPort))
-	if err != nil {
-		return fmt.Errorf("Unable to contact ADB server: %w", err)
-	}
-	defer conn.Close()
-	written := 0
-	for written < len(msg) {
-		n, err := conn.Write([]byte(msg[written:]))
-		if err != nil {
-			return fmt.Errorf("Error sending message to ADB server: %w", err)
-		}
-		written += n
-	}
-	return nil
-}
-
-func ADBConnect(port int) error {
-	adbSerial := fmt.Sprintf("127.0.0.1:%d", port)
-	msg := fmt.Sprintf("host:connect:%s", adbSerial)
-	return ADBSendMsg(msg)
-}
-
-func ADBDisconnect(port int) error {
-	adbSerial := fmt.Sprintf("127.0.0.1:%d", port)
-	msg := fmt.Sprintf("host:disconnect:%s", adbSerial)
-	return ADBSendMsg(msg)
 }
 
 func logsDir(controlDir string) string {

@@ -49,9 +49,10 @@ func TestRequiredFlags(t *testing.T) {
 		t.Run(test.Name, func(t *testing.T) {
 			io, _, _ := newTestIOStreams()
 			opts := &CommandOptions{
-				IOStreams:     io,
-				Args:          test.Args,
-				CommandRunner: &fakeCommandRunner{},
+				IOStreams:      io,
+				Args:           test.Args,
+				CommandRunner:  &fakeCommandRunner{},
+				ADBServerProxy: &fakeADBServerProxy{},
 			}
 
 			err := NewCVDRemoteCommand(opts).Execute()
@@ -71,6 +72,16 @@ type fakeCommandRunner struct{}
 func (_ *fakeCommandRunner) StartBgCommand(...string) ([]byte, error) {
 	// The only command started for now is the connection agent.
 	return json.Marshal(&ConnStatus{ADB: ForwarderState{Port: 12345}})
+}
+
+type fakeADBServerProxy struct{}
+
+func (*fakeADBServerProxy) Connect(int) error {
+	return nil
+}
+
+func (*fakeADBServerProxy) Disconnect(int) error {
+	return nil
 }
 
 type fakeService struct{}
@@ -177,7 +188,8 @@ func TestCommandSucceeds(t *testing.T) {
 				ServiceBuilder: func(opts *client.ServiceOptions) (client.Service, error) {
 					return &fakeService{}, nil
 				},
-				CommandRunner: &fakeCommandRunner{},
+				CommandRunner:  &fakeCommandRunner{},
+				ADBServerProxy: &fakeADBServerProxy{},
 			}
 
 			err := NewCVDRemoteCommand(opts).Execute()

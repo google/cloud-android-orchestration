@@ -48,6 +48,7 @@ type CommandOptions struct {
 	InitialConfig  Config
 	ServiceBuilder client.ServiceBuilder
 	CommandRunner  CommandRunner
+	ADBServerProxy ADBServerProxy
 }
 
 type CVDRemoteCommand struct {
@@ -131,6 +132,7 @@ type subCommandOpts struct {
 	RootFlags      *CVDRemoteFlags
 	InitialConfig  Config
 	CommandRunner  CommandRunner
+	ADBServerProxy ADBServerProxy
 }
 
 type ConnectFlags struct {
@@ -266,6 +268,7 @@ func NewCVDRemoteCommand(o *CommandOptions) *CVDRemoteCommand {
 		RootFlags:      flags,
 		InitialConfig:  o.InitialConfig,
 		CommandRunner:  o.CommandRunner,
+		ADBServerProxy: o.ADBServerProxy,
 	}
 	cvdGroup := &cobra.Group{
 		ID:    "cvd",
@@ -657,8 +660,13 @@ func runConnectionAgentCommand(flags *ConnectFlags, c *command, args []string, o
 		c.Println(string(output))
 	}
 
+	// Ask ADB server to connect even if the connection to the device already exists.
+	if err := opts.ADBServerProxy.Connect(ret.Status.ADB.Port); err != nil {
+		c.PrintErrf("Failed to connect ADB to device %q: %v\n", device, err)
+	}
+
 	if ret.Controller == nil {
-		// A connection already exist, this process is done.
+		// A connection already exists, this process is done.
 		return nil
 	}
 
@@ -675,6 +683,11 @@ func runConnectionAgentCommand(flags *ConnectFlags, c *command, args []string, o
 	}
 
 	ret.Controller.Run()
+
+	if err := opts.ADBServerProxy.Disconnect(ret.Status.ADB.Port); err != nil {
+		// The command's Err is already closed, use the controller's logger instead
+		ret.Controller.logger.Printf("Failed to disconnect ADB: %v\n", err)
+	}
 
 	// There is no point in returning error codes from a background process, errors
 	// will be written to the log file instead.

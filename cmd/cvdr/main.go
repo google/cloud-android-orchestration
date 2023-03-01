@@ -79,6 +79,7 @@ func main() {
 		ServiceBuilder: client.NewService,
 		InitialConfig:  config,
 		CommandRunner:  &cmdRunner{},
+		ADBServerProxy: &cli.ADBServerProxyImpl{},
 	}
 
 	if err := cli.NewCVDRemoteCommand(opts).Execute(); err != nil {

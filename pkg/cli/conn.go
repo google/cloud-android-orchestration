@@ -399,7 +399,7 @@ func NewConnController(controlDir string, service client.Service, cvd CVD) (*Con
 		logger:       logger,
 	}
 
-	conn, err := service.ConnectWebRTC(cvd.Host, cvd.Name, tc)
+	conn, err := service.ConnectWebRTC(cvd.Host, cvd.Name, tc, logger.Writer())
 	if err != nil {
 		return nil, fmt.Errorf("Failed to connect to %q: %w", cvd.Name, err)
 	}

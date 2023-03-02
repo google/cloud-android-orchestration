@@ -49,40 +49,6 @@ func (cs *ConnStatus) ControlSocketName() string {
 	return fmt.Sprintf("%d.sock", cs.ADB.Port)
 }
 
-// Starts a connection agent process for each device. Waits for all started subprocesses
-// to report the connection was successfully created or an error occurred. Returns a
-// summary of errors reported by the connection agents or nil if all succeeded. Some
-// connections may have been established even if this function returns an error. Those
-// are discoverable through listCVDConnections() after this function returns.
-func ConnectCVDs(devices []string, launchAgent func(string) *ConnStatus, reportConnection func(string, *ConnStatus)) error {
-	portChs := make([]chan *ConnStatus, len(devices))
-	for i, device := range devices {
-		portChs[i] = make(chan *ConnStatus)
-		go func(ch chan *ConnStatus, device string) {
-			defer close(ch)
-			status := launchAgent(device)
-			if status != nil {
-				ch <- status
-			}
-		}(portChs[i], device)
-	}
-
-	failed := 0
-	for i, device := range devices {
-		status, read := <-portChs[i]
-		if !read {
-			// Channel close without sending port number indicates a failure
-			failed++
-			continue
-		}
-		reportConnection(device, status)
-	}
-	if failed > 0 {
-		return fmt.Errorf("Failed to connect to %d out of %d devices", failed, len(devices))
-	}
-	return nil
-}
-
 func DisconnectCVD(controlDir string, dev ConnStatus) error {
 	conn, err := net.Dial("unixpacket", fmt.Sprintf("%s/%s", controlDir, dev.ControlSocketName()))
 	if err != nil {

@@ -220,6 +220,7 @@ func TestBuildAgentCmdline(t *testing.T) {
 			true, // verbose
 		},
 		"host",
+		false, // skipconfirmation
 	}
 	device := "device"
 	args := buildAgentCmdArgs(&flags, device)

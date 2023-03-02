@@ -1,4 +1,18 @@
-cuttlefish-cvdremote (0.1.0) UNRELEASED; urgency=medium
+cuttlefish-cvdremote (0.2.0) unstable; urgency=medium
+
+  [Jorge E. Moreira]
+  * ADB connections
+  * Dependency version upgrades
+
+  [Sergio A. Rodriguez]
+  * Create CVD with local image
+  * CLI restructure
+  * Exponential backoff
+  * Code cleanup
+
+ -- Jorge Moreira Broche <jemoreira@google.com>  Wed, 01 Mar 2023 16:22:42 -0700
+
+cuttlefish-cvdremote (0.1.0) unstable; urgency=medium
 
   * Deploys cvdremote binary and config
 

@@ -39,36 +39,40 @@ type ForwarderState struct {
 }
 
 type ConnStatus struct {
-	CVD
 	ADB ForwarderState
 }
 
-func (cs *ConnStatus) ControlSocketName() string {
+type StatusCmdRes struct {
+	CVD    CVD
+	Status ConnStatus
+}
+
+func ControlSocketName(_ CVD, cs ConnStatus) string {
 	// The canonical name is too long to use as a unix socket name, use the port
 	// instead and use the canonical name to create a symlink to the socket.
 	return fmt.Sprintf("%d.sock", cs.ADB.Port)
 }
 
-func DisconnectCVD(controlDir string, dev ConnStatus) error {
-	conn, err := net.Dial("unixpacket", fmt.Sprintf("%s/%s", controlDir, dev.ControlSocketName()))
+func DisconnectCVD(controlDir string, cvd CVD, status ConnStatus) error {
+	conn, err := net.Dial("unixpacket", fmt.Sprintf("%s/%s", controlDir, ControlSocketName(cvd, status)))
 	if err != nil {
-		return fmt.Errorf("Failed to connect to %s/%s's agent: %w", dev.Host, dev.Name, err)
+		return fmt.Errorf("Failed to connect to %s/%s's agent: %w", cvd.Host, cvd.Name, err)
 	}
 	_, err = conn.Write([]byte(stopCmd))
 	if err != nil {
-		return fmt.Errorf("Failed to send stop command to %s/%s: %w", dev.Host, dev.Name, err)
+		return fmt.Errorf("Failed to send stop command to %s/%s: %w", cvd.Host, cvd.Name, err)
 	}
 	return nil
 }
 
 // Finds all existing connection agents. Returns the list of connection agents it was able
 // to gather along with a multierror detailing the unreachable ones.
-func listCVDConnections(controlDir string) ([]ConnStatus, error) {
+func listCVDConnections(controlDir string) (map[CVD]ConnStatus, error) {
 	var merr error
-	forwarders := make([]ConnStatus, 0)
+	statuses := make(map[CVD]ConnStatus)
 	entries, err := os.ReadDir(controlDir)
 	if err != nil {
-		return forwarders, fmt.Errorf("Error reading %s: %w", controlDir, err)
+		return statuses, fmt.Errorf("Error reading %s: %w", controlDir, err)
 	}
 	for _, file := range entries {
 		if file.Type()&fs.ModeSocket == 0 {
@@ -81,43 +85,41 @@ func listCVDConnections(controlDir string) ([]ConnStatus, error) {
 			merr = multierror.Append(merr, fmt.Errorf("Unable to contact connection agent: %w", err))
 			continue
 		}
-		fwdr, err := sendStatusCmd(conn)
+		res, err := sendStatusCmd(conn)
 		conn.Close()
 		if err != nil {
 			merr = multierror.Append(merr, err)
 			continue
 		}
 
-		forwarders = append(forwarders, fwdr)
+		statuses[res.CVD] = res.Status
 	}
-	return forwarders, merr
+	return statuses, merr
 }
 
-func listCVDConnectionsByHost(controlDir string, host string) ([]ConnStatus, error) {
+func listCVDConnectionsByHost(controlDir string, host string) (map[CVD]ConnStatus, error) {
 	l, err := listCVDConnections(controlDir)
-	ret := make([]ConnStatus, 0)
-	for _, f := range l {
-		if host != f.Host {
+	ret := make(map[CVD]ConnStatus, 0)
+	for cvd, status := range l {
+		if host != cvd.Host {
 			continue
 		}
-		ret = append(ret, f)
+		ret[cvd] = status
 	}
 	return ret, err
 }
 
 type findOrConnRet struct {
-	Status     *ConnStatus
+	Status     ConnStatus
 	Controller *ConnController
 	Error      error
 }
 
 func FindOrConnect(controlDir string, cvd CVD, service client.Service) (findOrConnRet, error) {
-	connStatuses, err := listCVDConnectionsByHost(controlDir, cvd.Host)
+	statuses, err := listCVDConnectionsByHost(controlDir, cvd.Host)
 	// Even with an error some connections may have been listed.
-	for _, status := range connStatuses {
-		if status.CVD == cvd {
-			return findOrConnRet{&status, nil, err}, nil
-		}
+	if s, ok := statuses[cvd]; ok {
+		return findOrConnRet{s, nil, err}, nil
 	}
 	// There is a race here since a connection could be created by a different process
 	// after the checks were made above but before the socket was created below.
@@ -374,7 +376,7 @@ func NewConnController(controlDir string, service client.Service, cvd CVD) (*Con
 
 	// Create the control socket as late as possible to reduce the chances of it
 	// being left behind if the user interrupts the command.
-	control, err := createControlSocket(controlDir, tc.Status().ControlSocketName())
+	control, err := createControlSocket(controlDir, ControlSocketName(tc.cvd, tc.Status()))
 	if err != nil {
 		f.StopForwarding(FwdFailed)
 		tc.webrtcConn.Close()
@@ -415,9 +417,8 @@ func (tc *ConnController) ADBPort() int {
 	return tc.adbForwarder.port
 }
 
-func (tc *ConnController) Status() *ConnStatus {
-	return &ConnStatus{
-		CVD: tc.cvd,
+func (tc *ConnController) Status() ConnStatus {
+	return ConnStatus{
 		ADB: tc.adbForwarder.State(),
 	}
 }
@@ -457,8 +458,11 @@ func (tc *ConnController) handleControlCommand(conn net.Conn) {
 			tc.logger.Printf("Error writing to control socket connection: %v", err)
 		}
 	case statusCmd:
-		status := tc.Status()
-		msg, err := json.Marshal(status)
+		reply := StatusCmdRes{
+			CVD:    tc.cvd,
+			Status: tc.Status(),
+		}
+		msg, err := json.Marshal(reply)
 		if err != nil {
 			panic(fmt.Sprintf("Couldn't marshal status map: %v", err))
 		}
@@ -474,8 +478,8 @@ func (tc *ConnController) handleControlCommand(conn net.Conn) {
 }
 
 // The returned status is only valid if the error is nil
-func sendStatusCmd(conn net.Conn) (ConnStatus, error) {
-	var msg ConnStatus
+func sendStatusCmd(conn net.Conn) (StatusCmdRes, error) {
+	var msg StatusCmdRes
 	// No need to write in a loop because it's a unixpacket socket, so all
 	// messages are delivered in full or not at all.
 	_, err := conn.Write([]byte(statusCmd))

@@ -24,20 +24,18 @@ import (
 )
 
 func TestCVDOutput(t *testing.T) {
-	output := CVDOutput{
-		CVDInfo: NewCVDInfo("http://foo.com", "bar", &hoapi.CVD{
-			Name:     "cvd-1",
-			Status:   "Running",
-			Displays: []string{"720 x 1280 ( 320 )"},
-		}),
-		connStatus: &ConnStatus{
-			ADB: ForwarderState{
-				Port: 12345,
-			},
+	output := NewCVDInfo("http://foo.com", "bar", &hoapi.CVD{
+		Name:     "cvd-1",
+		Status:   "Running",
+		Displays: []string{"720 x 1280 ( 320 )"},
+	})
+	output.ConnStatus = &ConnStatus{
+		ADB: ForwarderState{
+			Port: 12345,
 		},
 	}
 
-	got := output.String()
+	got := ToPrintableStr(output)
 
 	expected := `cvd-1 (bar)
   Status: Running

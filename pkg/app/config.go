@@ -69,7 +69,7 @@ type OperationsConfig struct {
 func LoadConfig() (*Config, error) {
 	confFile := os.Getenv(ConfFileEnvVar)
 	if confFile == "" {
-		confFile = "conf.toml"
+		confFile = DefaultConfFile
 	}
 	file, err := os.Open(confFile)
 	if err != nil {

@@ -33,8 +33,9 @@ type CVD struct {
 
 type CVDInfo struct {
 	CVD
-	Status   string
-	Displays []string
+	Status     string
+	Displays   []string
+	ConnStatus *ConnStatus
 }
 
 func NewCVDInfo(url, host string, cvd *hoapi.CVD) *CVDInfo {
@@ -132,7 +133,7 @@ type cvdListResult struct {
 	Error  error
 }
 
-func listAllCVDs(service client.Service) ([]*CVDInfo, error) {
+func listAllCVDs(service client.Service, controlDir string) ([]*CVDInfo, error) {
 	hl, err := service.ListHosts()
 	if err != nil {
 		return nil, fmt.Errorf("Error listing hosts: %w", err)
@@ -142,29 +143,38 @@ func listAllCVDs(service client.Service) ([]*CVDInfo, error) {
 		hosts = append(hosts, host.Name)
 	}
 	var chans []chan cvdListResult
+	statuses, merr := listCVDConnections(controlDir)
 	for _, host := range hosts {
 		ch := make(chan cvdListResult)
 		chans = append(chans, ch)
 		go func(name string, ch chan<- cvdListResult) {
-			cvds, err := listHostCVDs(service, name)
+			cvds, err := listHostCVDsInner(service, name, statuses)
 			ch <- cvdListResult{Result: cvds, Error: err}
 		}(host, ch)
 	}
-	var merr error
 	var cvds []*CVDInfo
 	for i, ch := range chans {
 		host := hosts[i]
 		result := <-ch
 		if result.Error != nil {
 			merr = multierror.Append(merr, fmt.Errorf("lists cvds for host %q failed: %w", host, err))
-			continue
 		}
 		cvds = append(cvds, result.Result...)
 	}
 	return cvds, merr
 }
 
-func listHostCVDs(service client.Service, host string) ([]*CVDInfo, error) {
+func listHostCVDs(service client.Service, controlDir, host string) ([]*CVDInfo, error) {
+	statuses, merr := listCVDConnectionsByHost(controlDir, host)
+	result, err := listHostCVDsInner(service, host, statuses)
+	if err != nil {
+		merr = multierror.Append(merr, err)
+	}
+	return result, merr
+}
+
+// Calling listCVDConnectionsByHost is inefficient, this internal function avoids that for listAllCVDs.
+func listHostCVDsInner(service client.Service, host string, statuses map[CVD]ConnStatus) ([]*CVDInfo, error) {
 	cvds, err := service.ListCVDs(host)
 	if err != nil {
 		return nil, err
@@ -172,6 +182,9 @@ func listHostCVDs(service client.Service, host string) ([]*CVDInfo, error) {
 	ret := make([]*CVDInfo, len(cvds))
 	for i, c := range cvds {
 		ret[i] = NewCVDInfo(service.RootURI(), host, c)
+		if status, ok := statuses[ret[i].CVD]; ok {
+			ret[i].ConnStatus = &status
+		}
 	}
 	return ret, nil
 }

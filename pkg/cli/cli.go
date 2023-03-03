@@ -176,20 +176,15 @@ func (c *command) Parent() *command {
 	return &command{p, c.verbose}
 }
 
-type CVDOutput struct {
-	*CVDInfo
-	connStatus *ConnStatus
-}
-
-func (o *CVDOutput) String() string {
+func ToPrintableStr(o *CVDInfo) string {
 	res := fmt.Sprintf("%s (%s)", o.Name, o.Host)
 	res += "\n  " + "Status: " + o.Status
 	adbState := ""
-	if o.connStatus != nil {
-		if o.connStatus.ADB.Port > 0 {
-			adbState = fmt.Sprintf("127.0.0.1:%d", o.connStatus.ADB.Port)
+	if o.ConnStatus != nil {
+		if o.ConnStatus.ADB.Port > 0 {
+			adbState = fmt.Sprintf("127.0.0.1:%d", o.ConnStatus.ADB.Port)
 		} else {
-			adbState = o.connStatus.ADB.State
+			adbState = o.ConnStatus.ADB.State
 		}
 	} else {
 		adbState = "not connected"
@@ -207,8 +202,15 @@ const (
 	AllowAll SelectionOption = 1 << iota
 )
 
-// This should have been a method of command, but Go doesn't allow generic methods
-func PromptSelection[T any](c *command, choices []T, toStr func(T) string, selOpt SelectionOption) ([]T, error) {
+// The PromptSelectionFrom<Type> functions iterate over given container and present
+// users with a prompt like this:
+// 0: String representation of first choice
+// 2: String representation of second choice
+// ...
+// N: All
+// Choose an option: <cursor>
+// These should have been methods of command, but Go doesn't allow generic methods.
+func PromptSelectionFromSlice[T any](c *command, choices []T, toStr func(T) string, selOpt SelectionOption) ([]T, error) {
 	for i, v := range choices {
 		c.PrintErrf("%d) %s\n", i, toStr(v))
 	}
@@ -228,6 +230,35 @@ func PromptSelection[T any](c *command, choices []T, toStr func(T) string, selOp
 	}
 	if chosen < len(choices) {
 		return []T{choices[chosen]}, nil
+	}
+	return choices, nil
+}
+
+func PromptSelectionFromMap[K comparable, T any](c *command, choices map[K]T, toStr func(K, T) string, selOpt SelectionOption) (map[K]T, error) {
+	i := 0
+	keys := make([]K, len(choices))
+	for k, v := range choices {
+		c.PrintErrf("%d) %s\n", i, toStr(k, v))
+		keys[i] = k
+		i++
+	}
+	maxChoice := len(choices) - 1
+	if selOpt&AllowAll != 0 {
+		c.PrintErrf("%d) All\n", len(choices))
+		maxChoice = len(choices)
+	}
+	c.PrintErrf("Choose an option: ")
+	chosen := -1
+	_, err := fmt.Fscanln(c.InOrStdin(), &chosen)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to read choice: %w", err)
+	}
+	if chosen < 0 || chosen > maxChoice {
+		return nil, fmt.Errorf("Choice out of range: %d", chosen)
+	}
+	if chosen < len(choices) {
+		key := keys[chosen]
+		return map[K]T{key: choices[key]}, nil
 	}
 	return choices, nil
 }
@@ -470,10 +501,10 @@ func disconnectDevicesByHost(host string, opts *subCommandOpts) error {
 		// Warn only, the host can still be deleted
 		return fmt.Errorf("Errors listing connections: %w", err)
 	}
-	for _, f := range statuses {
-		if err := DisconnectCVD(controlDir, f); err != nil {
+	for cvd, status := range statuses {
+		if err := DisconnectCVD(controlDir, cvd, status); err != nil {
 			// Warn only, the host can still be deleted
-			return fmt.Errorf("Errors closing connection to %s: %w", f.Name, err)
+			return fmt.Errorf("Errors closing connection to %s: %w", cvd.Name, err)
 		}
 	}
 	return nil
@@ -495,12 +526,11 @@ func runCreateCVDCommand(c *cobra.Command, flags *CreateCVDFlags, opts *subComma
 	if err != nil {
 		return err
 	}
-	cvdO := &CVDOutput{cvd, nil}
-	cvdO.connStatus, err = ConnectDevice(flags.CreateCVDOpts.Host, cvd.Name, &command{c, &flags.Verbose}, opts)
+	cvd.ConnStatus, err = ConnectDevice(flags.CreateCVDOpts.Host, cvd.Name, &command{c, &flags.Verbose}, opts)
 	if err != nil {
 		err = fmt.Errorf("Failed to connect to device: %w", err)
 	}
-	c.Println(cvdO)
+	c.Println(ToPrintableStr(cvd))
 	return err
 }
 
@@ -511,26 +541,13 @@ func runListCVDsCommand(c *cobra.Command, flags *ListCVDsFlags, opts *subCommand
 	}
 	var cvds []*CVDInfo
 	if flags.Host != "" {
-		cvds, err = listHostCVDs(service, flags.Host)
+		cvds, err = listHostCVDs(service, opts.InitialConfig.ConnectionControlDirExpanded(), flags.Host)
 	} else {
-		cvds, err = listAllCVDs(service)
-	}
-	statuses, err := listCVDConnections(opts.InitialConfig.ConnectionControlDirExpanded())
-	if err != nil {
-		// Non fata error, the list of CVDs is still valid
-		c.PrintErrf("Error found listing CVD connections: %v\n", err)
-	}
-	statusMap := make(map[CVD]ConnStatus)
-	for _, status := range statuses {
-		statusMap[status.CVD] = status
+		cvds, err = listAllCVDs(service, opts.InitialConfig.ConnectionControlDirExpanded())
 	}
 
 	for _, cvd := range cvds {
-		o := &CVDOutput{cvd, nil}
-		if status, ok := statusMap[cvd.CVD]; ok {
-			o.connStatus = &status
-		}
-		c.Println(o)
+		c.Println(ToPrintableStr(cvd))
 	}
 	return err
 }
@@ -589,50 +606,62 @@ func runConnectCommand(flags *ConnectFlags, c *command, args []string, opts *sub
 			Name:                d,
 		})
 	}
-	// Find the user's cvds if they didn't specify any
+	// Find the user's cvds if they didn't specify any.
 	if len(cvds) == 0 {
-		if cvds, err = gatherDisconnectedDevices(flags, c, service, opts); err != nil {
+		var infos []*CVDInfo
+		if flags.host == "" {
+			infos, err = listAllCVDs(service, opts.InitialConfig.ConnectionControlDirExpanded())
+		} else {
+			infos, err = listHostCVDs(service, flags.host, opts.InitialConfig.ConnectionControlDirExpanded())
+		}
+		if err != nil {
 			return err
 		}
+		// Only those that are not connected yet
+		infos = filterSlice(infos, func(cvd *CVDInfo) bool { return cvd.ConnStatus == nil })
 		// Confirmation is only necessary when the user didn't specify devices.
-		if len(cvds) > 1 && !flags.skipConfirmation {
-			toStr := func(c CVD) string {
+		if len(infos) > 1 && !flags.skipConfirmation {
+			toStr := func(c *CVDInfo) string {
 				return fmt.Sprintf("%s/%s", c.Host, c.Name)
 			}
-			cvds, err = PromptSelection(c, cvds, toStr, AllowAll)
+			infos, err = PromptSelectionFromSlice(c, infos, toStr, AllowAll)
 			if err != nil {
 				// A failure to read user input cancels the entire command.
 				return err
 			}
 		}
+		cvds = make([]CVD, len(infos))
+		for idx, info := range infos {
+			cvds[idx] = info.CVD
+		}
 	}
 
 	var merr error
-	connChs := make([]chan *ConnStatus, len(cvds))
+	connChs := make([]chan ConnStatus, len(cvds))
 	errChs := make([]chan error, len(cvds))
 	for i, cvd := range cvds {
 		// These channels have a buffer length of 0 to ensure the send operation blocks
 		// until the message is received by the other side. This ensures the select
 		// operation on the receiving side will not unblock accidentally with the
 		// closing of the other channel.
-		connChs[i] = make(chan *ConnStatus, 0)
+		connChs[i] = make(chan ConnStatus, 0)
 		errChs[i] = make(chan error, 0)
-		go func(connCh chan *ConnStatus, errCh chan error, cvd CVD) {
+		go func(connCh chan ConnStatus, errCh chan error, cvd CVD) {
 			defer close(connCh)
 			defer close(errCh)
 			status, err := ConnectDevice(cvd.Host, cvd.Name, c, opts)
 			if err != nil {
 				errCh <- fmt.Errorf("Failed to connect to %q on %q: %w", cvd.Name, cvd.Host, err)
 			} else {
-				connCh <- status
+				connCh <- *status
 			}
 		}(connChs[i], errChs[i], cvd)
 	}
 
-	for i := range cvds {
+	for i, cvd := range cvds {
 		select {
 		case status := <-connChs[i]:
-			printConnection(c, status)
+			printConnection(c, cvd, status)
 		case err := <-errChs[i]:
 			merr = multierror.Append(merr, err)
 		}
@@ -640,52 +669,12 @@ func runConnectCommand(flags *ConnectFlags, c *command, args []string, opts *sub
 	return merr
 }
 
-func gatherDisconnectedDevices(flags *ConnectFlags, c *command, service client.Service, opts *subCommandOpts) ([]CVD, error) {
-	var cvdInfos []*CVDInfo
-	var err error
-	if flags.host == "" {
-		cvdInfos, err = listAllCVDs(service)
-	} else {
-		cvdInfos, err = listHostCVDs(service, flags.host)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("Failed to list devices: %w", err)
-	}
-	var cvds []CVD
-	for _, i := range cvdInfos {
-		cvds = append(cvds, i.CVD)
-	}
-	if len(cvds) == 0 {
-		return nil, fmt.Errorf("No devices found")
-	}
-
-	// Remove existing connections to avoid repetitions.
-	// This is only done if the user doesn't explcitly provice devices.
-	controlDir := opts.InitialConfig.ConnectionControlDirExpanded()
-	var statuses []ConnStatus
-	if flags.host == "" {
-		statuses, err = listCVDConnections(controlDir)
-	} else {
-		statuses, err = listCVDConnectionsByHost(controlDir, flags.host)
-	}
-	if err != nil {
-		c.PrintErrf("Errors occurred listing existing connections: %v\n", err)
-	}
-	connectedCVDs := make(map[CVD]bool)
-	for _, status := range statuses {
-		connectedCVDs[status.CVD] = true
-	}
-	cvds = filterSlice(cvds, func(cvd CVD) bool { return !connectedCVDs[cvd] })
-
-	return cvds, nil
-}
-
-func printConnection(c *command, status *ConnStatus) {
+func printConnection(c *command, cvd CVD, status ConnStatus) {
 	state := status.ADB.State
 	if status.ADB.Port > 0 {
 		state = fmt.Sprintf("127.0.0.1:%d", status.ADB.Port)
 	}
-	c.Printf("%s/%s: %s\n", status.CVD.Host, status.CVD.Name, state)
+	c.Printf("%s/%s: %s\n", cvd.Host, cvd.Name, state)
 }
 
 func buildAgentCmdArgs(flags *ConnectFlags, device string) []string {
@@ -780,7 +769,7 @@ func runDisconnectCommand(flags *ConnectFlags, c *command, args []string, opts *
 		return fmt.Errorf("Missing host for devices: %v", args)
 	}
 	controlDir := opts.InitialConfig.ConnectionControlDirExpanded()
-	var statuses []ConnStatus
+	var statuses map[CVD]ConnStatus
 	var merr error
 	if flags.host != "" {
 		statuses, merr = listCVDConnectionsByHost(controlDir, flags.host)
@@ -796,9 +785,9 @@ func runDisconnectCommand(flags *ConnectFlags, c *command, args []string, opts *
 		for _, a := range args {
 			devices[a] = true
 		}
-		statuses = filterSlice(statuses, func(s ConnStatus) bool {
-			if devices[s.Name] {
-				delete(devices, s.Name)
+		statuses = filterMap(statuses, func(cvd CVD, s ConnStatus) bool {
+			if devices[cvd.Name] {
+				delete(devices, cvd.Name)
 				return true
 			}
 			return false
@@ -815,22 +804,22 @@ func runDisconnectCommand(flags *ConnectFlags, c *command, args []string, opts *
 			return err
 		}
 	}
-	for _, dev := range statuses {
-		if err := DisconnectCVD(controlDir, dev); err != nil {
+	for cvd, dev := range statuses {
+		if err := DisconnectCVD(controlDir, cvd, dev); err != nil {
 			multierror.Append(merr, err)
 			continue
 		}
-		c.Printf("%s/%s: disconnected\n", dev.Host, dev.Name)
+		c.Printf("%s/%s: disconnected\n", cvd.Host, cvd.Name)
 	}
 	return merr
 }
 
-func promptConnectionSelection(devices []ConnStatus, c *command) ([]ConnStatus, error) {
+func promptConnectionSelection(devices map[CVD]ConnStatus, c *command) (map[CVD]ConnStatus, error) {
 	c.PrintErrln("Multiple connections match:")
-	toStr := func(d ConnStatus) string {
-		return fmt.Sprintf("%s %s", d.Host, d.Name)
+	toStr := func(cvd CVD, d ConnStatus) string {
+		return fmt.Sprintf("%s %s", cvd.Host, cvd.Name)
 	}
-	return PromptSelection(c, devices, toStr, AllowAll)
+	return PromptSelectionFromMap(c, devices, toStr, AllowAll)
 }
 
 func filterSlice[T any](s []T, pred func(T) bool) []T {
@@ -838,6 +827,16 @@ func filterSlice[T any](s []T, pred func(T) bool) []T {
 	for _, t := range s {
 		if pred(t) {
 			r = append(r, t)
+		}
+	}
+	return r
+}
+
+func filterMap[K comparable, T any](m map[K]T, pred func(K, T) bool) map[K]T {
+	var r map[K]T
+	for k, t := range m {
+		if pred(k, t) {
+			r[k] = t
 		}
 	}
 	return r

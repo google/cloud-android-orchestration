@@ -256,16 +256,14 @@ func newTestIOStreams() (IOStreams, *bytes.Buffer, *bytes.Buffer) {
 
 func cvdOutput(serviceURL, host string, cvd hoapi.CVD, port int) string {
 	out := &bytes.Buffer{}
-	cvdOut := CVDOutput{
-		CVDInfo: NewCVDInfo(fakeService{}.RootURI(), host, &cvd),
-		connStatus: &ConnStatus{
-			ADB: ForwarderState{
-				State: "not connected",
-				Port:  port,
-			},
+	cvdOut := NewCVDInfo(fakeService{}.RootURI(), host, &cvd)
+	cvdOut.ConnStatus = &ConnStatus{
+		ADB: ForwarderState{
+			State: "not connected",
+			Port:  port,
 		},
 	}
-	fmt.Fprintln(out, cvdOut.String())
+	fmt.Fprintln(out, ToPrintableStr(cvdOut))
 	b, _ := ioutil.ReadAll(out)
 	return string(b)
 }

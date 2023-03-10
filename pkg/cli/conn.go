@@ -53,6 +53,17 @@ func ControlSocketName(_ CVD, cs ConnStatus) string {
 	return fmt.Sprintf("%d.sock", cs.ADB.Port)
 }
 
+func EnsureConnDirsExist(controlDir string) error {
+	if err := os.MkdirAll(controlDir, 0755); err != nil {
+		return fmt.Errorf("Failed to create directory %s: %w", controlDir, err)
+	}
+	logsDir := logsDir(controlDir)
+	if err := os.MkdirAll(logsDir, 0755); err != nil {
+		return fmt.Errorf("Failed to create logs directory: %w", err)
+	}
+	return nil
+}
+
 func DisconnectCVD(controlDir string, cvd CVD, status ConnStatus) error {
 	conn, err := net.Dial("unixpacket", fmt.Sprintf("%s/%s", controlDir, ControlSocketName(cvd, status)))
 	if err != nil {
@@ -506,10 +517,6 @@ func bindTCPSocket() (net.Listener, error) {
 }
 
 func createControlSocket(dir, name string) (*net.UnixListener, error) {
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return nil, fmt.Errorf("Failed to create dir %s: %w", dir, err)
-	}
-
 	path := fmt.Sprintf("%s/%s", dir, name)
 
 	// Use of "unixpacket" network is required to have message boundaries.
@@ -529,9 +536,6 @@ func logsDir(controlDir string) string {
 
 func createLogger(controlDir string, dev CVD) (*log.Logger, error) {
 	logsDir := logsDir(controlDir)
-	if err := os.MkdirAll(logsDir, 0755); err != nil {
-		return nil, fmt.Errorf("Failed to create logs dir: %w", err)
-	}
 	// The name looks like 123456_us-central1-c_cf-12345-12345_cvd-1.log
 	path := fmt.Sprintf("%s/%d_%s_%s.log", logsDir, time.Now().Unix(), dev.Host, dev.Name)
 	logsFile, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0660)

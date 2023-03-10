@@ -53,6 +53,9 @@ func TestRequiredFlags(t *testing.T) {
 				Args:           test.Args,
 				CommandRunner:  &fakeCommandRunner{},
 				ADBServerProxy: &fakeADBServerProxy{},
+				InitialConfig: Config{
+					ConnectionControlDir: t.TempDir(),
+				},
 			}
 
 			err := NewCVDRemoteCommand(opts).Execute()

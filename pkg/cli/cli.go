@@ -53,6 +53,7 @@ type CommandOptions struct {
 
 type CVDRemoteCommand struct {
 	command *cobra.Command
+	options *CommandOptions
 }
 
 const (
@@ -308,11 +309,14 @@ func NewCVDRemoteCommand(o *CommandOptions) *CVDRemoteCommand {
 		rootCmd.AddCommand(cmd)
 	}
 	rootCmd.AddCommand(hostCommand(subCmdOpts))
-	return &CVDRemoteCommand{rootCmd}
+	return &CVDRemoteCommand{rootCmd, o}
 }
 
 func (c *CVDRemoteCommand) Execute() error {
-	err := c.command.Execute()
+	err := EnsureConnDirsExist(c.options.InitialConfig.ConnectionControlDirExpanded())
+	if err == nil {
+		err = c.command.Execute()
+	}
 	if err != nil {
 		c.command.PrintErrln(err)
 	}

@@ -75,10 +75,13 @@ const (
 )
 
 const (
-	branchFlag     = "branch"
-	buildIDFlag    = "build_id"
-	targetFlag     = "target"
-	localImageFlag = "local_image"
+	branchFlag            = "branch"
+	buildIDFlag           = "build_id"
+	targetFlag            = "target"
+	localImageFlag        = "local_image"
+	kernelBranchFlag      = "kernel_branch"
+	kernelBuildIDFlag     = "kernel_build_id"
+	kernelBuildTargetFlag = "kernel_build_target"
 )
 
 const (
@@ -374,14 +377,23 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 		},
 	}
 	create.Flags().StringVar(&createFlags.Host, hostFlag, "", "Specifies the host")
-	create.Flags().StringVar(&createFlags.Branch, branchFlag, "aosp-master", "The branch name")
-	create.Flags().StringVar(&createFlags.BuildID, buildIDFlag, "", "Android build identifier")
-	create.MarkFlagsMutuallyExclusive(branchFlag, buildIDFlag)
-	create.Flags().StringVar(&createFlags.Target, targetFlag, "aosp_cf_x86_64_phone-userdebug",
+	// Main build flags.
+	create.Flags().StringVar(&createFlags.MainBuild.Branch, branchFlag, "aosp-master", "The branch name")
+	create.Flags().StringVar(&createFlags.MainBuild.BuildID, buildIDFlag, "", "Android build identifier")
+	create.Flags().StringVar(&createFlags.MainBuild.Target, targetFlag, "aosp_cf_x86_64_phone-userdebug",
 		"Android build target")
+	create.MarkFlagsMutuallyExclusive(branchFlag, buildIDFlag)
+	// Kernel build flags
+	create.Flags().StringVar(&createFlags.KernelBuild.Branch, kernelBranchFlag, "", "Kernel branch name")
+	create.Flags().StringVar(&createFlags.KernelBuild.BuildID, kernelBuildIDFlag, "", "Kernel build identifier")
+	create.Flags().StringVar(&createFlags.KernelBuild.Target, kernelBuildTargetFlag, "", "Kernel build target")
+	create.MarkFlagsMutuallyExclusive(kernelBranchFlag, kernelBuildIDFlag)
 	create.Flags().BoolVar(&createFlags.LocalImage, localImageFlag, false,
 		"Builds a CVD with image files built locally, the required files are https://cs.android.com/android/platform/superproject/+/master:device/google/cuttlefish/required_images and cvd-host-packages.tar.gz")
-	localImgMutuallyExFlags := []string{branchFlag, buildIDFlag, targetFlag}
+	localImgMutuallyExFlags := []string{
+		branchFlag, buildIDFlag, targetFlag,
+		kernelBranchFlag, kernelBuildIDFlag, kernelBuildTargetFlag,
+	}
 	for _, f := range localImgMutuallyExFlags {
 		create.MarkFlagsMutuallyExclusive(f, localImageFlag)
 	}

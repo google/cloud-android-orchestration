@@ -125,6 +125,8 @@ github.com/golang/protobuf v1.5.2/go.mod h1:XVQd3VNwM+JqD3oG2Ue2ip4fOMUkwXdXDdiu
 github.com/golang/snappy v0.0.3/go.mod h1:/XxbfmMg8lxefKM7IXC3fBNl/7bRcc72aCRzEWrmP2Q=
 github.com/google/android-cuttlefish/frontend/src/liboperator v0.0.0-20230222235741-0bb785a63989 h1:bB1gEXet4D8DdaPC6nBdt58ObuHv202oQ1cQJLYMbLo=
 github.com/google/android-cuttlefish/frontend/src/liboperator v0.0.0-20230222235741-0bb785a63989/go.mod h1:E3WxEUke776p+K3arlyhysebg/3pwSz84v3mHB5S6WQ=
+github.com/google/android-cuttlefish/frontend/src/liboperator v0.0.0-20230328052018-7ecf503add77 h1:ppr090A+Ta8lNPONrN3EjMINMGI6SltUNtTHyECy7Xk=
+github.com/google/android-cuttlefish/frontend/src/liboperator v0.0.0-20230328052018-7ecf503add77/go.mod h1:E3WxEUke776p+K3arlyhysebg/3pwSz84v3mHB5S6WQ=
 github.com/google/btree v0.0.0-20180813153112-4030bb1f1f0c/go.mod h1:lNA+9X1NB3Zf8V7Ke586lFgjr2dZNuvo3lPJSGZ5JPQ=
 github.com/google/btree v1.0.0/go.mod h1:lNA+9X1NB3Zf8V7Ke586lFgjr2dZNuvo3lPJSGZ5JPQ=
 github.com/google/go-cmp v0.2.0/go.mod h1:oXzfMopK8JAjlY9xF4vHSVASa0yLyX7SntLO5aqRK0M=

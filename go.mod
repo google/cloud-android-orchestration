@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/cenkalti/backoff/v4 v4.2.0
-	github.com/google/android-cuttlefish/frontend/src/liboperator v0.0.0-20230222235741-0bb785a63989
+	github.com/google/android-cuttlefish/frontend/src/liboperator v0.0.0-20230328052018-7ecf503add77
 	github.com/google/go-cmp v0.5.7
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0

@@ -55,6 +55,7 @@ type CreateCVDOpts struct {
 	MainBuild       hoapi.AndroidCIBuild
 	KernelBuild     hoapi.AndroidCIBuild
 	BootloaderBuild hoapi.AndroidCIBuild
+	SystemImgBuild  hoapi.AndroidCIBuild
 	LocalImage      bool
 }
 
@@ -126,6 +127,9 @@ func (c *cvdCreator) createCVDFromAndroidCI() (*hoapi.CVD, error) {
 	}
 	if c.Opts.BootloaderBuild != (hoapi.AndroidCIBuild{}) {
 		req.CVD.BuildSource.AndroidCIBuildSource.BootloaderBuild = &c.Opts.BootloaderBuild
+	}
+	if c.Opts.SystemImgBuild != (hoapi.AndroidCIBuild{}) {
+		req.CVD.BuildSource.AndroidCIBuildSource.SystemImageBuild = &c.Opts.SystemImgBuild
 	}
 	return c.Service.CreateCVD(c.Opts.Host, &req)
 }

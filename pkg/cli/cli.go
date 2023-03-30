@@ -85,6 +85,9 @@ const (
 	bootloaderBranchFlag      = "bootloader_branch"
 	bootloaderBuildIDFlag     = "bootloader_build_id"
 	bootloaderBuildTargetFlag = "bootloader_build_target"
+	systemImgBranchFlag       = "system_branch"
+	systemImgBuildIDFlag      = "system_build_id"
+	systemImgBuildTargetFlag  = "system_build_target"
 )
 
 const (
@@ -396,6 +399,11 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 	create.Flags().StringVar(&createFlags.BootloaderBuild.BuildID, bootloaderBuildIDFlag, "", "Bootloader build identifier")
 	create.Flags().StringVar(&createFlags.BootloaderBuild.Target, bootloaderBuildTargetFlag, "", "Bootloader build target")
 	create.MarkFlagsMutuallyExclusive(bootloaderBranchFlag, bootloaderBuildIDFlag)
+	// System image build flags
+	create.Flags().StringVar(&createFlags.SystemImgBuild.Branch, systemImgBranchFlag, "", "System image branch name")
+	create.Flags().StringVar(&createFlags.SystemImgBuild.BuildID, systemImgBuildIDFlag, "", "System image build identifier")
+	create.Flags().StringVar(&createFlags.SystemImgBuild.Target, systemImgBuildTargetFlag, "", "System image build target")
+	create.MarkFlagsMutuallyExclusive(systemImgBranchFlag, systemImgBuildIDFlag)
 	// Local image
 	create.Flags().BoolVar(&createFlags.LocalImage, localImageFlag, false,
 		"Builds a CVD with image files built locally, the required files are https://cs.android.com/android/platform/superproject/+/master:device/google/cuttlefish/required_images and cvd-host-packages.tar.gz")
@@ -403,6 +411,7 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 		branchFlag, buildIDFlag, targetFlag,
 		kernelBranchFlag, kernelBuildIDFlag, kernelBuildTargetFlag,
 		bootloaderBranchFlag, bootloaderBuildIDFlag, bootloaderBuildTargetFlag,
+		systemImgBranchFlag, systemImgBuildIDFlag, systemImgBuildTargetFlag,
 	}
 	for _, f := range localImgMutuallyExFlags {
 		create.MarkFlagsMutuallyExclusive(f, localImageFlag)

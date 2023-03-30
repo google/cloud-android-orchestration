@@ -75,13 +75,16 @@ const (
 )
 
 const (
-	branchFlag            = "branch"
-	buildIDFlag           = "build_id"
-	targetFlag            = "target"
-	localImageFlag        = "local_image"
-	kernelBranchFlag      = "kernel_branch"
-	kernelBuildIDFlag     = "kernel_build_id"
-	kernelBuildTargetFlag = "kernel_build_target"
+	branchFlag                = "branch"
+	buildIDFlag               = "build_id"
+	targetFlag                = "target"
+	localImageFlag            = "local_image"
+	kernelBranchFlag          = "kernel_branch"
+	kernelBuildIDFlag         = "kernel_build_id"
+	kernelBuildTargetFlag     = "kernel_build_target"
+	bootloaderBranchFlag      = "bootloader_branch"
+	bootloaderBuildIDFlag     = "bootloader_build_id"
+	bootloaderBuildTargetFlag = "bootloader_build_target"
 )
 
 const (
@@ -388,11 +391,18 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 	create.Flags().StringVar(&createFlags.KernelBuild.BuildID, kernelBuildIDFlag, "", "Kernel build identifier")
 	create.Flags().StringVar(&createFlags.KernelBuild.Target, kernelBuildTargetFlag, "", "Kernel build target")
 	create.MarkFlagsMutuallyExclusive(kernelBranchFlag, kernelBuildIDFlag)
+	// Bootloader build flags
+	create.Flags().StringVar(&createFlags.BootloaderBuild.Branch, bootloaderBranchFlag, "", "Bootloader branch name")
+	create.Flags().StringVar(&createFlags.BootloaderBuild.BuildID, bootloaderBuildIDFlag, "", "Bootloader build identifier")
+	create.Flags().StringVar(&createFlags.BootloaderBuild.Target, bootloaderBuildTargetFlag, "", "Bootloader build target")
+	create.MarkFlagsMutuallyExclusive(bootloaderBranchFlag, bootloaderBuildIDFlag)
+	// Local image
 	create.Flags().BoolVar(&createFlags.LocalImage, localImageFlag, false,
 		"Builds a CVD with image files built locally, the required files are https://cs.android.com/android/platform/superproject/+/master:device/google/cuttlefish/required_images and cvd-host-packages.tar.gz")
 	localImgMutuallyExFlags := []string{
 		branchFlag, buildIDFlag, targetFlag,
 		kernelBranchFlag, kernelBuildIDFlag, kernelBuildTargetFlag,
+		bootloaderBranchFlag, bootloaderBuildIDFlag, bootloaderBuildTargetFlag,
 	}
 	for _, f := range localImgMutuallyExFlags {
 		create.MarkFlagsMutuallyExclusive(f, localImageFlag)

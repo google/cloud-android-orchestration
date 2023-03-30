@@ -51,10 +51,11 @@ func NewCVDInfo(url, host string, cvd *hoapi.CVD) *CVDInfo {
 }
 
 type CreateCVDOpts struct {
-	Host        string
-	MainBuild   hoapi.AndroidCIBuild
-	KernelBuild hoapi.AndroidCIBuild
-	LocalImage  bool
+	Host            string
+	MainBuild       hoapi.AndroidCIBuild
+	KernelBuild     hoapi.AndroidCIBuild
+	BootloaderBuild hoapi.AndroidCIBuild
+	LocalImage      bool
 }
 
 func createCVD(service client.Service, createOpts CreateCVDOpts) (*CVDInfo, error) {
@@ -122,6 +123,9 @@ func (c *cvdCreator) createCVDFromAndroidCI() (*hoapi.CVD, error) {
 	}
 	if c.Opts.KernelBuild != (hoapi.AndroidCIBuild{}) {
 		req.CVD.BuildSource.AndroidCIBuildSource.KernelBuild = &c.Opts.KernelBuild
+	}
+	if c.Opts.BootloaderBuild != (hoapi.AndroidCIBuild{}) {
+		req.CVD.BuildSource.AndroidCIBuildSource.BootloaderBuild = &c.Opts.BootloaderBuild
 	}
 	return c.Service.CreateCVD(c.Opts.Host, &req)
 }

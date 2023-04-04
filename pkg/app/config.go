@@ -24,10 +24,11 @@ const DefaultConfFile = "conf.toml"
 const ConfFileEnvVar = "CONFIG_FILE"
 
 type Config struct {
-	AccountManager  AMConfig
-	InstanceManager IMConfig
-	Infra           InfraConfig
-	Operations      OperationsConfig
+	WebStaticFilesPath string
+	AccountManager     AMConfig
+	InstanceManager    IMConfig
+	Infra              InfraConfig
+	Operations         OperationsConfig
 }
 
 type IMConfig struct {

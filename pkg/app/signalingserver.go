@@ -32,11 +32,15 @@ import (
 // communicating with the host orchestrator in the appropriate instance and
 // forwarding all requests to it.
 type ForwardingSignalingServer struct {
-	instanceManager InstanceManager
+	connectorStaticFilesPath string
+	instanceManager          InstanceManager
 }
 
-func NewForwardingSignalingServer(im InstanceManager) *ForwardingSignalingServer {
-	return &ForwardingSignalingServer{im}
+func NewForwardingSignalingServer(webStaticFilesPath string, im InstanceManager) *ForwardingSignalingServer {
+	return &ForwardingSignalingServer{
+		connectorStaticFilesPath: webStaticFilesPath + "/intercept",
+		instanceManager:          im,
+	}
 }
 
 func (s *ForwardingSignalingServer) NewConnection(zone string, host string, msg apiv1.NewConnMsg, user UserInfo) (*apiv1.SServerResponse, error) {
@@ -107,7 +111,7 @@ func (s *ForwardingSignalingServer) ServeDeviceFiles(zone string, host string, p
 		return err
 	}
 	if shouldIntercept(params.path) {
-		http.ServeFile(params.w, params.r, fmt.Sprintf("web/intercept%s", params.path))
+		http.ServeFile(params.w, params.r, s.connectorStaticFilesPath+params.path)
 	} else {
 		devUrl, err := url.Parse(hostURL(hostAddr, "", ""))
 		if err != nil {

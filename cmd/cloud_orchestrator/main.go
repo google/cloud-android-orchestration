@@ -53,7 +53,7 @@ func main() {
 		log.Fatal("Unknown Instance Manager type: ", config.InstanceManager.Type)
 	}
 
-	ss := app.NewForwardingSignalingServer(im)
+	ss := app.NewForwardingSignalingServer(config.WebStaticFilesPath, im)
 
 	var am app.AccountManager
 	switch config.AccountManager.Type {

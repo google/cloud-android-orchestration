@@ -1,3 +1,5 @@
+WebStaticFilesPath = "web"
+
 [AccountManager]
 Type = "unix"
 

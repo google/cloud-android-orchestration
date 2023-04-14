@@ -33,6 +33,12 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to load configuration: ", err)
 	}
+	log.Println("Main Configuration:")
+	log.Println("  Instance Manager Type: " + config.InstanceManager.Type)
+	if config.InstanceManager.Type == app.GCEIMType {
+		log.Println("  GCP Project: " + config.InstanceManager.GCP.ProjectID)
+	}
+
 	var im app.InstanceManager
 	switch config.InstanceManager.Type {
 	case app.GCEIMType:

@@ -33,7 +33,11 @@ type Config struct {
 
 type IMConfig struct {
 	Type IMType
-	GCP  *GCPIMConfig
+	// The port where the host orchestrator is listening.
+	HostPort int
+	// The protocol the host orchestrator expects, either http or https
+	HostProtocol string
+	GCP          *GCPIMConfig
 }
 
 type IMType string

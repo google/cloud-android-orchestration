@@ -5,6 +5,8 @@ Type = "unix"
 
 [InstanceManager]
 Type = "unix"
+HostPort = 1080
+HostProtocol = "http"
 
 [InstanceManager.GCP]
 ProjectId = ""

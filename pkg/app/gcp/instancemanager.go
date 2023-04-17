@@ -42,6 +42,14 @@ type InstanceManager struct {
 	InstanceNameGenerator NameGenerator
 }
 
+func NewInstanceManager(cfg app.IMConfig, service *compute.Service, nameGenerator NameGenerator) *InstanceManager {
+	return &InstanceManager{
+		Config:                cfg,
+		Service:               service,
+		InstanceNameGenerator: nameGenerator,
+	}
+}
+
 func (m *InstanceManager) GetHostAddr(zone string, host string) (string, error) {
 	instance, err := m.getHostInstance(zone, host)
 	if err != nil {

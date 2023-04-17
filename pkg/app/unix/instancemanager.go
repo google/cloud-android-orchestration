@@ -27,6 +27,10 @@ import (
 // This implementation is useful for both development and testing
 type InstanceManager struct{}
 
+func NewInstanceManager(cfg app.IMConfig) *InstanceManager {
+	return &InstanceManager{}
+}
+
 func (m *InstanceManager) GetHostAddr(_ string, _ string) (string, error) {
 	return "127.0.0.1", nil
 }

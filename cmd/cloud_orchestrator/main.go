@@ -46,15 +46,12 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		im = &gcp.InstanceManager{
-			Config:  config.InstanceManager,
-			Service: service,
-			InstanceNameGenerator: &gcp.InstanceNameGenerator{
-				UUIDFactory: func() string { return uuid.New().String() },
-			},
+		nameGenerator := &gcp.InstanceNameGenerator{
+			UUIDFactory: func() string { return uuid.New().String() },
 		}
+		im = gcp.NewInstanceManager(config.InstanceManager, service, nameGenerator)
 	case app.UnixIMType:
-		im = &unix.InstanceManager{}
+		im = unix.NewInstanceManager(config.InstanceManager)
 	default:
 		log.Fatal("Unknown Instance Manager type: ", config.InstanceManager.Type)
 	}

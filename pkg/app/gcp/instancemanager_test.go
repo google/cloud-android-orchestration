@@ -59,11 +59,7 @@ func TestCreateHostInvalidRequests(t *testing.T) {
 	}))
 	defer ts.Close()
 	testService := buildTestService(t, ts)
-	im := InstanceManager{
-		Config:                testConfig,
-		Service:               testService,
-		InstanceNameGenerator: testNameGenerator,
-	}
+	im := NewInstanceManager(testConfig, testService, testNameGenerator)
 	var validRequest = func() *apiv1.CreateHostRequest {
 		return &apiv1.CreateHostRequest{
 			HostInstance: &apiv1.HostInstance{
@@ -108,11 +104,7 @@ func TestCreateHostRequestPath(t *testing.T) {
 	}))
 	defer ts.Close()
 	testService := buildTestService(t, ts)
-	im := InstanceManager{
-		Config:                testConfig,
-		Service:               testService,
-		InstanceNameGenerator: testNameGenerator,
-	}
+	im := NewInstanceManager(testConfig, testService, testNameGenerator)
 
 	im.CreateHost("us-central1-a",
 		&apiv1.CreateHostRequest{
@@ -140,11 +132,7 @@ func TestCreateHostRequestBody(t *testing.T) {
 	}))
 	defer ts.Close()
 	testService := buildTestService(t, ts)
-	im := InstanceManager{
-		Config:                testConfig,
-		Service:               testService,
-		InstanceNameGenerator: testNameGenerator,
-	}
+	im := NewInstanceManager(testConfig, testService, testNameGenerator)
 
 	im.CreateHost("us-central1-a",
 		&apiv1.CreateHostRequest{
@@ -247,11 +235,7 @@ func TestCreateHostSuccess(t *testing.T) {
 	}))
 	defer ts.Close()
 	testService := buildTestService(t, ts)
-	im := InstanceManager{
-		Config:                testConfig,
-		Service:               testService,
-		InstanceNameGenerator: testNameGenerator,
-	}
+	im := NewInstanceManager(testConfig, testService, testNameGenerator)
 
 	op, _ := im.CreateHost("us-central1-a",
 		&apiv1.CreateHostRequest{
@@ -280,11 +264,7 @@ func TestGetHostAddrRequestPath(t *testing.T) {
 	}))
 	defer ts.Close()
 	testService := buildTestService(t, ts)
-	im := InstanceManager{
-		Config:                testConfig,
-		Service:               testService,
-		InstanceNameGenerator: testNameGenerator,
-	}
+	im := NewInstanceManager(testConfig, testService, testNameGenerator)
 
 	im.GetHostAddr("us-central1-a", "foo")
 
@@ -300,11 +280,7 @@ func TestGetHostAddrMissingNetworkInterface(t *testing.T) {
 	}))
 	defer ts.Close()
 	testService := buildTestService(t, ts)
-	im := InstanceManager{
-		Config:                testConfig,
-		Service:               testService,
-		InstanceNameGenerator: testNameGenerator,
-	}
+	im := NewInstanceManager(testConfig, testService, testNameGenerator)
 
 	_, err := im.GetHostAddr("us-central1-a", "foo")
 
@@ -328,11 +304,7 @@ func TestGetHostAddrSuccess(t *testing.T) {
 	}))
 	defer ts.Close()
 	testService := buildTestService(t, ts)
-	im := InstanceManager{
-		Config:                testConfig,
-		Service:               testService,
-		InstanceNameGenerator: testNameGenerator,
-	}
+	im := NewInstanceManager(testConfig, testService, testNameGenerator)
 
 	addr, _ := im.GetHostAddr("us-central1-a", "foo")
 
@@ -349,11 +321,7 @@ func TestListHostsRequestQuery(t *testing.T) {
 	}))
 	defer ts.Close()
 	testService := buildTestService(t, ts)
-	im := InstanceManager{
-		Config:                testConfig,
-		Service:               testService,
-		InstanceNameGenerator: testNameGenerator,
-	}
+	im := NewInstanceManager(testConfig, testService, testNameGenerator)
 	req := &app.ListHostsRequest{
 		MaxResults: 100,
 		PageToken:  "foo",
@@ -380,11 +348,7 @@ func TestListHostsOverMaxResultsLimit(t *testing.T) {
 	}))
 	defer ts.Close()
 	testService := buildTestService(t, ts)
-	im := InstanceManager{
-		Config:                testConfig,
-		Service:               testService,
-		InstanceNameGenerator: testNameGenerator,
-	}
+	im := NewInstanceManager(testConfig, testService, testNameGenerator)
 	req := &app.ListHostsRequest{
 		MaxResults: 501,
 		PageToken:  "foo",
@@ -423,11 +387,7 @@ func TestListHostsSucceeds(t *testing.T) {
 	}))
 	defer ts.Close()
 	testService := buildTestService(t, ts)
-	im := InstanceManager{
-		Config:                testConfig,
-		Service:               testService,
-		InstanceNameGenerator: testNameGenerator,
-	}
+	im := NewInstanceManager(testConfig, testService, testNameGenerator)
 
 	resp, err := im.ListHosts("us-central1-a", &TestUserInfo{}, &app.ListHostsRequest{})
 
@@ -454,11 +414,7 @@ func TestDeleteHostVerifyUserOwnsTheHost(t *testing.T) {
 	}))
 	defer ts.Close()
 	testService := buildTestService(t, ts)
-	im := InstanceManager{
-		Config:                testConfig,
-		Service:               testService,
-		InstanceNameGenerator: testNameGenerator,
-	}
+	im := NewInstanceManager(testConfig, testService, testNameGenerator)
 
 	im.DeleteHost("us-central1-a", &TestUserInfo{}, "foo")
 
@@ -474,11 +430,7 @@ func TestDeleteHostHostDoesNotExist(t *testing.T) {
 	}))
 	defer ts.Close()
 	testService := buildTestService(t, ts)
-	im := InstanceManager{
-		Config:                testConfig,
-		Service:               testService,
-		InstanceNameGenerator: testNameGenerator,
-	}
+	im := NewInstanceManager(testConfig, testService, testNameGenerator)
 
 	_, err := im.DeleteHost("us-central1-a", &TestUserInfo{}, "foo")
 
@@ -508,11 +460,7 @@ func TestDeleteHostSucceeds(t *testing.T) {
 		}
 	}))
 	defer ts.Close()
-	im := InstanceManager{
-		Config:                testConfig,
-		Service:               buildTestService(t, ts),
-		InstanceNameGenerator: testNameGenerator,
-	}
+	im := NewInstanceManager(testConfig, buildTestService(t, ts), testNameGenerator)
 
 	op, _ := im.DeleteHost(zone, &TestUserInfo{}, "foo")
 
@@ -537,11 +485,7 @@ func TestWaitOperationAndOperationIsNotDone(t *testing.T) {
 		}
 	}))
 	defer ts.Close()
-	im := InstanceManager{
-		Config:                testConfig,
-		Service:               buildTestService(t, ts),
-		InstanceNameGenerator: testNameGenerator,
-	}
+	im := NewInstanceManager(testConfig, buildTestService(t, ts), testNameGenerator)
 
 	_, err := im.WaitOperation(zone, &TestUserInfo{}, opName)
 
@@ -578,11 +522,7 @@ func TestWaitCreateInstanceOperationSucceeds(t *testing.T) {
 		}
 	}))
 	defer ts.Close()
-	im := InstanceManager{
-		Config:                testConfig,
-		Service:               buildTestService(t, ts),
-		InstanceNameGenerator: testNameGenerator,
-	}
+	im := NewInstanceManager(testConfig, buildTestService(t, ts), testNameGenerator)
 
 	res, _ := im.WaitOperation(zone, &TestUserInfo{}, opName)
 
@@ -605,11 +545,7 @@ func TestWaitDeleteInstanceOperationSucceeds(t *testing.T) {
 		replyJSON(w, operation)
 	}))
 	defer ts.Close()
-	im := InstanceManager{
-		Config:                testConfig,
-		Service:               buildTestService(t, ts),
-		InstanceNameGenerator: testNameGenerator,
-	}
+	im := NewInstanceManager(testConfig, buildTestService(t, ts), testNameGenerator)
 
 	res, _ := im.WaitOperation(zone, &TestUserInfo{}, opName)
 
@@ -644,11 +580,7 @@ func TestWaitOperationInvalidDoneOperations(t *testing.T) {
 		t.Fatalf("unexpected path: %q", r.URL.Path)
 	}))
 	defer ts.Close()
-	im := InstanceManager{
-		Config:                testConfig,
-		Service:               buildTestService(t, ts),
-		InstanceNameGenerator: testNameGenerator,
-	}
+	im := NewInstanceManager(testConfig, buildTestService(t, ts), testNameGenerator)
 
 	for name := range operations {
 
@@ -676,11 +608,7 @@ func TestWaitOperationFailedOperation(t *testing.T) {
 		replyJSON(w, operation)
 	}))
 	defer ts.Close()
-	im := InstanceManager{
-		Config:                testConfig,
-		Service:               buildTestService(t, ts),
-		InstanceNameGenerator: testNameGenerator,
-	}
+	im := NewInstanceManager(testConfig, buildTestService(t, ts), testNameGenerator)
 
 	_, err := im.WaitOperation(zone, &TestUserInfo{}, opName)
 

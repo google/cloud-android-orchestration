@@ -44,13 +44,13 @@ func NewForwardingSignalingServer(webStaticFilesPath string, im InstanceManager)
 }
 
 func (s *ForwardingSignalingServer) NewConnection(zone string, host string, msg apiv1.NewConnMsg, user UserInfo) (*apiv1.SServerResponse, error) {
-	hostAddr, err := s.instanceManager.GetHostAddr(zone, host)
+	hostURL, err := s.instanceManager.GetHostURL(zone, host)
 	if err != nil {
 		return nil, err
 	}
 	var resErr apiv1.Error
 	var reply apiv1.NewConnReply
-	status, err := POSTRequest(hostURL(hostAddr, "/polled_connections", ""), apiv1.NewConnMsg{msg.DeviceId}, &reply, &resErr)
+	status, err := POSTRequest(BuildHostURL(hostURL, "/polled_connections", ""), apiv1.NewConnMsg{msg.DeviceId}, &reply, &resErr)
 	if err != nil {
 		return nil, err
 	}
@@ -69,13 +69,13 @@ func (s *ForwardingSignalingServer) Forward(zone string, host string, id string,
 		return nil, NewNotFoundError("Invalid connection Id", err)
 	}
 	connID := dec.ConnId
-	hostAddr, err := s.instanceManager.GetHostAddr(zone, host)
+	hostURL, err := s.instanceManager.GetHostURL(zone, host)
 	if err != nil {
 		return nil, err
 	}
 	var resErr apiv1.Error
 	var reply any
-	status, err := POSTRequest(hostURL(hostAddr, "/polled_connections/"+connID+"/:forward", ""), msg, &reply, &resErr)
+	status, err := POSTRequest(BuildHostURL(hostURL, "/polled_connections/"+connID+"/:forward", ""), msg, &reply, &resErr)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +88,7 @@ func (s *ForwardingSignalingServer) Messages(zone string, host string, id string
 		return nil, NewNotFoundError("Invalid connection id", err)
 	}
 	connID := dec.ConnId
-	hostAddr, err := s.instanceManager.GetHostAddr(zone, host)
+	hostURL, err := s.instanceManager.GetHostURL(zone, host)
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +98,7 @@ func (s *ForwardingSignalingServer) Messages(zone string, host string, id string
 	}
 	var resErr apiv1.Error
 	var reply any
-	status, err := GETRequest(hostURL(hostAddr, "/polled_connections/"+connID+"/messages", query), &reply, &resErr)
+	status, err := GETRequest(BuildHostURL(hostURL, "/polled_connections/"+connID+"/messages", query), &reply, &resErr)
 	if err != nil {
 		return nil, err
 	}
@@ -106,18 +106,14 @@ func (s *ForwardingSignalingServer) Messages(zone string, host string, id string
 }
 
 func (s *ForwardingSignalingServer) ServeDeviceFiles(zone string, host string, params DeviceFilesRequest, user UserInfo) error {
-	hostAddr, err := s.instanceManager.GetHostAddr(zone, host)
+	hostURL, err := s.instanceManager.GetHostURL(zone, host)
 	if err != nil {
 		return err
 	}
 	if shouldIntercept(params.path) {
 		http.ServeFile(params.w, params.r, s.connectorStaticFilesPath+params.path)
 	} else {
-		devUrl, err := url.Parse(hostURL(hostAddr, "", ""))
-		if err != nil {
-			return err
-		}
-		devProxy := httputil.NewSingleHostReverseProxy(devUrl)
+		devProxy := httputil.NewSingleHostReverseProxy(hostURL)
 
 		params.r.URL.Path = fmt.Sprintf("/devices/%s/files%s", params.devId, params.path)
 		devProxy.ServeHTTP(params.w, params.r)
@@ -125,12 +121,10 @@ func (s *ForwardingSignalingServer) ServeDeviceFiles(zone string, host string, p
 	return nil
 }
 
-func hostURL(addr string, path string, query string) string {
-	url := "http://" + addr + ":1080" + path
-	if query != "" {
-		url += "?" + query
-	}
-	return url
+func BuildHostURL(url *url.URL, path string, query string) string {
+	url.Path = path
+	url.RawQuery = query
+	return url.String()
 }
 
 // Returns the http response's status code or an error.

@@ -25,27 +25,26 @@ import (
 // Implements the InstanceManager interface providing access to the first
 // device in the local host orchestrator.
 // This implementation is useful for both development and testing
-type InstanceManager struct{}
+type InstanceManager struct {
+	config app.IMConfig
+}
 
 func NewInstanceManager(cfg app.IMConfig) *InstanceManager {
-	return &InstanceManager{}
+	return &InstanceManager{
+		config: cfg,
+	}
 }
 
 func (m *InstanceManager) GetHostAddr(_ string, _ string) (string, error) {
 	return "127.0.0.1", nil
 }
 
-const (
-	hostURLScheme = "http"
-	hostURLPort   = 1080
-)
-
 func (m *InstanceManager) GetHostURL(zone string, host string) (*url.URL, error) {
 	addr, err := m.GetHostAddr(zone, host)
 	if err != nil {
 		return nil, err
 	}
-	return url.Parse(fmt.Sprintf("%s://%s:%d", hostURLScheme, addr, hostURLPort))
+	return url.Parse(fmt.Sprintf("%s://%s:%d", m.config.HostProtocol, addr, m.config.HostPort))
 }
 
 func (m *InstanceManager) CreateHost(_ string, _ *apiv1.CreateHostRequest, _ app.UserInfo) (*apiv1.Operation, error) {

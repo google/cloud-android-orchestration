@@ -189,6 +189,49 @@ func TestCreateHostRequestBody(t *testing.T) {
 	}
 }
 
+func TestCreateHostAcloudCompatible(t *testing.T) {
+	var postedInstance compute.Instance
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := ioutil.ReadAll(r.Body)
+		json.Unmarshal(body, &postedInstance)
+		replyJSON(w, &compute.Operation{Name: "operation-1"})
+	}))
+	defer ts.Close()
+	testService := buildTestService(t, ts)
+	im := InstanceManager{
+		Config: app.IMConfig{
+			GCP: &app.GCPIMConfig{
+				ProjectID:        "google.com:test-project",
+				HostImage:        "projects/test-project-releases/global/images/img-001",
+				AcloudCompatible: true,
+			},
+		},
+		Service:               testService,
+		InstanceNameGenerator: testNameGenerator,
+	}
+
+	_, err := im.CreateHost("us-central1-a",
+		&apiv1.CreateHostRequest{
+			HostInstance: &apiv1.HostInstance{
+				GCP: &apiv1.GCPInstance{
+					MachineType:    "n1-standard-1",
+					MinCPUPlatform: "Intel Haswell",
+				},
+			},
+		},
+		&TestUserInfo{})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	if diff := cmp.Diff(postedInstance.Metadata.Items[0].Key, "startup-script"); diff != "" {
+		t.Errorf("metadata item key (-want +got):\n%s", diff)
+	}
+	if diff := cmp.Diff(*postedInstance.Metadata.Items[0].Value, acloudSetupScript); diff != "" {
+		t.Errorf("metadata item value (-want +got):\n%s", diff)
+	}
+}
+
 func TestCreateHostSuccess(t *testing.T) {
 	expectedName := "operation-1"
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

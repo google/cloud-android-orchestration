@@ -109,6 +109,17 @@ func (m *InstanceManager) CreateHost(zone string, req *apiv1.CreateHostRequest, 
 		},
 		Labels: labels,
 	}
+	if m.Config.GCP.AcloudCompatible {
+		startupScript := acloudSetupScript
+		payload.Metadata = &compute.Metadata{
+			Items: []*compute.MetadataItems{
+				{
+					Key:   "startup-script",
+					Value: &startupScript,
+				},
+			},
+		}
+	}
 	op, err := m.Service.Instances.
 		Insert(m.Config.GCP.ProjectID, zone, payload).
 		Context(context.TODO()).
@@ -303,3 +314,10 @@ func toAppError(err error) error {
 		Err:        err,
 	}
 }
+
+const acloudSetupScript = `#!/bin/bash
+sudo useradd -m -s /bin/bash -p '*' vsoc-01
+sudo usermod -a -G cvdnetwork vsoc-01
+# Creates symlink for cuttlefish_runtime.
+sudo -u vsoc-01 ln -s -f /var/lib/cuttlefish-common/runtimes/cvd-1/cuttlefish_runtime /home/vsoc-01
+`

@@ -46,6 +46,8 @@ const (
 type GCPIMConfig struct {
 	ProjectID string
 	HostImage string
+	// If true, instances created should be compatible with `acloud CLI`.
+	AcloudCompatible bool
 }
 
 type AMConfig struct {

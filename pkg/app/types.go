@@ -16,7 +16,7 @@ package app
 
 import (
 	"net/http"
-	"net/url"
+	"net/http/httputil"
 
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
 )
@@ -46,11 +46,6 @@ type SignalingServer interface {
 }
 
 type InstanceManager interface {
-	// Returns the (internal) network address of the host where the cuttlefish device is
-	// running. The address can either be an IPv4, IPv6 or a domain name.
-	GetHostAddr(zone string, host string) (string, error)
-	// Returns base URL the orchestrator is listening on.
-	GetHostURL(zone string, host string) (*url.URL, error)
 	// Creates a host instance.
 	CreateHost(zone string, req *apiv1.CreateHostRequest, user UserInfo) (*apiv1.Operation, error)
 	// List hosts
@@ -61,6 +56,21 @@ type InstanceManager interface {
 	// original method returns no data on success, such as `Delete`, response will be empty. If the original method
 	// is standard `Get`/`Create`/`Update`, the response should be the relevant resource.
 	WaitOperation(zone string, user UserInfo, name string) (any, error)
+	// Creates a connector to the given host.
+	GetHostClient(zone string, host string) (HostClient, error)
+}
+
+type HostClient interface {
+	// Get and Post requests return the HTTP status code or an error.
+	// The response body is parsed into the res output parameter if provided.
+	Get(URLPath, URLQuery string, res *HostResponse) (int, error)
+	Post(URLPath, URLQuery string, bodyJSON any, res *HostResponse) (int, error)
+	GetReverseProxy() *httputil.ReverseProxy
+}
+
+type HostResponse struct {
+	Result any
+	Error  *apiv1.Error
 }
 
 type ListHostsRequest struct {
@@ -71,11 +81,6 @@ type ListHostsRequest struct {
 	// Specifies a page token to use.
 	// Use the `NextPageToken` value returned by a previous List request.
 	PageToken string
-}
-
-type HostURLResolver interface {
-	// Returns base URL the orchestrator is listening on.
-	GetHostURL(zone string, host string) (*url.URL, error)
 }
 
 type AuthHTTPHandler func(http.ResponseWriter, *http.Request, UserInfo) error

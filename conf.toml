@@ -5,12 +5,16 @@ Type = "unix"
 
 [InstanceManager]
 Type = "unix"
-HostPort = 1080
-HostProtocol = "http"
+HostOrchestratorProtocol = "https"
+AllowSelfSignedHostSSLCertificate = true
 
 [InstanceManager.GCP]
 ProjectId = ""
 HostImage = ""
+HostOrchestratorPort = 1443
+
+[InstanceManager.UNIX]
+HostOrchestratorPort = 1443
 
 [Infra]
 STUNServers = ["stun:stun.l.google.com:19302"]

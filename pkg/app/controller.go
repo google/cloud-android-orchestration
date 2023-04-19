@@ -21,7 +21,6 @@ import (
 	"log"
 	"net/http"
 	"net/http/httputil"
-	"net/url"
 	"strconv"
 	"strings"
 
@@ -53,7 +52,7 @@ func NewController(
 
 func (c *Controller) Handler() http.Handler {
 	router := mux.NewRouter()
-	hf := &HostForwarder{URLResolver: c.instanceManager}
+	hf := &HostForwarder{newReverseProxy: newReverseProxyBuilder(c.instanceManager)}
 
 	// Signaling Server Routes
 	router.Handle("/v1/zones/{zone}/hosts/{host}/connections/{connID}/messages", HTTPHandler(c.accountManager.Authenticate(c.messages))).Methods("GET")
@@ -112,8 +111,20 @@ func (h HTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+type ReverseProxyFactory func(zone, host string) (*httputil.ReverseProxy, error)
+
+func newReverseProxyBuilder(im InstanceManager) ReverseProxyFactory {
+	return func(zone, host string) (*httputil.ReverseProxy, error) {
+		client, err := im.GetHostClient(zone, host)
+		if err != nil {
+			return nil, err
+		}
+		return client.GetReverseProxy(), nil
+	}
+}
+
 type HostForwarder struct {
-	URLResolver HostURLResolver
+	newReverseProxy ReverseProxyFactory
 }
 
 func (f *HostForwarder) Handler() HTTPHandler {
@@ -127,34 +138,27 @@ func (f *HostForwarder) Handler() HTTPHandler {
 		if host == "" {
 			return fmt.Errorf("invalid url missing host value: %q", r.URL.String())
 		}
-		hostURL, err := f.URLResolver.GetHostURL(zone, host)
+		proxy, err := f.buildReverseProxy(zone, host)
 		if err != nil {
 			return err
 		}
-		proxy := newHostReverseProxy(host, hostURL)
 		proxy.ServeHTTP(w, r)
 		return nil
 	}
 }
 
-type hostReverseProxy struct {
-	innerProxy *httputil.ReverseProxy
-}
-
-func newHostReverseProxy(hostName string, hostBaseURL *url.URL) *hostReverseProxy {
-	director := func(r *http.Request) {
-		r.URL.Scheme = hostBaseURL.Scheme
-		r.URL.Host = hostBaseURL.Host
-		split := strings.SplitN(r.URL.Path, "hosts/"+hostName, 2)
+func (f *HostForwarder) buildReverseProxy(zone, host string) (*httputil.ReverseProxy, error) {
+	proxy, err := f.newReverseProxy(zone, host)
+	if err != nil {
+		return nil, err
+	}
+	oldDirector := proxy.Director
+	proxy.Director = func(r *http.Request) {
+		split := strings.SplitN(r.URL.Path, "hosts/"+host, 2)
 		r.URL.Path = split[1]
+		oldDirector(r)
 	}
-	return &hostReverseProxy{
-		innerProxy: &httputil.ReverseProxy{Director: director},
-	}
-}
-
-func (p *hostReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
-	p.innerProxy.ServeHTTP(rw, req)
+	return proxy, nil
 }
 
 func (c *Controller) getDeviceFiles(w http.ResponseWriter, r *http.Request, user UserInfo) error {

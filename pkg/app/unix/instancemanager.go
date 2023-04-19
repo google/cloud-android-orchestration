@@ -44,7 +44,7 @@ func (m *InstanceManager) GetHostURL(zone string, host string) (*url.URL, error)
 	if err != nil {
 		return nil, err
 	}
-	return url.Parse(fmt.Sprintf("%s://%s:%d", m.config.HostProtocol, addr, m.config.HostPort))
+	return url.Parse(fmt.Sprintf("%s://%s:%d", m.config.HostOrchestratorProtocol, addr, m.config.UNIX.HostOrchestratorPort))
 }
 
 func (m *InstanceManager) CreateHost(_ string, _ *apiv1.CreateHostRequest, _ app.UserInfo) (*apiv1.Operation, error) {
@@ -61,4 +61,12 @@ func (m *InstanceManager) DeleteHost(zone string, user app.UserInfo, name string
 
 func (m *InstanceManager) WaitOperation(zone string, user app.UserInfo, name string) (any, error) {
 	return nil, app.NewInternalError(fmt.Sprintf("%T#WaitOperation is not implemented", *m), nil)
+}
+
+func (m *InstanceManager) GetHostClient(zone string, host string) (app.HostClient, error) {
+	url, err := m.GetHostURL(zone, host)
+	if err != nil {
+		return nil, err
+	}
+	return app.NewHostClientImpl(url, m.config.AllowSelfSignedHostSSLCertificate), nil
 }

@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"net/http/httputil"
 	"net/url"
 	"strings"
 	"testing"
@@ -48,10 +49,6 @@ func (m *testAccountManager) Authenticate(fn AuthHTTPHandler) HTTPHandler {
 
 type testInstanceManager struct{}
 
-func (m *testInstanceManager) GetHostAddr(_ string, _ string) (string, error) {
-	return "127.0.0.1", nil
-}
-
 func (m *testInstanceManager) GetHostURL(zone string, host string) (*url.URL, error) {
 	return url.Parse("http://127.0.0.1:8080")
 }
@@ -70,6 +67,10 @@ func (m *testInstanceManager) DeleteHost(zone string, user UserInfo, name string
 
 func (m *testInstanceManager) WaitOperation(_ string, _ UserInfo, _ string) (any, error) {
 	return struct{}{}, nil
+}
+
+func (m *testInstanceManager) GetHostClient(zone string, host string) (HostClient, error) {
+	return nil, nil
 }
 
 func TestCreateHostSucceeds(t *testing.T) {
@@ -187,18 +188,16 @@ func TestDeleteHostIsHandled(t *testing.T) {
 	}
 }
 
-type testHostURLResolver struct {
-	hostURL *url.URL
-}
-
-func (r *testHostURLResolver) GetHostURL(_ string, _ string) (*url.URL, error) {
-	return r.hostURL, nil
+func newTestReverseProxyBuilder(url *url.URL) ReverseProxyFactory {
+	return func(_, _ string) (*httputil.ReverseProxy, error) {
+		return httputil.NewSingleHostReverseProxy(url), nil
+	}
 }
 
 func TestHostForwarderInvalidRequests(t *testing.T) {
 	zone := "foo"
 	hf := HostForwarder{
-		URLResolver: &testHostURLResolver{},
+		newReverseProxy: newTestReverseProxyBuilder(nil),
 	}
 
 	cases := []struct {
@@ -258,7 +257,7 @@ func TestHostForwarderRequest(t *testing.T) {
 	}))
 	hostURL, _ := url.Parse(ts.URL)
 	hf := HostForwarder{
-		URLResolver: &testHostURLResolver{hostURL: hostURL},
+		newReverseProxy: newTestReverseProxyBuilder(hostURL),
 	}
 
 	tests := []struct {
@@ -306,7 +305,7 @@ func TestHostForwarderHostAsHostResource(t *testing.T) {
 	}))
 	hostURL, _ := url.Parse(ts.URL)
 	hf := HostForwarder{
-		URLResolver: &testHostURLResolver{hostURL: hostURL},
+		newReverseProxy: newTestReverseProxyBuilder(hostURL),
 	}
 	w := httptest.NewRecorder()
 	reqURL := fmt.Sprintf("http://test.com/v1/zones/%s/hosts/%s/hosts/%s", zone, host, host)

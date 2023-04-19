@@ -33,11 +33,11 @@ type Config struct {
 
 type IMConfig struct {
 	Type IMType
-	// The port where the host orchestrator is listening.
-	HostPort int
 	// The protocol the host orchestrator expects, either http or https
-	HostProtocol string
-	GCP          *GCPIMConfig
+	HostOrchestratorProtocol          string
+	AllowSelfSignedHostSSLCertificate bool
+	GCP                               *GCPIMConfig
+	UNIX                              *UNIXIMConfig
 }
 
 type IMType string
@@ -48,10 +48,15 @@ const (
 )
 
 type GCPIMConfig struct {
-	ProjectID string
-	HostImage string
+	ProjectID            string
+	HostImage            string
+	HostOrchestratorPort int
 	// If true, instances created should be compatible with `acloud CLI`.
 	AcloudCompatible bool
+}
+
+type UNIXIMConfig struct {
+	HostOrchestratorPort int
 }
 
 type AMConfig struct {

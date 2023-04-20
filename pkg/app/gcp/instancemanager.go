@@ -77,11 +77,6 @@ func (m *InstanceManager) CreateHost(zone string, req *apiv1.CreateHostRequest, 
 	if err := validateRequest(req); err != nil {
 		return nil, err
 	}
-	labels := map[string]string{
-		// Use prefix `cvdremote` for now so these instances are not yet visible to acloud users.
-		labelAcloudCreatedBy: "cvdremote-" + user.Username(),
-		labelCreatedBy:       user.Username(),
-	}
 	payload := &compute.Instance{
 		Name: m.InstanceNameGenerator.NewName(),
 		// This is required in the format: "zones/zone/machineTypes/machine-type".
@@ -107,9 +102,12 @@ func (m *InstanceManager) CreateHost(zone string, req *apiv1.CreateHostRequest, 
 				},
 			},
 		},
-		Labels: labels,
+		Labels: map[string]string{
+			labelCreatedBy: user.Username(),
+		},
 	}
 	if m.Config.GCP.AcloudCompatible {
+		payload.Labels[labelAcloudCreatedBy] = user.Username()
 		startupScript := acloudSetupScript
 		payload.Metadata = &compute.Metadata{
 			Items: []*compute.MetadataItems{

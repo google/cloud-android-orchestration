@@ -45,10 +45,12 @@ var testConfig = app.IMConfig{
 
 var testNameGenerator = &testConstantNameGenerator{name: "foo"}
 
+const fakeUsername = "johndoe"
+
 type TestUserInfo struct{}
 
 func (i *TestUserInfo) Username() string {
-	return "johndoe"
+	return fakeUsername
 }
 
 func TestCreateHostInvalidRequests(t *testing.T) {
@@ -165,8 +167,7 @@ func TestCreateHostRequestBody(t *testing.T) {
     }
   ],
   "labels": {
-    "cf-created_by": "johndoe",
-    "created_by": "cvdremote-johndoe"
+    "cf-created_by": "` + fakeUsername + `"
   },
   "machineType": "zones/us-central1-a/machineTypes/n1-standard-1",
   "minCpuPlatform": "Intel Haswell",
@@ -224,10 +225,13 @@ func TestCreateHostAcloudCompatible(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if diff := cmp.Diff(postedInstance.Metadata.Items[0].Key, "startup-script"); diff != "" {
+	if diff := cmp.Diff(fakeUsername, postedInstance.Labels[labelAcloudCreatedBy]); diff != "" {
+		t.Errorf("created by acloud label (-want +got):\n%s", diff)
+	}
+	if diff := cmp.Diff("startup-script", postedInstance.Metadata.Items[0].Key); diff != "" {
 		t.Errorf("metadata item key (-want +got):\n%s", diff)
 	}
-	if diff := cmp.Diff(*postedInstance.Metadata.Items[0].Value, acloudSetupScript); diff != "" {
+	if diff := cmp.Diff(acloudSetupScript, *postedInstance.Metadata.Items[0].Value); diff != "" {
 		t.Errorf("metadata item value (-want +got):\n%s", diff)
 	}
 }

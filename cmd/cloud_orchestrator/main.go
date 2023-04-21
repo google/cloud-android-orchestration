@@ -21,8 +21,8 @@ import (
 	"os"
 
 	"github.com/google/cloud-android-orchestration/pkg/app"
-	"github.com/google/cloud-android-orchestration/pkg/app/gcp"
-	"github.com/google/cloud-android-orchestration/pkg/app/unix"
+	"github.com/google/cloud-android-orchestration/pkg/app/net/gcp"
+	"github.com/google/cloud-android-orchestration/pkg/app/net/unix"
 
 	"github.com/google/uuid"
 	"google.golang.org/api/compute/v1"

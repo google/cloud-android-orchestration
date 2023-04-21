@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package app
+package net
 
 import (
 	"bytes"
@@ -24,15 +24,16 @@ import (
 	"net/url"
 
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
+	"github.com/google/cloud-android-orchestration/pkg/app"
 )
 
-type HostClientImpl struct {
+type HostClient struct {
 	url    *url.URL
 	client *http.Client
 }
 
-func NewHostClientImpl(url *url.URL, allowSelfSigned bool) *HostClientImpl {
-	ret := &HostClientImpl{
+func NewHostClient(url *url.URL, allowSelfSigned bool) *HostClient {
+	ret := &HostClient{
 		url:    url,
 		client: http.DefaultClient,
 	}
@@ -47,7 +48,7 @@ func NewHostClientImpl(url *url.URL, allowSelfSigned bool) *HostClientImpl {
 	return ret
 }
 
-func (c *HostClientImpl) Get(path, query string, out *HostResponse) (int, error) {
+func (c *HostClient) Get(path, query string, out *app.HostResponse) (int, error) {
 	url := *c.url // Shallow copy
 	url.Path = path
 	url.RawQuery = query
@@ -62,7 +63,7 @@ func (c *HostClientImpl) Get(path, query string, out *HostResponse) (int, error)
 	return res.StatusCode, err
 }
 
-func (c *HostClientImpl) Post(path, query string, bodyJSON any, out *HostResponse) (int, error) {
+func (c *HostClient) Post(path, query string, bodyJSON any, out *app.HostResponse) (int, error) {
 	bodyStr, err := json.Marshal(bodyJSON)
 	if err != nil {
 		return -1, fmt.Errorf("Failed to parse JSON request: %w", err)
@@ -81,7 +82,7 @@ func (c *HostClientImpl) Post(path, query string, bodyJSON any, out *HostRespons
 	return res.StatusCode, err
 }
 
-func (c *HostClientImpl) GetReverseProxy() *httputil.ReverseProxy {
+func (c *HostClient) GetReverseProxy() *httputil.ReverseProxy {
 	devProxy := httputil.NewSingleHostReverseProxy(c.url)
 	if c.client != http.DefaultClient {
 		// Make sure the reverse proxy has the same customizations as the http client.

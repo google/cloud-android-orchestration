@@ -24,6 +24,7 @@ import (
 
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
 	"github.com/google/cloud-android-orchestration/pkg/app"
+	"github.com/google/cloud-android-orchestration/pkg/app/net"
 
 	"google.golang.org/api/compute/v1"
 	"google.golang.org/api/googleapi"
@@ -207,7 +208,7 @@ func (m *InstanceManager) GetHostClient(zone string, host string) (app.HostClien
 	if err != nil {
 		return nil, err
 	}
-	return app.NewHostClientImpl(url, m.Config.AllowSelfSignedHostSSLCertificate), nil
+	return net.NewHostClient(url, m.Config.AllowSelfSignedHostSSLCertificate), nil
 }
 
 func (m *InstanceManager) getHostInstance(zone string, host string) (*compute.Instance, error) {

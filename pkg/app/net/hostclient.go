@@ -38,12 +38,24 @@ func NewHostClient(url *url.URL, allowSelfSigned bool) *HostClient {
 		client: http.DefaultClient,
 	}
 	if allowSelfSigned {
-		// This creates a copy of the default transport and casts it to the right
-		// structure. The cast is safe because the package documentation explicitly
-		// says the variable is of the http.Transport type.
-		transport := *http.DefaultTransport.(*http.Transport)
+		// This creates a transport similar to http.DefaultTransport according to
+		// https://pkg.go.dev/net/http#RoundTripper. The object needs to be created
+		// instead of copied from http.DefaultTransport because it has a mutex which
+		// could be copied in locked state and produce a copy that's unusable because
+		// nothing will ever unlock it.
+		defaultTransport := http.DefaultTransport.(*http.Transport)
+		transport := &http.Transport{
+			Proxy: defaultTransport.Proxy,
+			// Reusing the same dial context allows reusing connections accross transport objects.
+			DialContext:           defaultTransport.DialContext,
+			ForceAttemptHTTP2:     defaultTransport.ForceAttemptHTTP2,
+			MaxIdleConns:          defaultTransport.MaxIdleConns,
+			IdleConnTimeout:       defaultTransport.IdleConnTimeout,
+			TLSHandshakeTimeout:   defaultTransport.TLSHandshakeTimeout,
+			ExpectContinueTimeout: defaultTransport.ExpectContinueTimeout,
+		}
 		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
-		ret.client = &http.Client{Transport: &transport}
+		ret.client = &http.Client{Transport: transport}
 	}
 	return ret
 }

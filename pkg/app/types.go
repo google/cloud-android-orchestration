@@ -19,6 +19,8 @@ import (
 	"net/http/httputil"
 
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
+
+	"github.com/gorilla/mux"
 )
 
 type DeviceFilesRequest struct {
@@ -94,4 +96,10 @@ type AccountManager interface {
 	// authenticated, otherwise it may choose to return an error or respond with
 	// an HTTP redirect to the login page.
 	Authenticate(fn AuthHTTPHandler) HTTPHandler
+	RegisterAuthHandlers(r *mux.Router)
+}
+
+type SecretManager interface {
+	OAuthClientID() string
+	OAuthClientSecret() string
 }

@@ -47,6 +47,8 @@ func (m *testAccountManager) Authenticate(fn AuthHTTPHandler) HTTPHandler {
 	}
 }
 
+func (m *testAccountManager) RegisterAuthHandlers(r *mux.Router) {}
+
 type testInstanceManager struct{}
 
 func (m *testInstanceManager) GetHostURL(zone string, host string) (*url.URL, error) {

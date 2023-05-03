@@ -21,10 +21,12 @@ import (
 	"os"
 
 	"github.com/google/cloud-android-orchestration/pkg/app"
+	"github.com/google/cloud-android-orchestration/pkg/app/net"
 	"github.com/google/cloud-android-orchestration/pkg/app/net/gcp"
 	"github.com/google/cloud-android-orchestration/pkg/app/net/unix"
 
 	"github.com/google/uuid"
+	"golang.org/x/oauth2"
 	"google.golang.org/api/compute/v1"
 )
 
@@ -61,19 +63,44 @@ func main() {
 	// The network interface to listen on. Empty means all interfaces, which the right choice in production
 	iface := ""
 
+	var sm app.SecretManager
+	switch config.SecretManager.Type {
+	case app.GCPSMType:
+		var err error
+		sm, err = gcp.NewSecretManager(&config.SecretManager.GCP)
+		if err != nil {
+			log.Fatal("Failed to build Secret Manager: ", err)
+		}
+	case app.UnixSMType:
+		var err error
+		sm, err = unix.NewSecretManager(config.SecretManager.UNIX.SecretFilePath)
+		if err != nil {
+			log.Fatal(err)
+		}
+	default:
+		log.Fatal("Unknown Secret Manager type: ", config.SecretManager.Type)
+	}
+
+	var oauthConfig *oauth2.Config
+	switch config.AccountManager.OAuth.Provider {
+	case app.GoogleOAuthProvider:
+		oauthConfig = net.NewGoogleOAuthConfig(config.AccountManager.OAuth.RedirectURL, sm)
+	default:
+		log.Fatal("Unknown oauth provider: ", app.GoogleOAuthProvider)
+	}
+
 	var am app.AccountManager
 	switch config.AccountManager.Type {
 	case app.GAEAMType:
-		am = gcp.NewUsersAccountManager()
+		am = gcp.NewUsersAccountManager(oauthConfig)
 	case app.UnixAMType:
+		am = &unix.AccountManager{
+			OAuthConfig: oauthConfig,
+		}
 		// This account manager is insecure, it's only meant for development. It's generally not
 		// safe to listen on every interface when it's in use, so restrict it to the loopback
 		// interface only.
 		iface = "localhost"
-		if len(os.Args) < 2 {
-			panic("Expected a file name to read oauth client id and secret")
-		}
-		am = &unix.AccountManager{}
 	default:
 		log.Fatal("Unknown Account Manager type: ", config.AccountManager.Type)
 	}

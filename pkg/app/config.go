@@ -26,6 +26,7 @@ const ConfFileEnvVar = "CONFIG_FILE"
 type Config struct {
 	WebStaticFilesPath string
 	AccountManager     AMConfig
+	SecretManager      SMConfig
 	InstanceManager    IMConfig
 	Infra              InfraConfig
 	Operations         OperationsConfig
@@ -60,8 +61,18 @@ type UNIXIMConfig struct {
 }
 
 type AMConfig struct {
-	Type AMType
+	Type  AMType
+	OAuth OAuthConfig
 }
+
+type OAuthConfig struct {
+	Provider    string
+	RedirectURL string
+}
+
+const (
+	GoogleOAuthProvider = "Google"
+)
 
 type AMType string
 
@@ -69,6 +80,27 @@ const (
 	UnixAMType AMType = "unix"
 	GAEAMType  AMType = "GCP"
 )
+
+type SMConfig struct {
+	Type SMType
+	GCP  GCPSMConfig
+	UNIX UnixSMConfig
+}
+
+type SMType string
+
+const (
+	UnixSMType = "unix"
+	GCPSMType  = "GCP"
+)
+
+type UnixSMConfig struct {
+	SecretFilePath string
+}
+
+type GCPSMConfig struct {
+	OAuthClientResourceID string
+}
 
 type InfraConfig struct {
 	STUNServers []string

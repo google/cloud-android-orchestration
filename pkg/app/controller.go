@@ -82,6 +82,8 @@ func (c *Controller) Handler() http.Handler {
 		replyJSON(w, c.infraConfig, http.StatusOK)
 	}).Methods("GET")
 
+	c.accountManager.RegisterAuthHandlers(router)
+
 	// Global routes
 	router.Handle("/", HTTPHandler(c.accountManager.Authenticate(indexHandler)))
 

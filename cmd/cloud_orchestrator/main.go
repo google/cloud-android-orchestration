@@ -58,11 +58,21 @@ func main() {
 
 	ss := app.NewForwardingSignalingServer(config.WebStaticFilesPath, im)
 
+	// The network interface to listen on. Empty means all interfaces, which the right choice in production
+	iface := ""
+
 	var am app.AccountManager
 	switch config.AccountManager.Type {
 	case app.GAEAMType:
 		am = gcp.NewUsersAccountManager()
 	case app.UnixAMType:
+		// This account manager is insecure, it's only meant for development. It's generally not
+		// safe to listen on every interface when it's in use, so restrict it to the loopback
+		// interface only.
+		iface = "localhost"
+		if len(os.Args) < 2 {
+			panic("Expected a file name to read oauth client id and secret")
+		}
 		am = &unix.AccountManager{}
 	default:
 		log.Fatal("Unknown Account Manager type: ", config.AccountManager.Type)
@@ -77,5 +87,5 @@ func main() {
 	}
 
 	log.Printf("Listening on port %s", port)
-	log.Fatal(http.ListenAndServe(":"+port, or.Handler()))
+	log.Fatal(http.ListenAndServe(iface+":"+port, or.Handler()))
 }

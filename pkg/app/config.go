@@ -28,6 +28,7 @@ type Config struct {
 	AccountManager     AMConfig
 	SecretManager      SMConfig
 	InstanceManager    IMConfig
+	EncryptionService  ESConfig
 	Infra              InfraConfig
 	Operations         OperationsConfig
 }
@@ -83,8 +84,8 @@ const (
 
 type SMConfig struct {
 	Type SMType
-	GCP  GCPSMConfig
-	UNIX UnixSMConfig
+	GCP  *GCPSMConfig
+	UNIX *UnixSMConfig
 }
 
 type SMType string
@@ -100,6 +101,25 @@ type UnixSMConfig struct {
 
 type GCPSMConfig struct {
 	OAuthClientResourceID string
+}
+
+type ESConfig struct {
+	Type   string
+	Simple *SimpleESConfig
+	GCPKMS *GCPKMSConfig
+}
+
+const (
+	SimpleESType = "Simple"
+	GCPKMSESType = "GCP_KMS" // GCP's KMS service.
+)
+
+type SimpleESConfig struct {
+	KeySizeBits int
+}
+
+type GCPKMSConfig struct {
+	KeyName string
 }
 
 type InfraConfig struct {

@@ -16,6 +16,7 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"log"
 	"net/http"
 	"os"
@@ -68,7 +69,7 @@ func LoadSecretManager(config *app.Config) app.SecretManager {
 	switch config.SecretManager.Type {
 	case app.GCPSMType:
 		var err error
-		sm, err = gcp.NewSecretManager(&config.SecretManager.GCP)
+		sm, err = gcp.NewSecretManager(config.SecretManager.GCP)
 		if err != nil {
 			log.Fatal("Failed to build Secret Manager: ", err)
 		}
@@ -110,6 +111,27 @@ func LoadAccountManager(config *app.Config, oauthConfig *oauth2.Config) app.Acco
 	return am
 }
 
+func LoadEncryptionService(config *app.Config) app.EncryptionService {
+	var es app.EncryptionService
+	switch config.EncryptionService.Type {
+	case app.SimpleESType:
+		key := make([]byte, config.EncryptionService.Simple.KeySizeBits/8)
+		_, err := rand.Read(key)
+		if err != nil {
+			log.Fatal("Failed to generate crypto key: ", err)
+		}
+		es, err = unix.NewSimpleEncryptionService(key)
+		if err != nil {
+			log.Fatal("Failed to create simple encryption service: ", err)
+		}
+	case app.GCPKMSESType:
+		es = gcp.NewKMSEncryptionService(config.EncryptionService.GCPKMS.KeyName)
+	default:
+		log.Fatal("Unknown encryption service type: ", config.EncryptionService.Type)
+	}
+	return es
+}
+
 // The network interface for the web server to listen on.
 func ChooseNetworkInterface(config *app.Config) string {
 	if config.AccountManager.Type == app.UnixAMType {
@@ -139,6 +161,7 @@ func main() {
 	secretManager := LoadSecretManager(config)
 	oauthConfig := LoadOAuthConfig(config, secretManager)
 	accountManager := LoadAccountManager(config, oauthConfig)
+	_ = LoadEncryptionService(config)
 	controller := app.NewController(config.Infra.STUNServers, config.Operations, instanceManager, signalingServer, accountManager)
 
 	iface := ChooseNetworkInterface(config)

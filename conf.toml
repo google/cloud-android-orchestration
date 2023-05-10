@@ -16,6 +16,15 @@ OAuthClientResourceID = ""
 [SecretManager.UNIX]
 SecretFilePath = "../secrets.json"
 
+[EncryptionService]
+Type = "Simple"
+
+[EncryptionService.Simple]
+KeySizeBits = 128
+
+[EncryptionService.GCP_KMS]
+KeyName = ""
+
 [InstanceManager]
 Type = "unix"
 HostOrchestratorProtocol = "https"

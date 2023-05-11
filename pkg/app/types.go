@@ -108,3 +108,11 @@ type EncryptionService interface {
 	Encrypt(plaintext []byte) ([]byte, error)
 	Decrypt(ciphertext []byte) ([]byte, error)
 }
+
+type DatabaseService interface {
+	// Credentials are usually stored encrypted hence the []byte type.
+	// If no credentials are available for the given user Fetch returns nil, nil.
+	FetchBuildAPICredentials(username string) ([]byte, error)
+	// Store new credentials or overwrite existing ones for the given user.
+	StoreBuildAPICredentials(username string, credentials []byte) error
+}

@@ -29,6 +29,7 @@ type Config struct {
 	SecretManager      SMConfig
 	InstanceManager    IMConfig
 	EncryptionService  ESConfig
+	DatabaseService    DBConfig
 	Infra              InfraConfig
 	Operations         OperationsConfig
 }
@@ -120,6 +121,20 @@ type SimpleESConfig struct {
 
 type GCPKMSConfig struct {
 	KeyName string
+}
+
+type DBConfig struct {
+	Type    string
+	Spanner *SpannerConfig
+}
+
+const (
+	InMemoryDBType = "InMemory"
+	SpannerDBType  = "Spanner"
+)
+
+type SpannerConfig struct {
+	DatabaseName string
 }
 
 type InfraConfig struct {

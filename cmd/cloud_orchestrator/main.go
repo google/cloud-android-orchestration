@@ -132,6 +132,19 @@ func LoadEncryptionService(config *app.Config) app.EncryptionService {
 	return es
 }
 
+func LoadDatabaseService(config *app.Config) app.DatabaseService {
+	var dbs app.DatabaseService
+	switch config.DatabaseService.Type {
+	case app.InMemoryDBType:
+		dbs = unix.NewInMemoryDBService()
+	case app.SpannerDBType:
+		dbs = gcp.NewSpannerDBService(config.DatabaseService.Spanner.DatabaseName)
+	default:
+		log.Fatal("Unknown database service type: ", config.DatabaseService.Type)
+	}
+	return dbs
+}
+
 // The network interface for the web server to listen on.
 func ChooseNetworkInterface(config *app.Config) string {
 	if config.AccountManager.Type == app.UnixAMType {
@@ -162,6 +175,7 @@ func main() {
 	oauthConfig := LoadOAuthConfig(config, secretManager)
 	accountManager := LoadAccountManager(config, oauthConfig)
 	_ = LoadEncryptionService(config)
+	_ = LoadDatabaseService(config)
 	controller := app.NewController(config.Infra.STUNServers, config.Operations, instanceManager, signalingServer, accountManager)
 
 	iface := ChooseNetworkInterface(config)

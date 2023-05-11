@@ -25,6 +25,12 @@ KeySizeBits = 128
 [EncryptionService.GCP_KMS]
 KeyName = ""
 
+[DatabaseService]
+Type = "InMemory"
+
+[DatabaseService.Spanner]
+DatabaseName = "projects/<project id>/instances/<instance id>/databases/<database>"
+
 [InstanceManager]
 Type = "unix"
 HostOrchestratorProtocol = "https"

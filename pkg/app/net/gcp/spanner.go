@@ -35,6 +35,8 @@ const (
 	sessionKeyColumn         = "session_key"
 	sessionOAuth2StateColumn = "oauth2_state"
 	sessionAccessColumn      = "accessed_at"
+
+	sessionStateValidityHours = 48
 )
 
 // A database service that works with a Cloud Spanner database with the following schema:
@@ -104,6 +106,7 @@ func (dbs *SpannerDBService) CreateOrUpdateSession(s app.Session) error {
 	columns := []string{sessionKeyColumn, sessionOAuth2StateColumn, sessionAccessColumn}
 	mutation := spanner.InsertOrUpdate(sessionsTable, columns, []interface{}{s.Key, s.OAuth2State, time.Now()})
 	_, err = client.Apply(ctx, []*spanner.Mutation{mutation})
+	go dbs.deleteExpiredSessions()
 	return err
 }
 
@@ -150,4 +153,32 @@ func (dbs *SpannerDBService) DeleteSession(key string) error {
 		return nil
 	}
 	return err
+}
+
+// TODO(jemoreira): Remove once sessions are used for more than just storing oauth2 states.
+func (dbs *SpannerDBService) deleteExpiredSessions() {
+	ctx := context.TODO()
+	client, err := spanner.NewClient(ctx, dbs.db)
+	if err != nil {
+		log.Println("Failed to create db client to delete expired sessions")
+		return
+	}
+	defer client.Close()
+	_, err = client.ReadWriteTransaction(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
+		stmt := spanner.Statement{
+			SQL: fmt.Sprintf("delete from %s where %s < @threshold", sessionsTable, sessionAccessColumn),
+			Params: map[string]interface{}{
+				"threshold": time.Now().Add(-sessionStateValidityHours * time.Hour),
+			},
+		}
+		rowCount, err := txn.Update(ctx, stmt)
+		if err != nil {
+			return err
+		}
+		log.Printf("%d expired session(s) deleted.\n", rowCount)
+		return nil
+	})
+	if err != nil {
+		log.Println("Failed to delete expired sessions: ", err)
+	}
 }

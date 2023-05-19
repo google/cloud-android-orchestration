@@ -90,7 +90,7 @@ func (m *InstanceManager) CreateHost(zone string, req *apiv1.CreateHostRequest, 
 		Disks: []*compute.AttachedDisk{
 			{
 				InitializeParams: &compute.AttachedDiskInitializeParams{
-					SourceImage: m.Config.GCP.HostImage,
+					SourceImage: m.Config.GCP.HostImageFamily,
 				},
 				Boot: true,
 			},

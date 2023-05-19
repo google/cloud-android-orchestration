@@ -50,7 +50,7 @@ const (
 
 type GCPIMConfig struct {
 	ProjectID            string
-	HostImage            string
+	HostImageFamily      string
 	HostOrchestratorPort int
 	// If true, instances created should be compatible with `acloud CLI`.
 	AcloudCompatible bool

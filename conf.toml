@@ -23,7 +23,7 @@ AllowSelfSignedHostSSLCertificate = true
 
 [InstanceManager.GCP]
 ProjectId = ""
-HostImage = ""
+HostImageFamily = ""
 HostOrchestratorPort = 1443
 
 [InstanceManager.UNIX]

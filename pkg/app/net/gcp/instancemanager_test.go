@@ -38,8 +38,8 @@ import (
 
 var testConfig = app.IMConfig{
 	GCP: &app.GCPIMConfig{
-		ProjectID: "google.com:test-project",
-		HostImage: "projects/test-project-releases/global/images/img-001",
+		ProjectID:       "google.com:test-project",
+		HostImageFamily: "projects/test-project-releases/global/images/family/foo",
 	},
 }
 
@@ -150,7 +150,7 @@ func TestCreateHostRequestBody(t *testing.T) {
     {
       "boot": true,
       "initializeParams": {
-        "sourceImage": "projects/test-project-releases/global/images/img-001"
+        "sourceImage": "projects/test-project-releases/global/images/family/foo"
       }
     }
   ],
@@ -191,7 +191,7 @@ func TestCreateHostAcloudCompatible(t *testing.T) {
 		Config: app.IMConfig{
 			GCP: &app.GCPIMConfig{
 				ProjectID:        "google.com:test-project",
-				HostImage:        "projects/test-project-releases/global/images/img-001",
+				HostImageFamily:  "projects/test-project-releases/global/images/family/foo",
 				AcloudCompatible: true,
 			},
 		},

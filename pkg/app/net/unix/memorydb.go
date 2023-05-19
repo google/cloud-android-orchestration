@@ -14,9 +14,14 @@
 
 package unix
 
+import (
+	"github.com/google/cloud-android-orchestration/pkg/app"
+)
+
 // Simple in memory database to use for testing or local development.
 type InMemoryDBService struct {
 	credentials map[string][]byte
+	session     app.Session
 }
 
 func NewInMemoryDBService() *InMemoryDBService {
@@ -31,5 +36,25 @@ func (dbs *InMemoryDBService) FetchBuildAPICredentials(username string) ([]byte,
 
 func (dbs *InMemoryDBService) StoreBuildAPICredentials(username string, credentials []byte) error {
 	dbs.credentials[username] = credentials
+	return nil
+}
+
+func (dbs *InMemoryDBService) CreateOrUpdateSession(s app.Session) error {
+	dbs.session = s
+	return nil
+}
+
+func (dbs *InMemoryDBService) FetchSession(key string) (*app.Session, error) {
+	if dbs.session.Key != key {
+		return nil, nil
+	}
+	sessionCopy := dbs.session
+	return &sessionCopy, nil
+}
+
+func (dbs *InMemoryDBService) DeleteSession(key string) error {
+	if dbs.session.Key == key {
+		dbs.session = app.Session{}
+	}
 	return nil
 }

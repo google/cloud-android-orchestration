@@ -21,22 +21,15 @@ import (
 	"strings"
 
 	"github.com/google/cloud-android-orchestration/pkg/app"
-	"github.com/google/cloud-android-orchestration/pkg/app/net"
-
-	"github.com/gorilla/mux"
-	"golang.org/x/oauth2"
 )
 
 const emailHeaderKey = "X-Appengine-User-Email"
 
 type UsersAccountManager struct {
-	oauthConfig *oauth2.Config
 }
 
-func NewUsersAccountManager(oauthConfig *oauth2.Config) *UsersAccountManager {
-	return &UsersAccountManager{
-		oauthConfig: oauthConfig,
-	}
+func NewUsersAccountManager() *UsersAccountManager {
+	return &UsersAccountManager{}
 }
 
 func (g *UsersAccountManager) Authenticate(fn app.AuthHTTPHandler) app.HTTPHandler {
@@ -53,53 +46,23 @@ func (g *UsersAccountManager) Authenticate(fn app.AuthHTTPHandler) app.HTTPHandl
 	}
 }
 
-func (g *UsersAccountManager) RegisterAuthHandlers(r *mux.Router) {
-	r.Handle("/auth", g.AuthHandler())
-	r.Handle("/oauth2callback", g.OAuth2Callback())
-}
-
-func (g *UsersAccountManager) AuthHandler() app.HTTPHandler {
-	return func(w http.ResponseWriter, r *http.Request) error {
-		state := g.generateState()
-		authURL := g.oauthConfig.AuthCodeURL(state, oauth2.AccessTypeOffline)
-		http.Redirect(w, r, authURL, http.StatusSeeOther)
-		return nil
+func (g *UsersAccountManager) OnOAuthExchange(w http.ResponseWriter, r *http.Request, idToken app.IDTokenClaims) (app.UserInfo, error) {
+	rEmail, err := emailFromRequest(r)
+	if err != nil {
+		return nil, err
 	}
-}
-
-func (g *UsersAccountManager) OAuth2Callback() app.HTTPHandler {
-	return func(w http.ResponseWriter, r *http.Request) error {
-		res, err := net.ParseAuthorizationResponse(r)
-		if err != nil {
-			return err
-		}
-		if !g.validateState(res.State) {
-			return fmt.Errorf("Invalid state: %s", res.State)
-		}
-		_, err = g.oauthConfig.Exchange(oauth2.NoContext, res.AuthorizationCode)
-		if err != nil {
-			return err
-		}
-		_, err = userInfoFromRequest(r)
-		if err != nil {
-			return err
-		}
-		// Don't return a real page here since any resource (i.e JS module) will have access to the server response
-		fmt.Fprintf(w, "Authorization successful, you may close this window now")
-		return nil
+	email, ok := idToken["email"]
+	if !ok {
+		return nil, fmt.Errorf("No email in id token")
 	}
-}
-
-func (g *UsersAccountManager) generateState() string {
-	// TODO(jemoreira): Actually generate a secure state value to prevent CSRF and DDoS attacks.
-	// This isn't as easy as it sounds and for the time being this Account Manager relies on a proxy
-	// that authenticates users for it, so requests that reach these endpoints are already
-	// authenticated so it's relatively safe to trust these users... for now.
-	return "somestate"
-}
-
-func (g *UsersAccountManager) validateState(state string) bool {
-	return true
+	tkEmail, ok := email.(string)
+	if !ok {
+		return nil, fmt.Errorf("Malformed email in id token")
+	}
+	if rEmail != tkEmail {
+		return nil, fmt.Errorf("Logged in user doesn't match oauth user")
+	}
+	return userInfoFromEmail(rEmail), nil
 }
 
 type UserInfo struct {
@@ -110,12 +73,24 @@ func (u *UserInfo) Username() string {
 	return u.username
 }
 
-func userInfoFromRequest(r *http.Request) (*UserInfo, error) {
+func emailFromRequest(r *http.Request) (string, error) {
 	// These headers are guaranteed to be present and come from AppEngine.
 	email := r.Header.Get(emailHeaderKey)
 	if email == "" {
-		return nil, errors.New("No authentication headers present")
+		return "", errors.New("No authentication headers present")
 	}
+	return email, nil
+}
+
+func userInfoFromEmail(email string) *UserInfo {
 	username := strings.SplitN(email, "@", 2)[0]
-	return &UserInfo{username}, nil
+	return &UserInfo{username}
+}
+
+func userInfoFromRequest(r *http.Request) (*UserInfo, error) {
+	email, err := emailFromRequest(r)
+	if err != nil {
+		return nil, err
+	}
+	return userInfoFromEmail(email), nil
 }

@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"net/http/httputil"
 	"strconv"
@@ -26,18 +27,27 @@ import (
 
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
 
+	"github.com/golang-jwt/jwt"
 	"github.com/gorilla/mux"
+	"golang.org/x/oauth2"
+)
+
+const (
+	sessionIdCookie = "sessionid"
 )
 
 // The controller implements the web API of the cloud orchestrator. It parses
 // and validates requests from the client and passes the information to the
 // relevant modules
 type Controller struct {
-	infraConfig     apiv1.InfraConfig
-	opsConfig       OperationsConfig
-	instanceManager InstanceManager
-	sigServer       SignalingServer
-	accountManager  AccountManager
+	infraConfig       apiv1.InfraConfig
+	opsConfig         OperationsConfig
+	instanceManager   InstanceManager
+	sigServer         SignalingServer
+	accountManager    AccountManager
+	oauthConfig       *oauth2.Config
+	encryptionService EncryptionService
+	databaseService   DatabaseService
 }
 
 func NewController(
@@ -45,9 +55,12 @@ func NewController(
 	opsConfig OperationsConfig,
 	im InstanceManager,
 	ss SignalingServer,
-	am AccountManager) *Controller {
+	am AccountManager,
+	oc *oauth2.Config,
+	es EncryptionService,
+	dbs DatabaseService) *Controller {
 	infraCfg := buildInfraCfg(servers)
-	return &Controller{infraCfg, opsConfig, im, ss, am}
+	return &Controller{infraCfg, opsConfig, im, ss, am, oc, es, dbs}
 }
 
 func (c *Controller) Handler() http.Handler {
@@ -82,9 +95,9 @@ func (c *Controller) Handler() http.Handler {
 		replyJSON(w, c.infraConfig, http.StatusOK)
 	}).Methods("GET")
 
-	c.accountManager.RegisterAuthHandlers(router)
-
 	// Global routes
+	router.Handle("/auth", HTTPHandler(c.AuthHandler)).Methods("GET")
+	router.Handle("/oauth2callback", HTTPHandler(c.OAuth2Callback))
 	router.Handle("/", HTTPHandler(c.accountManager.Authenticate(indexHandler)))
 
 	// http.Handle("/", router)
@@ -265,6 +278,71 @@ func (c *Controller) waitOperation(w http.ResponseWriter, r *http.Request, user 
 	return nil
 }
 
+func (c *Controller) AuthHandler(w http.ResponseWriter, r *http.Request) error {
+	sessionKey := randomHexString()
+	state := randomHexString()
+	if err := c.databaseService.CreateOrUpdateSession(Session{
+		Key:         sessionKey,
+		OAuth2State: state,
+	}); err != nil {
+		return err
+	}
+	http.SetCookie(w, &http.Cookie{
+		Name:     sessionIdCookie,
+		Value:    sessionKey,
+		Secure:   true,
+		SameSite: http.SameSiteStrictMode,
+	})
+	authURL := c.oauthConfig.AuthCodeURL(state, oauth2.AccessTypeOffline)
+	http.Redirect(w, r, authURL, http.StatusSeeOther)
+	return nil
+}
+
+func (c *Controller) OAuth2Callback(w http.ResponseWriter, r *http.Request) error {
+	authCode, err := c.parseAuthorizationResponse(r)
+	if err != nil {
+		return err
+	}
+	tk, err := c.oauthConfig.Exchange(oauth2.NoContext, authCode)
+	if err != nil {
+		return err
+	}
+	idToken, err := extractIDToken(tk)
+	if err != nil {
+		return err
+	}
+	tokenClaims, ok := idToken.Claims.(jwt.MapClaims)
+	if !ok {
+		return fmt.Errorf("Id token in unexpected format")
+	}
+	user, err := c.accountManager.OnOAuthExchange(w, r, IDTokenClaims(tokenClaims))
+	if err != nil {
+		return err
+	}
+	creds, err := json.Marshal(tk)
+	if err != nil {
+		return fmt.Errorf("Failed to serialize credentials: %w", err)
+	}
+	encryptedCreds, err := c.encryptionService.Encrypt(creds)
+	if err != nil {
+		return fmt.Errorf("Failed to encrypt credentials: %w", err)
+	}
+	if err := c.databaseService.StoreBuildAPICredentials(user.Username(), encryptedCreds); err != nil {
+		return fmt.Errorf("Failed to store credentials: %w", err)
+	}
+	// Don't return a real page here since any resource (i.e JS module) will have access to the
+	// server response
+	_, err = fmt.Fprintf(w, "Authorization successful, you may close this window now")
+	return err
+}
+
+func randomHexString() string {
+	// This produces a 64 char random string from the [0-9a-f] alphabet or 256 bits.
+	// The alternative of generating 32 random bytes and base64 encoding would add complexity and
+	// overhead while reducing the size of the generated string to 48 characters.
+	return fmt.Sprintf("%.16x%.16x%.16x%.16x", rand.Uint64(), rand.Uint64(), rand.Uint64(), rand.Uint64())
+}
+
 const (
 	queryParamMaxResults = "maxResults"
 )
@@ -303,6 +381,66 @@ func buildInfraCfg(servers []string) apiv1.InfraConfig {
 func indexHandler(w http.ResponseWriter, r *http.Request, user UserInfo) error {
 	fmt.Fprintln(w, "Home page")
 	return nil
+}
+
+// Extracts the authorization code and state from the authorization provider's response.
+func (c *Controller) parseAuthorizationResponse(r *http.Request) (string, error) {
+	query := r.URL.Query()
+
+	// Discard an authorization error first.
+	if errMsg, ok := query["error"]; ok {
+		return "", fmt.Errorf("Authentication error: %v", errMsg)
+	}
+
+	// Validate oauth2 state.
+	stateSlice, ok := query["state"]
+	if !ok {
+		return "", fmt.Errorf("No OAuth2 State present")
+	}
+	state := stateSlice[0]
+
+	sessionCookie, err := r.Cookie(sessionIdCookie)
+	if err != nil {
+		return "", err
+	}
+	sessionKey := sessionCookie.Value
+	session, err := c.databaseService.FetchSession(sessionKey)
+	if err != nil {
+		return "", err
+	}
+	if state != session.OAuth2State {
+		return "", NewBadRequestError("OAuth2 State doesn't match session", nil)
+	}
+
+	// The state should be used only once. Delete the entire session since it's only being used for
+	// OAuth2 state.
+	c.databaseService.DeleteSession(sessionKey)
+
+	// Extract the authorization code.
+	code, ok := query["code"]
+	if !ok {
+		return "", fmt.Errorf("Authorization response does not include an authorization code")
+	}
+	return code[0], nil
+}
+
+func extractIDToken(tk *oauth2.Token) (*jwt.Token, error) {
+	val := tk.Extra("id_token")
+	if val == nil {
+		return nil, fmt.Errorf("No id token in oauth server response")
+	}
+	tokenString, ok := val.(string)
+	if !ok {
+		return nil, fmt.Errorf("Unexpected id token in oauth response")
+	}
+	// No need to verify the JWT here since it came directly from the oauth provider.
+	noVerify := func(tk *jwt.Token) (interface{}, error) { return nil, nil }
+	idTk, err := jwt.Parse(tokenString, noVerify)
+	if err != nil && errors.Is(err, jwt.ErrInvalidKeyType) {
+		// The error should be invalid key type because of the nil return in the lambda.
+		return nil, err
+	}
+	return idTk, nil
 }
 
 // Get an int form value from the request. A form value can be in the query

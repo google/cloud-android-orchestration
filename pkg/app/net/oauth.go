@@ -15,9 +15,6 @@
 package net
 
 import (
-	"fmt"
-	"net/http"
-
 	"github.com/google/cloud-android-orchestration/pkg/app"
 
 	"golang.org/x/oauth2"
@@ -29,32 +26,12 @@ func NewGoogleOAuthConfig(redirectURL string, sm app.SecretManager) *oauth2.Conf
 	return &oauth2.Config{
 		ClientID:     sm.OAuthClientID(),
 		ClientSecret: sm.OAuthClientSecret(),
-		Scopes:       []string{"https://www.googleapis.com/auth/androidbuild.internal"},
-		RedirectURL:  redirectURL,
-		Endpoint:     google.Endpoint,
+		Scopes: []string{
+			"https://www.googleapis.com/auth/androidbuild.internal",
+			"openid",
+			"email",
+		},
+		RedirectURL: redirectURL,
+		Endpoint:    google.Endpoint,
 	}
-}
-
-// Extracts the authorization code and state from the authorization provider's response.
-func ParseAuthorizationResponse(r *http.Request) (*AuthorizationResponse, error) {
-	q := r.URL.Query()
-	res := &AuthorizationResponse{}
-	if errMsg, ok := q["error"]; ok {
-		return nil, fmt.Errorf("Authentication error: %v", errMsg)
-	}
-	if stateSlice, ok := q["state"]; ok {
-		res.State = stateSlice[0]
-	}
-	var ok bool
-	var code []string
-	if code, ok = q["code"]; !ok {
-		return nil, fmt.Errorf("Authorization response does not include an authorization code")
-	}
-	res.AuthorizationCode = code[0]
-	return res, nil
-}
-
-type AuthorizationResponse struct {
-	AuthorizationCode string
-	State             string
 }

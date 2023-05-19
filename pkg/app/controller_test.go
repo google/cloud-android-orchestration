@@ -47,7 +47,9 @@ func (m *testAccountManager) Authenticate(fn AuthHTTPHandler) HTTPHandler {
 	}
 }
 
-func (m *testAccountManager) RegisterAuthHandlers(r *mux.Router) {}
+func (m *testAccountManager) OnOAuthExchange(w http.ResponseWriter, r *http.Request, tk IDTokenClaims) (UserInfo, error) {
+	return &testUserInfo{}, nil
+}
 
 type testInstanceManager struct{}
 
@@ -77,7 +79,7 @@ func (m *testInstanceManager) GetHostClient(zone string, host string) (HostClien
 
 func TestCreateHostSucceeds(t *testing.T) {
 	controller := NewController(
-		make([]string, 0), OperationsConfig{}, &testInstanceManager{}, nil, &testAccountManager{})
+		make([]string, 0), OperationsConfig{}, &testInstanceManager{}, nil, &testAccountManager{}, nil, nil, nil)
 	ts := httptest.NewServer(controller.Handler())
 	defer ts.Close()
 
@@ -94,7 +96,7 @@ func TestCreateHostOperationIsDisabled(t *testing.T) {
 	controller := NewController(
 		make([]string, 0),
 		OperationsConfig{CreateHostDisabled: true},
-		&testInstanceManager{}, nil, &testAccountManager{})
+		&testInstanceManager{}, nil, &testAccountManager{}, nil, nil, nil)
 	ts := httptest.NewServer(controller.Handler())
 	defer ts.Close()
 
@@ -109,7 +111,7 @@ func TestCreateHostOperationIsDisabled(t *testing.T) {
 
 func TestWaitOperatioSucceeds(t *testing.T) {
 	controller := NewController(
-		make([]string, 0), OperationsConfig{}, &testInstanceManager{}, nil, &testAccountManager{})
+		make([]string, 0), OperationsConfig{}, &testInstanceManager{}, nil, &testAccountManager{}, nil, nil, nil)
 	ts := httptest.NewServer(controller.Handler())
 	defer ts.Close()
 
@@ -181,7 +183,7 @@ func TestDeleteHostIsHandled(t *testing.T) {
 		t.Fatal(err)
 	}
 	controller := NewController(
-		make([]string, 0), OperationsConfig{}, &testInstanceManager{}, nil, &testAccountManager{})
+		make([]string, 0), OperationsConfig{}, &testInstanceManager{}, nil, &testAccountManager{}, nil, nil, nil)
 
 	makeRequest(rr, req, controller)
 

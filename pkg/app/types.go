@@ -19,8 +19,6 @@ import (
 	"net/http/httputil"
 
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
-
-	"github.com/gorilla/mux"
 )
 
 type DeviceFilesRequest struct {
@@ -88,6 +86,9 @@ type ListHostsRequest struct {
 type AuthHTTPHandler func(http.ResponseWriter, *http.Request, UserInfo) error
 type HTTPHandler func(http.ResponseWriter, *http.Request) error
 
+// ID tokens (from OpenID connect) are presented in JWT format, with the relevant fields in the Claims section.
+type IDTokenClaims map[string]interface{}
+
 type AccountManager interface {
 	// Returns the received http handler wrapped in another that extracts user
 	// information from the request and passes it to to the original handler as
@@ -96,7 +97,9 @@ type AccountManager interface {
 	// authenticated, otherwise it may choose to return an error or respond with
 	// an HTTP redirect to the login page.
 	Authenticate(fn AuthHTTPHandler) HTTPHandler
-	RegisterAuthHandlers(r *mux.Router)
+	// Gives the account manager the chance to extract login information from the token (id token
+	// for example), validate it, add cookies to the request, etc.
+	OnOAuthExchange(w http.ResponseWriter, r *http.Request, idToken IDTokenClaims) (UserInfo, error)
 }
 
 type SecretManager interface {
@@ -109,10 +112,21 @@ type EncryptionService interface {
 	Decrypt(ciphertext []byte) ([]byte, error)
 }
 
+type Session struct {
+	Key         string
+	OAuth2State string
+}
+
 type DatabaseService interface {
 	// Credentials are usually stored encrypted hence the []byte type.
 	// If no credentials are available for the given user Fetch returns nil, nil.
 	FetchBuildAPICredentials(username string) ([]byte, error)
 	// Store new credentials or overwrite existing ones for the given user.
 	StoreBuildAPICredentials(username string, credentials []byte) error
+	// Create or update a user session.
+	CreateOrUpdateSession(s Session) error
+	// Fetch a session. Returns nil, nil if the session doesn't exist.
+	FetchSession(key string) (*Session, error)
+	// Delete a session. Won't return error if the session doesn't exist.
+	DeleteSession(key string) error
 }

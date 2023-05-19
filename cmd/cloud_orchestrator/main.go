@@ -96,15 +96,13 @@ func LoadOAuthConfig(config *app.Config, sm app.SecretManager) *oauth2.Config {
 	return oauthConfig
 }
 
-func LoadAccountManager(config *app.Config, oauthConfig *oauth2.Config) app.AccountManager {
+func LoadAccountManager(config *app.Config) app.AccountManager {
 	var am app.AccountManager
 	switch config.AccountManager.Type {
 	case app.GAEAMType:
-		am = gcp.NewUsersAccountManager(oauthConfig)
+		am = gcp.NewUsersAccountManager()
 	case app.UnixAMType:
-		am = &unix.AccountManager{
-			OAuthConfig: oauthConfig,
-		}
+		am = &unix.AccountManager{}
 	default:
 		log.Fatal("Unknown Account Manager type: ", config.AccountManager.Type)
 	}
@@ -173,10 +171,11 @@ func main() {
 	signalingServer := app.NewForwardingSignalingServer(config.WebStaticFilesPath, instanceManager)
 	secretManager := LoadSecretManager(config)
 	oauthConfig := LoadOAuthConfig(config, secretManager)
-	accountManager := LoadAccountManager(config, oauthConfig)
-	_ = LoadEncryptionService(config)
-	_ = LoadDatabaseService(config)
-	controller := app.NewController(config.Infra.STUNServers, config.Operations, instanceManager, signalingServer, accountManager)
+	accountManager := LoadAccountManager(config)
+	encryptionService := LoadEncryptionService(config)
+	dbService := LoadDatabaseService(config)
+	controller := app.NewController(config.Infra.STUNServers, config.Operations, instanceManager,
+		signalingServer, accountManager, oauthConfig, encryptionService, dbService)
 
 	iface := ChooseNetworkInterface(config)
 	port := ServerPort()

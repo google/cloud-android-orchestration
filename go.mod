@@ -3,8 +3,11 @@ module github.com/google/cloud-android-orchestration
 go 1.18
 
 require (
+	cloud.google.com/go/kms v1.10.2
 	cloud.google.com/go/secretmanager v1.10.1
+	cloud.google.com/go/spanner v1.45.1
 	github.com/cenkalti/backoff/v4 v4.2.0
+	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/google/android-cuttlefish/frontend/src/liboperator v0.0.0-20230328052018-7ecf503add77
 	github.com/google/go-cmp v0.5.9
 	github.com/google/uuid v1.3.0
@@ -17,6 +20,7 @@ require (
 	github.com/spf13/cobra v1.6.1
 	golang.org/x/oauth2 v0.8.0
 	google.golang.org/api v0.118.0
+	google.golang.org/grpc v1.55.0
 )
 
 require (
@@ -24,8 +28,6 @@ require (
 	cloud.google.com/go/compute v1.19.0 // indirect
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
 	cloud.google.com/go/iam v0.13.0 // indirect
-	cloud.google.com/go/kms v1.10.2 // indirect
-	cloud.google.com/go/spanner v1.45.1 // indirect
 	github.com/census-instrumentation/opencensus-proto v0.4.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/cncf/udpa/go v0.0.0-20220112060539-c52dc94e7fbe // indirect
@@ -63,6 +65,5 @@ require (
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20230410155749-daa745c078e1 // indirect
-	google.golang.org/grpc v1.55.0 // indirect
 	google.golang.org/protobuf v1.30.0 // indirect
 )

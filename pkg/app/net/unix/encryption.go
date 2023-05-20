@@ -14,47 +14,26 @@
 
 package unix
 
-import (
-	"crypto/aes"
-	"crypto/cipher"
-	"crypto/rand"
-)
-
-// A simple and probably insecure implementation of an encryption service to be used for testing and
+// A simple and very insecure implementation of an encryption service to be used for testing and
 // local development.
-type SimpleEncryptionService struct {
-	block cipher.Block
-}
+type SimpleEncryptionService struct{}
 
 func NewSimpleEncryptionService(key []byte) (*SimpleEncryptionService, error) {
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, err
-	}
-	return &SimpleEncryptionService{block}, nil
+	return &SimpleEncryptionService{}, nil
 }
 
 func (es *SimpleEncryptionService) Encrypt(plaintext []byte) ([]byte, error) {
-	blkSize := es.block.BlockSize()
-	iv := make([]byte, blkSize)
-	_, err := rand.Read(iv)
-	if err != nil {
-		return nil, err
+	// Pretend to encrypt/decrypt messages by flipping the bits in the message. That ensures the
+	// encrypted message is different than the original.
+	const mask byte = 255
+	res := make([]byte, len(plaintext))
+	for i := 0; i < len(plaintext); i += 1 {
+		res[i] = plaintext[i] ^ mask
 	}
-	ec := cipher.NewCFBEncrypter(es.block, iv)
-	ciphertext := make([]byte, len(plaintext))
-	ec.XORKeyStream(ciphertext, plaintext)
-	// Put the initialization vector at the beginning of the ciphertext.
-	return append(iv, ciphertext...), nil
+	return res, nil
 }
 
 func (es *SimpleEncryptionService) Decrypt(ciphertext []byte) ([]byte, error) {
-	blkSize := es.block.BlockSize()
-	// Panic if smaller than blkSize, that's ok
-	iv := ciphertext[:blkSize]
-	ciphertext = ciphertext[blkSize:]
-	dc := cipher.NewCFBDecrypter(es.block, iv)
-	plaintext := make([]byte, len(ciphertext))
-	dc.XORKeyStream(plaintext, ciphertext)
-	return plaintext, nil
+	// Same procedure to decrypt
+	return es.Encrypt(ciphertext)
 }

@@ -87,7 +87,7 @@ func (c *Controller) Handler() http.Handler {
 
 	// Host Orchestrator Proxy Routes
 	router.PathPrefix(
-		"/v1/zones/{zone}/hosts/{host}/{resource:devices|operations|cvds|userartifacts}").Handler(hf.Handler())
+		"/v1/zones/{zone}/hosts/{host}/{resource:devices|operations|cvds|userartifacts}").Handler(c.accountManager.Authenticate(hf.Handler()))
 
 	// Infra route
 	router.HandleFunc("/v1/zones/{zone}/hosts/{host}/infra_config", func(w http.ResponseWriter, r *http.Request) {
@@ -142,8 +142,8 @@ type HostForwarder struct {
 	newReverseProxy ReverseProxyFactory
 }
 
-func (f *HostForwarder) Handler() HTTPHandler {
-	return func(w http.ResponseWriter, r *http.Request) error {
+func (f *HostForwarder) Handler() AuthHTTPHandler {
+	return func(w http.ResponseWriter, r *http.Request, user UserInfo) error {
 		vars := mux.Vars(r)
 		zone := vars["zone"]
 		if zone == "" {

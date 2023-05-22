@@ -224,7 +224,7 @@ func TestHostForwarderInvalidRequests(t *testing.T) {
 		// Manually set mux Vars as the parsing is done by the router.
 		r = mux.SetURLVars(r, c.vars)
 
-		err := hf.Handler()(w, r)
+		err := hf.Handler()(w, r, nil)
 
 		if err == nil {
 			t.Error("expected error")
@@ -280,7 +280,7 @@ func TestHostForwarderRequest(t *testing.T) {
 			// Manually set mux Vars as the parsing is done by the router.
 			r = mux.SetURLVars(r, map[string]string{"zone": zone, "host": host})
 
-			err := hf.Handler()(w, r)
+			err := hf.Handler()(w, r, nil)
 
 			if err != nil {
 				t.Errorf("expected nil error, got %+v", err)
@@ -317,7 +317,7 @@ func TestHostForwarderHostAsHostResource(t *testing.T) {
 	// Manually set mux Vars as the parsing is done by the router.
 	r = mux.SetURLVars(r, map[string]string{"zone": zone, "host": host})
 
-	err = hf.Handler()(w, r)
+	err = hf.Handler()(w, r, nil)
 
 	if err != nil {
 		t.Errorf("expected <<nil>>, got %+v", err)

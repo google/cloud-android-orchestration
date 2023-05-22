@@ -96,6 +96,22 @@ func (dbs *SpannerDBService) StoreBuildAPICredentials(username string, credentia
 	return err
 }
 
+func (dbs *SpannerDBService) DeleteBuildAPICredentials(username string) error {
+	ctx := context.TODO()
+	client, err := spanner.NewClient(ctx, dbs.db)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+	mutation := spanner.Delete(credentialsTable, spanner.KeySetFromKeys(spanner.Key{username}))
+	_, err = client.Apply(ctx, []*spanner.Mutation{mutation})
+	if spanner.ErrCode(err) == codes.NotFound {
+		// Not an error if not found
+		return nil
+	}
+	return err
+}
+
 func (dbs *SpannerDBService) CreateOrUpdateSession(s app.Session) error {
 	ctx := context.TODO()
 	client, err := spanner.NewClient(ctx, dbs.db)

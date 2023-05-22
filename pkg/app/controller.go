@@ -15,16 +15,19 @@
 package app
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"math/rand"
 	"net/http"
-	"net/http/httputil"
 	"strconv"
 	"strings"
 
+	hoapi "github.com/google/android-cuttlefish/frontend/src/liboperator/api/v1"
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
 
 	"github.com/golang-jwt/jwt"
@@ -65,7 +68,6 @@ func NewController(
 
 func (c *Controller) Handler() http.Handler {
 	router := mux.NewRouter()
-	hf := &HostForwarder{newReverseProxy: newReverseProxyBuilder(c.instanceManager)}
 
 	// Signaling Server Routes
 	router.Handle("/v1/zones/{zone}/hosts/{host}/connections/{connID}/messages", HTTPHandler(c.accountManager.Authenticate(c.messages))).Methods("GET")
@@ -87,7 +89,7 @@ func (c *Controller) Handler() http.Handler {
 
 	// Host Orchestrator Proxy Routes
 	router.PathPrefix(
-		"/v1/zones/{zone}/hosts/{host}/{resource:devices|operations|cvds|userartifacts}").Handler(c.accountManager.Authenticate(hf.Handler()))
+		"/v1/zones/{zone}/hosts/{host}/{resource:devices|operations|cvds|userartifacts}").Handler(HTTPHandler(c.accountManager.Authenticate(c.ForwardToHost)))
 
 	// Infra route
 	router.HandleFunc("/v1/zones/{zone}/hosts/{host}/infra_config", func(w http.ResponseWriter, r *http.Request) {
@@ -104,11 +106,78 @@ func (c *Controller) Handler() http.Handler {
 	return router
 }
 
+func (c *Controller) ForwardToHost(w http.ResponseWriter, r *http.Request, user UserInfo) error {
+	vars := mux.Vars(r)
+	zone := vars["zone"]
+	if zone == "" {
+		return fmt.Errorf("invalid url missing zone value: %q", r.URL.String())
+	}
+	host := vars["host"]
+	if host == "" {
+		return fmt.Errorf("invalid url missing host value: %q", r.URL.String())
+	}
+	resource := vars["resource"]
+	if resource == "" {
+		return fmt.Errorf("invalid url missing host resource: %q", r.URL.String())
+	}
+	client, err := c.instanceManager.GetHostClient(zone, host)
+	if err != nil {
+		return err
+	}
+	r.URL.Path, err = HostOrchestratorPath(r.URL.Path, host)
+	if err != nil {
+		return err
+	}
+
+	// Credentials are only needed in created cvd requests
+	if r.Method == http.MethodPost && resource == "cvds" {
+		// Get the credentials.
+		tk, err := c.fetchUserCredentials(user)
+		if err != nil {
+			return err
+		}
+		if tk != nil {
+			// TODO(jemoreira) return unauthorized instead when no credentials are found
+			if err := InjectCredentialsIntoCreateCVDRequest(r, tk.AccessToken); err != nil {
+				return err
+			}
+		}
+	}
+
+	client.GetReverseProxy().ServeHTTP(w, r)
+	return nil
+}
+
+func InjectCredentialsIntoCreateCVDRequest(r *http.Request, credentials string) error {
+	msg := hoapi.CreateCVDRequest{}
+	if err := json.NewDecoder(r.Body).Decode(&msg); err != nil {
+		return err
+	}
+	if msg.CVD != nil && msg.CVD.BuildSource != nil && msg.CVD.BuildSource.AndroidCIBuildSource != nil {
+		msg.CVD.BuildSource.AndroidCIBuildSource.Credentials = credentials
+	}
+	buf, err := json.Marshal(msg)
+	if err != nil {
+		return err
+	}
+	r.ContentLength = int64(len(buf))
+	r.Body = io.NopCloser(bytes.NewReader(buf))
+	return nil
+}
+
 func (c *Controller) createHostHTTPHandler() HTTPHandler {
 	if c.opsConfig.CreateHostDisabled {
 		return notAllowedHttpHandler
 	}
-	return c.accountManager.Authenticate(c.createHost)
+	return HTTPHandler(c.accountManager.Authenticate(c.createHost))
+}
+
+func HostOrchestratorPath(path, host string) (string, error) {
+	split := strings.SplitN(path, "hosts/"+host, 2)
+	if len(split) != 2 {
+		return "", fmt.Errorf("URL path doesn't have host component: %s", path)
+	}
+	return split[1], nil
 }
 
 // Intercept errors returned by the HTTPHandler and transform them into HTTP
@@ -124,56 +193,6 @@ func (h HTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			replyJSON(w, apiv1.Error{ErrorMsg: "Internal Server Error"}, http.StatusInternalServerError)
 		}
 	}
-}
-
-type ReverseProxyFactory func(zone, host string) (*httputil.ReverseProxy, error)
-
-func newReverseProxyBuilder(im InstanceManager) ReverseProxyFactory {
-	return func(zone, host string) (*httputil.ReverseProxy, error) {
-		client, err := im.GetHostClient(zone, host)
-		if err != nil {
-			return nil, err
-		}
-		return client.GetReverseProxy(), nil
-	}
-}
-
-type HostForwarder struct {
-	newReverseProxy ReverseProxyFactory
-}
-
-func (f *HostForwarder) Handler() AuthHTTPHandler {
-	return func(w http.ResponseWriter, r *http.Request, user UserInfo) error {
-		vars := mux.Vars(r)
-		zone := vars["zone"]
-		if zone == "" {
-			return fmt.Errorf("invalid url missing zone value: %q", r.URL.String())
-		}
-		host := vars["host"]
-		if host == "" {
-			return fmt.Errorf("invalid url missing host value: %q", r.URL.String())
-		}
-		proxy, err := f.buildReverseProxy(zone, host)
-		if err != nil {
-			return err
-		}
-		proxy.ServeHTTP(w, r)
-		return nil
-	}
-}
-
-func (f *HostForwarder) buildReverseProxy(zone, host string) (*httputil.ReverseProxy, error) {
-	proxy, err := f.newReverseProxy(zone, host)
-	if err != nil {
-		return nil, err
-	}
-	oldDirector := proxy.Director
-	proxy.Director = func(r *http.Request) {
-		split := strings.SplitN(r.URL.Path, "hosts/"+host, 2)
-		r.URL.Path = split[1]
-		oldDirector(r)
-	}
-	return proxy, nil
 }
 
 func (c *Controller) getDeviceFiles(w http.ResponseWriter, r *http.Request, user UserInfo) error {
@@ -319,6 +338,57 @@ func (c *Controller) OAuth2Callback(w http.ResponseWriter, r *http.Request) erro
 	if err != nil {
 		return err
 	}
+	if err := c.storeUserCredentials(user, tk); err != nil {
+		return err
+	}
+	// Don't return a real page here since any resource (i.e JS module) will have access to the
+	// server response
+	_, err = fmt.Fprintf(w, "Authorization successful, you may close this window now")
+	return err
+}
+
+// Extracts the authorization code and state from the authorization provider's response.
+func (c *Controller) parseAuthorizationResponse(r *http.Request) (string, error) {
+	query := r.URL.Query()
+
+	// Discard an authorization error first.
+	if errMsg, ok := query["error"]; ok {
+		return "", fmt.Errorf("Authentication error: %v", errMsg)
+	}
+
+	// Validate oauth2 state.
+	stateSlice, ok := query["state"]
+	if !ok {
+		return "", fmt.Errorf("No OAuth2 State present")
+	}
+	state := stateSlice[0]
+
+	sessionCookie, err := r.Cookie(sessionIdCookie)
+	if err != nil {
+		return "", err
+	}
+	sessionKey := sessionCookie.Value
+	session, err := c.databaseService.FetchSession(sessionKey)
+	if err != nil {
+		return "", err
+	}
+	if state != session.OAuth2State {
+		return "", NewBadRequestError("OAuth2 State doesn't match session", nil)
+	}
+
+	// The state should be used only once. Delete the entire session since it's only being used for
+	// OAuth2 state.
+	c.databaseService.DeleteSession(sessionKey)
+
+	// Extract the authorization code.
+	code, ok := query["code"]
+	if !ok {
+		return "", fmt.Errorf("Authorization response does not include an authorization code")
+	}
+	return code[0], nil
+}
+
+func (c *Controller) storeUserCredentials(user UserInfo, tk *oauth2.Token) error {
 	creds, err := json.Marshal(tk)
 	if err != nil {
 		return fmt.Errorf("Failed to serialize credentials: %w", err)
@@ -330,10 +400,47 @@ func (c *Controller) OAuth2Callback(w http.ResponseWriter, r *http.Request) erro
 	if err := c.databaseService.StoreBuildAPICredentials(user.Username(), encryptedCreds); err != nil {
 		return fmt.Errorf("Failed to store credentials: %w", err)
 	}
-	// Don't return a real page here since any resource (i.e JS module) will have access to the
-	// server response
-	_, err = fmt.Fprintf(w, "Authorization successful, you may close this window now")
-	return err
+	return nil
+}
+
+func (c *Controller) fetchUserCredentials(user UserInfo) (*oauth2.Token, error) {
+	encryptedCreds, err := c.databaseService.FetchBuildAPICredentials(user.Username())
+	if err != nil {
+		return nil, fmt.Errorf("Error getting user credentials: %w", err)
+	}
+	if encryptedCreds == nil {
+		return nil, nil
+	}
+	creds, err := c.encryptionService.Decrypt(encryptedCreds)
+	if err != nil {
+		// It's unlikely to be able to recover from this error in the future, the best approach is
+		// probably to delete the user credentials and ask for authorization again.
+		if err := c.databaseService.DeleteBuildAPICredentials(user.Username()); err != nil {
+			log.Println("Error deleting user credentials: ", err)
+		}
+		return nil, err
+	}
+	tk := &oauth2.Token{}
+	if err := json.Unmarshal(creds, tk); err != nil {
+		// This is also likely unrecoverable.
+		if err := c.databaseService.DeleteBuildAPICredentials(user.Username()); err != nil {
+			log.Println("Error deleting user credentials: ", err)
+		}
+		return nil, fmt.Errorf("Error deserializing token: %w", err)
+	}
+	if !tk.Valid() {
+		// Refresh the token and store it in the db.
+		tks := c.oauthConfig.TokenSource(context.TODO(), tk)
+		tk, err = tks.Token()
+		if err != nil {
+			return nil, fmt.Errorf("Error refreshing token: %w", err)
+		}
+		if err := c.storeUserCredentials(user, tk); err != nil {
+			// This won't stop the current operation, but will force a refresh in future requests.
+			log.Println("Error storing refreshed tokens: ", err)
+		}
+	}
+	return tk, nil
 }
 
 func randomHexString() string {
@@ -381,47 +488,6 @@ func buildInfraCfg(servers []string) apiv1.InfraConfig {
 func indexHandler(w http.ResponseWriter, r *http.Request, user UserInfo) error {
 	fmt.Fprintln(w, "Home page")
 	return nil
-}
-
-// Extracts the authorization code and state from the authorization provider's response.
-func (c *Controller) parseAuthorizationResponse(r *http.Request) (string, error) {
-	query := r.URL.Query()
-
-	// Discard an authorization error first.
-	if errMsg, ok := query["error"]; ok {
-		return "", fmt.Errorf("Authentication error: %v", errMsg)
-	}
-
-	// Validate oauth2 state.
-	stateSlice, ok := query["state"]
-	if !ok {
-		return "", fmt.Errorf("No OAuth2 State present")
-	}
-	state := stateSlice[0]
-
-	sessionCookie, err := r.Cookie(sessionIdCookie)
-	if err != nil {
-		return "", err
-	}
-	sessionKey := sessionCookie.Value
-	session, err := c.databaseService.FetchSession(sessionKey)
-	if err != nil {
-		return "", err
-	}
-	if state != session.OAuth2State {
-		return "", NewBadRequestError("OAuth2 State doesn't match session", nil)
-	}
-
-	// The state should be used only once. Delete the entire session since it's only being used for
-	// OAuth2 state.
-	c.databaseService.DeleteSession(sessionKey)
-
-	// Extract the authorization code.
-	code, ok := query["code"]
-	if !ok {
-		return "", fmt.Errorf("Authorization response does not include an authorization code")
-	}
-	return code[0], nil
 }
 
 func extractIDToken(tk *oauth2.Token) (*jwt.Token, error) {

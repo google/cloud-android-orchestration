@@ -18,7 +18,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/http/httputil"
@@ -27,8 +27,6 @@ import (
 	"testing"
 
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
-
-	"github.com/gorilla/mux"
 )
 
 const pageNotFoundErrMsg = "404 page not found\n"
@@ -51,7 +49,9 @@ func (m *testAccountManager) OnOAuthExchange(w http.ResponseWriter, r *http.Requ
 	return &testUserInfo{}, nil
 }
 
-type testInstanceManager struct{}
+type testInstanceManager struct {
+	hostClientFactory func(zone, host string) HostClient
+}
 
 func (m *testInstanceManager) GetHostURL(zone string, host string) (*url.URL, error) {
 	return url.Parse("http://127.0.0.1:8080")
@@ -74,7 +74,23 @@ func (m *testInstanceManager) WaitOperation(_ string, _ UserInfo, _ string) (any
 }
 
 func (m *testInstanceManager) GetHostClient(zone string, host string) (HostClient, error) {
-	return nil, nil
+	return m.hostClientFactory(zone, host), nil
+}
+
+type testHostClient struct {
+	url *url.URL
+}
+
+func (hc *testHostClient) Get(path, query string, res *HostResponse) (int, error) {
+	return 200, nil
+}
+
+func (hc *testHostClient) Post(path, query string, bodyJSON any, res *HostResponse) (int, error) {
+	return 200, nil
+}
+
+func (hc *testHostClient) GetReverseProxy() *httputil.ReverseProxy {
+	return httputil.NewSingleHostReverseProxy(hc.url)
 }
 
 func TestCreateHostSucceeds(t *testing.T) {
@@ -192,58 +208,19 @@ func TestDeleteHostIsHandled(t *testing.T) {
 	}
 }
 
-func newTestReverseProxyBuilder(url *url.URL) ReverseProxyFactory {
-	return func(_, _ string) (*httputil.ReverseProxy, error) {
-		return httputil.NewSingleHostReverseProxy(url), nil
-	}
-}
-
-func TestHostForwarderInvalidRequests(t *testing.T) {
-	zone := "foo"
-	hf := HostForwarder{
-		newReverseProxy: newTestReverseProxyBuilder(nil),
-	}
-
-	cases := []struct {
-		reqURL string
-		// Needed to manually set mux Vars as the parsing is done by the router.
-		vars map[string]string
-	}{
-		{
-			reqURL: "http://test.com/v1/zones",
-		},
-		{
-			reqURL: fmt.Sprintf("http://test.com/v1/zones/%s/hosts", zone),
-			vars:   map[string]string{"zone": zone},
-		},
-	}
-
-	for _, c := range cases {
-		w := httptest.NewRecorder()
-		r, _ := http.NewRequest("GET", c.reqURL, nil)
-		// Manually set mux Vars as the parsing is done by the router.
-		r = mux.SetURLVars(r, c.vars)
-
-		err := hf.Handler()(w, r, nil)
-
-		if err == nil {
-			t.Error("expected error")
-		}
-	}
-}
-
-const headerContentType = "Content-Type"
-
 func TestHostForwarderRequest(t *testing.T) {
+	const headerContentType = "Content-Type"
 	respContentType := "app/ct"
 	respContent := "lorem ipsum"
 	respStatusCode := http.StatusNotFound
 	zone := "foo"
 	host := "bar"
-	reqURL := fmt.Sprintf("http://test.com/v1/zones/%s/hosts/%s/devices?baz=1", zone, host)
+	resource := "devices"
+	reqURL := fmt.Sprintf("http://test.com/v1/zones/%s/hosts/%s/%s?baz=1", zone, host, resource)
 	postRequestBody := "duis feugiat"
+	expectedReceivedURL := "/devices?baz=1"
+
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		expectedReceivedURL := "/devices?baz=1"
 		if r.URL.String() != expectedReceivedURL {
 			t.Fatalf("expected url <<%q>>, got: %q", expectedReceivedURL, r.URL.String())
 		}
@@ -251,7 +228,7 @@ func TestHostForwarderRequest(t *testing.T) {
 		if r.Method == "POST" {
 			expectedBody = postRequestBody
 		}
-		b, _ := ioutil.ReadAll(r.Body)
+		b, _ := io.ReadAll(r.Body)
 		if string(b) != expectedBody {
 			t.Fatalf("expected body <<%q>>, got: %q", expectedBody, string(b))
 		}
@@ -260,9 +237,12 @@ func TestHostForwarderRequest(t *testing.T) {
 		w.Write([]byte(respContent))
 	}))
 	hostURL, _ := url.Parse(ts.URL)
-	hf := HostForwarder{
-		newReverseProxy: newTestReverseProxyBuilder(hostURL),
-	}
+	controller := NewController(
+		make([]string, 0), OperationsConfig{}, &testInstanceManager{
+			hostClientFactory: func(_, _ string) HostClient {
+				return &testHostClient{hostURL}
+			},
+		}, nil, &testAccountManager{}, nil, nil, nil)
 
 	tests := []struct {
 		method  string
@@ -276,22 +256,17 @@ func TestHostForwarderRequest(t *testing.T) {
 
 		t.Run(fmt.Sprintf("request - %s", tt.method), func(t *testing.T) {
 			w := httptest.NewRecorder()
-			r, _ := http.NewRequest(tt.method, reqURL, bytes.NewBuffer([]byte(tt.reqBody)))
-			// Manually set mux Vars as the parsing is done by the router.
-			r = mux.SetURLVars(r, map[string]string{"zone": zone, "host": host})
+			req, _ := http.NewRequest(tt.method, reqURL, bytes.NewBuffer([]byte(tt.reqBody)))
 
-			err := hf.Handler()(w, r, nil)
+			makeRequest(w, req, controller)
 
-			if err != nil {
-				t.Errorf("expected nil error, got %+v", err)
-			}
 			if w.Header()[headerContentType][0] != respContentType {
 				t.Errorf("expected <<%q>>, got: %q", respContentType, w.Header()[headerContentType])
 			}
 			if w.Result().StatusCode != respStatusCode {
 				t.Errorf("expected <<%+v>>, got: %+v", respStatusCode, w.Result().StatusCode)
 			}
-			b, _ := ioutil.ReadAll(w.Result().Body)
+			b, _ := io.ReadAll(w.Result().Body)
 			if string(b) != respContent {
 				t.Errorf("expected <<%q>>, got: %q", respContent, string(b))
 			}
@@ -299,32 +274,39 @@ func TestHostForwarderRequest(t *testing.T) {
 	}
 }
 
-func TestHostForwarderHostAsHostResource(t *testing.T) {
-	var receivedURL string
+func TestHostForwarderInvalidRequests(t *testing.T) {
 	zone := "foo"
 	host := "bar"
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		receivedURL = r.URL.String()
-		w.Write([]byte(""))
-	}))
-	hostURL, _ := url.Parse(ts.URL)
-	hf := HostForwarder{
-		newReverseProxy: newTestReverseProxyBuilder(hostURL),
+	cases := []string{
+		"http://test.com/v1/zones",
+		fmt.Sprintf("http://test.com/v1/zones/%s/hosts", zone),
 	}
-	w := httptest.NewRecorder()
-	reqURL := fmt.Sprintf("http://test.com/v1/zones/%s/hosts/%s/hosts/%s", zone, host, host)
-	r, err := http.NewRequest("GET", reqURL, nil)
-	// Manually set mux Vars as the parsing is done by the router.
-	r = mux.SetURLVars(r, map[string]string{"zone": zone, "host": host})
+	for _, c := range cases {
+		u, err := url.Parse(c)
+		if err != nil {
+			t.Errorf("Failed to parse test url: %v", err)
+		}
+		_, err = HostOrchestratorPath(u.Path, host)
+		if err == nil {
+			t.Errorf("Expected OrchestratorPath to fail")
+		}
+	}
+}
 
-	err = hf.Handler()(w, r, nil)
-
+func TestHostForwarderHostAsHostResource(t *testing.T) {
+	host := "bar"
+	reqURL := "http://test.com/v1/zones/foo/hosts/bar/hosts/bar"
+	u, err := url.Parse(reqURL)
 	if err != nil {
-		t.Errorf("expected <<nil>>, got %+v", err)
+		t.Error(err)
 	}
 	expected := "/hosts/bar"
-	if receivedURL != expected {
-		t.Errorf("expected <<%q>>, got: %q", expected, receivedURL)
+	path, err := HostOrchestratorPath(u.Path, host)
+	if err != nil {
+		t.Error(err)
+	}
+	if path != expected {
+		t.Errorf("expected <<%q>>, got: %q", expected, path)
 	}
 }
 

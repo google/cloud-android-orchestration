@@ -39,6 +39,11 @@ func (dbs *InMemoryDBService) StoreBuildAPICredentials(username string, credenti
 	return nil
 }
 
+func (dbs *InMemoryDBService) DeleteBuildAPICredentials(username string) error {
+	delete(dbs.credentials, username)
+	return nil
+}
+
 func (dbs *InMemoryDBService) CreateOrUpdateSession(s app.Session) error {
 	dbs.session = s
 	return nil

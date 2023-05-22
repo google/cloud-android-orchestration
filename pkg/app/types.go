@@ -123,6 +123,7 @@ type DatabaseService interface {
 	FetchBuildAPICredentials(username string) ([]byte, error)
 	// Store new credentials or overwrite existing ones for the given user.
 	StoreBuildAPICredentials(username string, credentials []byte) error
+	DeleteBuildAPICredentials(username string) error
 	// Create or update a user session.
 	CreateOrUpdateSession(s Session) error
 	// Fetch a session. Returns nil, nil if the session doesn't exist.

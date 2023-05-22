@@ -8,7 +8,6 @@ require (
 	cloud.google.com/go/spanner v1.45.1
 	github.com/cenkalti/backoff/v4 v4.2.0
 	github.com/golang-jwt/jwt v3.2.2+incompatible
-	github.com/google/android-cuttlefish/frontend/src/liboperator v0.0.0-20230328052018-7ecf503add77
 	github.com/google/go-cmp v0.5.9
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
@@ -36,6 +35,7 @@ require (
 	github.com/envoyproxy/protoc-gen-validate v0.10.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
+	github.com/google/android-cuttlefish/frontend/src/liboperator v0.0.0-20230522230839-8cae0649d5c8 // indirect
 	github.com/google/s2a-go v0.1.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.2.3 // indirect
 	github.com/googleapis/gax-go/v2 v2.8.0 // indirect

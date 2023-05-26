@@ -119,10 +119,7 @@ func LoadEncryptionService(config *types.Config) types.EncryptionService {
 		if err != nil {
 			log.Fatal("Failed to generate crypto key: ", err)
 		}
-		es, err = unix.NewSimpleEncryptionService(key)
-		if err != nil {
-			log.Fatal("Failed to create simple encryption service: ", err)
-		}
+		es = unix.NewSimpleEncryptionService()
 	case types.GCPKMSESType:
 		es = gcp.NewKMSEncryptionService(config.EncryptionService.GCPKMS.KeyName)
 	default:

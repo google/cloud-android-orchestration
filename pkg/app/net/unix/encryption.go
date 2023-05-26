@@ -18,8 +18,8 @@ package unix
 // local development.
 type SimpleEncryptionService struct{}
 
-func NewSimpleEncryptionService(key []byte) (*SimpleEncryptionService, error) {
-	return &SimpleEncryptionService{}, nil
+func NewSimpleEncryptionService() *SimpleEncryptionService {
+	return &SimpleEncryptionService{}
 }
 
 func (es *SimpleEncryptionService) Encrypt(plaintext []byte) ([]byte, error) {

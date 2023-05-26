@@ -20,7 +20,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/google/cloud-android-orchestration/pkg/app"
+	"github.com/google/cloud-android-orchestration/pkg/app/types"
 )
 
 const emailHeaderKey = "X-Appengine-User-Email"
@@ -32,7 +32,7 @@ func NewUsersAccountManager() *UsersAccountManager {
 	return &UsersAccountManager{}
 }
 
-func (g *UsersAccountManager) Authenticate(fn app.AuthHTTPHandler) app.HTTPHandler {
+func (g *UsersAccountManager) Authenticate(fn types.AuthHTTPHandler) types.HTTPHandler {
 	return func(w http.ResponseWriter, r *http.Request) error {
 		user, err := userInfoFromRequest(r)
 		if err != nil {
@@ -46,7 +46,7 @@ func (g *UsersAccountManager) Authenticate(fn app.AuthHTTPHandler) app.HTTPHandl
 	}
 }
 
-func (g *UsersAccountManager) OnOAuthExchange(w http.ResponseWriter, r *http.Request, idToken app.IDTokenClaims) (app.UserInfo, error) {
+func (g *UsersAccountManager) OnOAuthExchange(w http.ResponseWriter, r *http.Request, idToken types.IDTokenClaims) (types.UserInfo, error) {
 	rEmail, err := emailFromRequest(r)
 	if err != nil {
 		return nil, err

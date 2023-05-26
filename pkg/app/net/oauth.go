@@ -15,14 +15,14 @@
 package net
 
 import (
-	"github.com/google/cloud-android-orchestration/pkg/app"
+	"github.com/google/cloud-android-orchestration/pkg/app/types"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 )
 
 // Build a oauth2.Config object with Google as the provider.
-func NewGoogleOAuthConfig(redirectURL string, sm app.SecretManager) *oauth2.Config {
+func NewGoogleOAuthConfig(redirectURL string, sm types.SecretManager) *oauth2.Config {
 	return &oauth2.Config{
 		ClientID:     sm.OAuthClientID(),
 		ClientSecret: sm.OAuthClientSecret(),

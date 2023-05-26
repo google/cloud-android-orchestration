@@ -15,13 +15,13 @@
 package unix
 
 import (
-	"github.com/google/cloud-android-orchestration/pkg/app"
+	"github.com/google/cloud-android-orchestration/pkg/app/types"
 )
 
 // Simple in memory database to use for testing or local development.
 type InMemoryDBService struct {
 	credentials map[string][]byte
-	session     app.Session
+	session     types.Session
 }
 
 func NewInMemoryDBService() *InMemoryDBService {
@@ -44,12 +44,12 @@ func (dbs *InMemoryDBService) DeleteBuildAPICredentials(username string) error {
 	return nil
 }
 
-func (dbs *InMemoryDBService) CreateOrUpdateSession(s app.Session) error {
+func (dbs *InMemoryDBService) CreateOrUpdateSession(s types.Session) error {
 	dbs.session = s
 	return nil
 }
 
-func (dbs *InMemoryDBService) FetchSession(key string) (*app.Session, error) {
+func (dbs *InMemoryDBService) FetchSession(key string) (*types.Session, error) {
 	if dbs.session.Key != key {
 		return nil, nil
 	}
@@ -59,7 +59,7 @@ func (dbs *InMemoryDBService) FetchSession(key string) (*app.Session, error) {
 
 func (dbs *InMemoryDBService) DeleteSession(key string) error {
 	if dbs.session.Key == key {
-		dbs.session = app.Session{}
+		dbs.session = types.Session{}
 	}
 	return nil
 }

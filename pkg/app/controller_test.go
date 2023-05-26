@@ -27,6 +27,7 @@ import (
 	"testing"
 
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
+	"github.com/google/cloud-android-orchestration/pkg/app/types"
 )
 
 const pageNotFoundErrMsg = "404 page not found\n"
@@ -39,41 +40,41 @@ func (i *testUserInfo) Username() string { return testUsername }
 
 type testAccountManager struct{}
 
-func (m *testAccountManager) Authenticate(fn AuthHTTPHandler) HTTPHandler {
+func (m *testAccountManager) Authenticate(fn types.AuthHTTPHandler) types.HTTPHandler {
 	return func(w http.ResponseWriter, r *http.Request) error {
 		return fn(w, r, &testUserInfo{})
 	}
 }
 
-func (m *testAccountManager) OnOAuthExchange(w http.ResponseWriter, r *http.Request, tk IDTokenClaims) (UserInfo, error) {
+func (m *testAccountManager) OnOAuthExchange(w http.ResponseWriter, r *http.Request, tk types.IDTokenClaims) (types.UserInfo, error) {
 	return &testUserInfo{}, nil
 }
 
 type testInstanceManager struct {
-	hostClientFactory func(zone, host string) HostClient
+	hostClientFactory func(zone, host string) types.HostClient
 }
 
 func (m *testInstanceManager) GetHostURL(zone string, host string) (*url.URL, error) {
 	return url.Parse("http://127.0.0.1:8080")
 }
 
-func (m *testInstanceManager) CreateHost(_ string, _ *apiv1.CreateHostRequest, _ UserInfo) (*apiv1.Operation, error) {
+func (m *testInstanceManager) CreateHost(_ string, _ *apiv1.CreateHostRequest, _ types.UserInfo) (*apiv1.Operation, error) {
 	return &apiv1.Operation{}, nil
 }
 
-func (m *testInstanceManager) ListHosts(zone string, user UserInfo, req *ListHostsRequest) (*apiv1.ListHostsResponse, error) {
+func (m *testInstanceManager) ListHosts(zone string, user types.UserInfo, req *types.ListHostsRequest) (*apiv1.ListHostsResponse, error) {
 	return &apiv1.ListHostsResponse{}, nil
 }
 
-func (m *testInstanceManager) DeleteHost(zone string, user UserInfo, name string) (*apiv1.Operation, error) {
+func (m *testInstanceManager) DeleteHost(zone string, user types.UserInfo, name string) (*apiv1.Operation, error) {
 	return &apiv1.Operation{}, nil
 }
 
-func (m *testInstanceManager) WaitOperation(_ string, _ UserInfo, _ string) (any, error) {
+func (m *testInstanceManager) WaitOperation(_ string, _ types.UserInfo, _ string) (any, error) {
 	return struct{}{}, nil
 }
 
-func (m *testInstanceManager) GetHostClient(zone string, host string) (HostClient, error) {
+func (m *testInstanceManager) GetHostClient(zone string, host string) (types.HostClient, error) {
 	return m.hostClientFactory(zone, host), nil
 }
 
@@ -81,11 +82,11 @@ type testHostClient struct {
 	url *url.URL
 }
 
-func (hc *testHostClient) Get(path, query string, res *HostResponse) (int, error) {
+func (hc *testHostClient) Get(path, query string, res *types.HostResponse) (int, error) {
 	return 200, nil
 }
 
-func (hc *testHostClient) Post(path, query string, bodyJSON any, res *HostResponse) (int, error) {
+func (hc *testHostClient) Post(path, query string, bodyJSON any, res *types.HostResponse) (int, error) {
 	return 200, nil
 }
 
@@ -95,7 +96,7 @@ func (hc *testHostClient) GetReverseProxy() *httputil.ReverseProxy {
 
 func TestCreateHostSucceeds(t *testing.T) {
 	controller := NewController(
-		make([]string, 0), OperationsConfig{}, &testInstanceManager{}, nil, &testAccountManager{}, nil, nil, nil)
+		make([]string, 0), types.OperationsConfig{}, &testInstanceManager{}, nil, &testAccountManager{}, nil, nil, nil)
 	ts := httptest.NewServer(controller.Handler())
 	defer ts.Close()
 
@@ -111,7 +112,7 @@ func TestCreateHostSucceeds(t *testing.T) {
 func TestCreateHostOperationIsDisabled(t *testing.T) {
 	controller := NewController(
 		make([]string, 0),
-		OperationsConfig{CreateHostDisabled: true},
+		types.OperationsConfig{CreateHostDisabled: true},
 		&testInstanceManager{}, nil, &testAccountManager{}, nil, nil, nil)
 	ts := httptest.NewServer(controller.Handler())
 	defer ts.Close()
@@ -127,7 +128,7 @@ func TestCreateHostOperationIsDisabled(t *testing.T) {
 
 func TestWaitOperatioSucceeds(t *testing.T) {
 	controller := NewController(
-		make([]string, 0), OperationsConfig{}, &testInstanceManager{}, nil, &testAccountManager{}, nil, nil, nil)
+		make([]string, 0), types.OperationsConfig{}, &testInstanceManager{}, nil, &testAccountManager{}, nil, nil, nil)
 	ts := httptest.NewServer(controller.Handler())
 	defer ts.Close()
 
@@ -182,7 +183,7 @@ func TestBuildListHostsRequest(t *testing.T) {
 
 		listReq, _ := BuildListHostsRequest(r)
 
-		expected := ListHostsRequest{
+		expected := types.ListHostsRequest{
 			MaxResults: 1,
 			PageToken:  "foo",
 		}
@@ -199,7 +200,7 @@ func TestDeleteHostIsHandled(t *testing.T) {
 		t.Fatal(err)
 	}
 	controller := NewController(
-		make([]string, 0), OperationsConfig{}, &testInstanceManager{}, nil, &testAccountManager{}, nil, nil, nil)
+		make([]string, 0), types.OperationsConfig{}, &testInstanceManager{}, nil, &testAccountManager{}, nil, nil, nil)
 
 	makeRequest(rr, req, controller)
 
@@ -238,8 +239,8 @@ func TestHostForwarderRequest(t *testing.T) {
 	}))
 	hostURL, _ := url.Parse(ts.URL)
 	controller := NewController(
-		make([]string, 0), OperationsConfig{}, &testInstanceManager{
-			hostClientFactory: func(_, _ string) HostClient {
+		make([]string, 0), types.OperationsConfig{}, &testInstanceManager{
+			hostClientFactory: func(_, _ string) types.HostClient {
 				return &testHostClient{hostURL}
 			},
 		}, nil, &testAccountManager{}, nil, nil, nil)
@@ -311,7 +312,7 @@ func TestHostForwarderHostAsHostResource(t *testing.T) {
 }
 
 func assertIsAppError(t *testing.T, err error) {
-	var appErr *AppError
+	var appErr *types.AppError
 	if !errors.As(err, &appErr) {
 		t.Errorf("error type <<\"%T\">> not found in error chain", appErr)
 	}

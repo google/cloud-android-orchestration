@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
+	"github.com/google/cloud-android-orchestration/pkg/app/types"
 )
 
 // The ForwardingSignalingServer implements the SignalingServer interface by
@@ -29,24 +30,24 @@ import (
 // forwarding all requests to it.
 type ForwardingSignalingServer struct {
 	connectorStaticFilesPath string
-	instanceManager          InstanceManager
+	instanceManager          types.InstanceManager
 }
 
-func NewForwardingSignalingServer(webStaticFilesPath string, im InstanceManager) *ForwardingSignalingServer {
+func NewForwardingSignalingServer(webStaticFilesPath string, im types.InstanceManager) *ForwardingSignalingServer {
 	return &ForwardingSignalingServer{
 		connectorStaticFilesPath: webStaticFilesPath + "/intercept",
 		instanceManager:          im,
 	}
 }
 
-func (s *ForwardingSignalingServer) NewConnection(zone string, host string, msg apiv1.NewConnMsg, user UserInfo) (*apiv1.SServerResponse, error) {
+func (s *ForwardingSignalingServer) NewConnection(zone string, host string, msg apiv1.NewConnMsg, user types.UserInfo) (*apiv1.SServerResponse, error) {
 	hostClient, err := s.instanceManager.GetHostClient(zone, host)
 	if err != nil {
 		return nil, err
 	}
 	var resErr apiv1.Error
 	var reply apiv1.NewConnReply
-	status, err := hostClient.Post("/polled_connections", "", apiv1.NewConnMsg{msg.DeviceId}, &HostResponse{&reply, &resErr})
+	status, err := hostClient.Post("/polled_connections", "", apiv1.NewConnMsg{msg.DeviceId}, &types.HostResponse{&reply, &resErr})
 	if err != nil {
 		return nil, err
 	}
@@ -59,10 +60,10 @@ func (s *ForwardingSignalingServer) NewConnection(zone string, host string, msg 
 	return &apiv1.SServerResponse{Response: reply, StatusCode: status}, nil
 }
 
-func (s *ForwardingSignalingServer) Forward(zone string, host string, id string, msg apiv1.ForwardMsg, user UserInfo) (*apiv1.SServerResponse, error) {
+func (s *ForwardingSignalingServer) Forward(zone string, host string, id string, msg apiv1.ForwardMsg, user types.UserInfo) (*apiv1.SServerResponse, error) {
 	dec, err := decodeConnId(id)
 	if err != nil {
-		return nil, NewNotFoundError("Invalid connection Id", err)
+		return nil, types.NewNotFoundError("Invalid connection Id", err)
 	}
 	connID := dec.ConnId
 	hostClient, err := s.instanceManager.GetHostClient(zone, host)
@@ -71,17 +72,17 @@ func (s *ForwardingSignalingServer) Forward(zone string, host string, id string,
 	}
 	var resErr apiv1.Error
 	var reply any
-	status, err := hostClient.Post("/polled_connections/"+connID+"/:forward", "", msg, &HostResponse{&reply, &resErr})
+	status, err := hostClient.Post("/polled_connections/"+connID+"/:forward", "", msg, &types.HostResponse{&reply, &resErr})
 	if err != nil {
 		return nil, err
 	}
 	return &apiv1.SServerResponse{reply, status}, nil
 }
 
-func (s *ForwardingSignalingServer) Messages(zone string, host string, id string, start int, count int, user UserInfo) (*apiv1.SServerResponse, error) {
+func (s *ForwardingSignalingServer) Messages(zone string, host string, id string, start int, count int, user types.UserInfo) (*apiv1.SServerResponse, error) {
 	dec, err := decodeConnId(id)
 	if err != nil {
-		return nil, NewNotFoundError("Invalid connection id", err)
+		return nil, types.NewNotFoundError("Invalid connection id", err)
 	}
 	connID := dec.ConnId
 	hostClient, err := s.instanceManager.GetHostClient(zone, host)
@@ -94,16 +95,16 @@ func (s *ForwardingSignalingServer) Messages(zone string, host string, id string
 	}
 	var resErr apiv1.Error
 	var reply any
-	status, err := hostClient.Get("/polled_connections/"+connID+"/messages", query, &HostResponse{&reply, &resErr})
+	status, err := hostClient.Get("/polled_connections/"+connID+"/messages", query, &types.HostResponse{&reply, &resErr})
 	if err != nil {
 		return nil, err
 	}
 	return &apiv1.SServerResponse{reply, status}, nil
 }
 
-func (s *ForwardingSignalingServer) ServeDeviceFiles(zone string, host string, params DeviceFilesRequest, user UserInfo) error {
-	if shouldIntercept(params.path) {
-		http.ServeFile(params.w, params.r, s.connectorStaticFilesPath+params.path)
+func (s *ForwardingSignalingServer) ServeDeviceFiles(zone string, host string, params types.DeviceFilesRequest, user types.UserInfo) error {
+	if shouldIntercept(params.Path) {
+		http.ServeFile(params.W, params.R, s.connectorStaticFilesPath+params.Path)
 	} else {
 		hostClient, err := s.instanceManager.GetHostClient(zone, host)
 		if err != nil {
@@ -111,8 +112,8 @@ func (s *ForwardingSignalingServer) ServeDeviceFiles(zone string, host string, p
 		}
 		devProxy := hostClient.GetReverseProxy()
 
-		params.r.URL.Path = fmt.Sprintf("/devices/%s/files%s", params.devId, params.path)
-		devProxy.ServeHTTP(params.w, params.r)
+		params.R.URL.Path = fmt.Sprintf("/devices/%s/files%s", params.DevId, params.Path)
+		devProxy.ServeHTTP(params.W, params.R)
 	}
 	return nil
 }

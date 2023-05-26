@@ -19,7 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/google/cloud-android-orchestration/pkg/app"
+	"github.com/google/cloud-android-orchestration/pkg/app/types"
 
 	secretmanager "cloud.google.com/go/secretmanager/apiv1"
 	"cloud.google.com/go/secretmanager/apiv1/secretmanagerpb"
@@ -34,7 +34,7 @@ type SecretManager struct {
 	secrets ClientSecrets
 }
 
-func NewSecretManager(config *app.GCPSMConfig) (*SecretManager, error) {
+func NewSecretManager(config *types.GCPSMConfig) (*SecretManager, error) {
 	ctx := context.TODO()
 	client, err := secretmanager.NewClient(ctx)
 	if err != nil {

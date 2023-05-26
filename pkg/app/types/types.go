@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package app
+package types
 
 import (
 	"net/http"
@@ -22,10 +22,10 @@ import (
 )
 
 type DeviceFilesRequest struct {
-	devId string
-	path  string
-	w     http.ResponseWriter
-	r     *http.Request
+	DevId string
+	Path  string
+	W     http.ResponseWriter
+	R     *http.Request
 }
 
 type UserInfo interface {

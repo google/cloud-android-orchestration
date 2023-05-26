@@ -24,7 +24,7 @@ import (
 	"net/url"
 
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
-	"github.com/google/cloud-android-orchestration/pkg/app"
+	"github.com/google/cloud-android-orchestration/pkg/app/types"
 )
 
 type HostClient struct {
@@ -60,7 +60,7 @@ func NewHostClient(url *url.URL, allowSelfSigned bool) *HostClient {
 	return ret
 }
 
-func (c *HostClient) Get(path, query string, out *app.HostResponse) (int, error) {
+func (c *HostClient) Get(path, query string, out *types.HostResponse) (int, error) {
 	url := *c.url // Shallow copy
 	url.Path = path
 	url.RawQuery = query
@@ -75,7 +75,7 @@ func (c *HostClient) Get(path, query string, out *app.HostResponse) (int, error)
 	return res.StatusCode, err
 }
 
-func (c *HostClient) Post(path, query string, bodyJSON any, out *app.HostResponse) (int, error) {
+func (c *HostClient) Post(path, query string, bodyJSON any, out *types.HostResponse) (int, error) {
 	bodyStr, err := json.Marshal(bodyJSON)
 	if err != nil {
 		return -1, fmt.Errorf("Failed to parse JSON request: %w", err)

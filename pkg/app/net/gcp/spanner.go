@@ -20,7 +20,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/google/cloud-android-orchestration/pkg/app"
+	"github.com/google/cloud-android-orchestration/pkg/app/types"
 
 	"cloud.google.com/go/spanner"
 	"google.golang.org/grpc/codes"
@@ -112,7 +112,7 @@ func (dbs *SpannerDBService) DeleteBuildAPICredentials(username string) error {
 	return err
 }
 
-func (dbs *SpannerDBService) CreateOrUpdateSession(s app.Session) error {
+func (dbs *SpannerDBService) CreateOrUpdateSession(s types.Session) error {
 	ctx := context.TODO()
 	client, err := spanner.NewClient(ctx, dbs.db)
 	if err != nil {
@@ -126,7 +126,7 @@ func (dbs *SpannerDBService) CreateOrUpdateSession(s app.Session) error {
 	return err
 }
 
-func (dbs *SpannerDBService) FetchSession(key string) (*app.Session, error) {
+func (dbs *SpannerDBService) FetchSession(key string) (*types.Session, error) {
 	ctx := context.TODO()
 	client, err := spanner.NewClient(ctx, dbs.db)
 	if err != nil {
@@ -141,7 +141,7 @@ func (dbs *SpannerDBService) FetchSession(key string) (*app.Session, error) {
 		}
 		return nil, fmt.Errorf("Failed to retrive session: %w", err)
 	}
-	session := &app.Session{
+	session := &types.Session{
 		Key:         key,
 		OAuth2State: "",
 	}

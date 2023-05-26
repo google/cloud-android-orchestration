@@ -19,18 +19,18 @@ import (
 	"net/url"
 
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
-	"github.com/google/cloud-android-orchestration/pkg/app"
 	"github.com/google/cloud-android-orchestration/pkg/app/net"
+	"github.com/google/cloud-android-orchestration/pkg/app/types"
 )
 
 // Implements the InstanceManager interface providing access to the first
 // device in the local host orchestrator.
 // This implementation is useful for both development and testing
 type InstanceManager struct {
-	config app.IMConfig
+	config types.IMConfig
 }
 
-func NewInstanceManager(cfg app.IMConfig) *InstanceManager {
+func NewInstanceManager(cfg types.IMConfig) *InstanceManager {
 	return &InstanceManager{
 		config: cfg,
 	}
@@ -48,23 +48,23 @@ func (m *InstanceManager) GetHostURL(zone string, host string) (*url.URL, error)
 	return url.Parse(fmt.Sprintf("%s://%s:%d", m.config.HostOrchestratorProtocol, addr, m.config.UNIX.HostOrchestratorPort))
 }
 
-func (m *InstanceManager) CreateHost(_ string, _ *apiv1.CreateHostRequest, _ app.UserInfo) (*apiv1.Operation, error) {
-	return nil, app.NewInternalError(fmt.Sprintf("%T#CreateHost is not implemented", *m), nil)
+func (m *InstanceManager) CreateHost(_ string, _ *apiv1.CreateHostRequest, _ types.UserInfo) (*apiv1.Operation, error) {
+	return nil, fmt.Errorf("%T#CreateHost is not implemented", *m)
 }
 
-func (m *InstanceManager) ListHosts(zone string, user app.UserInfo, req *app.ListHostsRequest) (*apiv1.ListHostsResponse, error) {
-	return nil, app.NewInternalError(fmt.Sprintf("%T#ListHosts is not implemented", *m), nil)
+func (m *InstanceManager) ListHosts(zone string, user types.UserInfo, req *types.ListHostsRequest) (*apiv1.ListHostsResponse, error) {
+	return nil, fmt.Errorf("%T#ListHosts is not implemented", *m)
 }
 
-func (m *InstanceManager) DeleteHost(zone string, user app.UserInfo, name string) (*apiv1.Operation, error) {
-	return nil, app.NewInternalError(fmt.Sprintf("%T#DeleteHost is not implemented", *m), nil)
+func (m *InstanceManager) DeleteHost(zone string, user types.UserInfo, name string) (*apiv1.Operation, error) {
+	return nil, fmt.Errorf("%T#DeleteHost is not implemented", *m)
 }
 
-func (m *InstanceManager) WaitOperation(zone string, user app.UserInfo, name string) (any, error) {
-	return nil, app.NewInternalError(fmt.Sprintf("%T#WaitOperation is not implemented", *m), nil)
+func (m *InstanceManager) WaitOperation(zone string, user types.UserInfo, name string) (any, error) {
+	return nil, fmt.Errorf("%T#WaitOperation is not implemented", *m)
 }
 
-func (m *InstanceManager) GetHostClient(zone string, host string) (app.HostClient, error) {
+func (m *InstanceManager) GetHostClient(zone string, host string) (types.HostClient, error) {
 	url, err := m.GetHostURL(zone, host)
 	if err != nil {
 		return nil, err

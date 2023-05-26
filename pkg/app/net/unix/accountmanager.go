@@ -18,7 +18,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/google/cloud-android-orchestration/pkg/app"
+	"github.com/google/cloud-android-orchestration/pkg/app/types"
 
 	"golang.org/x/oauth2"
 )
@@ -30,13 +30,13 @@ type AccountManager struct {
 	lastState   string
 }
 
-func (m *AccountManager) Authenticate(fn app.AuthHTTPHandler) app.HTTPHandler {
+func (m *AccountManager) Authenticate(fn types.AuthHTTPHandler) types.HTTPHandler {
 	return func(w http.ResponseWriter, r *http.Request) error {
 		return fn(w, r, &UserInfo{})
 	}
 }
 
-func (m *AccountManager) OnOAuthExchange(w http.ResponseWriter, r *http.Request, tk app.IDTokenClaims) (app.UserInfo, error) {
+func (m *AccountManager) OnOAuthExchange(w http.ResponseWriter, r *http.Request, tk types.IDTokenClaims) (types.UserInfo, error) {
 	return &UserInfo{}, nil
 }
 

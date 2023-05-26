@@ -29,6 +29,7 @@ import (
 
 	hoapi "github.com/google/android-cuttlefish/frontend/src/liboperator/api/v1"
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
+	"github.com/google/cloud-android-orchestration/pkg/app/types"
 
 	"github.com/golang-jwt/jwt"
 	"github.com/gorilla/mux"
@@ -44,24 +45,24 @@ const (
 // relevant modules
 type Controller struct {
 	infraConfig       apiv1.InfraConfig
-	opsConfig         OperationsConfig
-	instanceManager   InstanceManager
-	sigServer         SignalingServer
-	accountManager    AccountManager
+	opsConfig         types.OperationsConfig
+	instanceManager   types.InstanceManager
+	sigServer         types.SignalingServer
+	accountManager    types.AccountManager
 	oauthConfig       *oauth2.Config
-	encryptionService EncryptionService
-	databaseService   DatabaseService
+	encryptionService types.EncryptionService
+	databaseService   types.DatabaseService
 }
 
 func NewController(
 	servers []string,
-	opsConfig OperationsConfig,
-	im InstanceManager,
-	ss SignalingServer,
-	am AccountManager,
+	opsConfig types.OperationsConfig,
+	im types.InstanceManager,
+	ss types.SignalingServer,
+	am types.AccountManager,
 	oc *oauth2.Config,
-	es EncryptionService,
-	dbs DatabaseService) *Controller {
+	es types.EncryptionService,
+	dbs types.DatabaseService) *Controller {
 	infraCfg := buildInfraCfg(servers)
 	return &Controller{infraCfg, opsConfig, im, ss, am, oc, es, dbs}
 }
@@ -106,7 +107,7 @@ func (c *Controller) Handler() http.Handler {
 	return router
 }
 
-func (c *Controller) ForwardToHost(w http.ResponseWriter, r *http.Request, user UserInfo) error {
+func (c *Controller) ForwardToHost(w http.ResponseWriter, r *http.Request, user types.UserInfo) error {
 	vars := mux.Vars(r)
 	zone := vars["zone"]
 	if zone == "" {
@@ -180,13 +181,15 @@ func HostOrchestratorPath(path, host string) (string, error) {
 	return split[1], nil
 }
 
+type HTTPHandler types.HTTPHandler
+
 // Intercept errors returned by the HTTPHandler and transform them into HTTP
 // error responses
 func (h HTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log.Println(r.Method, " ", r.URL, " ", r.RemoteAddr)
 	if err := h(w, r); err != nil {
 		log.Println("Error: ", err)
-		var e *AppError
+		var e *types.AppError
 		if errors.As(err, &e) {
 			replyJSON(w, e.JSONResponse(), e.StatusCode)
 		} else {
@@ -195,17 +198,17 @@ func (h HTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (c *Controller) getDeviceFiles(w http.ResponseWriter, r *http.Request, user UserInfo) error {
+func (c *Controller) getDeviceFiles(w http.ResponseWriter, r *http.Request, user types.UserInfo) error {
 	devId := mux.Vars(r)["deviceId"]
 	path := mux.Vars(r)["path"]
-	return c.sigServer.ServeDeviceFiles(getZone(r), getHost(r), DeviceFilesRequest{devId, path, w, r}, user)
+	return c.sigServer.ServeDeviceFiles(getZone(r), getHost(r), types.DeviceFilesRequest{devId, path, w, r}, user)
 }
 
-func (c *Controller) createConnection(w http.ResponseWriter, r *http.Request, user UserInfo) error {
+func (c *Controller) createConnection(w http.ResponseWriter, r *http.Request, user types.UserInfo) error {
 	var msg apiv1.NewConnMsg
 	err := json.NewDecoder(r.Body).Decode(&msg)
 	if err != nil {
-		return NewBadRequestError("Malformed JSON in request", err)
+		return types.NewBadRequestError("Malformed JSON in request", err)
 	}
 	log.Println("id: ", msg.DeviceId)
 	reply, err := c.sigServer.NewConnection(getZone(r), getHost(r), msg, user)
@@ -216,16 +219,16 @@ func (c *Controller) createConnection(w http.ResponseWriter, r *http.Request, us
 	return nil
 }
 
-func (c *Controller) messages(w http.ResponseWriter, r *http.Request, user UserInfo) error {
+func (c *Controller) messages(w http.ResponseWriter, r *http.Request, user types.UserInfo) error {
 	id := mux.Vars(r)["connID"]
 	start, err := intFormValue(r, "start", 0)
 	if err != nil {
-		return NewBadRequestError("Invalid value for start field", err)
+		return types.NewBadRequestError("Invalid value for start field", err)
 	}
 	// -1 means all messages
 	count, err := intFormValue(r, "count", -1)
 	if err != nil {
-		return NewBadRequestError("Invalid value for count field", err)
+		return types.NewBadRequestError("Invalid value for count field", err)
 	}
 	reply, err := c.sigServer.Messages(getZone(r), getHost(r), id, start, count, user)
 	if err != nil {
@@ -235,12 +238,12 @@ func (c *Controller) messages(w http.ResponseWriter, r *http.Request, user UserI
 	return nil
 }
 
-func (c *Controller) forward(w http.ResponseWriter, r *http.Request, user UserInfo) error {
+func (c *Controller) forward(w http.ResponseWriter, r *http.Request, user types.UserInfo) error {
 	id := mux.Vars(r)["connID"]
 	var msg apiv1.ForwardMsg
 	err := json.NewDecoder(r.Body).Decode(&msg)
 	if err != nil {
-		return NewBadRequestError("Malformed JSON in request", err)
+		return types.NewBadRequestError("Malformed JSON in request", err)
 	}
 	reply, err := c.sigServer.Forward(getZone(r), getHost(r), id, msg, user)
 	if err != nil {
@@ -250,11 +253,11 @@ func (c *Controller) forward(w http.ResponseWriter, r *http.Request, user UserIn
 	return nil
 }
 
-func (c *Controller) createHost(w http.ResponseWriter, r *http.Request, user UserInfo) error {
+func (c *Controller) createHost(w http.ResponseWriter, r *http.Request, user types.UserInfo) error {
 	var msg apiv1.CreateHostRequest
 	err := json.NewDecoder(r.Body).Decode(&msg)
 	if err != nil {
-		return NewBadRequestError("Malformed JSON in request", err)
+		return types.NewBadRequestError("Malformed JSON in request", err)
 	}
 	op, err := c.instanceManager.CreateHost(getZone(r), &msg, user)
 	if err != nil {
@@ -264,7 +267,7 @@ func (c *Controller) createHost(w http.ResponseWriter, r *http.Request, user Use
 	return nil
 }
 
-func (c *Controller) listHosts(w http.ResponseWriter, r *http.Request, user UserInfo) error {
+func (c *Controller) listHosts(w http.ResponseWriter, r *http.Request, user types.UserInfo) error {
 	listReq, err := BuildListHostsRequest(r)
 	if err != nil {
 		return err
@@ -277,7 +280,7 @@ func (c *Controller) listHosts(w http.ResponseWriter, r *http.Request, user User
 	return nil
 }
 
-func (c *Controller) deleteHost(w http.ResponseWriter, r *http.Request, user UserInfo) error {
+func (c *Controller) deleteHost(w http.ResponseWriter, r *http.Request, user types.UserInfo) error {
 	name := mux.Vars(r)["host"]
 	res, err := c.instanceManager.DeleteHost(getZone(r), user, name)
 	if err != nil {
@@ -287,7 +290,7 @@ func (c *Controller) deleteHost(w http.ResponseWriter, r *http.Request, user Use
 	return nil
 }
 
-func (c *Controller) waitOperation(w http.ResponseWriter, r *http.Request, user UserInfo) error {
+func (c *Controller) waitOperation(w http.ResponseWriter, r *http.Request, user types.UserInfo) error {
 	name := mux.Vars(r)["operation"]
 	op, err := c.instanceManager.WaitOperation(getZone(r), user, name)
 	if err != nil {
@@ -300,7 +303,7 @@ func (c *Controller) waitOperation(w http.ResponseWriter, r *http.Request, user 
 func (c *Controller) AuthHandler(w http.ResponseWriter, r *http.Request) error {
 	sessionKey := randomHexString()
 	state := randomHexString()
-	if err := c.databaseService.CreateOrUpdateSession(Session{
+	if err := c.databaseService.CreateOrUpdateSession(types.Session{
 		Key:         sessionKey,
 		OAuth2State: state,
 	}); err != nil {
@@ -334,7 +337,7 @@ func (c *Controller) OAuth2Callback(w http.ResponseWriter, r *http.Request) erro
 	if !ok {
 		return fmt.Errorf("Id token in unexpected format")
 	}
-	user, err := c.accountManager.OnOAuthExchange(w, r, IDTokenClaims(tokenClaims))
+	user, err := c.accountManager.OnOAuthExchange(w, r, types.IDTokenClaims(tokenClaims))
 	if err != nil {
 		return err
 	}
@@ -373,7 +376,7 @@ func (c *Controller) parseAuthorizationResponse(r *http.Request) (string, error)
 		return "", err
 	}
 	if state != session.OAuth2State {
-		return "", NewBadRequestError("OAuth2 State doesn't match session", nil)
+		return "", types.NewBadRequestError("OAuth2 State doesn't match session", nil)
 	}
 
 	// The state should be used only once. Delete the entire session since it's only being used for
@@ -388,7 +391,7 @@ func (c *Controller) parseAuthorizationResponse(r *http.Request) (string, error)
 	return code[0], nil
 }
 
-func (c *Controller) storeUserCredentials(user UserInfo, tk *oauth2.Token) error {
+func (c *Controller) storeUserCredentials(user types.UserInfo, tk *oauth2.Token) error {
 	creds, err := json.Marshal(tk)
 	if err != nil {
 		return fmt.Errorf("Failed to serialize credentials: %w", err)
@@ -403,7 +406,7 @@ func (c *Controller) storeUserCredentials(user UserInfo, tk *oauth2.Token) error
 	return nil
 }
 
-func (c *Controller) fetchUserCredentials(user UserInfo) (*oauth2.Token, error) {
+func (c *Controller) fetchUserCredentials(user types.UserInfo) (*oauth2.Token, error) {
 	encryptedCreds, err := c.databaseService.FetchBuildAPICredentials(user.Username())
 	if err != nil {
 		return nil, fmt.Errorf("Error getting user credentials: %w", err)
@@ -454,13 +457,13 @@ const (
 	queryParamMaxResults = "maxResults"
 )
 
-func BuildListHostsRequest(r *http.Request) (*ListHostsRequest, error) {
+func BuildListHostsRequest(r *http.Request) (*types.ListHostsRequest, error) {
 	maxResultsRaw := r.URL.Query().Get(queryParamMaxResults)
 	maxResults, err := uint32Value(maxResultsRaw)
 	if err != nil {
-		return nil, NewInvalidQueryParamError(queryParamMaxResults, maxResultsRaw, err)
+		return nil, types.NewInvalidQueryParamError(queryParamMaxResults, maxResultsRaw, err)
 	}
-	res := &ListHostsRequest{
+	res := &types.ListHostsRequest{
 		MaxResults: maxResults,
 		PageToken:  r.URL.Query().Get("pageToken"),
 	}
@@ -485,7 +488,7 @@ func buildInfraCfg(servers []string) apiv1.InfraConfig {
 	}
 }
 
-func indexHandler(w http.ResponseWriter, r *http.Request, user UserInfo) error {
+func indexHandler(w http.ResponseWriter, r *http.Request, user types.UserInfo) error {
 	fmt.Fprintln(w, "Home page")
 	return nil
 }
@@ -545,5 +548,5 @@ func getHost(r *http.Request) string {
 }
 
 func notAllowedHttpHandler(w http.ResponseWriter, r *http.Request) error {
-	return NewMethodNotAllowedError("Operation is disabled", nil)
+	return types.NewMethodNotAllowedError("Operation is disabled", nil)
 }

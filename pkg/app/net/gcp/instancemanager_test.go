@@ -28,7 +28,7 @@ import (
 	"testing"
 
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
-	"github.com/google/cloud-android-orchestration/pkg/app"
+	"github.com/google/cloud-android-orchestration/pkg/app/types"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/sergi/go-diff/diffmatchpatch"
@@ -36,8 +36,8 @@ import (
 	"google.golang.org/api/option"
 )
 
-var testConfig = app.IMConfig{
-	GCP: &app.GCPIMConfig{
+var testConfig = types.IMConfig{
+	GCP: &types.GCPIMConfig{
 		ProjectID:       "google.com:test-project",
 		HostImageFamily: "projects/test-project-releases/global/images/family/foo",
 	},
@@ -89,7 +89,7 @@ func TestCreateHostInvalidRequests(t *testing.T) {
 		req := validRequest()
 		test.corruptRequest(req)
 		_, err := im.CreateHost("us-central1-a", req, &TestUserInfo{})
-		var appErr *app.AppError
+		var appErr *types.AppError
 		if !errors.As(err, &appErr) {
 			t.Errorf("unexpected error <<\"%v\">>, want \"%T\"", err, appErr)
 		}
@@ -188,8 +188,8 @@ func TestCreateHostAcloudCompatible(t *testing.T) {
 	defer ts.Close()
 	testService := buildTestService(t, ts)
 	im := InstanceManager{
-		Config: app.IMConfig{
-			GCP: &app.GCPIMConfig{
+		Config: types.IMConfig{
+			GCP: &types.GCPIMConfig{
 				ProjectID:        "google.com:test-project",
 				HostImageFamily:  "projects/test-project-releases/global/images/family/foo",
 				AcloudCompatible: true,
@@ -284,7 +284,7 @@ func TestGetHostAddrMissingNetworkInterface(t *testing.T) {
 
 	_, err := im.GetHostAddr("us-central1-a", "foo")
 
-	var appErr *app.AppError
+	var appErr *types.AppError
 	if !errors.As(err, &appErr) {
 		t.Errorf("unexpected error <<\"%v\">>, want \"%T\"", err, appErr)
 	}
@@ -322,7 +322,7 @@ func TestListHostsRequestQuery(t *testing.T) {
 	defer ts.Close()
 	testService := buildTestService(t, ts)
 	im := NewInstanceManager(testConfig, testService, testNameGenerator)
-	req := &app.ListHostsRequest{
+	req := &types.ListHostsRequest{
 		MaxResults: 100,
 		PageToken:  "foo",
 	}
@@ -349,7 +349,7 @@ func TestListHostsOverMaxResultsLimit(t *testing.T) {
 	defer ts.Close()
 	testService := buildTestService(t, ts)
 	im := NewInstanceManager(testConfig, testService, testNameGenerator)
-	req := &app.ListHostsRequest{
+	req := &types.ListHostsRequest{
 		MaxResults: 501,
 		PageToken:  "foo",
 	}
@@ -389,7 +389,7 @@ func TestListHostsSucceeds(t *testing.T) {
 	testService := buildTestService(t, ts)
 	im := NewInstanceManager(testConfig, testService, testNameGenerator)
 
-	resp, err := im.ListHosts("us-central1-a", &TestUserInfo{}, &app.ListHostsRequest{})
+	resp, err := im.ListHosts("us-central1-a", &TestUserInfo{}, &types.ListHostsRequest{})
 
 	if err != nil {
 		t.Errorf("expected <<nil>>, got %+v", err)
@@ -434,7 +434,7 @@ func TestDeleteHostHostDoesNotExist(t *testing.T) {
 
 	_, err := im.DeleteHost("us-central1-a", &TestUserInfo{}, "foo")
 
-	if appErr, ok := err.(*app.AppError); !ok {
+	if appErr, ok := err.(*types.AppError); !ok {
 		t.Errorf("expected <<%T>>, got %T", appErr, err)
 	}
 }
@@ -489,7 +489,7 @@ func TestWaitOperationAndOperationIsNotDone(t *testing.T) {
 
 	_, err := im.WaitOperation(zone, &TestUserInfo{}, opName)
 
-	if appErr, _ := err.(*app.AppError); true {
+	if appErr, _ := err.(*types.AppError); true {
 		if diff := cmp.Diff(http.StatusServiceUnavailable, appErr.StatusCode); diff != "" {
 			t.Errorf("status code (-want +got):\n%s", diff)
 		}
@@ -612,7 +612,7 @@ func TestWaitOperationFailedOperation(t *testing.T) {
 
 	_, err := im.WaitOperation(zone, &TestUserInfo{}, opName)
 
-	appErr, _ := err.(*app.AppError)
+	appErr, _ := err.(*types.AppError)
 	if appErr.Msg != errorMessage {
 		t.Errorf("expected <<%q>>, got: %q", errorMessage, appErr.Msg)
 	}
@@ -657,7 +657,7 @@ func TestBuildHostInstanceNoDisk(t *testing.T) {
 
 	result, err := BuildHostInstance(input)
 
-	var appErr *app.AppError
+	var appErr *types.AppError
 	if !errors.As(err, &appErr) {
 		t.Errorf("error type <<\"%T\">> not found in error chain, got %v", appErr, err)
 	}

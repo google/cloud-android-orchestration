@@ -16,6 +16,7 @@ package app
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -25,9 +26,14 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
+	hoapi "github.com/google/android-cuttlefish/frontend/src/liboperator/api/v1"
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
+	"github.com/google/cloud-android-orchestration/pkg/app/net/unix"
 	"github.com/google/cloud-android-orchestration/pkg/app/types"
+
+	"golang.org/x/oauth2"
 )
 
 const pageNotFoundErrMsg = "404 page not found\n"
@@ -308,6 +314,129 @@ func TestHostForwarderHostAsHostResource(t *testing.T) {
 	}
 	if path != expected {
 		t.Errorf("expected <<%q>>, got: %q", expected, path)
+	}
+}
+
+func TestHostForwarderInjectCredentials(t *testing.T) {
+	reqURL := "http://test.com/v1/zones/foo/hosts/bar/cvds"
+	msg, _ := json.Marshal(&hoapi.CreateCVDRequest{
+		CVD: &hoapi.CVD{
+			Name: "cvdname",
+			BuildSource: &hoapi.BuildSource{
+				AndroidCIBuildSource: &hoapi.AndroidCIBuildSource{},
+			},
+		},
+	})
+	credentials := "abcdef"
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Error(err)
+		}
+		var msg hoapi.CreateCVDRequest
+		if err := json.Unmarshal(body, &msg); err != nil {
+			t.Errorf("Failed to decode message: %v", err)
+		}
+		if msg.CVD == nil || msg.CVD.BuildSource == nil || msg.CVD.BuildSource.AndroidCIBuildSource == nil {
+			t.Errorf("Expected android ci request, got: %s", string(body))
+		}
+		if msg.CVD.BuildSource.AndroidCIBuildSource.Credentials == "" {
+			t.Errorf("No credentials were injected")
+		}
+		if msg.CVD.BuildSource.AndroidCIBuildSource.Credentials != credentials {
+			t.Errorf("Wrong injected credentials: expected %q got %q", credentials,
+				msg.CVD.BuildSource.AndroidCIBuildSource.Credentials)
+		}
+		w.Write([]byte("ok"))
+	}))
+	hostURL, _ := url.Parse(ts.URL)
+	dbs := unix.NewInMemoryDBService()
+	tk := &oauth2.Token{
+		AccessToken:  credentials,
+		TokenType:    "Brearer",
+		RefreshToken: "",
+		Expiry:       time.Now().Add(1 * time.Hour),
+	}
+	es := unix.NewSimpleEncryptionService()
+	jsonToken, err := json.Marshal(tk)
+	if err != nil {
+		t.Error(err)
+	}
+	encryptedJSONToken, err := es.Encrypt(jsonToken)
+	if err != nil {
+		t.Error(err)
+	}
+	dbs.StoreBuildAPICredentials(testUsername, encryptedJSONToken)
+	controller := NewController(
+		make([]string, 0), types.OperationsConfig{}, &testInstanceManager{
+			hostClientFactory: func(_, _ string) types.HostClient {
+				return &testHostClient{hostURL}
+			},
+		}, nil, &testAccountManager{}, &oauth2.Config{}, es, dbs)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodPost, reqURL, bytes.NewBuffer(msg))
+
+	makeRequest(w, req, controller)
+	if w.Result().StatusCode != http.StatusOK {
+		t.Errorf("expected <<%+v>>, got: %+v", http.StatusOK, w.Result().StatusCode)
+	}
+}
+
+func TestHostForwarderDoesNotInjectCredentials(t *testing.T) {
+	reqURL := "http://test.com/v1/zones/foo/hosts/bar/cvds"
+	msg, _ := json.Marshal(&hoapi.CreateCVDRequest{
+		CVD: &hoapi.CVD{
+			Name: "cvdname",
+			BuildSource: &hoapi.BuildSource{
+				UserBuildSource: &hoapi.UserBuildSource{},
+			},
+		},
+	})
+	credentials := "abcdef"
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Error(err)
+		}
+		if string(body) != string(msg) {
+			t.Errorf("Original message was modified by the controller: %q, expected: %q", string(body), string(msg))
+		}
+		w.Write([]byte("ok"))
+	}))
+	hostURL, _ := url.Parse(ts.URL)
+	dbs := unix.NewInMemoryDBService()
+	tk := &oauth2.Token{
+		AccessToken:  credentials,
+		TokenType:    "Brearer",
+		RefreshToken: "",
+		Expiry:       time.Now().Add(1 * time.Hour),
+	}
+	es := unix.NewSimpleEncryptionService()
+	jsonToken, err := json.Marshal(tk)
+	if err != nil {
+		t.Error(err)
+	}
+	encryptedJSONToken, err := es.Encrypt(jsonToken)
+	if err != nil {
+		t.Error(err)
+	}
+	dbs.StoreBuildAPICredentials(testUsername, encryptedJSONToken)
+	controller := NewController(
+		make([]string, 0), types.OperationsConfig{}, &testInstanceManager{
+			hostClientFactory: func(_, _ string) types.HostClient {
+				return &testHostClient{hostURL}
+			},
+		}, nil, &testAccountManager{}, &oauth2.Config{}, es, dbs)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodPost, reqURL, bytes.NewBuffer(msg))
+
+	makeRequest(w, req, controller)
+	if w.Result().StatusCode != http.StatusOK {
+		t.Errorf("expected <<%+v>>, got: %+v", http.StatusOK, w.Result().StatusCode)
 	}
 }
 

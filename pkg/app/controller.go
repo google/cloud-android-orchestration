@@ -312,8 +312,8 @@ func (c *Controller) AuthHandler(w http.ResponseWriter, r *http.Request) error {
 	http.SetCookie(w, &http.Cookie{
 		Name:     sessionIdCookie,
 		Value:    sessionKey,
-		Secure:   true,
-		SameSite: http.SameSiteStrictMode,
+		Secure:   false,
+		SameSite: http.SameSiteLaxMode,
 	})
 	authURL := c.oauthConfig.AuthCodeURL(state, oauth2.AccessTypeOffline)
 	http.Redirect(w, r, authURL, http.StatusSeeOther)

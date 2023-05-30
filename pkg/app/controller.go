@@ -327,11 +327,11 @@ func (c *Controller) OAuth2Callback(w http.ResponseWriter, r *http.Request) erro
 	}
 	tk, err := c.oauthConfig.Exchange(oauth2.NoContext, authCode)
 	if err != nil {
-		return err
+		return fmt.Errorf("Error exchanging token: %w", err)
 	}
 	idToken, err := extractIDToken(tk)
 	if err != nil {
-		return err
+		return fmt.Errorf("Error extracting id token: %w", err)
 	}
 	tokenClaims, ok := idToken.Claims.(jwt.MapClaims)
 	if !ok {
@@ -368,12 +368,12 @@ func (c *Controller) parseAuthorizationResponse(r *http.Request) (string, error)
 
 	sessionCookie, err := r.Cookie(sessionIdCookie)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("Error reading cookie from request: %w", err)
 	}
 	sessionKey := sessionCookie.Value
 	session, err := c.databaseService.FetchSession(sessionKey)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("Error fetching session from db: %w", err)
 	}
 	if state != session.OAuth2State {
 		return "", types.NewBadRequestError("OAuth2 State doesn't match session", nil)

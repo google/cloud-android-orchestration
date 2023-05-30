@@ -18,12 +18,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"time"
 
 	"github.com/google/cloud-android-orchestration/pkg/client"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 // Groups streams for standard IO.
@@ -545,23 +547,36 @@ func disconnectDevicesByHost(host string, opts *subCommandOpts) error {
 	return nil
 }
 
+const (
+	createHostStateMsg = "Creating Host"
+	createCVDStateMsg  = "Creating CVD"
+	connectCVDStateMsg = "Connecting CVD"
+)
+
 func runCreateCVDCommand(c *cobra.Command, flags *CreateCVDFlags, opts *subCommandOpts) error {
+	statePrinter := newStatePrinter(c.ErrOrStderr(), flags.Verbose)
 	service, err := opts.ServiceBuilder(flags.CVDRemoteFlags, c)
 	if err != nil {
 		return fmt.Errorf("Failed to build service instance: %w", err)
 	}
 	if flags.CreateCVDOpts.Host == "" {
+		statePrinter.Print(createHostStateMsg)
 		ins, err := createHost(service, *flags.CreateHostOpts)
+		statePrinter.PrintDone(createHostStateMsg)
 		if err != nil {
 			return fmt.Errorf("Failed to create host: %w", err)
 		}
 		flags.CreateCVDOpts.Host = ins.Name
 	}
+	statePrinter.Print(createCVDStateMsg)
 	cvd, err := createCVD(service, *flags.CreateCVDOpts)
+	statePrinter.PrintDone(createCVDStateMsg)
 	if err != nil {
 		return err
 	}
+	statePrinter.Print(connectCVDStateMsg)
 	cvd.ConnStatus, err = ConnectDevice(flags.CreateCVDOpts.Host, cvd.Name, &command{c, &flags.Verbose}, opts)
+	statePrinter.PrintDone(connectCVDStateMsg)
 	if err != nil {
 		err = fmt.Errorf("Failed to connect to device: %w", err)
 	}
@@ -909,4 +924,47 @@ func notImplementedCommand(c *cobra.Command, _ []string) error {
 func buildServiceRootEndpoint(serviceURL, zone string) string {
 	const version = "v1"
 	return client.BuildRootEndpoint(serviceURL, version, zone)
+}
+
+// Prints out state changes.
+//
+// Only use this printer to print user friendly state changes, this is not a logger.
+type statePrinter struct {
+	// Writer to print the messages to. Visual features won't be displayed if not linked to an interactive terminal.
+	Out io.Writer
+
+	// If true, visual features like colors and animations won't be displayed.
+	visualsOn bool
+}
+
+func newStatePrinter(out io.Writer, verbose bool) *statePrinter {
+	visualsOn := false
+	if f, ok := out.(*os.File); ok && term.IsTerminal(int(f.Fd())) && !verbose {
+		visualsOn = true
+	}
+	return &statePrinter{Out: out, visualsOn: visualsOn}
+}
+
+func (p *statePrinter) Print(msg string) {
+	p.print(msg, false)
+}
+
+func (p *statePrinter) PrintDone(msg string) {
+	p.print(msg, true)
+}
+
+func (p *statePrinter) print(msg string, done bool) {
+	format := "\r\033[K%s"
+	if !p.visualsOn {
+		format = "%s"
+	}
+	if done {
+		format += ". Done"
+	} else {
+		format += " ... "
+	}
+	if !p.visualsOn || done {
+		format += "\n"
+	}
+	fmt.Fprintf(p.Out, format, msg)
 }

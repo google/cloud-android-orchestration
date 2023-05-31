@@ -12,16 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package unix
+package database
 
 import (
-	"github.com/google/cloud-android-orchestration/pkg/app/types"
+	"github.com/google/cloud-android-orchestration/pkg/app/session"
 )
+
+const InMemoryDBType = "InMemory"
+
+type SpannerConfig struct {
+	DatabaseName string
+}
 
 // Simple in memory database to use for testing or local development.
 type InMemoryDBService struct {
 	credentials map[string][]byte
-	session     types.Session
+	session     session.Session
 }
 
 func NewInMemoryDBService() *InMemoryDBService {
@@ -44,12 +50,12 @@ func (dbs *InMemoryDBService) DeleteBuildAPICredentials(username string) error {
 	return nil
 }
 
-func (dbs *InMemoryDBService) CreateOrUpdateSession(s types.Session) error {
+func (dbs *InMemoryDBService) CreateOrUpdateSession(s session.Session) error {
 	dbs.session = s
 	return nil
 }
 
-func (dbs *InMemoryDBService) FetchSession(key string) (*types.Session, error) {
+func (dbs *InMemoryDBService) FetchSession(key string) (*session.Session, error) {
 	if dbs.session.Key != key {
 		return nil, nil
 	}
@@ -59,7 +65,7 @@ func (dbs *InMemoryDBService) FetchSession(key string) (*types.Session, error) {
 
 func (dbs *InMemoryDBService) DeleteSession(key string) error {
 	if dbs.session.Key == key {
-		dbs.session = types.Session{}
+		dbs.session = session.Session{}
 	}
 	return nil
 }

@@ -12,26 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package net
+package session
 
-import (
-	"github.com/google/cloud-android-orchestration/pkg/app/types"
-
-	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google"
-)
-
-// Build a oauth2.Config object with Google as the provider.
-func NewGoogleOAuthConfig(redirectURL string, sm types.SecretManager) *oauth2.Config {
-	return &oauth2.Config{
-		ClientID:     sm.OAuthClientID(),
-		ClientSecret: sm.OAuthClientSecret(),
-		Scopes: []string{
-			"https://www.googleapis.com/auth/androidbuild.internal",
-			"openid",
-			"email",
-		},
-		RedirectURL: redirectURL,
-		Endpoint:    google.Endpoint,
-	}
+type Session struct {
+	Key         string
+	OAuth2State string
 }

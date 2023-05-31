@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package gcp
+package accounts
 
 import (
 	"errors"
@@ -20,19 +20,22 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/google/cloud-android-orchestration/pkg/app/types"
+	appOAuth "github.com/google/cloud-android-orchestration/pkg/app/oauth2"
 )
 
-const emailHeaderKey = "X-Appengine-User-Email"
+const (
+	GAEAMType AMType = "GCP"
 
-type UsersAccountManager struct {
+	emailHeaderKey = "X-Appengine-User-Email"
+)
+
+type GAEUsersAccountManager struct{}
+
+func NewGAEUsersAccountManager() *GAEUsersAccountManager {
+	return &GAEUsersAccountManager{}
 }
 
-func NewUsersAccountManager() *UsersAccountManager {
-	return &UsersAccountManager{}
-}
-
-func (g *UsersAccountManager) Authenticate(fn types.AuthHTTPHandler) types.HTTPHandler {
+func (g *GAEUsersAccountManager) Authenticate(fn AuthHTTPHandler) HTTPHandler {
 	return func(w http.ResponseWriter, r *http.Request) error {
 		user, err := userInfoFromRequest(r)
 		if err != nil {
@@ -46,7 +49,7 @@ func (g *UsersAccountManager) Authenticate(fn types.AuthHTTPHandler) types.HTTPH
 	}
 }
 
-func (g *UsersAccountManager) OnOAuthExchange(w http.ResponseWriter, r *http.Request, idToken types.IDTokenClaims) (types.UserInfo, error) {
+func (g *GAEUsersAccountManager) OnOAuthExchange(w http.ResponseWriter, r *http.Request, idToken appOAuth.IDTokenClaims) (UserInfo, error) {
 	rEmail, err := emailFromRequest(r)
 	if err != nil {
 		return nil, err
@@ -65,11 +68,11 @@ func (g *UsersAccountManager) OnOAuthExchange(w http.ResponseWriter, r *http.Req
 	return userInfoFromEmail(rEmail), nil
 }
 
-type UserInfo struct {
+type GAEUserInfo struct {
 	username string
 }
 
-func (u *UserInfo) Username() string {
+func (u *GAEUserInfo) Username() string {
 	return u.username
 }
 
@@ -82,12 +85,12 @@ func emailFromRequest(r *http.Request) (string, error) {
 	return email, nil
 }
 
-func userInfoFromEmail(email string) *UserInfo {
+func userInfoFromEmail(email string) *GAEUserInfo {
 	username := strings.SplitN(email, "@", 2)[0]
-	return &UserInfo{username}
+	return &GAEUserInfo{username}
 }
 
-func userInfoFromRequest(r *http.Request) (*UserInfo, error) {
+func userInfoFromRequest(r *http.Request) (*GAEUserInfo, error) {
 	email, err := emailFromRequest(r)
 	if err != nil {
 		return nil, err

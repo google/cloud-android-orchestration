@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package app
+package controller
 
 import (
 	"bytes"
@@ -30,8 +30,13 @@ import (
 
 	hoapi "github.com/google/android-cuttlefish/frontend/src/liboperator/api/v1"
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
-	"github.com/google/cloud-android-orchestration/pkg/app/net/unix"
-	"github.com/google/cloud-android-orchestration/pkg/app/types"
+	"github.com/google/cloud-android-orchestration/pkg/app/accounts"
+	"github.com/google/cloud-android-orchestration/pkg/app/config"
+	"github.com/google/cloud-android-orchestration/pkg/app/database"
+	"github.com/google/cloud-android-orchestration/pkg/app/encryption"
+	apperr "github.com/google/cloud-android-orchestration/pkg/app/errors"
+	"github.com/google/cloud-android-orchestration/pkg/app/instances"
+	appOAuth "github.com/google/cloud-android-orchestration/pkg/app/oauth2"
 
 	"golang.org/x/oauth2"
 )
@@ -46,41 +51,41 @@ func (i *testUserInfo) Username() string { return testUsername }
 
 type testAccountManager struct{}
 
-func (m *testAccountManager) Authenticate(fn types.AuthHTTPHandler) types.HTTPHandler {
+func (m *testAccountManager) Authenticate(fn accounts.AuthHTTPHandler) accounts.HTTPHandler {
 	return func(w http.ResponseWriter, r *http.Request) error {
 		return fn(w, r, &testUserInfo{})
 	}
 }
 
-func (m *testAccountManager) OnOAuthExchange(w http.ResponseWriter, r *http.Request, tk types.IDTokenClaims) (types.UserInfo, error) {
+func (m *testAccountManager) OnOAuthExchange(w http.ResponseWriter, r *http.Request, tk appOAuth.IDTokenClaims) (accounts.UserInfo, error) {
 	return &testUserInfo{}, nil
 }
 
 type testInstanceManager struct {
-	hostClientFactory func(zone, host string) types.HostClient
+	hostClientFactory func(zone, host string) instances.HostClient
 }
 
 func (m *testInstanceManager) GetHostURL(zone string, host string) (*url.URL, error) {
 	return url.Parse("http://127.0.0.1:8080")
 }
 
-func (m *testInstanceManager) CreateHost(_ string, _ *apiv1.CreateHostRequest, _ types.UserInfo) (*apiv1.Operation, error) {
+func (m *testInstanceManager) CreateHost(_ string, _ *apiv1.CreateHostRequest, _ accounts.UserInfo) (*apiv1.Operation, error) {
 	return &apiv1.Operation{}, nil
 }
 
-func (m *testInstanceManager) ListHosts(zone string, user types.UserInfo, req *types.ListHostsRequest) (*apiv1.ListHostsResponse, error) {
+func (m *testInstanceManager) ListHosts(zone string, user accounts.UserInfo, req *instances.ListHostsRequest) (*apiv1.ListHostsResponse, error) {
 	return &apiv1.ListHostsResponse{}, nil
 }
 
-func (m *testInstanceManager) DeleteHost(zone string, user types.UserInfo, name string) (*apiv1.Operation, error) {
+func (m *testInstanceManager) DeleteHost(zone string, user accounts.UserInfo, name string) (*apiv1.Operation, error) {
 	return &apiv1.Operation{}, nil
 }
 
-func (m *testInstanceManager) WaitOperation(_ string, _ types.UserInfo, _ string) (any, error) {
+func (m *testInstanceManager) WaitOperation(_ string, _ accounts.UserInfo, _ string) (any, error) {
 	return struct{}{}, nil
 }
 
-func (m *testInstanceManager) GetHostClient(zone string, host string) (types.HostClient, error) {
+func (m *testInstanceManager) GetHostClient(zone string, host string) (instances.HostClient, error) {
 	return m.hostClientFactory(zone, host), nil
 }
 
@@ -88,11 +93,11 @@ type testHostClient struct {
 	url *url.URL
 }
 
-func (hc *testHostClient) Get(path, query string, res *types.HostResponse) (int, error) {
+func (hc *testHostClient) Get(path, query string, res *instances.HostResponse) (int, error) {
 	return 200, nil
 }
 
-func (hc *testHostClient) Post(path, query string, bodyJSON any, res *types.HostResponse) (int, error) {
+func (hc *testHostClient) Post(path, query string, bodyJSON any, res *instances.HostResponse) (int, error) {
 	return 200, nil
 }
 
@@ -101,8 +106,8 @@ func (hc *testHostClient) GetReverseProxy() *httputil.ReverseProxy {
 }
 
 func TestCreateHostSucceeds(t *testing.T) {
-	controller := NewController(
-		make([]string, 0), types.OperationsConfig{}, &testInstanceManager{}, nil, &testAccountManager{}, nil, nil, nil)
+	controller := NewApp(
+		config.WebRTCConfig{make([]string, 0)}, config.OperationsConfig{}, &testInstanceManager{}, nil, &testAccountManager{}, nil, nil, nil)
 	ts := httptest.NewServer(controller.Handler())
 	defer ts.Close()
 
@@ -116,9 +121,9 @@ func TestCreateHostSucceeds(t *testing.T) {
 }
 
 func TestCreateHostOperationIsDisabled(t *testing.T) {
-	controller := NewController(
-		make([]string, 0),
-		types.OperationsConfig{CreateHostDisabled: true},
+	controller := NewApp(
+		config.WebRTCConfig{make([]string, 0)},
+		config.OperationsConfig{CreateHostDisabled: true},
 		&testInstanceManager{}, nil, &testAccountManager{}, nil, nil, nil)
 	ts := httptest.NewServer(controller.Handler())
 	defer ts.Close()
@@ -133,8 +138,8 @@ func TestCreateHostOperationIsDisabled(t *testing.T) {
 }
 
 func TestWaitOperatioSucceeds(t *testing.T) {
-	controller := NewController(
-		make([]string, 0), types.OperationsConfig{}, &testInstanceManager{}, nil, &testAccountManager{}, nil, nil, nil)
+	controller := NewApp(
+		config.WebRTCConfig{make([]string, 0)}, config.OperationsConfig{}, &testInstanceManager{}, nil, &testAccountManager{}, nil, nil, nil)
 	ts := httptest.NewServer(controller.Handler())
 	defer ts.Close()
 
@@ -189,7 +194,7 @@ func TestBuildListHostsRequest(t *testing.T) {
 
 		listReq, _ := BuildListHostsRequest(r)
 
-		expected := types.ListHostsRequest{
+		expected := instances.ListHostsRequest{
 			MaxResults: 1,
 			PageToken:  "foo",
 		}
@@ -205,8 +210,8 @@ func TestDeleteHostIsHandled(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	controller := NewController(
-		make([]string, 0), types.OperationsConfig{}, &testInstanceManager{}, nil, &testAccountManager{}, nil, nil, nil)
+	controller := NewApp(
+		config.WebRTCConfig{make([]string, 0)}, config.OperationsConfig{}, &testInstanceManager{}, nil, &testAccountManager{}, nil, nil, nil)
 
 	makeRequest(rr, req, controller)
 
@@ -244,9 +249,9 @@ func TestHostForwarderRequest(t *testing.T) {
 		w.Write([]byte(respContent))
 	}))
 	hostURL, _ := url.Parse(ts.URL)
-	controller := NewController(
-		make([]string, 0), types.OperationsConfig{}, &testInstanceManager{
-			hostClientFactory: func(_, _ string) types.HostClient {
+	controller := NewApp(
+		config.WebRTCConfig{make([]string, 0)}, config.OperationsConfig{}, &testInstanceManager{
+			hostClientFactory: func(_, _ string) instances.HostClient {
 				return &testHostClient{hostURL}
 			},
 		}, nil, &testAccountManager{}, nil, nil, nil)
@@ -351,14 +356,14 @@ func TestHostForwarderInjectCredentials(t *testing.T) {
 		w.Write([]byte("ok"))
 	}))
 	hostURL, _ := url.Parse(ts.URL)
-	dbs := unix.NewInMemoryDBService()
+	dbs := database.NewInMemoryDBService()
 	tk := &oauth2.Token{
 		AccessToken:  credentials,
 		TokenType:    "Brearer",
 		RefreshToken: "",
 		Expiry:       time.Now().Add(1 * time.Hour),
 	}
-	es := unix.NewSimpleEncryptionService()
+	es := encryption.NewFakeEncryptionService()
 	jsonToken, err := json.Marshal(tk)
 	if err != nil {
 		t.Error(err)
@@ -368,9 +373,9 @@ func TestHostForwarderInjectCredentials(t *testing.T) {
 		t.Error(err)
 	}
 	dbs.StoreBuildAPICredentials(testUsername, encryptedJSONToken)
-	controller := NewController(
-		make([]string, 0), types.OperationsConfig{}, &testInstanceManager{
-			hostClientFactory: func(_, _ string) types.HostClient {
+	controller := NewApp(
+		config.WebRTCConfig{make([]string, 0)}, config.OperationsConfig{}, &testInstanceManager{
+			hostClientFactory: func(_, _ string) instances.HostClient {
 				return &testHostClient{hostURL}
 			},
 		}, nil, &testAccountManager{}, &oauth2.Config{}, es, dbs)
@@ -407,14 +412,14 @@ func TestHostForwarderDoesNotInjectCredentials(t *testing.T) {
 		w.Write([]byte("ok"))
 	}))
 	hostURL, _ := url.Parse(ts.URL)
-	dbs := unix.NewInMemoryDBService()
+	dbs := database.NewInMemoryDBService()
 	tk := &oauth2.Token{
 		AccessToken:  credentials,
 		TokenType:    "Brearer",
 		RefreshToken: "",
 		Expiry:       time.Now().Add(1 * time.Hour),
 	}
-	es := unix.NewSimpleEncryptionService()
+	es := encryption.NewFakeEncryptionService()
 	jsonToken, err := json.Marshal(tk)
 	if err != nil {
 		t.Error(err)
@@ -424,9 +429,9 @@ func TestHostForwarderDoesNotInjectCredentials(t *testing.T) {
 		t.Error(err)
 	}
 	dbs.StoreBuildAPICredentials(testUsername, encryptedJSONToken)
-	controller := NewController(
-		make([]string, 0), types.OperationsConfig{}, &testInstanceManager{
-			hostClientFactory: func(_, _ string) types.HostClient {
+	controller := NewApp(
+		config.WebRTCConfig{make([]string, 0)}, config.OperationsConfig{}, &testInstanceManager{
+			hostClientFactory: func(_, _ string) instances.HostClient {
 				return &testHostClient{hostURL}
 			},
 		}, nil, &testAccountManager{}, &oauth2.Config{}, es, dbs)
@@ -441,13 +446,13 @@ func TestHostForwarderDoesNotInjectCredentials(t *testing.T) {
 }
 
 func assertIsAppError(t *testing.T, err error) {
-	var appErr *types.AppError
+	var appErr *apperr.AppError
 	if !errors.As(err, &appErr) {
 		t.Errorf("error type <<\"%T\">> not found in error chain", appErr)
 	}
 }
 
-func makeRequest(w http.ResponseWriter, r *http.Request, controller *Controller) {
+func makeRequest(w http.ResponseWriter, r *http.Request, controller *App) {
 	router := controller.Handler()
 	router.ServeHTTP(w, r)
 }

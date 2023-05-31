@@ -12,30 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package app
+package secrets
 
-import (
-	"os"
+type SecretManager interface {
+	OAuthClientID() string
+	OAuthClientSecret() string
+}
 
-	"github.com/google/cloud-android-orchestration/pkg/app/types"
+type SMType string
 
-	toml "github.com/pelletier/go-toml"
-)
-
-const DefaultConfFile = "conf.toml"
-const ConfFileEnvVar = "CONFIG_FILE"
-
-func LoadConfig() (*types.Config, error) {
-	confFile := os.Getenv(ConfFileEnvVar)
-	if confFile == "" {
-		confFile = DefaultConfFile
-	}
-	file, err := os.Open(confFile)
-	if err != nil {
-		return nil, err
-	}
-	decoder := toml.NewDecoder(file)
-	var cfg types.Config
-	err = decoder.Decode(&cfg)
-	return &cfg, err
+type Config struct {
+	Type SMType
+	GCP  *GCPSMConfig
+	UNIX *UnixSMConfig
 }

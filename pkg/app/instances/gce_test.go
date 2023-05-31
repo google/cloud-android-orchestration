@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package gcp
+package instances
 
 import (
 	"context"
@@ -28,7 +28,7 @@ import (
 	"testing"
 
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
-	"github.com/google/cloud-android-orchestration/pkg/app/types"
+	apperr "github.com/google/cloud-android-orchestration/pkg/app/errors"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/sergi/go-diff/diffmatchpatch"
@@ -36,8 +36,8 @@ import (
 	"google.golang.org/api/option"
 )
 
-var testConfig = types.IMConfig{
-	GCP: &types.GCPIMConfig{
+var testConfig = Config{
+	GCP: &GCPIMConfig{
 		ProjectID:       "google.com:test-project",
 		HostImageFamily: "projects/test-project-releases/global/images/family/foo",
 	},
@@ -59,7 +59,7 @@ func TestCreateHostInvalidRequests(t *testing.T) {
 	}))
 	defer ts.Close()
 	testService := buildTestService(t, ts)
-	im := NewInstanceManager(testConfig, testService, testNameGenerator)
+	im := NewGCEInstanceManager(testConfig, testService, testNameGenerator)
 	var validRequest = func() *apiv1.CreateHostRequest {
 		return &apiv1.CreateHostRequest{
 			HostInstance: &apiv1.HostInstance{
@@ -89,7 +89,7 @@ func TestCreateHostInvalidRequests(t *testing.T) {
 		req := validRequest()
 		test.corruptRequest(req)
 		_, err := im.CreateHost("us-central1-a", req, &TestUserInfo{})
-		var appErr *types.AppError
+		var appErr *apperr.AppError
 		if !errors.As(err, &appErr) {
 			t.Errorf("unexpected error <<\"%v\">>, want \"%T\"", err, appErr)
 		}
@@ -104,7 +104,7 @@ func TestCreateHostRequestPath(t *testing.T) {
 	}))
 	defer ts.Close()
 	testService := buildTestService(t, ts)
-	im := NewInstanceManager(testConfig, testService, testNameGenerator)
+	im := NewGCEInstanceManager(testConfig, testService, testNameGenerator)
 
 	im.CreateHost("us-central1-a",
 		&apiv1.CreateHostRequest{
@@ -132,7 +132,7 @@ func TestCreateHostRequestBody(t *testing.T) {
 	}))
 	defer ts.Close()
 	testService := buildTestService(t, ts)
-	im := NewInstanceManager(testConfig, testService, testNameGenerator)
+	im := NewGCEInstanceManager(testConfig, testService, testNameGenerator)
 
 	im.CreateHost("us-central1-a",
 		&apiv1.CreateHostRequest{
@@ -187,9 +187,9 @@ func TestCreateHostAcloudCompatible(t *testing.T) {
 	}))
 	defer ts.Close()
 	testService := buildTestService(t, ts)
-	im := InstanceManager{
-		Config: types.IMConfig{
-			GCP: &types.GCPIMConfig{
+	im := GCEInstanceManager{
+		Config: Config{
+			GCP: &GCPIMConfig{
 				ProjectID:        "google.com:test-project",
 				HostImageFamily:  "projects/test-project-releases/global/images/family/foo",
 				AcloudCompatible: true,
@@ -235,7 +235,7 @@ func TestCreateHostSuccess(t *testing.T) {
 	}))
 	defer ts.Close()
 	testService := buildTestService(t, ts)
-	im := NewInstanceManager(testConfig, testService, testNameGenerator)
+	im := NewGCEInstanceManager(testConfig, testService, testNameGenerator)
 
 	op, _ := im.CreateHost("us-central1-a",
 		&apiv1.CreateHostRequest{
@@ -264,7 +264,7 @@ func TestGetHostAddrRequestPath(t *testing.T) {
 	}))
 	defer ts.Close()
 	testService := buildTestService(t, ts)
-	im := NewInstanceManager(testConfig, testService, testNameGenerator)
+	im := NewGCEInstanceManager(testConfig, testService, testNameGenerator)
 
 	im.GetHostAddr("us-central1-a", "foo")
 
@@ -280,11 +280,11 @@ func TestGetHostAddrMissingNetworkInterface(t *testing.T) {
 	}))
 	defer ts.Close()
 	testService := buildTestService(t, ts)
-	im := NewInstanceManager(testConfig, testService, testNameGenerator)
+	im := NewGCEInstanceManager(testConfig, testService, testNameGenerator)
 
 	_, err := im.GetHostAddr("us-central1-a", "foo")
 
-	var appErr *types.AppError
+	var appErr *apperr.AppError
 	if !errors.As(err, &appErr) {
 		t.Errorf("unexpected error <<\"%v\">>, want \"%T\"", err, appErr)
 	}
@@ -304,7 +304,7 @@ func TestGetHostAddrSuccess(t *testing.T) {
 	}))
 	defer ts.Close()
 	testService := buildTestService(t, ts)
-	im := NewInstanceManager(testConfig, testService, testNameGenerator)
+	im := NewGCEInstanceManager(testConfig, testService, testNameGenerator)
 
 	addr, _ := im.GetHostAddr("us-central1-a", "foo")
 
@@ -321,8 +321,8 @@ func TestListHostsRequestQuery(t *testing.T) {
 	}))
 	defer ts.Close()
 	testService := buildTestService(t, ts)
-	im := NewInstanceManager(testConfig, testService, testNameGenerator)
-	req := &types.ListHostsRequest{
+	im := NewGCEInstanceManager(testConfig, testService, testNameGenerator)
+	req := &ListHostsRequest{
 		MaxResults: 100,
 		PageToken:  "foo",
 	}
@@ -348,8 +348,8 @@ func TestListHostsOverMaxResultsLimit(t *testing.T) {
 	}))
 	defer ts.Close()
 	testService := buildTestService(t, ts)
-	im := NewInstanceManager(testConfig, testService, testNameGenerator)
-	req := &types.ListHostsRequest{
+	im := NewGCEInstanceManager(testConfig, testService, testNameGenerator)
+	req := &ListHostsRequest{
 		MaxResults: 501,
 		PageToken:  "foo",
 	}
@@ -387,9 +387,9 @@ func TestListHostsSucceeds(t *testing.T) {
 	}))
 	defer ts.Close()
 	testService := buildTestService(t, ts)
-	im := NewInstanceManager(testConfig, testService, testNameGenerator)
+	im := NewGCEInstanceManager(testConfig, testService, testNameGenerator)
 
-	resp, err := im.ListHosts("us-central1-a", &TestUserInfo{}, &types.ListHostsRequest{})
+	resp, err := im.ListHosts("us-central1-a", &TestUserInfo{}, &ListHostsRequest{})
 
 	if err != nil {
 		t.Errorf("expected <<nil>>, got %+v", err)
@@ -414,7 +414,7 @@ func TestDeleteHostVerifyUserOwnsTheHost(t *testing.T) {
 	}))
 	defer ts.Close()
 	testService := buildTestService(t, ts)
-	im := NewInstanceManager(testConfig, testService, testNameGenerator)
+	im := NewGCEInstanceManager(testConfig, testService, testNameGenerator)
 
 	im.DeleteHost("us-central1-a", &TestUserInfo{}, "foo")
 
@@ -430,11 +430,11 @@ func TestDeleteHostHostDoesNotExist(t *testing.T) {
 	}))
 	defer ts.Close()
 	testService := buildTestService(t, ts)
-	im := NewInstanceManager(testConfig, testService, testNameGenerator)
+	im := NewGCEInstanceManager(testConfig, testService, testNameGenerator)
 
 	_, err := im.DeleteHost("us-central1-a", &TestUserInfo{}, "foo")
 
-	if appErr, ok := err.(*types.AppError); !ok {
+	if appErr, ok := err.(*apperr.AppError); !ok {
 		t.Errorf("expected <<%T>>, got %T", appErr, err)
 	}
 }
@@ -460,7 +460,7 @@ func TestDeleteHostSucceeds(t *testing.T) {
 		}
 	}))
 	defer ts.Close()
-	im := NewInstanceManager(testConfig, buildTestService(t, ts), testNameGenerator)
+	im := NewGCEInstanceManager(testConfig, buildTestService(t, ts), testNameGenerator)
 
 	op, _ := im.DeleteHost(zone, &TestUserInfo{}, "foo")
 
@@ -485,11 +485,11 @@ func TestWaitOperationAndOperationIsNotDone(t *testing.T) {
 		}
 	}))
 	defer ts.Close()
-	im := NewInstanceManager(testConfig, buildTestService(t, ts), testNameGenerator)
+	im := NewGCEInstanceManager(testConfig, buildTestService(t, ts), testNameGenerator)
 
 	_, err := im.WaitOperation(zone, &TestUserInfo{}, opName)
 
-	if appErr, _ := err.(*types.AppError); true {
+	if appErr, _ := err.(*apperr.AppError); true {
 		if diff := cmp.Diff(http.StatusServiceUnavailable, appErr.StatusCode); diff != "" {
 			t.Errorf("status code (-want +got):\n%s", diff)
 		}
@@ -522,7 +522,7 @@ func TestWaitCreateInstanceOperationSucceeds(t *testing.T) {
 		}
 	}))
 	defer ts.Close()
-	im := NewInstanceManager(testConfig, buildTestService(t, ts), testNameGenerator)
+	im := NewGCEInstanceManager(testConfig, buildTestService(t, ts), testNameGenerator)
 
 	res, _ := im.WaitOperation(zone, &TestUserInfo{}, opName)
 
@@ -545,7 +545,7 @@ func TestWaitDeleteInstanceOperationSucceeds(t *testing.T) {
 		replyJSON(w, operation)
 	}))
 	defer ts.Close()
-	im := NewInstanceManager(testConfig, buildTestService(t, ts), testNameGenerator)
+	im := NewGCEInstanceManager(testConfig, buildTestService(t, ts), testNameGenerator)
 
 	res, _ := im.WaitOperation(zone, &TestUserInfo{}, opName)
 
@@ -580,7 +580,7 @@ func TestWaitOperationInvalidDoneOperations(t *testing.T) {
 		t.Fatalf("unexpected path: %q", r.URL.Path)
 	}))
 	defer ts.Close()
-	im := NewInstanceManager(testConfig, buildTestService(t, ts), testNameGenerator)
+	im := NewGCEInstanceManager(testConfig, buildTestService(t, ts), testNameGenerator)
 
 	for name := range operations {
 
@@ -608,11 +608,11 @@ func TestWaitOperationFailedOperation(t *testing.T) {
 		replyJSON(w, operation)
 	}))
 	defer ts.Close()
-	im := NewInstanceManager(testConfig, buildTestService(t, ts), testNameGenerator)
+	im := NewGCEInstanceManager(testConfig, buildTestService(t, ts), testNameGenerator)
 
 	_, err := im.WaitOperation(zone, &TestUserInfo{}, opName)
 
-	appErr, _ := err.(*types.AppError)
+	appErr, _ := err.(*apperr.AppError)
 	if appErr.Msg != errorMessage {
 		t.Errorf("expected <<%q>>, got: %q", errorMessage, appErr.Msg)
 	}
@@ -657,7 +657,7 @@ func TestBuildHostInstanceNoDisk(t *testing.T) {
 
 	result, err := BuildHostInstance(input)
 
-	var appErr *types.AppError
+	var appErr *apperr.AppError
 	if !errors.As(err, &appErr) {
 		t.Errorf("error type <<\"%T\">> not found in error chain, got %v", appErr, err)
 	}

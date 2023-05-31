@@ -12,29 +12,33 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package gcp
+package secrets
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
 
-	"github.com/google/cloud-android-orchestration/pkg/app/types"
-
 	secretmanager "cloud.google.com/go/secretmanager/apiv1"
 	"cloud.google.com/go/secretmanager/apiv1/secretmanagerpb"
 )
+
+const GCPSMType = "GCP"
+
+type GCPSMConfig struct {
+	OAuthClientResourceID string
+}
 
 type ClientSecrets struct {
 	ClientID     string `json:"client_id"`
 	ClientSecret string `json:"client_secret"`
 }
 
-type SecretManager struct {
+type GCPSecretManager struct {
 	secrets ClientSecrets
 }
 
-func NewSecretManager(config *types.GCPSMConfig) (*SecretManager, error) {
+func NewGCPSecretManager(config *GCPSMConfig) (*GCPSecretManager, error) {
 	ctx := context.TODO()
 	client, err := secretmanager.NewClient(ctx)
 	if err != nil {
@@ -47,7 +51,7 @@ func NewSecretManager(config *types.GCPSMConfig) (*SecretManager, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Failed to access secret: %w", err)
 	}
-	sm := &SecretManager{}
+	sm := &GCPSecretManager{}
 	err = json.Unmarshal(result.Payload.Data, &sm.secrets)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to decode secrets: %w", err)
@@ -55,10 +59,10 @@ func NewSecretManager(config *types.GCPSMConfig) (*SecretManager, error) {
 	return sm, nil
 }
 
-func (s *SecretManager) OAuthClientID() string {
+func (s *GCPSecretManager) OAuthClientID() string {
 	return s.secrets.ClientID
 }
 
-func (s *SecretManager) OAuthClientSecret() string {
+func (s *GCPSecretManager) OAuthClientSecret() string {
 	return s.secrets.ClientSecret
 }

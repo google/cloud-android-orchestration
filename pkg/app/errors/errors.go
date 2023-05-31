@@ -12,10 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package types
+package errors
 
 import (
-	"fmt"
 	"net/http"
 
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
@@ -52,10 +51,6 @@ func NewNotFoundError(msg string, e error) error {
 
 func NewBadRequestError(msg string, e error) error {
 	return &AppError{Msg: msg, StatusCode: http.StatusBadRequest, Err: e}
-}
-
-func NewInvalidQueryParamError(param, value string, err error) error {
-	return NewBadRequestError(fmt.Sprintf("Invalid query parameter %q value: %q", param, value), err)
 }
 
 func NewMethodNotAllowedError(msg string, e error) error {

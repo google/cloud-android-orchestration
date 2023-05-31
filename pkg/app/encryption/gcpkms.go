@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package gcp
+package encryption
 
 import (
 	"context"
@@ -22,15 +22,21 @@ import (
 	"cloud.google.com/go/kms/apiv1/kmspb"
 )
 
-type KMSEncryptionService struct {
+const GCPKMSESType = "GCP_KMS" // GCP's KMS service.
+
+type GCPKMSConfig struct {
+	KeyName string
+}
+
+type GCPKMSEncryptionService struct {
 	keyName string
 }
 
-func NewKMSEncryptionService(keyName string) *KMSEncryptionService {
-	return &KMSEncryptionService{keyName}
+func NewGCPKMSEncryptionService(keyName string) *GCPKMSEncryptionService {
+	return &GCPKMSEncryptionService{keyName}
 }
 
-func (s *KMSEncryptionService) Encrypt(plaintext []byte) ([]byte, error) {
+func (s *GCPKMSEncryptionService) Encrypt(plaintext []byte) ([]byte, error) {
 	ctx := context.TODO()
 	client, err := kms.NewKeyManagementClient(ctx)
 	if err != nil {
@@ -48,7 +54,7 @@ func (s *KMSEncryptionService) Encrypt(plaintext []byte) ([]byte, error) {
 	return result.Ciphertext, nil
 }
 
-func (s *KMSEncryptionService) Decrypt(ciphertext []byte) ([]byte, error) {
+func (s *GCPKMSEncryptionService) Decrypt(ciphertext []byte) ([]byte, error) {
 	ctx := context.TODO()
 	client, err := kms.NewKeyManagementClient(ctx)
 	if err != nil {

@@ -17,10 +17,7 @@ OAuthClientResourceID = ""
 SecretFilePath = "../secrets.json"
 
 [EncryptionService]
-Type = "Simple"
-
-[EncryptionService.Simple]
-KeySizeBits = 128
+Type = "Fake"
 
 [EncryptionService.GCP_KMS]
 KeyName = ""
@@ -44,5 +41,5 @@ HostOrchestratorPort = 1443
 [InstanceManager.UNIX]
 HostOrchestratorPort = 1443
 
-[Infra]
+[WebRTC]
 STUNServers = ["stun:stun.l.google.com:19302"]

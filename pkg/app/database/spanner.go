@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package gcp
+package database
 
 import (
 	"context"
@@ -20,11 +20,13 @@ import (
 	"log"
 	"time"
 
-	"github.com/google/cloud-android-orchestration/pkg/app/types"
+	"github.com/google/cloud-android-orchestration/pkg/app/session"
 
 	"cloud.google.com/go/spanner"
 	"google.golang.org/grpc/codes"
 )
+
+const SpannerDBType = "Spanner"
 
 const (
 	credentialsTable  = "Credentials"
@@ -112,7 +114,7 @@ func (dbs *SpannerDBService) DeleteBuildAPICredentials(username string) error {
 	return err
 }
 
-func (dbs *SpannerDBService) CreateOrUpdateSession(s types.Session) error {
+func (dbs *SpannerDBService) CreateOrUpdateSession(s session.Session) error {
 	ctx := context.TODO()
 	client, err := spanner.NewClient(ctx, dbs.db)
 	if err != nil {
@@ -126,7 +128,7 @@ func (dbs *SpannerDBService) CreateOrUpdateSession(s types.Session) error {
 	return err
 }
 
-func (dbs *SpannerDBService) FetchSession(key string) (*types.Session, error) {
+func (dbs *SpannerDBService) FetchSession(key string) (*session.Session, error) {
 	ctx := context.TODO()
 	client, err := spanner.NewClient(ctx, dbs.db)
 	if err != nil {
@@ -141,7 +143,7 @@ func (dbs *SpannerDBService) FetchSession(key string) (*types.Session, error) {
 		}
 		return nil, fmt.Errorf("Failed to retrive session: %w", err)
 	}
-	session := &types.Session{
+	session := &session.Session{
 		Key:         key,
 		OAuth2State: "",
 	}

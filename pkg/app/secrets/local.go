@@ -12,12 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package unix
+package secrets
 
 import (
 	"encoding/json"
 	"os"
 )
+
+const UnixSMType = "unix"
+
+type UnixSMConfig struct {
+	SecretFilePath string
+}
 
 // A secret manager that reads secrets from a file in JSON format.
 type FromFileSecretManager struct {
@@ -25,7 +31,7 @@ type FromFileSecretManager struct {
 	ClientSecret string `json:"client_secret"`
 }
 
-func NewSecretManager(path string) (*FromFileSecretManager, error) {
+func NewFromFileSecretManager(path string) (*FromFileSecretManager, error) {
 	r, err := os.Open(path)
 	if err != nil {
 		return nil, err

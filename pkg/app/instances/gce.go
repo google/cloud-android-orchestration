@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package gcp
+package instances
 
 import (
 	"context"
@@ -23,12 +23,22 @@ import (
 	"regexp"
 
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
-	"github.com/google/cloud-android-orchestration/pkg/app/net"
-	"github.com/google/cloud-android-orchestration/pkg/app/types"
+	"github.com/google/cloud-android-orchestration/pkg/app/accounts"
+	"github.com/google/cloud-android-orchestration/pkg/app/errors"
 
 	"google.golang.org/api/compute/v1"
 	"google.golang.org/api/googleapi"
 )
+
+const GCEIMType IMType = "GCP"
+
+type GCPIMConfig struct {
+	ProjectID            string
+	HostImageFamily      string
+	HostOrchestratorPort int
+	// If true, instances created should be compatible with `acloud CLI`.
+	AcloudCompatible bool
+}
 
 const (
 	labelPrefix          = "cf-"
@@ -37,21 +47,21 @@ const (
 )
 
 // GCP implementation of the instance manager.
-type InstanceManager struct {
-	Config                types.IMConfig
+type GCEInstanceManager struct {
+	Config                Config
 	Service               *compute.Service
 	InstanceNameGenerator NameGenerator
 }
 
-func NewInstanceManager(cfg types.IMConfig, service *compute.Service, nameGenerator NameGenerator) *InstanceManager {
-	return &InstanceManager{
+func NewGCEInstanceManager(cfg Config, service *compute.Service, nameGenerator NameGenerator) *GCEInstanceManager {
+	return &GCEInstanceManager{
 		Config:                cfg,
 		Service:               service,
 		InstanceNameGenerator: nameGenerator,
 	}
 }
 
-func (m *InstanceManager) GetHostAddr(zone string, host string) (string, error) {
+func (m *GCEInstanceManager) GetHostAddr(zone string, host string) (string, error) {
 	instance, err := m.getHostInstance(zone, host)
 	if err != nil {
 		return "", err
@@ -59,7 +69,7 @@ func (m *InstanceManager) GetHostAddr(zone string, host string) (string, error) 
 	ilen := len(instance.NetworkInterfaces)
 	if ilen == 0 {
 		log.Printf("host instance %s in zone %s is missing a network interface", host, zone)
-		return "", types.NewInternalError("host instance missing a network interface", nil)
+		return "", errors.NewInternalError("host instance missing a network interface", nil)
 	}
 	if ilen > 1 {
 		log.Printf("host instance %s in zone %s has %d network interfaces", host, zone, ilen)
@@ -67,7 +77,7 @@ func (m *InstanceManager) GetHostAddr(zone string, host string) (string, error) 
 	return instance.NetworkInterfaces[0].NetworkIP, nil
 }
 
-func (m *InstanceManager) GetHostURL(zone string, host string) (*url.URL, error) {
+func (m *GCEInstanceManager) GetHostURL(zone string, host string) (*url.URL, error) {
 	addr, err := m.GetHostAddr(zone, host)
 	if err != nil {
 		return nil, err
@@ -77,7 +87,7 @@ func (m *InstanceManager) GetHostURL(zone string, host string) (*url.URL, error)
 
 const operationStatusDone = "DONE"
 
-func (m *InstanceManager) CreateHost(zone string, req *apiv1.CreateHostRequest, user types.UserInfo) (*apiv1.Operation, error) {
+func (m *GCEInstanceManager) CreateHost(zone string, req *apiv1.CreateHostRequest, user accounts.UserInfo) (*apiv1.Operation, error) {
 	if err := validateRequest(req); err != nil {
 		return nil, err
 	}
@@ -134,7 +144,7 @@ func (m *InstanceManager) CreateHost(zone string, req *apiv1.CreateHostRequest, 
 
 const listHostsRequestMaxResultsLimit uint32 = 500
 
-func (m *InstanceManager) ListHosts(zone string, user types.UserInfo, req *types.ListHostsRequest) (*apiv1.ListHostsResponse, error) {
+func (m *GCEInstanceManager) ListHosts(zone string, user accounts.UserInfo, req *ListHostsRequest) (*apiv1.ListHostsResponse, error) {
 	var maxResults uint32
 	if req.MaxResults <= listHostsRequestMaxResultsLimit {
 		maxResults = req.MaxResults
@@ -167,7 +177,7 @@ func (m *InstanceManager) ListHosts(zone string, user types.UserInfo, req *types
 	}, nil
 }
 
-func (m *InstanceManager) DeleteHost(zone string, user types.UserInfo, name string) (*apiv1.Operation, error) {
+func (m *GCEInstanceManager) DeleteHost(zone string, user accounts.UserInfo, name string) (*apiv1.Operation, error) {
 	nameFilterExpr := "name=" + name
 	ownerFilterExpr := fmt.Sprintf("labels.%s:%s", labelCreatedBy, user.Username())
 	res, err := m.Service.Instances.
@@ -179,7 +189,7 @@ func (m *InstanceManager) DeleteHost(zone string, user types.UserInfo, name stri
 		return nil, toAppError(err)
 	}
 	if len(res.Items) == 0 {
-		return nil, types.NewBadRequestError(fmt.Sprintf("Host instance %q not found.", name), nil)
+		return nil, errors.NewBadRequestError(fmt.Sprintf("Host instance %q not found.", name), nil)
 	}
 	op, err := m.Service.Instances.
 		Delete(m.Config.GCP.ProjectID, zone, name).
@@ -191,27 +201,27 @@ func (m *InstanceManager) DeleteHost(zone string, user types.UserInfo, name stri
 	return &apiv1.Operation{Name: op.Name, Done: op.Status == operationStatusDone}, nil
 }
 
-func (m *InstanceManager) WaitOperation(zone string, user types.UserInfo, name string) (any, error) {
+func (m *GCEInstanceManager) WaitOperation(zone string, user accounts.UserInfo, name string) (any, error) {
 	op, err := m.Service.ZoneOperations.Wait(m.Config.GCP.ProjectID, zone, name).Do()
 	if err != nil {
 		return nil, toAppError(err)
 	}
 	if op.Status != operationStatusDone {
-		return nil, types.NewServiceUnavailableError("Wait for operation timed out", nil)
+		return nil, errors.NewServiceUnavailableError("Wait for operation timed out", nil)
 	}
 	getter := opResultGetter{Service: m.Service, Op: op}
 	return getter.Get()
 }
 
-func (m *InstanceManager) GetHostClient(zone string, host string) (types.HostClient, error) {
+func (m *GCEInstanceManager) GetHostClient(zone string, host string) (HostClient, error) {
 	url, err := m.GetHostURL(zone, host)
 	if err != nil {
 		return nil, err
 	}
-	return net.NewHostClient(url, m.Config.AllowSelfSignedHostSSLCertificate), nil
+	return NewNetHostClient(url, m.Config.AllowSelfSignedHostSSLCertificate), nil
 }
 
-func (m *InstanceManager) getHostInstance(zone string, host string) (*compute.Instance, error) {
+func (m *GCEInstanceManager) getHostInstance(zone string, host string) (*compute.Instance, error) {
 	return m.Service.Instances.
 		Get(m.Config.GCP.ProjectID, zone, host).
 		Context(context.TODO()).
@@ -224,7 +234,7 @@ func validateRequest(r *apiv1.CreateHostRequest) error {
 		r.HostInstance.BootDiskSizeGB != 0 ||
 		r.HostInstance.GCP == nil ||
 		r.HostInstance.GCP.MachineType == "" {
-		return types.NewBadRequestError("invalid CreateHostRequest", nil)
+		return errors.NewBadRequestError("invalid CreateHostRequest", nil)
 	}
 	return nil
 }
@@ -237,7 +247,7 @@ func BuildHostInstance(in *compute.Instance) (*apiv1.HostInstance, error) {
 	disksLen := len(in.Disks)
 	if disksLen == 0 {
 		log.Printf("invalid host instance %q: has 0 disks", in.SelfLink)
-		return nil, types.NewInternalError("invalid host instance: has 0 disks", nil)
+		return nil, errors.NewInternalError("invalid host instance: has 0 disks", nil)
 	}
 	if disksLen > 1 {
 		log.Printf("invalid host instance %q: has %d (more than one) disks", in.SelfLink, disksLen)
@@ -278,10 +288,10 @@ type opResultGetter struct {
 func (g *opResultGetter) Get() (any, error) {
 	done := g.Op.Status == operationStatusDone
 	if !done {
-		return nil, types.NewInternalError("cannot get the result of an operation that is not done yet", nil)
+		return nil, errors.NewInternalError("cannot get the result of an operation that is not done yet", nil)
 	}
 	if g.Op.Error != nil {
-		return nil, &types.AppError{
+		return nil, &errors.AppError{
 			Msg:        g.Op.HttpErrorMessage,
 			StatusCode: int(g.Op.HttpErrorStatusCode),
 			Err:        fmt.Errorf("gcp operation failed: %+v", g.Op),
@@ -293,7 +303,7 @@ func (g *opResultGetter) Get() (any, error) {
 	if g.Op.OperationType == "insert" && instanceTargetLinkRe.MatchString(g.Op.TargetLink) {
 		return g.buildCreateInstanceResult()
 	}
-	return nil, types.NewNotFoundError("operation result not found", nil)
+	return nil, errors.NewNotFoundError("operation result not found", nil)
 }
 
 func (g *opResultGetter) buildCreateInstanceResult() (*apiv1.HostInstance, error) {
@@ -318,7 +328,7 @@ func toAppError(err error) error {
 	if !ok {
 		return err
 	}
-	return &types.AppError{
+	return &errors.AppError{
 		Msg:        apiErr.Message,
 		StatusCode: apiErr.Code,
 		Err:        err,

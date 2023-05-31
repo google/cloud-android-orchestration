@@ -16,67 +16,70 @@ package main
 
 import (
 	"context"
-	"crypto/rand"
 	"log"
 	"net/http"
 	"os"
 
 	"github.com/google/cloud-android-orchestration/pkg/app"
-	"github.com/google/cloud-android-orchestration/pkg/app/net"
-	"github.com/google/cloud-android-orchestration/pkg/app/net/gcp"
-	"github.com/google/cloud-android-orchestration/pkg/app/net/unix"
-	"github.com/google/cloud-android-orchestration/pkg/app/types"
+	"github.com/google/cloud-android-orchestration/pkg/app/accounts"
+	"github.com/google/cloud-android-orchestration/pkg/app/config"
+	"github.com/google/cloud-android-orchestration/pkg/app/database"
+	"github.com/google/cloud-android-orchestration/pkg/app/encryption"
+	"github.com/google/cloud-android-orchestration/pkg/app/instances"
+	appOAuth "github.com/google/cloud-android-orchestration/pkg/app/oauth2"
+	"github.com/google/cloud-android-orchestration/pkg/app/secrets"
+	"github.com/google/cloud-android-orchestration/pkg/app/signaling"
 
 	"github.com/google/uuid"
 	"golang.org/x/oauth2"
 	"google.golang.org/api/compute/v1"
 )
 
-func LoadConfiguration() *types.Config {
-	config, err := app.LoadConfig()
+func LoadConfiguration() *config.Config {
+	config, err := config.LoadConfig()
 	if err != nil {
 		log.Fatal("Failed to load configuration: ", err)
 	}
 	log.Println("Main Configuration:")
 	log.Println("  Instance Manager Type: " + config.InstanceManager.Type)
-	if config.InstanceManager.Type == types.GCEIMType {
+	if config.InstanceManager.Type == instances.GCEIMType {
 		log.Println("  GCP Project: " + config.InstanceManager.GCP.ProjectID)
 	}
 	return config
 }
 
-func LoadInstanceManager(config *types.Config) types.InstanceManager {
-	var im types.InstanceManager
+func LoadInstanceManager(config *config.Config) instances.Manager {
+	var im instances.Manager
 	switch config.InstanceManager.Type {
-	case types.GCEIMType:
+	case instances.GCEIMType:
 		service, err := compute.NewService(context.Background())
 		if err != nil {
 			log.Fatal(err)
 		}
-		nameGenerator := &gcp.InstanceNameGenerator{
+		nameGenerator := &instances.InstanceNameGenerator{
 			UUIDFactory: func() string { return uuid.New().String() },
 		}
-		im = gcp.NewInstanceManager(config.InstanceManager, service, nameGenerator)
-	case types.UnixIMType:
-		im = unix.NewInstanceManager(config.InstanceManager)
+		im = instances.NewGCEInstanceManager(config.InstanceManager, service, nameGenerator)
+	case instances.UnixIMType:
+		im = instances.NewLocalInstanceManager(config.InstanceManager)
 	default:
 		log.Fatal("Unknown Instance Manager type: ", config.InstanceManager.Type)
 	}
 	return im
 }
 
-func LoadSecretManager(config *types.Config) types.SecretManager {
-	var sm types.SecretManager
+func LoadSecretManager(config *config.Config) secrets.SecretManager {
+	var sm secrets.SecretManager
 	switch config.SecretManager.Type {
-	case types.GCPSMType:
+	case secrets.GCPSMType:
 		var err error
-		sm, err = gcp.NewSecretManager(config.SecretManager.GCP)
+		sm, err = secrets.NewGCPSecretManager(config.SecretManager.GCP)
 		if err != nil {
 			log.Fatal("Failed to build Secret Manager: ", err)
 		}
-	case types.UnixSMType:
+	case secrets.UnixSMType:
 		var err error
-		sm, err = unix.NewSecretManager(config.SecretManager.UNIX.SecretFilePath)
+		sm, err = secrets.NewFromFileSecretManager(config.SecretManager.UNIX.SecretFilePath)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -86,55 +89,50 @@ func LoadSecretManager(config *types.Config) types.SecretManager {
 	return sm
 }
 
-func LoadOAuthConfig(config *types.Config, sm types.SecretManager) *oauth2.Config {
+func LoadOAuthConfig(config *config.Config, sm secrets.SecretManager) *oauth2.Config {
 	var oauthConfig *oauth2.Config
 	switch config.AccountManager.OAuth.Provider {
-	case types.GoogleOAuthProvider:
-		oauthConfig = net.NewGoogleOAuthConfig(config.AccountManager.OAuth.RedirectURL, sm)
+	case appOAuth.GoogleOAuthProvider:
+		oauthConfig = appOAuth.NewGoogleOAuthConfig(config.AccountManager.OAuth.RedirectURL, sm)
 	default:
 		log.Fatal("Unknown oauth provider: ", config.AccountManager.OAuth.Provider)
 	}
 	return oauthConfig
 }
 
-func LoadAccountManager(config *types.Config) types.AccountManager {
-	var am types.AccountManager
+func LoadAccountManager(config *config.Config) accounts.Manager {
+	var am accounts.Manager
 	switch config.AccountManager.Type {
-	case types.GAEAMType:
-		am = gcp.NewUsersAccountManager()
-	case types.UnixAMType:
-		am = &unix.AccountManager{}
+	case accounts.GAEAMType:
+		am = accounts.NewGAEUsersAccountManager()
+	case accounts.UnixAMType:
+		am = accounts.NewUnixAccountManager()
 	default:
 		log.Fatal("Unknown Account Manager type: ", config.AccountManager.Type)
 	}
 	return am
 }
 
-func LoadEncryptionService(config *types.Config) types.EncryptionService {
-	var es types.EncryptionService
+func LoadEncryptionService(config *config.Config) encryption.Service {
+	var es encryption.Service
 	switch config.EncryptionService.Type {
-	case types.SimpleESType:
-		key := make([]byte, config.EncryptionService.Simple.KeySizeBits/8)
-		_, err := rand.Read(key)
-		if err != nil {
-			log.Fatal("Failed to generate crypto key: ", err)
-		}
-		es = unix.NewSimpleEncryptionService()
-	case types.GCPKMSESType:
-		es = gcp.NewKMSEncryptionService(config.EncryptionService.GCPKMS.KeyName)
+	case encryption.FakeESType:
+		es = encryption.NewFakeEncryptionService()
+	case encryption.GCPKMSESType:
+		es = encryption.NewGCPKMSEncryptionService(config.EncryptionService.GCPKMS.KeyName)
 	default:
 		log.Fatal("Unknown encryption service type: ", config.EncryptionService.Type)
 	}
 	return es
 }
 
-func LoadDatabaseService(config *types.Config) types.DatabaseService {
-	var dbs types.DatabaseService
+func LoadDatabaseService(config *config.Config) database.Service {
+	var dbs database.Service
 	switch config.DatabaseService.Type {
-	case types.InMemoryDBType:
-		dbs = unix.NewInMemoryDBService()
-	case types.SpannerDBType:
-		dbs = gcp.NewSpannerDBService(config.DatabaseService.Spanner.DatabaseName)
+	case database.InMemoryDBType:
+		dbs = database.NewInMemoryDBService()
+	case database.SpannerDBType:
+		dbs = database.NewSpannerDBService(config.DatabaseService.Spanner.DatabaseName)
 	default:
 		log.Fatal("Unknown database service type: ", config.DatabaseService.Type)
 	}
@@ -142,8 +140,8 @@ func LoadDatabaseService(config *types.Config) types.DatabaseService {
 }
 
 // The network interface for the web server to listen on.
-func ChooseNetworkInterface(config *types.Config) string {
-	if config.AccountManager.Type == types.UnixAMType {
+func ChooseNetworkInterface(config *config.Config) string {
+	if config.AccountManager.Type == accounts.UnixAMType {
 		// This account manager is insecure, it's only meant for development. It's generally not
 		// safe to listen on every interface when it's in use, so restrict it to the loopback
 		// interface only.
@@ -166,13 +164,13 @@ func main() {
 	config := LoadConfiguration()
 
 	instanceManager := LoadInstanceManager(config)
-	signalingServer := app.NewForwardingSignalingServer(config.WebStaticFilesPath, instanceManager)
+	signalingServer := signaling.NewForwardingServer(config.WebStaticFilesPath, instanceManager)
 	secretManager := LoadSecretManager(config)
 	oauthConfig := LoadOAuthConfig(config, secretManager)
 	accountManager := LoadAccountManager(config)
 	encryptionService := LoadEncryptionService(config)
 	dbService := LoadDatabaseService(config)
-	controller := app.NewController(config.Infra.STUNServers, config.Operations, instanceManager,
+	controller := controller.NewApp(config.WebRTC, config.Operations, instanceManager,
 		signalingServer, accountManager, oauthConfig, encryptionService, dbService)
 
 	iface := ChooseNetworkInterface(config)

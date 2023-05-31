@@ -12,17 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package unix
+package encryption
+
+const FakeESType = "Fake"
 
 // A simple and very insecure implementation of an encryption service to be used for testing and
 // local development.
-type SimpleEncryptionService struct{}
+type FakeEncryptionService struct{}
 
-func NewSimpleEncryptionService() *SimpleEncryptionService {
-	return &SimpleEncryptionService{}
+func NewFakeEncryptionService() *FakeEncryptionService {
+	return &FakeEncryptionService{}
 }
 
-func (es *SimpleEncryptionService) Encrypt(plaintext []byte) ([]byte, error) {
+func (es *FakeEncryptionService) Encrypt(plaintext []byte) ([]byte, error) {
 	// Pretend to encrypt/decrypt messages by flipping the bits in the message. That ensures the
 	// encrypted message is different than the original.
 	const mask byte = 255
@@ -33,7 +35,7 @@ func (es *SimpleEncryptionService) Encrypt(plaintext []byte) ([]byte, error) {
 	return res, nil
 }
 
-func (es *SimpleEncryptionService) Decrypt(ciphertext []byte) ([]byte, error) {
+func (es *FakeEncryptionService) Decrypt(ciphertext []byte) ([]byte, error) {
 	// Same procedure to decrypt
 	return es.Encrypt(ciphertext)
 }

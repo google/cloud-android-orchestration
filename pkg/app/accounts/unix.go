@@ -12,39 +12,45 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package unix
+package accounts
 
 import (
 	"net/http"
 	"os"
 
-	"github.com/google/cloud-android-orchestration/pkg/app/types"
+	appOAuth "github.com/google/cloud-android-orchestration/pkg/app/oauth2"
 
 	"golang.org/x/oauth2"
 )
 
-// Implements the AccountManager interface taking the username from the
+const UnixAMType AMType = "unix"
+
+// Implements the Manager interface taking the username from the
 // environment and authorizing all requests
-type AccountManager struct {
+type UnixAccountManager struct {
 	tokenSource oauth2.TokenSource
 	lastState   string
 }
 
-func (m *AccountManager) Authenticate(fn types.AuthHTTPHandler) types.HTTPHandler {
+func NewUnixAccountManager() *UnixAccountManager {
+	return &UnixAccountManager{}
+}
+
+func (m *UnixAccountManager) Authenticate(fn AuthHTTPHandler) HTTPHandler {
 	return func(w http.ResponseWriter, r *http.Request) error {
-		return fn(w, r, &UserInfo{})
+		return fn(w, r, &UnixUserInfo{})
 	}
 }
 
-func (m *AccountManager) OnOAuthExchange(w http.ResponseWriter, r *http.Request, tk types.IDTokenClaims) (types.UserInfo, error) {
-	return &UserInfo{}, nil
+func (m *UnixAccountManager) OnOAuthExchange(w http.ResponseWriter, r *http.Request, tk appOAuth.IDTokenClaims) (UserInfo, error) {
+	return &UnixUserInfo{}, nil
 }
 
-type UserInfo struct {
+type UnixUserInfo struct {
 	username string
 }
 
-func (i *UserInfo) Username() string {
+func (i *UnixUserInfo) Username() string {
 	if i.username == "" {
 		i.username = os.Getenv("USER")
 	}

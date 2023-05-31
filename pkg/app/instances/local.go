@@ -12,35 +12,40 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package unix
+package instances
 
 import (
 	"fmt"
 	"net/url"
 
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
-	"github.com/google/cloud-android-orchestration/pkg/app/net"
-	"github.com/google/cloud-android-orchestration/pkg/app/types"
+	"github.com/google/cloud-android-orchestration/pkg/app/accounts"
 )
 
-// Implements the InstanceManager interface providing access to the first
-// device in the local host orchestrator.
-// This implementation is useful for both development and testing
-type InstanceManager struct {
-	config types.IMConfig
+const UnixIMType IMType = "unix"
+
+type UNIXIMConfig struct {
+	HostOrchestratorPort int
 }
 
-func NewInstanceManager(cfg types.IMConfig) *InstanceManager {
-	return &InstanceManager{
+// Implements the Manager interface providing access to the first
+// device in the local host orchestrator.
+// This implementation is useful for both development and testing
+type LocalInstanceManager struct {
+	config Config
+}
+
+func NewLocalInstanceManager(cfg Config) *LocalInstanceManager {
+	return &LocalInstanceManager{
 		config: cfg,
 	}
 }
 
-func (m *InstanceManager) GetHostAddr(_ string, _ string) (string, error) {
+func (m *LocalInstanceManager) GetHostAddr(_ string, _ string) (string, error) {
 	return "127.0.0.1", nil
 }
 
-func (m *InstanceManager) GetHostURL(zone string, host string) (*url.URL, error) {
+func (m *LocalInstanceManager) GetHostURL(zone string, host string) (*url.URL, error) {
 	addr, err := m.GetHostAddr(zone, host)
 	if err != nil {
 		return nil, err
@@ -48,26 +53,26 @@ func (m *InstanceManager) GetHostURL(zone string, host string) (*url.URL, error)
 	return url.Parse(fmt.Sprintf("%s://%s:%d", m.config.HostOrchestratorProtocol, addr, m.config.UNIX.HostOrchestratorPort))
 }
 
-func (m *InstanceManager) CreateHost(_ string, _ *apiv1.CreateHostRequest, _ types.UserInfo) (*apiv1.Operation, error) {
+func (m *LocalInstanceManager) CreateHost(_ string, _ *apiv1.CreateHostRequest, _ accounts.UserInfo) (*apiv1.Operation, error) {
 	return nil, fmt.Errorf("%T#CreateHost is not implemented", *m)
 }
 
-func (m *InstanceManager) ListHosts(zone string, user types.UserInfo, req *types.ListHostsRequest) (*apiv1.ListHostsResponse, error) {
+func (m *LocalInstanceManager) ListHosts(zone string, user accounts.UserInfo, req *ListHostsRequest) (*apiv1.ListHostsResponse, error) {
 	return nil, fmt.Errorf("%T#ListHosts is not implemented", *m)
 }
 
-func (m *InstanceManager) DeleteHost(zone string, user types.UserInfo, name string) (*apiv1.Operation, error) {
+func (m *LocalInstanceManager) DeleteHost(zone string, user accounts.UserInfo, name string) (*apiv1.Operation, error) {
 	return nil, fmt.Errorf("%T#DeleteHost is not implemented", *m)
 }
 
-func (m *InstanceManager) WaitOperation(zone string, user types.UserInfo, name string) (any, error) {
+func (m *LocalInstanceManager) WaitOperation(zone string, user accounts.UserInfo, name string) (any, error) {
 	return nil, fmt.Errorf("%T#WaitOperation is not implemented", *m)
 }
 
-func (m *InstanceManager) GetHostClient(zone string, host string) (types.HostClient, error) {
+func (m *LocalInstanceManager) GetHostClient(zone string, host string) (HostClient, error) {
 	url, err := m.GetHostURL(zone, host)
 	if err != nil {
 		return nil, err
 	}
-	return net.NewHostClient(url, m.config.AllowSelfSignedHostSSLCertificate), nil
+	return NewNetHostClient(url, m.config.AllowSelfSignedHostSSLCertificate), nil
 }

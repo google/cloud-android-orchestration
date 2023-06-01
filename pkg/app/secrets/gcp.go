@@ -26,7 +26,7 @@ import (
 const GCPSMType = "GCP"
 
 type GCPSMConfig struct {
-	OAuthClientResourceID string
+	OAuth2ClientResourceID string
 }
 
 type ClientSecrets struct {
@@ -46,7 +46,7 @@ func NewGCPSecretManager(config *GCPSMConfig) (*GCPSecretManager, error) {
 	}
 	defer client.Close()
 
-	accessRequest := &secretmanagerpb.AccessSecretVersionRequest{Name: config.OAuthClientResourceID}
+	accessRequest := &secretmanagerpb.AccessSecretVersionRequest{Name: config.OAuth2ClientResourceID}
 	result, err := client.AccessSecretVersion(ctx, accessRequest)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to access secret: %w", err)
@@ -59,10 +59,10 @@ func NewGCPSecretManager(config *GCPSMConfig) (*GCPSecretManager, error) {
 	return sm, nil
 }
 
-func (s *GCPSecretManager) OAuthClientID() string {
+func (s *GCPSecretManager) OAuth2ClientID() string {
 	return s.secrets.ClientID
 }
 
-func (s *GCPSecretManager) OAuthClientSecret() string {
+func (s *GCPSecretManager) OAuth2ClientSecret() string {
 	return s.secrets.ClientSecret
 }

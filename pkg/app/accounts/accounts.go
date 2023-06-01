@@ -17,7 +17,7 @@ package accounts
 import (
 	"net/http"
 
-	appOAuth "github.com/google/cloud-android-orchestration/pkg/app/oauth2"
+	appOAuth2 "github.com/google/cloud-android-orchestration/pkg/app/oauth2"
 )
 
 type AuthHTTPHandler func(http.ResponseWriter, *http.Request, UserInfo) error
@@ -32,12 +32,12 @@ type Manager interface {
 	UserFromRequest(r *http.Request) (UserInfo, error)
 	// Gives the account manager the chance to extract login information from the token (id token
 	// for example), validate it, add cookies to the request, etc.
-	OnOAuthExchange(w http.ResponseWriter, r *http.Request, idToken appOAuth.IDTokenClaims) (UserInfo, error)
+	OnOAuth2Exchange(w http.ResponseWriter, r *http.Request, idToken appOAuth2.IDTokenClaims) (UserInfo, error)
 }
 
 type AMType string
 
 type Config struct {
-	Type  AMType
-	OAuth appOAuth.OAuthConfig
+	Type   AMType
+	OAuth2 appOAuth2.OAuth2Config
 }

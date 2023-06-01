@@ -35,7 +35,7 @@ import (
 	"github.com/google/cloud-android-orchestration/pkg/app/encryption"
 	apperr "github.com/google/cloud-android-orchestration/pkg/app/errors"
 	"github.com/google/cloud-android-orchestration/pkg/app/instances"
-	appOAuth "github.com/google/cloud-android-orchestration/pkg/app/oauth2"
+	appOAuth2 "github.com/google/cloud-android-orchestration/pkg/app/oauth2"
 	"github.com/google/cloud-android-orchestration/pkg/app/session"
 	"github.com/google/cloud-android-orchestration/pkg/app/signaling"
 
@@ -57,7 +57,7 @@ type App struct {
 	instanceManager   instances.Manager
 	sigServer         signaling.Server
 	accountManager    accounts.Manager
-	oauthConfig       *oauth2.Config
+	oauth2Config      *oauth2.Config
 	encryptionService encryption.Service
 	databaseService   database.Service
 }
@@ -281,7 +281,7 @@ func (c *App) AuthHandler(w http.ResponseWriter, r *http.Request) error {
 		Secure:   false,
 		SameSite: http.SameSiteLaxMode,
 	})
-	authURL := c.oauthConfig.AuthCodeURL(state, oauth2.AccessTypeOffline)
+	authURL := c.oauth2Config.AuthCodeURL(state, oauth2.AccessTypeOffline)
 	http.Redirect(w, r, authURL, http.StatusSeeOther)
 	return nil
 }
@@ -291,7 +291,7 @@ func (c *App) OAuth2Callback(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	tk, err := c.oauthConfig.Exchange(oauth2.NoContext, authCode)
+	tk, err := c.oauth2Config.Exchange(oauth2.NoContext, authCode)
 	if err != nil {
 		return fmt.Errorf("Error exchanging token: %w", err)
 	}
@@ -303,7 +303,7 @@ func (c *App) OAuth2Callback(w http.ResponseWriter, r *http.Request) error {
 	if !ok {
 		return fmt.Errorf("Id token in unexpected format")
 	}
-	user, err := c.accountManager.OnOAuthExchange(w, r, appOAuth.IDTokenClaims(tokenClaims))
+	user, err := c.accountManager.OnOAuth2Exchange(w, r, appOAuth2.IDTokenClaims(tokenClaims))
 	if err != nil {
 		return err
 	}
@@ -399,7 +399,7 @@ func (c *App) fetchUserCredentials(user accounts.UserInfo) (*oauth2.Token, error
 	}
 	if !tk.Valid() {
 		// Refresh the token and store it in the db.
-		tks := c.oauthConfig.TokenSource(context.TODO(), tk)
+		tks := c.oauth2Config.TokenSource(context.TODO(), tk)
 		tk, err = tks.Token()
 		if err != nil {
 			return nil, fmt.Errorf("Error refreshing token: %w", err)
@@ -528,13 +528,13 @@ func indexHandler(w http.ResponseWriter, r *http.Request, user accounts.UserInfo
 func extractIDToken(tk *oauth2.Token) (*jwt.Token, error) {
 	val := tk.Extra("id_token")
 	if val == nil {
-		return nil, fmt.Errorf("No id token in oauth server response")
+		return nil, fmt.Errorf("No id token in oauth2 server response")
 	}
 	tokenString, ok := val.(string)
 	if !ok {
-		return nil, fmt.Errorf("Unexpected id token in oauth response")
+		return nil, fmt.Errorf("Unexpected id token in oauth2 response")
 	}
-	// No need to verify the JWT here since it came directly from the oauth provider.
+	// No need to verify the JWT here since it came directly from the oauth2 provider.
 	noVerify := func(tk *jwt.Token) (interface{}, error) { return nil, nil }
 	idTk, err := jwt.Parse(tokenString, noVerify)
 	if err != nil && errors.Is(err, jwt.ErrInvalidKeyType) {

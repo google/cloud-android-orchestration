@@ -26,7 +26,7 @@ import (
 	"github.com/google/cloud-android-orchestration/pkg/app/database"
 	"github.com/google/cloud-android-orchestration/pkg/app/encryption"
 	"github.com/google/cloud-android-orchestration/pkg/app/instances"
-	appOAuth "github.com/google/cloud-android-orchestration/pkg/app/oauth2"
+	appOAuth2 "github.com/google/cloud-android-orchestration/pkg/app/oauth2"
 	"github.com/google/cloud-android-orchestration/pkg/app/secrets"
 	"github.com/google/cloud-android-orchestration/pkg/app/signaling"
 
@@ -89,15 +89,15 @@ func LoadSecretManager(config *config.Config) secrets.SecretManager {
 	return sm
 }
 
-func LoadOAuthConfig(config *config.Config, sm secrets.SecretManager) *oauth2.Config {
-	var oauthConfig *oauth2.Config
-	switch config.AccountManager.OAuth.Provider {
-	case appOAuth.GoogleOAuthProvider:
-		oauthConfig = appOAuth.NewGoogleOAuthConfig(config.AccountManager.OAuth.RedirectURL, sm)
+func LoadOAuth2Config(config *config.Config, sm secrets.SecretManager) *oauth2.Config {
+	var oauth2Config *oauth2.Config
+	switch config.AccountManager.OAuth2.Provider {
+	case appOAuth2.GoogleOAuth2Provider:
+		oauth2Config = appOAuth2.NewGoogleOAuth2Config(config.AccountManager.OAuth2.RedirectURL, sm)
 	default:
-		log.Fatal("Unknown oauth provider: ", config.AccountManager.OAuth.Provider)
+		log.Fatal("Unknown oauth2 provider: ", config.AccountManager.OAuth2.Provider)
 	}
-	return oauthConfig
+	return oauth2Config
 }
 
 func LoadAccountManager(config *config.Config) accounts.Manager {
@@ -166,12 +166,12 @@ func main() {
 	instanceManager := LoadInstanceManager(config)
 	signalingServer := signaling.NewForwardingServer(config.WebStaticFilesPath, instanceManager)
 	secretManager := LoadSecretManager(config)
-	oauthConfig := LoadOAuthConfig(config, secretManager)
+	oauth2Config := LoadOAuth2Config(config, secretManager)
 	accountManager := LoadAccountManager(config)
 	encryptionService := LoadEncryptionService(config)
 	dbService := LoadDatabaseService(config)
 	controller := controller.NewApp(config.WebRTC, config.Operations, instanceManager,
-		signalingServer, accountManager, oauthConfig, encryptionService, dbService)
+		signalingServer, accountManager, oauth2Config, encryptionService, dbService)
 
 	iface := ChooseNetworkInterface(config)
 	port := ServerPort()

@@ -21,20 +21,20 @@ import (
 	"golang.org/x/oauth2/google"
 )
 
-type OAuthConfig struct {
+type OAuth2Config struct {
 	Provider    string
 	RedirectURL string
 }
 
 const (
-	GoogleOAuthProvider = "Google"
+	GoogleOAuth2Provider = "Google"
 )
 
 // Build a oauth2.Config object with Google as the provider.
-func NewGoogleOAuthConfig(redirectURL string, sm secrets.SecretManager) *oauth2.Config {
+func NewGoogleOAuth2Config(redirectURL string, sm secrets.SecretManager) *oauth2.Config {
 	return &oauth2.Config{
-		ClientID:     sm.OAuthClientID(),
-		ClientSecret: sm.OAuthClientSecret(),
+		ClientID:     sm.OAuth2ClientID(),
+		ClientSecret: sm.OAuth2ClientSecret(),
 		Scopes: []string{
 			"https://www.googleapis.com/auth/androidbuild.internal",
 			"openid",

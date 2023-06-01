@@ -164,14 +164,14 @@ func main() {
 	config := LoadConfiguration()
 
 	instanceManager := LoadInstanceManager(config)
-	signalingServer := signaling.NewForwardingServer(config.WebStaticFilesPath, instanceManager)
+	signalingServer := signaling.NewForwardingServer(config.WebStaticFilesPath, instanceManager, config.WebRTC)
 	secretManager := LoadSecretManager(config)
 	oauth2Config := LoadOAuth2Config(config, secretManager)
 	accountManager := LoadAccountManager(config)
 	encryptionService := LoadEncryptionService(config)
 	dbService := LoadDatabaseService(config)
-	controller := controller.NewApp(config.WebRTC, instanceManager, signalingServer, accountManager,
-		oauth2Config, encryptionService, dbService)
+	controller := controller.NewApp(instanceManager, signalingServer, accountManager, oauth2Config,
+		encryptionService, dbService)
 
 	iface := ChooseNetworkInterface(config)
 	port := ServerPort()

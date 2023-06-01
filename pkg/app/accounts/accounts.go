@@ -20,9 +20,6 @@ import (
 	appOAuth2 "github.com/google/cloud-android-orchestration/pkg/app/oauth2"
 )
 
-type AuthHTTPHandler func(http.ResponseWriter, *http.Request, UserInfo) error
-type HTTPHandler func(http.ResponseWriter, *http.Request) error
-
 type UserInfo interface {
 	Username() string
 }

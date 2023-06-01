@@ -36,10 +36,8 @@ func NewUnixAccountManager() *UnixAccountManager {
 	return &UnixAccountManager{}
 }
 
-func (m *UnixAccountManager) Authenticate(fn AuthHTTPHandler) HTTPHandler {
-	return func(w http.ResponseWriter, r *http.Request) error {
-		return fn(w, r, &UnixUserInfo{})
-	}
+func (m *UnixAccountManager) UserFromRequest(r *http.Request) (UserInfo, error) {
+	return &UnixUserInfo{}, nil
 }
 
 func (m *UnixAccountManager) OnOAuthExchange(w http.ResponseWriter, r *http.Request, tk appOAuth.IDTokenClaims) (UserInfo, error) {

@@ -51,10 +51,8 @@ func (i *testUserInfo) Username() string { return testUsername }
 
 type testAccountManager struct{}
 
-func (m *testAccountManager) Authenticate(fn accounts.AuthHTTPHandler) accounts.HTTPHandler {
-	return func(w http.ResponseWriter, r *http.Request) error {
-		return fn(w, r, &testUserInfo{})
-	}
+func (m *testAccountManager) UserFromRequest(r *http.Request) (accounts.UserInfo, error) {
+	return &testUserInfo{}, nil
 }
 
 func (m *testAccountManager) OnOAuthExchange(w http.ResponseWriter, r *http.Request, tk appOAuth.IDTokenClaims) (accounts.UserInfo, error) {

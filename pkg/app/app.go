@@ -79,26 +79,26 @@ func (c *App) Handler() http.Handler {
 	router := mux.NewRouter()
 
 	// Signaling Server Routes
-	router.Handle("/v1/zones/{zone}/hosts/{host}/connections/{connID}/messages", HTTPHandler(c.accountManager.Authenticate(c.messages))).Methods("GET")
-	router.Handle("/v1/zones/{zone}/hosts/{host}/connections/{connID}/:forward", HTTPHandler(c.accountManager.Authenticate(c.forward))).Methods("POST")
-	router.Handle("/v1/zones/{zone}/hosts/{host}/connections", HTTPHandler(c.accountManager.Authenticate(c.createConnection))).Methods("POST")
-	router.Handle("/v1/zones/{zone}/hosts/{host}/devices/{deviceId}/files{path:/.+}", HTTPHandler(c.accountManager.Authenticate(c.getDeviceFiles))).Methods("GET")
+	router.Handle("/v1/zones/{zone}/hosts/{host}/connections/{connID}/messages", HTTPHandler(c.Authenticate(c.messages))).Methods("GET")
+	router.Handle("/v1/zones/{zone}/hosts/{host}/connections/{connID}/:forward", HTTPHandler(c.Authenticate(c.forward))).Methods("POST")
+	router.Handle("/v1/zones/{zone}/hosts/{host}/connections", HTTPHandler(c.Authenticate(c.createConnection))).Methods("POST")
+	router.Handle("/v1/zones/{zone}/hosts/{host}/devices/{deviceId}/files{path:/.+}", HTTPHandler(c.Authenticate(c.getDeviceFiles))).Methods("GET")
 
 	// Instance Manager Routes
 	router.Handle("/v1/zones/{zone}/hosts", c.createHostHTTPHandler()).Methods("POST")
-	router.Handle("/v1/zones/{zone}/hosts", HTTPHandler(c.accountManager.Authenticate(c.listHosts))).Methods("GET")
+	router.Handle("/v1/zones/{zone}/hosts", HTTPHandler(c.Authenticate(c.listHosts))).Methods("GET")
 	// Waits for the specified operation to be DONE or for the request to approach the specified deadline,
 	// `503 Service Unavailable` error will be returned if the deadline is reached and the operation is not done.
 	// Be prepared to retry if the deadline was reached.
 	// It returns the expected response of the operation in case of success. If the original method returns no
 	// data on success, such as `Delete`, response will be empty. If the original method is standard
 	// `Get`/`Create`/`Update`, the response should be the relevant resource.
-	router.Handle("/v1/zones/{zone}/operations/{operation}/:wait", HTTPHandler(c.accountManager.Authenticate(c.waitOperation))).Methods("POST")
-	router.Handle("/v1/zones/{zone}/hosts/{host}", HTTPHandler(c.accountManager.Authenticate(c.deleteHost))).Methods("DELETE")
+	router.Handle("/v1/zones/{zone}/operations/{operation}/:wait", HTTPHandler(c.Authenticate(c.waitOperation))).Methods("POST")
+	router.Handle("/v1/zones/{zone}/hosts/{host}", HTTPHandler(c.Authenticate(c.deleteHost))).Methods("DELETE")
 
 	// Host Orchestrator Proxy Routes
 	router.PathPrefix(
-		"/v1/zones/{zone}/hosts/{host}/{resource:devices|operations|cvds|userartifacts}").Handler(HTTPHandler(c.accountManager.Authenticate(c.ForwardToHost)))
+		"/v1/zones/{zone}/hosts/{host}/{resource:devices|operations|cvds|userartifacts}").Handler(HTTPHandler(c.Authenticate(c.ForwardToHost)))
 
 	// Infra route
 	router.HandleFunc("/v1/zones/{zone}/hosts/{host}/infra_config", func(w http.ResponseWriter, r *http.Request) {
@@ -109,7 +109,7 @@ func (c *App) Handler() http.Handler {
 	// Global routes
 	router.Handle("/auth", HTTPHandler(c.AuthHandler)).Methods("GET")
 	router.Handle("/oauth2callback", HTTPHandler(c.OAuth2Callback))
-	router.Handle("/", HTTPHandler(c.accountManager.Authenticate(indexHandler)))
+	router.Handle("/", HTTPHandler(c.Authenticate(indexHandler)))
 
 	// http.Handle("/", router)
 	return router
@@ -157,53 +157,11 @@ func (c *App) ForwardToHost(w http.ResponseWriter, r *http.Request, user account
 	return nil
 }
 
-func InjectCredentialsIntoCreateCVDRequest(r *http.Request, credentials string) error {
-	msg := hoapi.CreateCVDRequest{}
-	if err := json.NewDecoder(r.Body).Decode(&msg); err != nil {
-		return err
-	}
-	if msg.CVD != nil && msg.CVD.BuildSource != nil && msg.CVD.BuildSource.AndroidCIBuildSource != nil {
-		msg.CVD.BuildSource.AndroidCIBuildSource.Credentials = credentials
-	}
-	buf, err := json.Marshal(msg)
-	if err != nil {
-		return err
-	}
-	r.ContentLength = int64(len(buf))
-	r.Body = io.NopCloser(bytes.NewReader(buf))
-	return nil
-}
-
 func (c *App) createHostHTTPHandler() HTTPHandler {
 	if c.opsConfig.CreateHostDisabled {
 		return notAllowedHttpHandler
 	}
-	return HTTPHandler(c.accountManager.Authenticate(c.createHost))
-}
-
-func HostOrchestratorPath(path, host string) (string, error) {
-	split := strings.SplitN(path, "hosts/"+host, 2)
-	if len(split) != 2 {
-		return "", fmt.Errorf("URL path doesn't have host component: %s", path)
-	}
-	return split[1], nil
-}
-
-type HTTPHandler accounts.HTTPHandler
-
-// Intercept errors returned by the HTTPHandler and transform them into HTTP
-// error responses
-func (h HTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	log.Println(r.Method, " ", r.URL, " ", r.RemoteAddr)
-	if err := h(w, r); err != nil {
-		log.Println("Error: ", err)
-		var e *apperr.AppError
-		if errors.As(err, &e) {
-			replyJSON(w, e.JSONResponse(), e.StatusCode)
-		} else {
-			replyJSON(w, apiv1.Error{ErrorMsg: "Internal Server Error"}, http.StatusInternalServerError)
-		}
-	}
+	return HTTPHandler(c.Authenticate(c.createHost))
 }
 
 func (c *App) getDeviceFiles(w http.ResponseWriter, r *http.Request, user accounts.UserInfo) error {
@@ -452,6 +410,68 @@ func (c *App) fetchUserCredentials(user accounts.UserInfo) (*oauth2.Token, error
 		}
 	}
 	return tk, nil
+}
+
+// Returns the received http handler wrapped in another that extracts user
+// information from the request and passes it to to the original handler as
+// the last parameter.
+// The wrapper will only pass the request to the inner handler if a user is
+// authenticated, otherwise it may choose to return an error or respond with
+// an HTTP redirect to the login page.
+func (a *App) Authenticate(fn AuthHTTPHandler) HTTPHandler {
+	return func(w http.ResponseWriter, r *http.Request) error {
+		user, err := a.accountManager.UserFromRequest(r)
+		if err != nil {
+			return err
+		}
+		if user == nil {
+			return apperr.NewUnauthenticatedError("Authentication required", nil)
+		}
+		return fn(w, r, user)
+	}
+}
+
+type AuthHTTPHandler func(http.ResponseWriter, *http.Request, accounts.UserInfo) error
+type HTTPHandler func(http.ResponseWriter, *http.Request) error
+
+// Intercept errors returned by the HTTPHandler and transform them into HTTP
+// error responses
+func (h HTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	log.Println(r.Method, " ", r.URL, " ", r.RemoteAddr)
+	if err := h(w, r); err != nil {
+		log.Println("Error: ", err)
+		var e *apperr.AppError
+		if errors.As(err, &e) {
+			replyJSON(w, e.JSONResponse(), e.StatusCode)
+		} else {
+			replyJSON(w, apiv1.Error{ErrorMsg: "Internal Server Error"}, http.StatusInternalServerError)
+		}
+	}
+}
+
+func InjectCredentialsIntoCreateCVDRequest(r *http.Request, credentials string) error {
+	msg := hoapi.CreateCVDRequest{}
+	if err := json.NewDecoder(r.Body).Decode(&msg); err != nil {
+		return err
+	}
+	if msg.CVD != nil && msg.CVD.BuildSource != nil && msg.CVD.BuildSource.AndroidCIBuildSource != nil {
+		msg.CVD.BuildSource.AndroidCIBuildSource.Credentials = credentials
+	}
+	buf, err := json.Marshal(msg)
+	if err != nil {
+		return err
+	}
+	r.ContentLength = int64(len(buf))
+	r.Body = io.NopCloser(bytes.NewReader(buf))
+	return nil
+}
+
+func HostOrchestratorPath(path, host string) (string, error) {
+	split := strings.SplitN(path, "hosts/"+host, 2)
+	if len(split) != 2 {
+		return "", fmt.Errorf("URL path doesn't have host component: %s", path)
+	}
+	return split[1], nil
 }
 
 func randomHexString() string {

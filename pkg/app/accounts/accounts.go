@@ -28,13 +28,8 @@ type UserInfo interface {
 }
 
 type Manager interface {
-	// Returns the received http handler wrapped in another that extracts user
-	// information from the request and passes it to to the original handler as
-	// the last parameter.
-	// The wrapper will only pass the request to the inner handler if a user is
-	// authenticated, otherwise it may choose to return an error or respond with
-	// an HTTP redirect to the login page.
-	Authenticate(fn AuthHTTPHandler) HTTPHandler
+	// Gets the user from the http request, typically from a cookie or another header.
+	UserFromRequest(r *http.Request) (UserInfo, error)
 	// Gives the account manager the chance to extract login information from the token (id token
 	// for example), validate it, add cookies to the request, etc.
 	OnOAuthExchange(w http.ResponseWriter, r *http.Request, idToken appOAuth.IDTokenClaims) (UserInfo, error)

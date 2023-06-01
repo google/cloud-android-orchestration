@@ -36,19 +36,19 @@ func NewUnixAccountManager() *UnixAccountManager {
 	return &UnixAccountManager{}
 }
 
-func (m *UnixAccountManager) UserFromRequest(r *http.Request) (UserInfo, error) {
-	return &UnixUserInfo{}, nil
+func (m *UnixAccountManager) UserFromRequest(r *http.Request) (User, error) {
+	return &UnixUser{}, nil
 }
 
-func (m *UnixAccountManager) OnOAuth2Exchange(w http.ResponseWriter, r *http.Request, tk appOAuth2.IDTokenClaims) (UserInfo, error) {
-	return &UnixUserInfo{}, nil
+func (m *UnixAccountManager) OnOAuth2Exchange(w http.ResponseWriter, r *http.Request, tk appOAuth2.IDTokenClaims) (User, error) {
+	return &UnixUser{}, nil
 }
 
-type UnixUserInfo struct {
+type UnixUser struct {
 	username string
 }
 
-func (i *UnixUserInfo) Username() string {
+func (i *UnixUser) Username() string {
 	if i.username == "" {
 		i.username = os.Getenv("USER")
 	}

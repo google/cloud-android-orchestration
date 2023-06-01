@@ -87,7 +87,7 @@ func (m *GCEInstanceManager) GetHostURL(zone string, host string) (*url.URL, err
 
 const operationStatusDone = "DONE"
 
-func (m *GCEInstanceManager) CreateHost(zone string, req *apiv1.CreateHostRequest, user accounts.UserInfo) (*apiv1.Operation, error) {
+func (m *GCEInstanceManager) CreateHost(zone string, req *apiv1.CreateHostRequest, user accounts.User) (*apiv1.Operation, error) {
 	if err := validateRequest(req); err != nil {
 		return nil, err
 	}
@@ -144,7 +144,7 @@ func (m *GCEInstanceManager) CreateHost(zone string, req *apiv1.CreateHostReques
 
 const listHostsRequestMaxResultsLimit uint32 = 500
 
-func (m *GCEInstanceManager) ListHosts(zone string, user accounts.UserInfo, req *ListHostsRequest) (*apiv1.ListHostsResponse, error) {
+func (m *GCEInstanceManager) ListHosts(zone string, user accounts.User, req *ListHostsRequest) (*apiv1.ListHostsResponse, error) {
 	var maxResults uint32
 	if req.MaxResults <= listHostsRequestMaxResultsLimit {
 		maxResults = req.MaxResults
@@ -177,7 +177,7 @@ func (m *GCEInstanceManager) ListHosts(zone string, user accounts.UserInfo, req 
 	}, nil
 }
 
-func (m *GCEInstanceManager) DeleteHost(zone string, user accounts.UserInfo, name string) (*apiv1.Operation, error) {
+func (m *GCEInstanceManager) DeleteHost(zone string, user accounts.User, name string) (*apiv1.Operation, error) {
 	nameFilterExpr := "name=" + name
 	ownerFilterExpr := fmt.Sprintf("labels.%s:%s", labelCreatedBy, user.Username())
 	res, err := m.Service.Instances.
@@ -201,7 +201,7 @@ func (m *GCEInstanceManager) DeleteHost(zone string, user accounts.UserInfo, nam
 	return &apiv1.Operation{Name: op.Name, Done: op.Status == operationStatusDone}, nil
 }
 
-func (m *GCEInstanceManager) WaitOperation(zone string, user accounts.UserInfo, name string) (any, error) {
+func (m *GCEInstanceManager) WaitOperation(zone string, user accounts.User, name string) (any, error) {
 	op, err := m.Service.ZoneOperations.Wait(m.Config.GCP.ProjectID, zone, name).Do()
 	if err != nil {
 		return nil, toAppError(err)

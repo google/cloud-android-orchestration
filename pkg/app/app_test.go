@@ -44,18 +44,18 @@ const pageNotFoundErrMsg = "404 page not found\n"
 
 const testUsername = "johndoe"
 
-type testUserInfo struct{}
+type testUser struct{}
 
-func (i *testUserInfo) Username() string { return testUsername }
+func (i *testUser) Username() string { return testUsername }
 
 type testAccountManager struct{}
 
-func (m *testAccountManager) UserFromRequest(r *http.Request) (accounts.UserInfo, error) {
-	return &testUserInfo{}, nil
+func (m *testAccountManager) UserFromRequest(r *http.Request) (accounts.User, error) {
+	return &testUser{}, nil
 }
 
-func (m *testAccountManager) OnOAuth2Exchange(w http.ResponseWriter, r *http.Request, tk appOAuth2.IDTokenClaims) (accounts.UserInfo, error) {
-	return &testUserInfo{}, nil
+func (m *testAccountManager) OnOAuth2Exchange(w http.ResponseWriter, r *http.Request, tk appOAuth2.IDTokenClaims) (accounts.User, error) {
+	return &testUser{}, nil
 }
 
 type testInstanceManager struct {
@@ -66,19 +66,19 @@ func (m *testInstanceManager) GetHostURL(zone string, host string) (*url.URL, er
 	return url.Parse("http://127.0.0.1:8080")
 }
 
-func (m *testInstanceManager) CreateHost(_ string, _ *apiv1.CreateHostRequest, _ accounts.UserInfo) (*apiv1.Operation, error) {
+func (m *testInstanceManager) CreateHost(_ string, _ *apiv1.CreateHostRequest, _ accounts.User) (*apiv1.Operation, error) {
 	return &apiv1.Operation{}, nil
 }
 
-func (m *testInstanceManager) ListHosts(zone string, user accounts.UserInfo, req *instances.ListHostsRequest) (*apiv1.ListHostsResponse, error) {
+func (m *testInstanceManager) ListHosts(zone string, user accounts.User, req *instances.ListHostsRequest) (*apiv1.ListHostsResponse, error) {
 	return &apiv1.ListHostsResponse{}, nil
 }
 
-func (m *testInstanceManager) DeleteHost(zone string, user accounts.UserInfo, name string) (*apiv1.Operation, error) {
+func (m *testInstanceManager) DeleteHost(zone string, user accounts.User, name string) (*apiv1.Operation, error) {
 	return &apiv1.Operation{}, nil
 }
 
-func (m *testInstanceManager) WaitOperation(_ string, _ accounts.UserInfo, _ string) (any, error) {
+func (m *testInstanceManager) WaitOperation(_ string, _ accounts.User, _ string) (any, error) {
 	return struct{}{}, nil
 }
 

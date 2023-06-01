@@ -34,15 +34,15 @@ func NewGAEUsersAccountManager() *GAEUsersAccountManager {
 	return &GAEUsersAccountManager{}
 }
 
-func (g *GAEUsersAccountManager) UserFromRequest(r *http.Request) (UserInfo, error) {
+func (g *GAEUsersAccountManager) UserFromRequest(r *http.Request) (User, error) {
 	email, err := emailFromRequest(r)
 	if err != nil {
 		return nil, err
 	}
-	return userInfoFromEmail(email), nil
+	return userFromEmail(email), nil
 }
 
-func (g *GAEUsersAccountManager) OnOAuth2Exchange(w http.ResponseWriter, r *http.Request, idToken appOAuth2.IDTokenClaims) (UserInfo, error) {
+func (g *GAEUsersAccountManager) OnOAuth2Exchange(w http.ResponseWriter, r *http.Request, idToken appOAuth2.IDTokenClaims) (User, error) {
 	rEmail, err := emailFromRequest(r)
 	if err != nil {
 		return nil, err
@@ -58,14 +58,14 @@ func (g *GAEUsersAccountManager) OnOAuth2Exchange(w http.ResponseWriter, r *http
 	if rEmail != tkEmail {
 		return nil, fmt.Errorf("Logged in user doesn't match oauth2 user")
 	}
-	return userInfoFromEmail(rEmail), nil
+	return userFromEmail(rEmail), nil
 }
 
-type GAEUserInfo struct {
+type GAEUser struct {
 	username string
 }
 
-func (u *GAEUserInfo) Username() string {
+func (u *GAEUser) Username() string {
 	return u.username
 }
 
@@ -74,10 +74,10 @@ func emailFromRequest(r *http.Request) (string, error) {
 	return r.Header.Get(emailHeaderKey), nil
 }
 
-func userInfoFromEmail(email string) *GAEUserInfo {
+func userFromEmail(email string) *GAEUser {
 	if email == "" {
 		return nil
 	}
 	username := strings.SplitN(email, "@", 2)[0]
-	return &GAEUserInfo{username}
+	return &GAEUser{username}
 }

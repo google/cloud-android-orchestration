@@ -47,9 +47,9 @@ var testNameGenerator = &testConstantNameGenerator{name: "foo"}
 
 const fakeUsername = "johndoe"
 
-type TestUserInfo struct{}
+type TestUser struct{}
 
-func (i *TestUserInfo) Username() string {
+func (i *TestUser) Username() string {
 	return fakeUsername
 }
 
@@ -71,7 +71,7 @@ func TestCreateHostInvalidRequests(t *testing.T) {
 		}
 	}
 	// Make sure the valid request is indeed valid.
-	_, err := im.CreateHost("us-central1-a", validRequest(), &TestUserInfo{})
+	_, err := im.CreateHost("us-central1-a", validRequest(), &TestUser{})
 	if err != nil {
 		t.Fatalf("the valid request is not valid with error %+v", err)
 	}
@@ -88,7 +88,7 @@ func TestCreateHostInvalidRequests(t *testing.T) {
 	for _, test := range tests {
 		req := validRequest()
 		test.corruptRequest(req)
-		_, err := im.CreateHost("us-central1-a", req, &TestUserInfo{})
+		_, err := im.CreateHost("us-central1-a", req, &TestUser{})
 		var appErr *apperr.AppError
 		if !errors.As(err, &appErr) {
 			t.Errorf("unexpected error <<\"%v\">>, want \"%T\"", err, appErr)
@@ -115,7 +115,7 @@ func TestCreateHostRequestPath(t *testing.T) {
 				},
 			},
 		},
-		&TestUserInfo{})
+		&TestUser{})
 
 	expected := "/projects/google.com:test-project/zones/us-central1-a/instances"
 	if pathSent != expected {
@@ -143,7 +143,7 @@ func TestCreateHostRequestBody(t *testing.T) {
 				},
 			},
 		},
-		&TestUserInfo{})
+		&TestUser{})
 
 	expected := `{
   "disks": [
@@ -208,7 +208,7 @@ func TestCreateHostAcloudCompatible(t *testing.T) {
 				},
 			},
 		},
-		&TestUserInfo{})
+		&TestUser{})
 
 	if err != nil {
 		t.Fatal(err)
@@ -246,7 +246,7 @@ func TestCreateHostSuccess(t *testing.T) {
 				},
 			},
 		},
-		&TestUserInfo{})
+		&TestUser{})
 
 	if op.Name != expectedName {
 		t.Errorf("expected <<%q>>, got: %q", expectedName, op.Name)
@@ -327,7 +327,7 @@ func TestListHostsRequestQuery(t *testing.T) {
 		PageToken:  "foo",
 	}
 
-	im.ListHosts("us-central1-a", &TestUserInfo{}, req)
+	im.ListHosts("us-central1-a", &TestUser{}, req)
 
 	m, _ := url.ParseQuery(usedQuery)
 	got, expected := m["filter"][0], "labels.cf-created_by:johndoe AND status=RUNNING"
@@ -354,7 +354,7 @@ func TestListHostsOverMaxResultsLimit(t *testing.T) {
 		PageToken:  "foo",
 	}
 
-	im.ListHosts("us-central1-a", &TestUserInfo{}, req)
+	im.ListHosts("us-central1-a", &TestUser{}, req)
 
 	m, _ := url.ParseQuery(usedQuery)
 	got, expected := m["maxResults"][0], "500"
@@ -389,7 +389,7 @@ func TestListHostsSucceeds(t *testing.T) {
 	testService := buildTestService(t, ts)
 	im := NewGCEInstanceManager(testConfig, testService, testNameGenerator)
 
-	resp, err := im.ListHosts("us-central1-a", &TestUserInfo{}, &ListHostsRequest{})
+	resp, err := im.ListHosts("us-central1-a", &TestUser{}, &ListHostsRequest{})
 
 	if err != nil {
 		t.Errorf("expected <<nil>>, got %+v", err)
@@ -416,7 +416,7 @@ func TestDeleteHostVerifyUserOwnsTheHost(t *testing.T) {
 	testService := buildTestService(t, ts)
 	im := NewGCEInstanceManager(testConfig, testService, testNameGenerator)
 
-	im.DeleteHost("us-central1-a", &TestUserInfo{}, "foo")
+	im.DeleteHost("us-central1-a", &TestUser{}, "foo")
 
 	expected := "alt=json&filter=name%3Dfoo+AND+labels.cf-created_by%3Ajohndoe&prettyPrint=false"
 	if usedListQuery != expected {
@@ -432,7 +432,7 @@ func TestDeleteHostHostDoesNotExist(t *testing.T) {
 	testService := buildTestService(t, ts)
 	im := NewGCEInstanceManager(testConfig, testService, testNameGenerator)
 
-	_, err := im.DeleteHost("us-central1-a", &TestUserInfo{}, "foo")
+	_, err := im.DeleteHost("us-central1-a", &TestUser{}, "foo")
 
 	if appErr, ok := err.(*apperr.AppError); !ok {
 		t.Errorf("expected <<%T>>, got %T", appErr, err)
@@ -462,7 +462,7 @@ func TestDeleteHostSucceeds(t *testing.T) {
 	defer ts.Close()
 	im := NewGCEInstanceManager(testConfig, buildTestService(t, ts), testNameGenerator)
 
-	op, _ := im.DeleteHost(zone, &TestUserInfo{}, "foo")
+	op, _ := im.DeleteHost(zone, &TestUser{}, "foo")
 
 	if op.Name != opName {
 		t.Errorf("expected <<%q>>, got: %q", opName, op.Name)
@@ -487,7 +487,7 @@ func TestWaitOperationAndOperationIsNotDone(t *testing.T) {
 	defer ts.Close()
 	im := NewGCEInstanceManager(testConfig, buildTestService(t, ts), testNameGenerator)
 
-	_, err := im.WaitOperation(zone, &TestUserInfo{}, opName)
+	_, err := im.WaitOperation(zone, &TestUser{}, opName)
 
 	if appErr, _ := err.(*apperr.AppError); true {
 		if diff := cmp.Diff(http.StatusServiceUnavailable, appErr.StatusCode); diff != "" {
@@ -524,7 +524,7 @@ func TestWaitCreateInstanceOperationSucceeds(t *testing.T) {
 	defer ts.Close()
 	im := NewGCEInstanceManager(testConfig, buildTestService(t, ts), testNameGenerator)
 
-	res, _ := im.WaitOperation(zone, &TestUserInfo{}, opName)
+	res, _ := im.WaitOperation(zone, &TestUser{}, opName)
 
 	want, _ := BuildHostInstance(instance)
 	if diff := cmp.Diff(want, res); diff != "" {
@@ -547,7 +547,7 @@ func TestWaitDeleteInstanceOperationSucceeds(t *testing.T) {
 	defer ts.Close()
 	im := NewGCEInstanceManager(testConfig, buildTestService(t, ts), testNameGenerator)
 
-	res, _ := im.WaitOperation(zone, &TestUserInfo{}, opName)
+	res, _ := im.WaitOperation(zone, &TestUser{}, opName)
 
 	if diff := cmp.Diff(struct{}{}, res); diff != "" {
 		t.Errorf("result mismatch (-want +got):\n%s", diff)
@@ -584,7 +584,7 @@ func TestWaitOperationInvalidDoneOperations(t *testing.T) {
 
 	for name := range operations {
 
-		_, err := im.WaitOperation(zone, &TestUserInfo{}, name)
+		_, err := im.WaitOperation(zone, &TestUser{}, name)
 
 		if err == nil {
 			t.Error("expected error")
@@ -610,7 +610,7 @@ func TestWaitOperationFailedOperation(t *testing.T) {
 	defer ts.Close()
 	im := NewGCEInstanceManager(testConfig, buildTestService(t, ts), testNameGenerator)
 
-	_, err := im.WaitOperation(zone, &TestUserInfo{}, opName)
+	_, err := im.WaitOperation(zone, &TestUser{}, opName)
 
 	appErr, _ := err.(*apperr.AppError)
 	if appErr.Msg != errorMessage {

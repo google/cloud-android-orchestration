@@ -53,19 +53,19 @@ func (m *LocalInstanceManager) GetHostURL(zone string, host string) (*url.URL, e
 	return url.Parse(fmt.Sprintf("%s://%s:%d", m.config.HostOrchestratorProtocol, addr, m.config.UNIX.HostOrchestratorPort))
 }
 
-func (m *LocalInstanceManager) CreateHost(_ string, _ *apiv1.CreateHostRequest, _ accounts.UserInfo) (*apiv1.Operation, error) {
+func (m *LocalInstanceManager) CreateHost(_ string, _ *apiv1.CreateHostRequest, _ accounts.User) (*apiv1.Operation, error) {
 	return nil, fmt.Errorf("%T#CreateHost is not implemented", *m)
 }
 
-func (m *LocalInstanceManager) ListHosts(zone string, user accounts.UserInfo, req *ListHostsRequest) (*apiv1.ListHostsResponse, error) {
+func (m *LocalInstanceManager) ListHosts(zone string, user accounts.User, req *ListHostsRequest) (*apiv1.ListHostsResponse, error) {
 	return nil, fmt.Errorf("%T#ListHosts is not implemented", *m)
 }
 
-func (m *LocalInstanceManager) DeleteHost(zone string, user accounts.UserInfo, name string) (*apiv1.Operation, error) {
+func (m *LocalInstanceManager) DeleteHost(zone string, user accounts.User, name string) (*apiv1.Operation, error) {
 	return nil, fmt.Errorf("%T#DeleteHost is not implemented", *m)
 }
 
-func (m *LocalInstanceManager) WaitOperation(zone string, user accounts.UserInfo, name string) (any, error) {
+func (m *LocalInstanceManager) WaitOperation(zone string, user accounts.User, name string) (any, error) {
 	return nil, fmt.Errorf("%T#WaitOperation is not implemented", *m)
 }
 

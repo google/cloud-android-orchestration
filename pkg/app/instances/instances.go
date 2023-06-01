@@ -23,15 +23,15 @@ import (
 
 type Manager interface {
 	// Creates a host instance.
-	CreateHost(zone string, req *apiv1.CreateHostRequest, user accounts.UserInfo) (*apiv1.Operation, error)
+	CreateHost(zone string, req *apiv1.CreateHostRequest, user accounts.User) (*apiv1.Operation, error)
 	// List hosts
-	ListHosts(zone string, user accounts.UserInfo, req *ListHostsRequest) (*apiv1.ListHostsResponse, error)
+	ListHosts(zone string, user accounts.User, req *ListHostsRequest) (*apiv1.ListHostsResponse, error)
 	// Deletes the given host instance.
-	DeleteHost(zone string, user accounts.UserInfo, name string) (*apiv1.Operation, error)
+	DeleteHost(zone string, user accounts.User, name string) (*apiv1.Operation, error)
 	// Waits until operation is DONE or earlier. If DONE return the expected  response of the operation. If the
 	// original method returns no data on success, such as `Delete`, response will be empty. If the original method
 	// is standard `Get`/`Create`/`Update`, the response should be the relevant resource.
-	WaitOperation(zone string, user accounts.UserInfo, name string) (any, error)
+	WaitOperation(zone string, user accounts.User, name string) (any, error)
 	// Creates a connector to the given host.
 	GetHostClient(zone string, host string) (HostClient, error)
 }

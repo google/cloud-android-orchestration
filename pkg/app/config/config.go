@@ -30,10 +30,6 @@ type WebRTCConfig struct {
 	STUNServers []string
 }
 
-type OperationsConfig struct {
-	CreateHostDisabled bool
-}
-
 type Config struct {
 	WebStaticFilesPath string
 	AccountManager     accounts.Config
@@ -42,7 +38,6 @@ type Config struct {
 	EncryptionService  encryption.Config
 	DatabaseService    database.Config
 	WebRTC             WebRTCConfig
-	Operations         OperationsConfig
 }
 
 const DefaultConfFile = "conf.toml"

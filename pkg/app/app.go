@@ -53,7 +53,6 @@ const (
 // relevant modules
 type App struct {
 	infraConfig       apiv1.InfraConfig
-	opsConfig         config.OperationsConfig
 	instanceManager   instances.Manager
 	sigServer         signaling.Server
 	accountManager    accounts.Manager
@@ -64,7 +63,6 @@ type App struct {
 
 func NewApp(
 	webRTCConfig config.WebRTCConfig,
-	opsConfig config.OperationsConfig,
 	im instances.Manager,
 	ss signaling.Server,
 	am accounts.Manager,
@@ -72,33 +70,33 @@ func NewApp(
 	es encryption.Service,
 	dbs database.Service) *App {
 	infraCfg := buildInfraCfg(webRTCConfig.STUNServers)
-	return &App{infraCfg, opsConfig, im, ss, am, oc, es, dbs}
+	return &App{infraCfg, im, ss, am, oc, es, dbs}
 }
 
 func (c *App) Handler() http.Handler {
 	router := mux.NewRouter()
 
 	// Signaling Server Routes
-	router.Handle("/v1/zones/{zone}/hosts/{host}/connections/{connID}/messages", HTTPHandler(c.Authenticate(c.messages))).Methods("GET")
-	router.Handle("/v1/zones/{zone}/hosts/{host}/connections/{connID}/:forward", HTTPHandler(c.Authenticate(c.forward))).Methods("POST")
-	router.Handle("/v1/zones/{zone}/hosts/{host}/connections", HTTPHandler(c.Authenticate(c.createConnection))).Methods("POST")
-	router.Handle("/v1/zones/{zone}/hosts/{host}/devices/{deviceId}/files{path:/.+}", HTTPHandler(c.Authenticate(c.getDeviceFiles))).Methods("GET")
+	router.Handle("/v1/zones/{zone}/hosts/{host}/connections/{connID}/messages", c.Authenticate(c.messages)).Methods("GET")
+	router.Handle("/v1/zones/{zone}/hosts/{host}/connections/{connID}/:forward", c.Authenticate(c.forward)).Methods("POST")
+	router.Handle("/v1/zones/{zone}/hosts/{host}/connections", c.Authenticate(c.createConnection)).Methods("POST")
+	router.Handle("/v1/zones/{zone}/hosts/{host}/devices/{deviceId}/files{path:/.+}", c.Authenticate(c.getDeviceFiles)).Methods("GET")
 
 	// Instance Manager Routes
-	router.Handle("/v1/zones/{zone}/hosts", c.createHostHTTPHandler()).Methods("POST")
-	router.Handle("/v1/zones/{zone}/hosts", HTTPHandler(c.Authenticate(c.listHosts))).Methods("GET")
+	router.Handle("/v1/zones/{zone}/hosts", c.Authenticate(c.createHost)).Methods("POST")
+	router.Handle("/v1/zones/{zone}/hosts", c.Authenticate(c.listHosts)).Methods("GET")
 	// Waits for the specified operation to be DONE or for the request to approach the specified deadline,
 	// `503 Service Unavailable` error will be returned if the deadline is reached and the operation is not done.
 	// Be prepared to retry if the deadline was reached.
 	// It returns the expected response of the operation in case of success. If the original method returns no
 	// data on success, such as `Delete`, response will be empty. If the original method is standard
 	// `Get`/`Create`/`Update`, the response should be the relevant resource.
-	router.Handle("/v1/zones/{zone}/operations/{operation}/:wait", HTTPHandler(c.Authenticate(c.waitOperation))).Methods("POST")
-	router.Handle("/v1/zones/{zone}/hosts/{host}", HTTPHandler(c.Authenticate(c.deleteHost))).Methods("DELETE")
+	router.Handle("/v1/zones/{zone}/operations/{operation}/:wait", c.Authenticate(c.waitOperation)).Methods("POST")
+	router.Handle("/v1/zones/{zone}/hosts/{host}", c.Authenticate(c.deleteHost)).Methods("DELETE")
 
 	// Host Orchestrator Proxy Routes
 	router.PathPrefix(
-		"/v1/zones/{zone}/hosts/{host}/{resource:devices|operations|cvds|userartifacts}").Handler(HTTPHandler(c.Authenticate(c.ForwardToHost)))
+		"/v1/zones/{zone}/hosts/{host}/{resource:devices|operations|cvds|userartifacts}").Handler(c.Authenticate(c.ForwardToHost))
 
 	// Infra route
 	router.HandleFunc("/v1/zones/{zone}/hosts/{host}/infra_config", func(w http.ResponseWriter, r *http.Request) {
@@ -109,7 +107,7 @@ func (c *App) Handler() http.Handler {
 	// Global routes
 	router.Handle("/auth", HTTPHandler(c.AuthHandler)).Methods("GET")
 	router.Handle("/oauth2callback", HTTPHandler(c.OAuth2Callback))
-	router.Handle("/", HTTPHandler(c.Authenticate(indexHandler)))
+	router.Handle("/", c.Authenticate(indexHandler))
 
 	// http.Handle("/", router)
 	return router
@@ -155,13 +153,6 @@ func (c *App) ForwardToHost(w http.ResponseWriter, r *http.Request, user account
 
 	client.GetReverseProxy().ServeHTTP(w, r)
 	return nil
-}
-
-func (c *App) createHostHTTPHandler() HTTPHandler {
-	if c.opsConfig.CreateHostDisabled {
-		return notAllowedHttpHandler
-	}
-	return HTTPHandler(c.Authenticate(c.createHost))
 }
 
 func (c *App) getDeviceFiles(w http.ResponseWriter, r *http.Request, user accounts.UserInfo) error {

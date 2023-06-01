@@ -61,8 +61,11 @@ func NewInternalError(msg string, e error) error {
 	return &AppError{Msg: msg, StatusCode: http.StatusInternalServerError, Err: e}
 }
 
-func NewForbiddenError(msg string, e error) error {
-	return &AppError{Msg: msg, StatusCode: http.StatusForbidden, Err: e}
+func NewUnauthenticatedError(msg string, e error) error {
+	// 401 Unauthorized semantically means "Unauthenticated, while authorization errors are to be
+	// returned with 403 Forbiden according to
+	// https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#client_error_responses.
+	return &AppError{Msg: msg, StatusCode: http.StatusUnauthorized, Err: e}
 }
 
 func NewServiceUnavailableError(msg string, e error) error {

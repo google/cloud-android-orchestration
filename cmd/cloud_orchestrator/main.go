@@ -170,8 +170,8 @@ func main() {
 	accountManager := LoadAccountManager(config)
 	encryptionService := LoadEncryptionService(config)
 	dbService := LoadDatabaseService(config)
-	controller := controller.NewApp(config.WebRTC, config.Operations, instanceManager,
-		signalingServer, accountManager, oauth2Config, encryptionService, dbService)
+	controller := controller.NewApp(config.WebRTC, instanceManager, signalingServer, accountManager,
+		oauth2Config, encryptionService, dbService)
 
 	iface := ChooseNetworkInterface(config)
 	port := ServerPort()

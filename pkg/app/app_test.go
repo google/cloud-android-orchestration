@@ -105,7 +105,7 @@ func (hc *testHostClient) GetReverseProxy() *httputil.ReverseProxy {
 
 func TestCreateHostSucceeds(t *testing.T) {
 	controller := NewApp(
-		config.WebRTCConfig{make([]string, 0)}, config.OperationsConfig{}, &testInstanceManager{}, nil, &testAccountManager{}, nil, nil, nil)
+		config.WebRTCConfig{make([]string, 0)}, &testInstanceManager{}, nil, &testAccountManager{}, nil, nil, nil)
 	ts := httptest.NewServer(controller.Handler())
 	defer ts.Close()
 
@@ -118,26 +118,9 @@ func TestCreateHostSucceeds(t *testing.T) {
 	}
 }
 
-func TestCreateHostOperationIsDisabled(t *testing.T) {
-	controller := NewApp(
-		config.WebRTCConfig{make([]string, 0)},
-		config.OperationsConfig{CreateHostDisabled: true},
-		&testInstanceManager{}, nil, &testAccountManager{}, nil, nil, nil)
-	ts := httptest.NewServer(controller.Handler())
-	defer ts.Close()
-
-	res, _ := http.Post(
-		ts.URL+"/v1/zones/us-central1-a/hosts", "application/json", strings.NewReader("{}"))
-
-	expected := http.StatusMethodNotAllowed
-	if res.StatusCode != expected {
-		t.Errorf("unexpected status code <<%d>>, want: %d", res.StatusCode, expected)
-	}
-}
-
 func TestWaitOperatioSucceeds(t *testing.T) {
 	controller := NewApp(
-		config.WebRTCConfig{make([]string, 0)}, config.OperationsConfig{}, &testInstanceManager{}, nil, &testAccountManager{}, nil, nil, nil)
+		config.WebRTCConfig{make([]string, 0)}, &testInstanceManager{}, nil, &testAccountManager{}, nil, nil, nil)
 	ts := httptest.NewServer(controller.Handler())
 	defer ts.Close()
 
@@ -209,7 +192,7 @@ func TestDeleteHostIsHandled(t *testing.T) {
 		t.Fatal(err)
 	}
 	controller := NewApp(
-		config.WebRTCConfig{make([]string, 0)}, config.OperationsConfig{}, &testInstanceManager{}, nil, &testAccountManager{}, nil, nil, nil)
+		config.WebRTCConfig{make([]string, 0)}, &testInstanceManager{}, nil, &testAccountManager{}, nil, nil, nil)
 
 	makeRequest(rr, req, controller)
 
@@ -248,7 +231,7 @@ func TestHostForwarderRequest(t *testing.T) {
 	}))
 	hostURL, _ := url.Parse(ts.URL)
 	controller := NewApp(
-		config.WebRTCConfig{make([]string, 0)}, config.OperationsConfig{}, &testInstanceManager{
+		config.WebRTCConfig{make([]string, 0)}, &testInstanceManager{
 			hostClientFactory: func(_, _ string) instances.HostClient {
 				return &testHostClient{hostURL}
 			},
@@ -372,7 +355,7 @@ func TestHostForwarderInjectCredentials(t *testing.T) {
 	}
 	dbs.StoreBuildAPICredentials(testUsername, encryptedJSONToken)
 	controller := NewApp(
-		config.WebRTCConfig{make([]string, 0)}, config.OperationsConfig{}, &testInstanceManager{
+		config.WebRTCConfig{make([]string, 0)}, &testInstanceManager{
 			hostClientFactory: func(_, _ string) instances.HostClient {
 				return &testHostClient{hostURL}
 			},
@@ -428,7 +411,7 @@ func TestHostForwarderDoesNotInjectCredentials(t *testing.T) {
 	}
 	dbs.StoreBuildAPICredentials(testUsername, encryptedJSONToken)
 	controller := NewApp(
-		config.WebRTCConfig{make([]string, 0)}, config.OperationsConfig{}, &testInstanceManager{
+		config.WebRTCConfig{make([]string, 0)}, &testInstanceManager{
 			hostClientFactory: func(_, _ string) instances.HostClient {
 				return &testHostClient{hostURL}
 			},

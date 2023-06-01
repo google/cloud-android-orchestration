@@ -44,10 +44,10 @@ func NewFromFileSecretManager(path string) (*FromFileSecretManager, error) {
 	return &sm, nil
 }
 
-func (sm *FromFileSecretManager) OAuthClientID() string {
+func (sm *FromFileSecretManager) OAuth2ClientID() string {
 	return sm.ClientID
 }
 
-func (sm *FromFileSecretManager) OAuthClientSecret() string {
+func (sm *FromFileSecretManager) OAuth2ClientSecret() string {
 	return sm.ClientSecret
 }

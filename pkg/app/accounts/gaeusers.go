@@ -19,7 +19,7 @@ import (
 	"net/http"
 	"strings"
 
-	appOAuth "github.com/google/cloud-android-orchestration/pkg/app/oauth2"
+	appOAuth2 "github.com/google/cloud-android-orchestration/pkg/app/oauth2"
 )
 
 const (
@@ -42,7 +42,7 @@ func (g *GAEUsersAccountManager) UserFromRequest(r *http.Request) (UserInfo, err
 	return userInfoFromEmail(email), nil
 }
 
-func (g *GAEUsersAccountManager) OnOAuthExchange(w http.ResponseWriter, r *http.Request, idToken appOAuth.IDTokenClaims) (UserInfo, error) {
+func (g *GAEUsersAccountManager) OnOAuth2Exchange(w http.ResponseWriter, r *http.Request, idToken appOAuth2.IDTokenClaims) (UserInfo, error) {
 	rEmail, err := emailFromRequest(r)
 	if err != nil {
 		return nil, err
@@ -56,7 +56,7 @@ func (g *GAEUsersAccountManager) OnOAuthExchange(w http.ResponseWriter, r *http.
 		return nil, fmt.Errorf("Malformed email in id token")
 	}
 	if rEmail != tkEmail {
-		return nil, fmt.Errorf("Logged in user doesn't match oauth user")
+		return nil, fmt.Errorf("Logged in user doesn't match oauth2 user")
 	}
 	return userInfoFromEmail(rEmail), nil
 }

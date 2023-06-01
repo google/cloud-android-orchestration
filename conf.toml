@@ -3,7 +3,7 @@ WebStaticFilesPath = "web"
 [AccountManager]
 Type = "unix"
 
-[AccountManager.OAuth]
+[AccountManager.OAuth2]
 Provider = "Google"
 RedirectURL = "http://localhost:8080/oauth2callback"
 
@@ -11,7 +11,7 @@ RedirectURL = "http://localhost:8080/oauth2callback"
 Type = "unix"
 
 [SecretManager.GCP]
-OAuthClientResourceID = ""
+OAuth2ClientResourceID = ""
 
 [SecretManager.UNIX]
 SecretFilePath = "../secrets.json"

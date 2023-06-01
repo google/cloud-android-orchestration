@@ -18,7 +18,7 @@ import (
 	"net/http"
 	"os"
 
-	appOAuth "github.com/google/cloud-android-orchestration/pkg/app/oauth2"
+	appOAuth2 "github.com/google/cloud-android-orchestration/pkg/app/oauth2"
 
 	"golang.org/x/oauth2"
 )
@@ -40,7 +40,7 @@ func (m *UnixAccountManager) UserFromRequest(r *http.Request) (UserInfo, error) 
 	return &UnixUserInfo{}, nil
 }
 
-func (m *UnixAccountManager) OnOAuthExchange(w http.ResponseWriter, r *http.Request, tk appOAuth.IDTokenClaims) (UserInfo, error) {
+func (m *UnixAccountManager) OnOAuth2Exchange(w http.ResponseWriter, r *http.Request, tk appOAuth2.IDTokenClaims) (UserInfo, error) {
 	return &UnixUserInfo{}, nil
 }
 

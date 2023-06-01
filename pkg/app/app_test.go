@@ -36,7 +36,7 @@ import (
 	"github.com/google/cloud-android-orchestration/pkg/app/encryption"
 	apperr "github.com/google/cloud-android-orchestration/pkg/app/errors"
 	"github.com/google/cloud-android-orchestration/pkg/app/instances"
-	appOAuth "github.com/google/cloud-android-orchestration/pkg/app/oauth2"
+	appOAuth2 "github.com/google/cloud-android-orchestration/pkg/app/oauth2"
 
 	"golang.org/x/oauth2"
 )
@@ -55,7 +55,7 @@ func (m *testAccountManager) UserFromRequest(r *http.Request) (accounts.UserInfo
 	return &testUserInfo{}, nil
 }
 
-func (m *testAccountManager) OnOAuthExchange(w http.ResponseWriter, r *http.Request, tk appOAuth.IDTokenClaims) (accounts.UserInfo, error) {
+func (m *testAccountManager) OnOAuth2Exchange(w http.ResponseWriter, r *http.Request, tk appOAuth2.IDTokenClaims) (accounts.UserInfo, error) {
 	return &testUserInfo{}, nil
 }
 

@@ -170,7 +170,7 @@ func main() {
 	accountManager := LoadAccountManager(config)
 	encryptionService := LoadEncryptionService(config)
 	dbService := LoadDatabaseService(config)
-	controller := controller.NewApp(instanceManager, signalingServer, accountManager, oauth2Config,
+	controller := app.NewApp(instanceManager, signalingServer, accountManager, oauth2Config,
 		encryptionService, dbService)
 
 	iface := ChooseNetworkInterface(config)

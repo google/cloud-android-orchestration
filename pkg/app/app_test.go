@@ -31,7 +31,6 @@ import (
 	hoapi "github.com/google/android-cuttlefish/frontend/src/liboperator/api/v1"
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
 	"github.com/google/cloud-android-orchestration/pkg/app/accounts"
-	"github.com/google/cloud-android-orchestration/pkg/app/config"
 	"github.com/google/cloud-android-orchestration/pkg/app/database"
 	"github.com/google/cloud-android-orchestration/pkg/app/encryption"
 	apperr "github.com/google/cloud-android-orchestration/pkg/app/errors"
@@ -104,8 +103,7 @@ func (hc *testHostClient) GetReverseProxy() *httputil.ReverseProxy {
 }
 
 func TestCreateHostSucceeds(t *testing.T) {
-	controller := NewApp(
-		config.WebRTCConfig{make([]string, 0)}, &testInstanceManager{}, nil, &testAccountManager{}, nil, nil, nil)
+	controller := NewApp(&testInstanceManager{}, nil, &testAccountManager{}, nil, nil, nil)
 	ts := httptest.NewServer(controller.Handler())
 	defer ts.Close()
 
@@ -119,8 +117,7 @@ func TestCreateHostSucceeds(t *testing.T) {
 }
 
 func TestWaitOperatioSucceeds(t *testing.T) {
-	controller := NewApp(
-		config.WebRTCConfig{make([]string, 0)}, &testInstanceManager{}, nil, &testAccountManager{}, nil, nil, nil)
+	controller := NewApp(&testInstanceManager{}, nil, &testAccountManager{}, nil, nil, nil)
 	ts := httptest.NewServer(controller.Handler())
 	defer ts.Close()
 
@@ -191,8 +188,7 @@ func TestDeleteHostIsHandled(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	controller := NewApp(
-		config.WebRTCConfig{make([]string, 0)}, &testInstanceManager{}, nil, &testAccountManager{}, nil, nil, nil)
+	controller := NewApp(&testInstanceManager{}, nil, &testAccountManager{}, nil, nil, nil)
 
 	makeRequest(rr, req, controller)
 
@@ -231,7 +227,7 @@ func TestHostForwarderRequest(t *testing.T) {
 	}))
 	hostURL, _ := url.Parse(ts.URL)
 	controller := NewApp(
-		config.WebRTCConfig{make([]string, 0)}, &testInstanceManager{
+		&testInstanceManager{
 			hostClientFactory: func(_, _ string) instances.HostClient {
 				return &testHostClient{hostURL}
 			},
@@ -355,7 +351,7 @@ func TestHostForwarderInjectCredentials(t *testing.T) {
 	}
 	dbs.StoreBuildAPICredentials(testUsername, encryptedJSONToken)
 	controller := NewApp(
-		config.WebRTCConfig{make([]string, 0)}, &testInstanceManager{
+		&testInstanceManager{
 			hostClientFactory: func(_, _ string) instances.HostClient {
 				return &testHostClient{hostURL}
 			},
@@ -411,7 +407,7 @@ func TestHostForwarderDoesNotInjectCredentials(t *testing.T) {
 	}
 	dbs.StoreBuildAPICredentials(testUsername, encryptedJSONToken)
 	controller := NewApp(
-		config.WebRTCConfig{make([]string, 0)}, &testInstanceManager{
+		&testInstanceManager{
 			hostClientFactory: func(_, _ string) instances.HostClient {
 				return &testHostClient{hostURL}
 			},

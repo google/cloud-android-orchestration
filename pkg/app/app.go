@@ -30,7 +30,6 @@ import (
 	hoapi "github.com/google/android-cuttlefish/frontend/src/liboperator/api/v1"
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
 	"github.com/google/cloud-android-orchestration/pkg/app/accounts"
-	"github.com/google/cloud-android-orchestration/pkg/app/config"
 	"github.com/google/cloud-android-orchestration/pkg/app/database"
 	"github.com/google/cloud-android-orchestration/pkg/app/encryption"
 	apperr "github.com/google/cloud-android-orchestration/pkg/app/errors"
@@ -52,7 +51,6 @@ const (
 // and validates requests from the client and passes the information to the
 // relevant modules
 type App struct {
-	infraConfig       apiv1.InfraConfig
 	instanceManager   instances.Manager
 	sigServer         signaling.Server
 	accountManager    accounts.Manager
@@ -62,15 +60,13 @@ type App struct {
 }
 
 func NewApp(
-	webRTCConfig config.WebRTCConfig,
 	im instances.Manager,
 	ss signaling.Server,
 	am accounts.Manager,
 	oc *oauth2.Config,
 	es encryption.Service,
 	dbs database.Service) *App {
-	infraCfg := buildInfraCfg(webRTCConfig.STUNServers)
-	return &App{infraCfg, im, ss, am, oc, es, dbs}
+	return &App{im, ss, am, oc, es, dbs}
 }
 
 func (c *App) Handler() http.Handler {
@@ -101,7 +97,7 @@ func (c *App) Handler() http.Handler {
 	// Infra route
 	router.HandleFunc("/v1/zones/{zone}/hosts/{host}/infra_config", func(w http.ResponseWriter, r *http.Request) {
 		// TODO(b/220891296): Make this configurable
-		replyJSON(w, c.infraConfig, http.StatusOK)
+		replyJSON(w, c.sigServer.InfraConfig(), http.StatusOK)
 	}).Methods("GET")
 
 	// Global routes
@@ -499,16 +495,6 @@ func uint32Value(value string) (uint32, error) {
 	}
 	uint64v, err := strconv.ParseUint(value, 10, 32)
 	return uint32(uint64v), err
-}
-
-func buildInfraCfg(servers []string) apiv1.InfraConfig {
-	iceServers := []apiv1.IceServer{}
-	for _, server := range servers {
-		iceServers = append(iceServers, apiv1.IceServer{URLs: []string{server}})
-	}
-	return apiv1.InfraConfig{
-		IceServers: iceServers,
-	}
 }
 
 func indexHandler(w http.ResponseWriter, r *http.Request, user accounts.UserInfo) error {

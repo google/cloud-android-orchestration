@@ -38,6 +38,7 @@ type Server interface {
 	// Forwards the reques to the device's server unless it's a for a file that
 	// the signaling server needs to serve itself.
 	ServeDeviceFiles(zone string, host string, params DeviceFilesRequest, user accounts.UserInfo) error
+	InfraConfig() apiv1.InfraConfig
 }
 
 type DeviceFilesRequest struct {
@@ -47,18 +48,24 @@ type DeviceFilesRequest struct {
 	R     *http.Request
 }
 
+type WebRTCConfig struct {
+	STUNServers []string
+}
+
 // The ForwardingServer implements the Server interface by
 // communicating with the host orchestrator in the appropriate instance and
 // forwarding all requests to it.
 type ForwardingServer struct {
 	connectorStaticFilesPath string
 	instanceManager          instances.Manager
+	infraConfig              apiv1.InfraConfig
 }
 
-func NewForwardingServer(webStaticFilesPath string, im instances.Manager) *ForwardingServer {
+func NewForwardingServer(webStaticFilesPath string, im instances.Manager, cfg WebRTCConfig) *ForwardingServer {
 	return &ForwardingServer{
 		connectorStaticFilesPath: webStaticFilesPath + "/intercept",
 		instanceManager:          im,
+		infraConfig:              buildInfraCfg(cfg.STUNServers),
 	}
 }
 
@@ -140,8 +147,22 @@ func (s *ForwardingServer) ServeDeviceFiles(zone string, host string, params Dev
 	return nil
 }
 
+func (s *ForwardingServer) InfraConfig() apiv1.InfraConfig {
+	return s.infraConfig
+}
+
 func shouldIntercept(path string) bool {
 	return path == "/js/server_connector.js"
+}
+
+func buildInfraCfg(servers []string) apiv1.InfraConfig {
+	iceServers := []apiv1.IceServer{}
+	for _, server := range servers {
+		iceServers = append(iceServers, apiv1.IceServer{URLs: []string{server}})
+	}
+	return apiv1.InfraConfig{
+		IceServers: iceServers,
+	}
 }
 
 const CONN_ID_SEPARATOR string = ":"

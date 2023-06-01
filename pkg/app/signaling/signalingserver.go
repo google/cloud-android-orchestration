@@ -31,13 +31,13 @@ type Server interface {
 	// These endpoints in the Server return the (possibly modified)
 	// response from the Host Orchestrator and the status code if it was
 	// able to communicate with it, otherwise it returns an error.
-	NewConnection(zone string, host string, msg apiv1.NewConnMsg, user accounts.UserInfo) (*apiv1.SServerResponse, error)
-	Forward(zone string, host string, id string, msg apiv1.ForwardMsg, user accounts.UserInfo) (*apiv1.SServerResponse, error)
-	Messages(zone string, host string, id string, start int, count int, user accounts.UserInfo) (*apiv1.SServerResponse, error)
+	NewConnection(zone string, host string, msg apiv1.NewConnMsg, user accounts.User) (*apiv1.SServerResponse, error)
+	Forward(zone string, host string, id string, msg apiv1.ForwardMsg, user accounts.User) (*apiv1.SServerResponse, error)
+	Messages(zone string, host string, id string, start int, count int, user accounts.User) (*apiv1.SServerResponse, error)
 
 	// Forwards the reques to the device's server unless it's a for a file that
 	// the signaling server needs to serve itself.
-	ServeDeviceFiles(zone string, host string, params DeviceFilesRequest, user accounts.UserInfo) error
+	ServeDeviceFiles(zone string, host string, params DeviceFilesRequest, user accounts.User) error
 	InfraConfig() apiv1.InfraConfig
 }
 
@@ -69,7 +69,7 @@ func NewForwardingServer(webStaticFilesPath string, im instances.Manager, cfg We
 	}
 }
 
-func (s *ForwardingServer) NewConnection(zone string, host string, msg apiv1.NewConnMsg, user accounts.UserInfo) (*apiv1.SServerResponse, error) {
+func (s *ForwardingServer) NewConnection(zone string, host string, msg apiv1.NewConnMsg, user accounts.User) (*apiv1.SServerResponse, error) {
 	hostClient, err := s.instanceManager.GetHostClient(zone, host)
 	if err != nil {
 		return nil, err
@@ -89,7 +89,7 @@ func (s *ForwardingServer) NewConnection(zone string, host string, msg apiv1.New
 	return &apiv1.SServerResponse{Response: reply, StatusCode: status}, nil
 }
 
-func (s *ForwardingServer) Forward(zone string, host string, id string, msg apiv1.ForwardMsg, user accounts.UserInfo) (*apiv1.SServerResponse, error) {
+func (s *ForwardingServer) Forward(zone string, host string, id string, msg apiv1.ForwardMsg, user accounts.User) (*apiv1.SServerResponse, error) {
 	dec, err := decodeConnId(id)
 	if err != nil {
 		return nil, errors.NewNotFoundError("Invalid connection Id", err)
@@ -108,7 +108,7 @@ func (s *ForwardingServer) Forward(zone string, host string, id string, msg apiv
 	return &apiv1.SServerResponse{reply, status}, nil
 }
 
-func (s *ForwardingServer) Messages(zone string, host string, id string, start int, count int, user accounts.UserInfo) (*apiv1.SServerResponse, error) {
+func (s *ForwardingServer) Messages(zone string, host string, id string, start int, count int, user accounts.User) (*apiv1.SServerResponse, error) {
 	dec, err := decodeConnId(id)
 	if err != nil {
 		return nil, errors.NewNotFoundError("Invalid connection id", err)
@@ -131,7 +131,7 @@ func (s *ForwardingServer) Messages(zone string, host string, id string, start i
 	return &apiv1.SServerResponse{reply, status}, nil
 }
 
-func (s *ForwardingServer) ServeDeviceFiles(zone string, host string, params DeviceFilesRequest, user accounts.UserInfo) error {
+func (s *ForwardingServer) ServeDeviceFiles(zone string, host string, params DeviceFilesRequest, user accounts.User) error {
 	if shouldIntercept(params.Path) {
 		http.ServeFile(params.W, params.R, s.connectorStaticFilesPath+params.Path)
 	} else {

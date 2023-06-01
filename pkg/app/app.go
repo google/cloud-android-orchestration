@@ -109,7 +109,7 @@ func (c *App) Handler() http.Handler {
 	return router
 }
 
-func (c *App) ForwardToHost(w http.ResponseWriter, r *http.Request, user accounts.UserInfo) error {
+func (c *App) ForwardToHost(w http.ResponseWriter, r *http.Request, user accounts.User) error {
 	vars := mux.Vars(r)
 	zone := vars["zone"]
 	if zone == "" {
@@ -151,13 +151,13 @@ func (c *App) ForwardToHost(w http.ResponseWriter, r *http.Request, user account
 	return nil
 }
 
-func (c *App) getDeviceFiles(w http.ResponseWriter, r *http.Request, user accounts.UserInfo) error {
+func (c *App) getDeviceFiles(w http.ResponseWriter, r *http.Request, user accounts.User) error {
 	devId := mux.Vars(r)["deviceId"]
 	path := mux.Vars(r)["path"]
 	return c.sigServer.ServeDeviceFiles(getZone(r), getHost(r), signaling.DeviceFilesRequest{devId, path, w, r}, user)
 }
 
-func (c *App) createConnection(w http.ResponseWriter, r *http.Request, user accounts.UserInfo) error {
+func (c *App) createConnection(w http.ResponseWriter, r *http.Request, user accounts.User) error {
 	var msg apiv1.NewConnMsg
 	err := json.NewDecoder(r.Body).Decode(&msg)
 	if err != nil {
@@ -172,7 +172,7 @@ func (c *App) createConnection(w http.ResponseWriter, r *http.Request, user acco
 	return nil
 }
 
-func (c *App) messages(w http.ResponseWriter, r *http.Request, user accounts.UserInfo) error {
+func (c *App) messages(w http.ResponseWriter, r *http.Request, user accounts.User) error {
 	id := mux.Vars(r)["connID"]
 	start, err := intFormValue(r, "start", 0)
 	if err != nil {
@@ -191,7 +191,7 @@ func (c *App) messages(w http.ResponseWriter, r *http.Request, user accounts.Use
 	return nil
 }
 
-func (c *App) forward(w http.ResponseWriter, r *http.Request, user accounts.UserInfo) error {
+func (c *App) forward(w http.ResponseWriter, r *http.Request, user accounts.User) error {
 	id := mux.Vars(r)["connID"]
 	var msg apiv1.ForwardMsg
 	err := json.NewDecoder(r.Body).Decode(&msg)
@@ -206,7 +206,7 @@ func (c *App) forward(w http.ResponseWriter, r *http.Request, user accounts.User
 	return nil
 }
 
-func (c *App) createHost(w http.ResponseWriter, r *http.Request, user accounts.UserInfo) error {
+func (c *App) createHost(w http.ResponseWriter, r *http.Request, user accounts.User) error {
 	var msg apiv1.CreateHostRequest
 	err := json.NewDecoder(r.Body).Decode(&msg)
 	if err != nil {
@@ -220,7 +220,7 @@ func (c *App) createHost(w http.ResponseWriter, r *http.Request, user accounts.U
 	return nil
 }
 
-func (c *App) listHosts(w http.ResponseWriter, r *http.Request, user accounts.UserInfo) error {
+func (c *App) listHosts(w http.ResponseWriter, r *http.Request, user accounts.User) error {
 	listReq, err := BuildListHostsRequest(r)
 	if err != nil {
 		return err
@@ -233,7 +233,7 @@ func (c *App) listHosts(w http.ResponseWriter, r *http.Request, user accounts.Us
 	return nil
 }
 
-func (c *App) deleteHost(w http.ResponseWriter, r *http.Request, user accounts.UserInfo) error {
+func (c *App) deleteHost(w http.ResponseWriter, r *http.Request, user accounts.User) error {
 	name := mux.Vars(r)["host"]
 	res, err := c.instanceManager.DeleteHost(getZone(r), user, name)
 	if err != nil {
@@ -243,7 +243,7 @@ func (c *App) deleteHost(w http.ResponseWriter, r *http.Request, user accounts.U
 	return nil
 }
 
-func (c *App) waitOperation(w http.ResponseWriter, r *http.Request, user accounts.UserInfo) error {
+func (c *App) waitOperation(w http.ResponseWriter, r *http.Request, user accounts.User) error {
 	name := mux.Vars(r)["operation"]
 	op, err := c.instanceManager.WaitOperation(getZone(r), user, name)
 	if err != nil {
@@ -344,7 +344,7 @@ func (c *App) parseAuthorizationResponse(r *http.Request) (string, error) {
 	return code[0], nil
 }
 
-func (c *App) storeUserCredentials(user accounts.UserInfo, tk *oauth2.Token) error {
+func (c *App) storeUserCredentials(user accounts.User, tk *oauth2.Token) error {
 	creds, err := json.Marshal(tk)
 	if err != nil {
 		return fmt.Errorf("Failed to serialize credentials: %w", err)
@@ -359,7 +359,7 @@ func (c *App) storeUserCredentials(user accounts.UserInfo, tk *oauth2.Token) err
 	return nil
 }
 
-func (c *App) fetchUserCredentials(user accounts.UserInfo) (*oauth2.Token, error) {
+func (c *App) fetchUserCredentials(user accounts.User) (*oauth2.Token, error) {
 	encryptedCreds, err := c.databaseService.FetchBuildAPICredentials(user.Username())
 	if err != nil {
 		return nil, fmt.Errorf("Error getting user credentials: %w", err)
@@ -418,7 +418,7 @@ func (a *App) Authenticate(fn AuthHTTPHandler) HTTPHandler {
 	}
 }
 
-type AuthHTTPHandler func(http.ResponseWriter, *http.Request, accounts.UserInfo) error
+type AuthHTTPHandler func(http.ResponseWriter, *http.Request, accounts.User) error
 type HTTPHandler func(http.ResponseWriter, *http.Request) error
 
 // Intercept errors returned by the HTTPHandler and transform them into HTTP
@@ -497,7 +497,7 @@ func uint32Value(value string) (uint32, error) {
 	return uint32(uint64v), err
 }
 
-func indexHandler(w http.ResponseWriter, r *http.Request, user accounts.UserInfo) error {
+func indexHandler(w http.ResponseWriter, r *http.Request, user accounts.User) error {
 	fmt.Fprintln(w, "Home page")
 	return nil
 }

@@ -35,7 +35,7 @@ require (
 	github.com/envoyproxy/protoc-gen-validate v0.10.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
-	github.com/google/android-cuttlefish/frontend/src/liboperator v0.0.0-20230522230839-8cae0649d5c8 // indirect
+	github.com/google/android-cuttlefish/frontend/src/liboperator v0.0.0-20230605170637-f79ed8622b6a // indirect
 	github.com/google/s2a-go v0.1.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.2.3 // indirect
 	github.com/googleapis/gax-go/v2 v2.8.0 // indirect

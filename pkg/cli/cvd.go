@@ -59,16 +59,20 @@ type CreateCVDOpts struct {
 	LocalImage      bool
 }
 
-func createCVD(service client.Service, createOpts CreateCVDOpts) (*CVDInfo, error) {
+func createCVD(service client.Service, createOpts CreateCVDOpts) ([]*CVDInfo, error) {
 	creator := &cvdCreator{
 		Service: service,
 		Opts:    createOpts,
 	}
-	cvd, err := creator.Create()
+	cvds, err := creator.Create()
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create cvd: %w", err)
 	}
-	return NewCVDInfo(service.RootURI(), createOpts.Host, cvd), nil
+	result := []*CVDInfo{}
+	for _, cvd := range cvds {
+		result = append(result, NewCVDInfo(service.RootURI(), createOpts.Host, cvd))
+	}
+	return result, nil
 }
 
 type cvdCreator struct {
@@ -76,7 +80,7 @@ type cvdCreator struct {
 	Opts    CreateCVDOpts
 }
 
-func (c *cvdCreator) Create() (*hoapi.CVD, error) {
+func (c *cvdCreator) Create() ([]*hoapi.CVD, error) {
 	if c.Opts.LocalImage {
 		return c.createCVDFromLocalBuild()
 	} else {
@@ -84,7 +88,7 @@ func (c *cvdCreator) Create() (*hoapi.CVD, error) {
 	}
 }
 
-func (c *cvdCreator) createCVDFromLocalBuild() (*hoapi.CVD, error) {
+func (c *cvdCreator) createCVDFromLocalBuild() ([]*hoapi.CVD, error) {
 	vars, err := GetAndroidEnvVarValues()
 	if err != nil {
 		return nil, fmt.Errorf("Error retrieving Android Build environment variables: %w", err)
@@ -109,10 +113,14 @@ func (c *cvdCreator) createCVDFromLocalBuild() (*hoapi.CVD, error) {
 			},
 		},
 	}
-	return c.Service.CreateCVD(c.Opts.Host, &req)
+	res, err := c.Service.CreateCVD(c.Opts.Host, &req)
+	if err != nil {
+		return nil, err
+	}
+	return res.CVDs, nil
 }
 
-func (c *cvdCreator) createCVDFromAndroidCI() (*hoapi.CVD, error) {
+func (c *cvdCreator) createCVDFromAndroidCI() ([]*hoapi.CVD, error) {
 	req := hoapi.CreateCVDRequest{
 		CVD: &hoapi.CVD{
 			BuildSource: &hoapi.BuildSource{
@@ -131,7 +139,11 @@ func (c *cvdCreator) createCVDFromAndroidCI() (*hoapi.CVD, error) {
 	if c.Opts.SystemImgBuild != (hoapi.AndroidCIBuild{}) {
 		req.CVD.BuildSource.AndroidCIBuildSource.SystemImageBuild = &c.Opts.SystemImgBuild
 	}
-	return c.Service.CreateCVD(c.Opts.Host, &req)
+	res, err := c.Service.CreateCVD(c.Opts.Host, &req)
+	if err != nil {
+		return nil, err
+	}
+	return res.CVDs, nil
 }
 
 type cvdListResult struct {

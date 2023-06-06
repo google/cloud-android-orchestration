@@ -111,11 +111,11 @@ func (fakeService) ConnectWebRTC(host, device string, observer wclient.Observer,
 	return nil, nil
 }
 
-func (fakeService) CreateCVD(host string, req *hoapi.CreateCVDRequest) (*hoapi.CVD, error) {
+func (fakeService) CreateCVD(host string, req *hoapi.CreateCVDRequest) (*hoapi.CreateCVDResponse, error) {
 	if host == "" {
 		panic("empty host")
 	}
-	return &hoapi.CVD{Name: "cvd-1"}, nil
+	return &hoapi.CreateCVDResponse{CVDs: []*hoapi.CVD{{Name: "cvd-1"}}}, nil
 }
 
 func (fakeService) ListCVDs(host string) ([]*hoapi.CVD, error) {

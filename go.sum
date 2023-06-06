@@ -79,6 +79,8 @@ github.com/golang/protobuf v1.5.3 h1:KhyjKVUg7Usr/dYsdSqoFveMYd5ko72D+zANwlG1mmg
 github.com/golang/protobuf v1.5.3/go.mod h1:XVQd3VNwM+JqD3oG2Ue2ip4fOMUkwXdXDdiuN0vRsmY=
 github.com/google/android-cuttlefish/frontend/src/liboperator v0.0.0-20230522230839-8cae0649d5c8 h1:tCr4gBn5Ko/XWq841ul+45rVxOsdLe0C7XImN6/FIrM=
 github.com/google/android-cuttlefish/frontend/src/liboperator v0.0.0-20230522230839-8cae0649d5c8/go.mod h1:E3WxEUke776p+K3arlyhysebg/3pwSz84v3mHB5S6WQ=
+github.com/google/android-cuttlefish/frontend/src/liboperator v0.0.0-20230605170637-f79ed8622b6a h1:8lp6nfoXzzIqcR68UKzoZc4orAt/fZhX1LhaxS9dV9Q=
+github.com/google/android-cuttlefish/frontend/src/liboperator v0.0.0-20230605170637-f79ed8622b6a/go.mod h1:E3WxEUke776p+K3arlyhysebg/3pwSz84v3mHB5S6WQ=
 github.com/google/go-cmp v0.2.0/go.mod h1:oXzfMopK8JAjlY9xF4vHSVASa0yLyX7SntLO5aqRK0M=
 github.com/google/go-cmp v0.3.0/go.mod h1:8QqcDgzrUqlUb/G2PQTWiueGozuR1884gddMywk6iLU=
 github.com/google/go-cmp v0.3.1/go.mod h1:8QqcDgzrUqlUb/G2PQTWiueGozuR1884gddMywk6iLU=

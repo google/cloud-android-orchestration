@@ -339,11 +339,11 @@ const acloudSetupScript = `#!/bin/bash
 sudo useradd -m -s /bin/bash -p '*' vsoc-01
 sudo usermod -a -G cvdnetwork vsoc-01
 # Creates symlink for cuttlefish_runtime.
-sudo -u vsoc-01 ln -s -f /var/lib/cuttlefish-common/runtimes/cvd-1/cuttlefish_runtime /home/vsoc-01
+sudo -u vsoc-01 ln -s -f /var/lib/cuttlefish-common/runtimes/cuttlefish_runtime /home/vsoc-01
 # Creates bin directory
 sudo -u vsoc-01 mkdir /home/vsoc-01/bin
 # Creates restart_cvd wrapper
 sudo -u vsoc-01 touch /home/vsoc-01/bin/restart_cvd
-printf '#!/bin/bash\nHOME=/var/lib/cuttlefish-common/runtimes/cvd-1 /var/lib/cuttlefish-common/artifacts/acloud_link/bin/restart_cvd\n' | sudo -u vsoc-01 tee /home/vsoc-01/bin/restart_cvd >/dev/null
+printf '#!/bin/bash\nHOME=/var/lib/cuttlefish-common/runtimes /var/lib/cuttlefish-common/artifacts/acloud_link/bin/restart_cvd\n' | sudo -u vsoc-01 tee /home/vsoc-01/bin/restart_cvd >/dev/null
 sudo -u vsoc-01 chmod u+x /home/vsoc-01/bin/restart_cvd
 `

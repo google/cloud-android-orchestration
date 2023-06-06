@@ -57,6 +57,15 @@ type CreateCVDOpts struct {
 	BootloaderBuild hoapi.AndroidCIBuild
 	SystemImgBuild  hoapi.AndroidCIBuild
 	LocalImage      bool
+	// Creates multiple instances. Only relevant if given a single build source.
+	NumInstances int
+}
+
+func (o *CreateCVDOpts) AdditionalInstancesNum() uint32 {
+	if o.NumInstances <= 0 {
+		return 0
+	}
+	return uint32(o.NumInstances - 1)
 }
 
 func createCVD(service client.Service, createOpts CreateCVDOpts) ([]*CVDInfo, error) {
@@ -112,6 +121,7 @@ func (c *cvdCreator) createCVDFromLocalBuild() ([]*hoapi.CVD, error) {
 				},
 			},
 		},
+		AdditionalInstancesNum: c.Opts.AdditionalInstancesNum(),
 	}
 	res, err := c.Service.CreateCVD(c.Opts.Host, &req)
 	if err != nil {
@@ -129,6 +139,7 @@ func (c *cvdCreator) createCVDFromAndroidCI() ([]*hoapi.CVD, error) {
 				},
 			},
 		},
+		AdditionalInstancesNum: c.Opts.AdditionalInstancesNum(),
 	}
 	if c.Opts.KernelBuild != (hoapi.AndroidCIBuild{}) {
 		req.CVD.BuildSource.AndroidCIBuildSource.KernelBuild = &c.Opts.KernelBuild

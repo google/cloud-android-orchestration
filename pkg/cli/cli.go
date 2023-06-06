@@ -90,6 +90,7 @@ const (
 	systemImgBranchFlag       = "system_branch"
 	systemImgBuildIDFlag      = "system_build_id"
 	systemImgBuildTargetFlag  = "system_build_target"
+	numInstancesFlag          = "num_instances"
 )
 
 const (
@@ -418,6 +419,8 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 	for _, f := range localImgMutuallyExFlags {
 		create.MarkFlagsMutuallyExclusive(f, localImageFlag)
 	}
+	create.Flags().IntVar(&createFlags.NumInstances, numInstancesFlag, 1,
+		"Creates multiple instances with the same artifacts. Only relevant if given a single build source")
 	// Host flags
 	createHostFlags := []struct {
 		ValueRef *string
@@ -554,6 +557,9 @@ const (
 )
 
 func runCreateCVDCommand(c *cobra.Command, flags *CreateCVDFlags, opts *subCommandOpts) error {
+	if flags.NumInstances <= 0 {
+		return fmt.Errorf("Invalid --num_instances flag value: %d", flags.NumInstances)
+	}
 	statePrinter := newStatePrinter(c.ErrOrStderr(), flags.Verbose)
 	service, err := opts.ServiceBuilder(flags.CVDRemoteFlags, c)
 	if err != nil {

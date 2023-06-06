@@ -548,9 +548,9 @@ func disconnectDevicesByHost(host string, opts *subCommandOpts) error {
 }
 
 const (
-	createHostStateMsg = "Creating Host"
-	createCVDStateMsg  = "Creating CVD"
-	connectCVDStateMsg = "Connecting CVD"
+	createHostStateMsg    = "Creating Host"
+	createCVDStateMsg     = "Creating CVD"
+	connectCVDStateMsgFmt = "Connecting to %s"
 )
 
 func runCreateCVDCommand(c *cobra.Command, flags *CreateCVDFlags, opts *subCommandOpts) error {
@@ -569,19 +569,24 @@ func runCreateCVDCommand(c *cobra.Command, flags *CreateCVDFlags, opts *subComma
 		flags.CreateCVDOpts.Host = ins.Name
 	}
 	statePrinter.Print(createCVDStateMsg)
-	cvd, err := createCVD(service, *flags.CreateCVDOpts)
+	cvds, err := createCVD(service, *flags.CreateCVDOpts)
 	statePrinter.PrintDone(createCVDStateMsg)
 	if err != nil {
 		return err
 	}
-	statePrinter.Print(connectCVDStateMsg)
-	cvd.ConnStatus, err = ConnectDevice(flags.CreateCVDOpts.Host, cvd.Name, &command{c, &flags.Verbose}, opts)
-	statePrinter.PrintDone(connectCVDStateMsg)
-	if err != nil {
-		err = fmt.Errorf("Failed to connect to device: %w", err)
+	var merr error
+	for _, cvd := range cvds {
+		statePrinter.Print(fmt.Sprintf(connectCVDStateMsgFmt, cvd.Name))
+		cvd.ConnStatus, err = ConnectDevice(flags.CreateCVDOpts.Host, cvd.Name, &command{c, &flags.Verbose}, opts)
+		statePrinter.PrintDone(fmt.Sprintf(connectCVDStateMsgFmt, cvd.Name))
+		if err != nil {
+			merr = multierror.Append(merr, fmt.Errorf("Failed to connect to device: %w", err))
+		}
 	}
-	c.Println(ToPrintableStr(cvd))
-	return err
+	for _, cvd := range cvds {
+		c.Println(ToPrintableStr(cvd))
+	}
+	return merr
 }
 
 func runListCVDsCommand(c *cobra.Command, flags *ListCVDsFlags, opts *subCommandOpts) error {

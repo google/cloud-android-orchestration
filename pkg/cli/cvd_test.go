@@ -110,3 +110,24 @@ func TestListLocalImageRequiredFiles(t *testing.T) {
 	}
 
 }
+
+func TestAdditionalInstancesNum(t *testing.T) {
+	tests := []struct {
+		in int
+		ex uint32
+	}{
+		{in: -1, ex: 0},
+		{in: 0, ex: 0},
+		{in: 1, ex: 0},
+		{in: 100, ex: 99},
+	}
+	for _, tc := range tests {
+		opts := &CreateCVDOpts{NumInstances: tc.in}
+
+		got := opts.AdditionalInstancesNum()
+
+		if diff := cmp.Diff(tc.ex, got); diff != "" {
+			t.Errorf("mismatch (-want +got):\n%s", diff)
+		}
+	}
+}

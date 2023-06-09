@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/google/cloud-android-orchestration/pkg/client"
@@ -568,7 +569,7 @@ func runCreateCVDCommand(c *cobra.Command, flags *CreateCVDFlags, opts *subComma
 	if flags.CreateCVDOpts.Host == "" {
 		statePrinter.Print(createHostStateMsg)
 		ins, err := createHost(service, *flags.CreateHostOpts)
-		statePrinter.PrintDone(createHostStateMsg)
+		statePrinter.PrintDone(createHostStateMsg, err)
 		if err != nil {
 			return fmt.Errorf("Failed to create host: %w", err)
 		}
@@ -576,7 +577,7 @@ func runCreateCVDCommand(c *cobra.Command, flags *CreateCVDFlags, opts *subComma
 	}
 	statePrinter.Print(createCVDStateMsg)
 	cvds, err := createCVD(service, *flags.CreateCVDOpts)
-	statePrinter.PrintDone(createCVDStateMsg)
+	statePrinter.PrintDone(createCVDStateMsg, err)
 	if err != nil {
 		return err
 	}
@@ -584,7 +585,7 @@ func runCreateCVDCommand(c *cobra.Command, flags *CreateCVDFlags, opts *subComma
 	for _, cvd := range cvds {
 		statePrinter.Print(fmt.Sprintf(connectCVDStateMsgFmt, cvd.Name))
 		cvd.ConnStatus, err = ConnectDevice(flags.CreateCVDOpts.Host, cvd.Name, &command{c, &flags.Verbose}, opts)
-		statePrinter.PrintDone(fmt.Sprintf(connectCVDStateMsgFmt, cvd.Name))
+		statePrinter.PrintDone(fmt.Sprintf(connectCVDStateMsgFmt, cvd.Name), err)
 		if err != nil {
 			merr = multierror.Append(merr, fmt.Errorf("Failed to connect to device: %w", err))
 		}
@@ -957,25 +958,44 @@ func newStatePrinter(out io.Writer, verbose bool) *statePrinter {
 }
 
 func (p *statePrinter) Print(msg string) {
-	p.print(msg, false)
+	p.print(msg, statePrinterState{Done: false})
 }
 
-func (p *statePrinter) PrintDone(msg string) {
-	p.print(msg, true)
+func (p *statePrinter) PrintDone(msg string, err error) {
+	p.print(msg, statePrinterState{Done: true, DoneErr: err})
 }
 
-func (p *statePrinter) print(msg string, done bool) {
-	format := "\r\033[K%s"
-	if !p.visualsOn {
-		format = "%s"
+type statePrinterState struct {
+	Done bool
+	// Only relevant if Done is true.
+	DoneErr error
+}
+
+func (p *statePrinter) print(msg string, state statePrinterState) {
+	prefix := ""
+	if p.visualsOn {
+		// Use cursor movement characters for an interactive experience when visuals are on.
+		prefix = "\r\033[K"
 	}
-	if done {
-		format += ". Done"
+	result := prefix + toFixedLength(msg, 30, '.') + strings.Repeat(".", 3) + " "
+	if state.Done {
+		if state.DoneErr == nil {
+			result += "OK"
+		} else {
+			result += "Failed"
+		}
+	}
+	if !p.visualsOn || state.Done {
+		result += "\n"
+	}
+	fmt.Fprint(p.Out, result)
+}
+
+// Return prefix or append a filling charachter building a string of fixed length.
+func toFixedLength(v string, l int, filling rune) string {
+	if len(v) > l {
+		return v[:l]
 	} else {
-		format += " ... "
+		return v + strings.Repeat(string(filling), l-len(v))
 	}
-	if !p.visualsOn || done {
-		format += "\n"
-	}
-	fmt.Fprintf(p.Out, format, msg)
 }

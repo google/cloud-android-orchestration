@@ -123,7 +123,7 @@ async function ajaxPostJson(url, data) {
 // Implementation of the Connector interface using HTTP long polling
 class PollingConnector extends Connector {
   #configUrl = httpUrl('infra_config');
-  #connectUrl = httpUrl('connections');
+  #connectUrl = httpUrl('polled_connections');
   #forwardUrl;
   #messagesUrl;
   #config = undefined;
@@ -144,8 +144,8 @@ class PollingConnector extends Connector {
     let config = await this.#getConfig();
     let response = await ajaxPostJson(this.#connectUrl, {device_id: deviceId});
     let connId = response.connection_id;
-    this.#forwardUrl = httpUrl(`connections/${connId}/:forward`);
-    this.#messagesUrl = httpUrl(`connections/${connId}/messages`);
+    this.#forwardUrl = httpUrl(`polled_connections/${connId}/:forward`);
+    this.#messagesUrl = httpUrl(`polled_connections/${connId}/messages`);
 
     this.#startPolling();
 

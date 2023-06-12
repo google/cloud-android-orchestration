@@ -24,19 +24,20 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 
 	hoapi "github.com/google/android-cuttlefish/frontend/src/liboperator/api/v1"
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
 	"github.com/google/cloud-android-orchestration/pkg/app/accounts"
+	"github.com/google/cloud-android-orchestration/pkg/app/config"
 	"github.com/google/cloud-android-orchestration/pkg/app/database"
 	"github.com/google/cloud-android-orchestration/pkg/app/encryption"
 	apperr "github.com/google/cloud-android-orchestration/pkg/app/errors"
 	"github.com/google/cloud-android-orchestration/pkg/app/instances"
 	appOAuth2 "github.com/google/cloud-android-orchestration/pkg/app/oauth2"
 	"github.com/google/cloud-android-orchestration/pkg/app/session"
-	"github.com/google/cloud-android-orchestration/pkg/app/signaling"
 
 	"github.com/golang-jwt/jwt"
 	"github.com/gorilla/mux"
@@ -51,32 +52,28 @@ const (
 // and validates requests from the client and passes the information to the
 // relevant modules
 type App struct {
-	instanceManager   instances.Manager
-	sigServer         signaling.Server
-	accountManager    accounts.Manager
-	oauth2Config      *oauth2.Config
-	encryptionService encryption.Service
-	databaseService   database.Service
+	instanceManager          instances.Manager
+	accountManager           accounts.Manager
+	oauth2Config             *oauth2.Config
+	encryptionService        encryption.Service
+	databaseService          database.Service
+	connectorStaticFilesPath string
+	infraConfig              apiv1.InfraConfig
 }
 
 func NewApp(
 	im instances.Manager,
-	ss signaling.Server,
 	am accounts.Manager,
 	oc *oauth2.Config,
 	es encryption.Service,
-	dbs database.Service) *App {
-	return &App{im, ss, am, oc, es, dbs}
+	dbs database.Service,
+	webStaticFilesPath string,
+	webRTCConfig config.WebRTCConfig) *App {
+	return &App{im, am, oc, es, dbs, webStaticFilesPath, buildInfraCfg(webRTCConfig.STUNServers)}
 }
 
 func (c *App) Handler() http.Handler {
 	router := mux.NewRouter()
-
-	// Signaling Server Routes
-	router.Handle("/v1/zones/{zone}/hosts/{host}/connections/{connID}/messages", c.Authenticate(c.messages)).Methods("GET")
-	router.Handle("/v1/zones/{zone}/hosts/{host}/connections/{connID}/:forward", c.Authenticate(c.forward)).Methods("POST")
-	router.Handle("/v1/zones/{zone}/hosts/{host}/connections", c.Authenticate(c.createConnection)).Methods("POST")
-	router.Handle("/v1/zones/{zone}/hosts/{host}/devices/{deviceId}/files{path:/.+}", c.Authenticate(c.getDeviceFiles)).Methods("GET")
 
 	// Instance Manager Routes
 	router.Handle("/v1/zones/{zone}/hosts", c.Authenticate(c.createHost)).Methods("POST")
@@ -91,13 +88,12 @@ func (c *App) Handler() http.Handler {
 	router.Handle("/v1/zones/{zone}/hosts/{host}", c.Authenticate(c.deleteHost)).Methods("DELETE")
 
 	// Host Orchestrator Proxy Routes
-	router.PathPrefix(
-		"/v1/zones/{zone}/hosts/{host}/{resource:devices|operations|cvds|userartifacts}").Handler(c.Authenticate(c.ForwardToHost))
+	router.Handle("/v1/zones/{zone}/hosts/{host}/{hostPath:.*}", c.Authenticate(c.ForwardToHost))
 
 	// Infra route
 	router.HandleFunc("/v1/zones/{zone}/hosts/{host}/infra_config", func(w http.ResponseWriter, r *http.Request) {
 		// TODO(b/220891296): Make this configurable
-		replyJSON(w, c.sigServer.InfraConfig(), http.StatusOK)
+		replyJSON(w, c.InfraConfig(), http.StatusOK)
 	}).Methods("GET")
 
 	// Global routes
@@ -105,104 +101,66 @@ func (c *App) Handler() http.Handler {
 	router.Handle("/oauth2callback", HTTPHandler(c.OAuth2Callback))
 	router.Handle("/", c.Authenticate(indexHandler))
 
-	// http.Handle("/", router)
 	return router
 }
 
-func (c *App) ForwardToHost(w http.ResponseWriter, r *http.Request, user accounts.User) error {
-	vars := mux.Vars(r)
-	zone := vars["zone"]
-	if zone == "" {
-		return fmt.Errorf("invalid url missing zone value: %q", r.URL.String())
+func (a *App) InfraConfig() apiv1.InfraConfig {
+	return a.infraConfig
+}
+
+func (a *App) ForwardToHost(w http.ResponseWriter, r *http.Request, user accounts.User) error {
+	hostPath := "/" + mux.Vars(r)["hostPath"]
+
+	if interceptFile, found := a.findInterceptFile(hostPath); found {
+		http.ServeFile(w, r, interceptFile)
+		return nil
 	}
-	host := vars["host"]
-	if host == "" {
-		return fmt.Errorf("invalid url missing host value: %q", r.URL.String())
-	}
-	resource := vars["resource"]
-	if resource == "" {
-		return fmt.Errorf("invalid url missing host resource: %q", r.URL.String())
-	}
-	client, err := c.instanceManager.GetHostClient(zone, host)
-	if err != nil {
-		return err
-	}
-	r.URL.Path, err = HostOrchestratorPath(r.URL.Path, host)
+
+	hostClient, err := a.instanceManager.GetHostClient(getZone(r), getHost(r))
 	if err != nil {
 		return err
 	}
 
 	// Credentials are only needed in created cvd requests
-	if r.Method == http.MethodPost && resource == "cvds" {
+	if hostPath == "/cvds" && r.Method == http.MethodPost {
+		if err := a.injectCredentialsIntoCreateCVDRequest(r, user); err != nil {
+			return err
+		}
+	}
+
+	r.URL.Path = hostPath
+	hostClient.GetReverseProxy().ServeHTTP(w, r)
+	return nil
+}
+
+func (a *App) injectCredentialsIntoCreateCVDRequest(r *http.Request, user accounts.User) error {
+	// Read and parse the request body
+	msg := hoapi.CreateCVDRequest{}
+	if err := json.NewDecoder(r.Body).Decode(&msg); err != nil {
+		return err
+	}
+	// Credentials are only injected on non-user builds.
+	if msg.CVD != nil && msg.CVD.BuildSource != nil && msg.CVD.BuildSource.AndroidCIBuildSource != nil {
 		// Get the credentials.
-		tk, err := c.fetchUserCredentials(user)
+		tk, err := a.fetchUserCredentials(user)
 		if err != nil {
 			return err
 		}
-		if tk != nil {
-			// TODO(jemoreira) return unauthorized instead when no credentials are found
-			if err := InjectCredentialsIntoCreateCVDRequest(r, tk.AccessToken); err != nil {
-				return err
-			}
+		if tk == nil {
+			// There are no credentials in database associated with this user.
+			// TODO(jemoreira) return unauthorized instead.
+			return nil
 		}
+		credentials := tk.AccessToken
+		msg.CVD.BuildSource.AndroidCIBuildSource.Credentials = credentials
 	}
-
-	client.GetReverseProxy().ServeHTTP(w, r)
-	return nil
-}
-
-func (c *App) getDeviceFiles(w http.ResponseWriter, r *http.Request, user accounts.User) error {
-	devId := mux.Vars(r)["deviceId"]
-	path := mux.Vars(r)["path"]
-	return c.sigServer.ServeDeviceFiles(getZone(r), getHost(r), signaling.DeviceFilesRequest{devId, path, w, r}, user)
-}
-
-func (c *App) createConnection(w http.ResponseWriter, r *http.Request, user accounts.User) error {
-	var msg apiv1.NewConnMsg
-	err := json.NewDecoder(r.Body).Decode(&msg)
+	buf, err := json.Marshal(msg)
 	if err != nil {
-		return apperr.NewBadRequestError("Malformed JSON in request", err)
+		return err
 	}
-	log.Println("id: ", msg.DeviceId)
-	reply, err := c.sigServer.NewConnection(getZone(r), getHost(r), msg, user)
-	if err != nil {
-		return fmt.Errorf("Failed to communicate with device: %w", err)
-	}
-	replyJSON(w, reply.Response, reply.StatusCode)
-	return nil
-}
-
-func (c *App) messages(w http.ResponseWriter, r *http.Request, user accounts.User) error {
-	id := mux.Vars(r)["connID"]
-	start, err := intFormValue(r, "start", 0)
-	if err != nil {
-		return apperr.NewBadRequestError("Invalid value for start field", err)
-	}
-	// -1 means all messages
-	count, err := intFormValue(r, "count", -1)
-	if err != nil {
-		return apperr.NewBadRequestError("Invalid value for count field", err)
-	}
-	reply, err := c.sigServer.Messages(getZone(r), getHost(r), id, start, count, user)
-	if err != nil {
-		return fmt.Errorf("Failed to get messages: %w", err)
-	}
-	replyJSON(w, reply.Response, reply.StatusCode)
-	return nil
-}
-
-func (c *App) forward(w http.ResponseWriter, r *http.Request, user accounts.User) error {
-	id := mux.Vars(r)["connID"]
-	var msg apiv1.ForwardMsg
-	err := json.NewDecoder(r.Body).Decode(&msg)
-	if err != nil {
-		return apperr.NewBadRequestError("Malformed JSON in request", err)
-	}
-	reply, err := c.sigServer.Forward(getZone(r), getHost(r), id, msg, user)
-	if err != nil {
-		return fmt.Errorf("Failed to send message to device: %w", err)
-	}
-	replyJSON(w, reply.Response, reply.StatusCode)
+	// Replace the request body with a new reader for the reverse proxy to consume.
+	r.ContentLength = int64(len(buf))
+	r.Body = io.NopCloser(bytes.NewReader(buf))
 	return nil
 }
 
@@ -436,21 +394,12 @@ func (h HTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func InjectCredentialsIntoCreateCVDRequest(r *http.Request, credentials string) error {
-	msg := hoapi.CreateCVDRequest{}
-	if err := json.NewDecoder(r.Body).Decode(&msg); err != nil {
-		return err
+func (a *App) findInterceptFile(hostPath string) (string, bool) {
+	// Currently only server_connector.js is to be intercepted
+	if ok, _ := regexp.MatchString("/devices/[^/]+/files/js/server_connector.js", hostPath); ok {
+		return a.connectorStaticFilesPath + "/intercept/js/server_connector.js", true
 	}
-	if msg.CVD != nil && msg.CVD.BuildSource != nil && msg.CVD.BuildSource.AndroidCIBuildSource != nil {
-		msg.CVD.BuildSource.AndroidCIBuildSource.Credentials = credentials
-	}
-	buf, err := json.Marshal(msg)
-	if err != nil {
-		return err
-	}
-	r.ContentLength = int64(len(buf))
-	r.Body = io.NopCloser(bytes.NewReader(buf))
-	return nil
+	return "", false
 }
 
 func HostOrchestratorPath(path, host string) (string, error) {
@@ -558,4 +507,14 @@ func getHost(r *http.Request) string {
 
 func notAllowedHttpHandler(w http.ResponseWriter, r *http.Request) error {
 	return apperr.NewMethodNotAllowedError("Operation is disabled", nil)
+}
+
+func buildInfraCfg(servers []string) apiv1.InfraConfig {
+	iceServers := []apiv1.IceServer{}
+	for _, server := range servers {
+		iceServers = append(iceServers, apiv1.IceServer{URLs: []string{server}})
+	}
+	return apiv1.InfraConfig{
+		IceServers: iceServers,
+	}
 }

@@ -22,10 +22,13 @@ import (
 	"github.com/google/cloud-android-orchestration/pkg/app/encryption"
 	"github.com/google/cloud-android-orchestration/pkg/app/instances"
 	"github.com/google/cloud-android-orchestration/pkg/app/secrets"
-	"github.com/google/cloud-android-orchestration/pkg/app/signaling"
 
 	toml "github.com/pelletier/go-toml"
 )
+
+type WebRTCConfig struct {
+	STUNServers []string
+}
 
 type Config struct {
 	WebStaticFilesPath string
@@ -34,7 +37,7 @@ type Config struct {
 	InstanceManager    instances.Config
 	EncryptionService  encryption.Config
 	DatabaseService    database.Config
-	WebRTC             signaling.WebRTCConfig
+	WebRTC             WebRTCConfig
 }
 
 const DefaultConfFile = "conf.toml"

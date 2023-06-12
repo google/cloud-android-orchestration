@@ -28,7 +28,6 @@ import (
 	"github.com/google/cloud-android-orchestration/pkg/app/instances"
 	appOAuth2 "github.com/google/cloud-android-orchestration/pkg/app/oauth2"
 	"github.com/google/cloud-android-orchestration/pkg/app/secrets"
-	"github.com/google/cloud-android-orchestration/pkg/app/signaling"
 
 	"github.com/google/uuid"
 	"golang.org/x/oauth2"
@@ -164,14 +163,13 @@ func main() {
 	config := LoadConfiguration()
 
 	instanceManager := LoadInstanceManager(config)
-	signalingServer := signaling.NewForwardingServer(config.WebStaticFilesPath, instanceManager, config.WebRTC)
 	secretManager := LoadSecretManager(config)
 	oauth2Config := LoadOAuth2Config(config, secretManager)
 	accountManager := LoadAccountManager(config)
 	encryptionService := LoadEncryptionService(config)
 	dbService := LoadDatabaseService(config)
-	controller := app.NewApp(instanceManager, signalingServer, accountManager, oauth2Config,
-		encryptionService, dbService)
+	controller := app.NewApp(instanceManager, accountManager, oauth2Config,
+		encryptionService, dbService, config.WebStaticFilesPath, config.WebRTC)
 
 	iface := ChooseNetworkInterface(config)
 	port := ServerPort()

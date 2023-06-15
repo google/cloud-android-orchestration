@@ -139,8 +139,10 @@ func (a *App) injectCredentialsIntoCreateCVDRequest(r *http.Request, user accoun
 	if err := json.NewDecoder(r.Body).Decode(&msg); err != nil {
 		return err
 	}
-	// Credentials are only injected on non-user builds.
-	if msg.CVD != nil && msg.CVD.BuildSource != nil && msg.CVD.BuildSource.AndroidCIBuildSource != nil {
+	// Credentials are only injected on non-user builds that don't already provide user credentials.
+	if msg.CVD != nil && msg.CVD.BuildSource != nil &&
+		msg.CVD.BuildSource.AndroidCIBuildSource != nil &&
+		msg.CVD.BuildSource.AndroidCIBuildSource.Credentials == "" {
 		// Get the credentials.
 		tk, err := a.fetchUserCredentials(user)
 		if err != nil {
@@ -148,8 +150,14 @@ func (a *App) injectCredentialsIntoCreateCVDRequest(r *http.Request, user accoun
 		}
 		if tk == nil {
 			// There are no credentials in database associated with this user.
-			// TODO(jemoreira) return unauthorized instead.
-			return nil
+			// Even though the user is already authenticated by the time this code executes, 401 is
+			// returned to cause it to go the /auth URL and follow the OAuth2 flow. If 403 were to
+			// be returned from here it could be construed as "this user doesn't have access to the
+			// resource" instead of "this user has not authorized the app to access the resource on
+			// their behalf". Another way to look at it is that the app lacks authentication
+			// (credentials) to access the build API.
+			return apperr.NewUnauthenticatedError(
+				"The user must authorize the system to access the Build API on their behalf", nil)
 		}
 		credentials := tk.AccessToken
 		msg.CVD.BuildSource.AndroidCIBuildSource.Credentials = credentials

@@ -16,8 +16,10 @@ package cli
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -579,6 +581,10 @@ func runCreateCVDCommand(c *cobra.Command, flags *CreateCVDFlags, opts *subComma
 	cvds, err := createCVD(service, *flags.CreateCVDOpts)
 	statePrinter.PrintDone(createCVDStateMsg, err)
 	if err != nil {
+		var apiErr *client.ApiCallError
+		if errors.As(err, &apiErr) && apiErr.Code == http.StatusUnauthorized {
+			c.PrintErrf("Authorization required, please visit %s/auth\n", flags.ServiceURL)
+		}
 		return err
 	}
 	var merr error

@@ -30,7 +30,6 @@ import (
 	"github.com/google/cloud-android-orchestration/pkg/app/secrets"
 
 	"github.com/google/uuid"
-	"golang.org/x/oauth2"
 	"google.golang.org/api/compute/v1"
 )
 
@@ -88,15 +87,15 @@ func LoadSecretManager(config *config.Config) secrets.SecretManager {
 	return sm
 }
 
-func LoadOAuth2Config(config *config.Config, sm secrets.SecretManager) *oauth2.Config {
-	var oauth2Config *oauth2.Config
+func LoadOAuth2Config(config *config.Config, sm secrets.SecretManager) *appOAuth2.Helper {
+	var oauth2Helper *appOAuth2.Helper
 	switch config.AccountManager.OAuth2.Provider {
 	case appOAuth2.GoogleOAuth2Provider:
-		oauth2Config = appOAuth2.NewGoogleOAuth2Config(config.AccountManager.OAuth2.RedirectURL, sm)
+		oauth2Helper = appOAuth2.NewGoogleOAuth2Helper(config.AccountManager.OAuth2.RedirectURL, sm)
 	default:
 		log.Fatal("Unknown oauth2 provider: ", config.AccountManager.OAuth2.Provider)
 	}
-	return oauth2Config
+	return oauth2Helper
 }
 
 func LoadAccountManager(config *config.Config) accounts.Manager {
@@ -164,11 +163,11 @@ func main() {
 
 	instanceManager := LoadInstanceManager(config)
 	secretManager := LoadSecretManager(config)
-	oauth2Config := LoadOAuth2Config(config, secretManager)
+	oauth2Helper := LoadOAuth2Config(config, secretManager)
 	accountManager := LoadAccountManager(config)
 	encryptionService := LoadEncryptionService(config)
 	dbService := LoadDatabaseService(config)
-	controller := app.NewApp(instanceManager, accountManager, oauth2Config,
+	controller := app.NewApp(instanceManager, accountManager, oauth2Helper,
 		encryptionService, dbService, config.WebStaticFilesPath, config.WebRTC)
 
 	iface := ChooseNetworkInterface(config)

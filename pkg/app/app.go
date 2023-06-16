@@ -54,7 +54,7 @@ const (
 type App struct {
 	instanceManager          instances.Manager
 	accountManager           accounts.Manager
-	oauth2Config             *oauth2.Config
+	oauth2Helper             *appOAuth2.Helper
 	encryptionService        encryption.Service
 	databaseService          database.Service
 	connectorStaticFilesPath string
@@ -64,7 +64,7 @@ type App struct {
 func NewApp(
 	im instances.Manager,
 	am accounts.Manager,
-	oc *oauth2.Config,
+	oc *appOAuth2.Helper,
 	es encryption.Service,
 	dbs database.Service,
 	webStaticFilesPath string,
@@ -234,7 +234,7 @@ func (c *App) AuthHandler(w http.ResponseWriter, r *http.Request) error {
 		Secure:   false,
 		SameSite: http.SameSiteLaxMode,
 	})
-	authURL := c.oauth2Config.AuthCodeURL(state, oauth2.AccessTypeOffline)
+	authURL := c.oauth2Helper.AuthCodeURL(state, oauth2.AccessTypeOffline)
 	http.Redirect(w, r, authURL, http.StatusSeeOther)
 	return nil
 }
@@ -244,7 +244,7 @@ func (c *App) OAuth2Callback(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	tk, err := c.oauth2Config.Exchange(oauth2.NoContext, authCode)
+	tk, err := c.oauth2Helper.Exchange(oauth2.NoContext, authCode)
 	if err != nil {
 		return fmt.Errorf("Error exchanging token: %w", err)
 	}
@@ -352,7 +352,7 @@ func (c *App) fetchUserCredentials(user accounts.User) (*oauth2.Token, error) {
 	}
 	if !tk.Valid() {
 		// Refresh the token and store it in the db.
-		tks := c.oauth2Config.TokenSource(context.TODO(), tk)
+		tks := c.oauth2Helper.TokenSource(context.TODO(), tk)
 		tk, err = tks.Token()
 		if err != nil {
 			return nil, fmt.Errorf("Error refreshing token: %w", err)

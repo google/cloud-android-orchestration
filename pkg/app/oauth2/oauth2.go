@@ -15,6 +15,10 @@
 package oauth2
 
 import (
+	"fmt"
+	"net/http"
+	"net/url"
+
 	"github.com/google/cloud-android-orchestration/pkg/app/secrets"
 
 	"golang.org/x/oauth2"
@@ -30,19 +34,37 @@ const (
 	GoogleOAuth2Provider = "Google"
 )
 
+type Helper struct {
+	oauth2.Config
+	Revoke func(*oauth2.Token) error
+}
+
 // Build a oauth2.Config object with Google as the provider.
-func NewGoogleOAuth2Config(redirectURL string, sm secrets.SecretManager) *oauth2.Config {
-	return &oauth2.Config{
-		ClientID:     sm.OAuth2ClientID(),
-		ClientSecret: sm.OAuth2ClientSecret(),
-		Scopes: []string{
-			"https://www.googleapis.com/auth/androidbuild.internal",
-			"openid",
-			"email",
+func NewGoogleOAuth2Helper(redirectURL string, sm secrets.SecretManager) *Helper {
+	return &Helper{
+		Config: oauth2.Config{
+			ClientID:     sm.OAuth2ClientID(),
+			ClientSecret: sm.OAuth2ClientSecret(),
+			Scopes: []string{
+				"https://www.googleapis.com/auth/androidbuild.internal",
+				"openid",
+				"email",
+			},
+			RedirectURL: redirectURL,
+			Endpoint:    google.Endpoint,
 		},
-		RedirectURL: redirectURL,
-		Endpoint:    google.Endpoint,
+		Revoke: RevokeGoogleOAuth2Token,
 	}
+}
+
+func RevokeGoogleOAuth2Token(tk *oauth2.Token) error {
+	if tk == nil {
+		return fmt.Errorf("Nil Token")
+	}
+	_, err := http.DefaultClient.PostForm(
+		"https://oauth2.googleapis.com/revoke",
+		url.Values{"token": []string{tk.AccessToken}})
+	return err
 }
 
 // ID tokens (from OpenID connect) are presented in JWT format, with the relevant fields in the Claims section.

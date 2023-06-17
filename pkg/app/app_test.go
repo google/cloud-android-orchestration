@@ -37,6 +37,7 @@ import (
 	apperr "github.com/google/cloud-android-orchestration/pkg/app/errors"
 	"github.com/google/cloud-android-orchestration/pkg/app/instances"
 	appOAuth2 "github.com/google/cloud-android-orchestration/pkg/app/oauth2"
+	"github.com/google/cloud-android-orchestration/pkg/app/session"
 
 	"golang.org/x/oauth2"
 )
@@ -418,6 +419,56 @@ func TestHostForwarderDoesNotInjectCredentials(t *testing.T) {
 	if w.Result().StatusCode != http.StatusOK {
 		t.Errorf("expected <<%+v>>, got: %+v", http.StatusOK, w.Result().StatusCode)
 	}
+}
+
+func TestBadCSRFTokensInRescindAuth(t *testing.T) {
+	testData := []struct {
+		Name   string
+		Values url.Values
+	}{{"MissingToken", url.Values{}}, {"WrongToken", url.Values{"csrf_token": []string{"wrongtoken"}}}}
+
+	const sessionId = "somesessionid"
+
+	for _, td := range testData {
+		t.Run(td.Name, func(t *testing.T) {
+			dbs := database.NewInMemoryDBService()
+			dbs.CreateOrUpdateSession(session.Session{
+				Key:         sessionId,
+				OAuth2State: "righttoken",
+			})
+			controller := NewApp(&testInstanceManager{}, &testAccountManager{}, nil, nil, dbs, "", config.WebRTCConfig{})
+			ts := httptest.NewServer(controller.Handler())
+			defer ts.Close()
+
+			req, err := http.NewRequest("POST", ts.URL+"/deauth", strings.NewReader(td.Values.Encode()))
+			if err != nil {
+				t.Fatal(err)
+			}
+			req.Header["Content-Type"] = []string{"application/x-www-form-urlencoded"}
+			req.AddCookie(&http.Cookie{
+				Name:  sessionIdCookie,
+				Value: sessionId,
+			})
+			res, err := http.DefaultClient.Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			expected := http.StatusBadRequest
+			if res.StatusCode != expected {
+				t.Fatalf("unexpected status code <<%d>>, want: %d", res.StatusCode, expected)
+			}
+			rBody, err := io.ReadAll(res.Body)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if !strings.Contains(string(rBody), "CSRF token") {
+				t.Fatalf("Expected the request message to mention CSRF token: %s", string(rBody))
+			}
+		})
+	}
+
 }
 
 func assertIsAppError(t *testing.T, err error) {

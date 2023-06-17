@@ -99,6 +99,8 @@ func (c *App) Handler() http.Handler {
 	// Global routes
 	router.Handle("/auth", HTTPHandler(c.AuthHandler)).Methods("GET")
 	router.Handle("/oauth2callback", HTTPHandler(c.OAuth2Callback))
+	router.Handle("/deauth", c.Authenticate(c.DeAuthHandler)).Methods("GET")
+	router.Handle("/deauth", c.Authenticate(c.RescindAuthorizationHandler)).Methods("POST")
 	router.Handle("/", c.Authenticate(indexHandler))
 
 	return router
@@ -220,20 +222,13 @@ func (c *App) waitOperation(w http.ResponseWriter, r *http.Request, user account
 }
 
 func (c *App) AuthHandler(w http.ResponseWriter, r *http.Request) error {
-	sessionKey := randomHexString()
 	state := randomHexString()
-	if err := c.databaseService.CreateOrUpdateSession(session.Session{
-		Key:         sessionKey,
+	s := session.Session{
 		OAuth2State: state,
-	}); err != nil {
+	}
+	if err := c.setOrUpdateSession(w, &s); err != nil {
 		return err
 	}
-	http.SetCookie(w, &http.Cookie{
-		Name:     sessionIdCookie,
-		Value:    sessionKey,
-		Secure:   false,
-		SameSite: http.SameSiteLaxMode,
-	})
 	authURL := c.oauth2Helper.AuthCodeURL(state, oauth2.AccessTypeOffline)
 	http.Redirect(w, r, authURL, http.StatusSeeOther)
 	return nil
@@ -285,22 +280,18 @@ func (c *App) parseAuthorizationResponse(r *http.Request) (string, error) {
 	}
 	state := stateSlice[0]
 
-	sessionCookie, err := r.Cookie(sessionIdCookie)
-	if err != nil {
-		return "", fmt.Errorf("Error reading cookie from request: %w", err)
-	}
-	sessionKey := sessionCookie.Value
-	session, err := c.databaseService.FetchSession(sessionKey)
+	session, err := c.fetchSession(r)
 	if err != nil {
 		return "", fmt.Errorf("Error fetching session from db: %w", err)
 	}
+
 	if state != session.OAuth2State {
 		return "", apperr.NewBadRequestError("OAuth2 State doesn't match session", nil)
 	}
 
 	// The state should be used only once. Delete the entire session since it's only being used for
 	// OAuth2 state.
-	c.databaseService.DeleteSession(sessionKey)
+	defer c.databaseService.DeleteSession(session.Key)
 
 	// Extract the authorization code.
 	code, ok := query["code"]
@@ -308,6 +299,98 @@ func (c *App) parseAuthorizationResponse(r *http.Request) (string, error) {
 		return "", fmt.Errorf("Authorization response does not include an authorization code")
 	}
 	return code[0], nil
+}
+
+func (a *App) DeAuthHandler(w http.ResponseWriter, r *http.Request, user accounts.User) error {
+	if tk, err := a.fetchUserCredentials(user); err != nil || tk == nil {
+		fmt.Fprintln(w, "No credentials found")
+		return err
+	}
+	const pageTemplate = `
+<html><head></head><body>
+<form method="post" action="/deauth">
+<p> This action will remove the authorization to access the build API on your behalf until you authorize it again.</p>
+<p> Would you like to proceed?</p>
+<input type="hidden" name="csrf_token" value="%s"></input>
+<button type="submit" style="background-color:blue;color:white;">Yes</button>
+<button type="button" onclick="document.querySelector('body').innerHTML = 'You may close this page'">No</button>
+</body></html>
+`
+	s := session.Session{
+		OAuth2State: randomHexString(),
+	}
+	if err := a.setOrUpdateSession(w, &s); err != nil {
+		return err
+	}
+	_, err := fmt.Fprintf(w, pageTemplate, s.OAuth2State)
+	return err
+}
+
+func (a *App) RescindAuthorizationHandler(w http.ResponseWriter, r *http.Request, user accounts.User) error {
+	r.ParseForm()
+	stateSlice, ok := r.PostForm["csrf_token"]
+	if !ok || len(stateSlice) == 0 {
+		return apperr.NewBadRequestError("Missing CSRF token", nil)
+	}
+	state := stateSlice[0]
+
+	session, err := a.fetchSession(r)
+	if err != nil {
+		return err
+	}
+	if state != session.OAuth2State {
+		return apperr.NewBadRequestError("CSRF token doesn't match session", nil)
+	}
+	// The CSRF token should be used only once, deleting the entire session guarantees it.
+	defer a.databaseService.DeleteSession(session.Key)
+
+	tk, err := a.fetchUserCredentials(user)
+	if err != nil {
+		return err
+	}
+	if tk == nil {
+		fmt.Fprintln(w, "No credentials found")
+		return nil
+	}
+	defer func() {
+		if err := a.databaseService.DeleteBuildAPICredentials(user.Username()); err != nil {
+			log.Printf("Failed to delete credentials from database: %v", err)
+		}
+	}()
+	if err := a.oauth2Helper.Revoke(tk); err != nil {
+		return err
+	}
+	fmt.Fprintln(w, "Authorization rescinded")
+	return nil
+}
+
+func (a *App) setOrUpdateSession(w http.ResponseWriter, s *session.Session) error {
+	if s.Key == "" {
+		s.Key = randomHexString()
+	}
+	if err := a.databaseService.CreateOrUpdateSession(*s); err != nil {
+		return err
+	}
+	http.SetCookie(w, &http.Cookie{
+		Name:     sessionIdCookie,
+		Value:    s.Key,
+		Secure:   false,
+		SameSite: http.SameSiteLaxMode,
+	})
+	return nil
+}
+
+func (a *App) fetchSession(r *http.Request) (*session.Session, error) {
+	sessionCookie, err := r.Cookie(sessionIdCookie)
+	if err != nil {
+		return nil, fmt.Errorf("Error reading cookie from request: %w", err)
+	}
+	sessionKey := sessionCookie.Value
+	s, err := a.databaseService.FetchSession(sessionKey)
+	if err == nil && s == nil {
+		err = apperr.NewBadRequestError("Session not found", nil)
+	}
+	return s, err
 }
 
 func (c *App) storeUserCredentials(user accounts.User, tk *oauth2.Token) error {

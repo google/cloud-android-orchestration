@@ -130,6 +130,10 @@ func (fakeService) UploadFiles(host, uploadDir string, filenames []string) error
 	return nil
 }
 
+func (fakeService) DownloadRuntimeArtifacts(host string, dst io.Writer) error {
+	return nil
+}
+
 const serviceURL = "http://waldo.com"
 
 func (fakeService) RootURI() string {

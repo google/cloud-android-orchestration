@@ -39,3 +39,15 @@ func createHost(service client.Service, opts CreateHostOpts) (*apiv1.HostInstanc
 	}
 	return service.CreateHost(&req)
 }
+
+func hostnames(service client.Service) ([]string, error) {
+	hosts, err := service.ListHosts()
+	if err != nil {
+		return nil, err
+	}
+	result := []string{}
+	for _, h := range hosts.Items {
+		result = append(result, h.Name)
+	}
+	return result, nil
+}

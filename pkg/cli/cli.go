@@ -218,7 +218,7 @@ const (
 	AllowAll SelectionOption = 1 << iota
 )
 
-// The PromptSelectionFrom<Type> functions iterate over given container and present
+// The PromptSelectionFromSlice<Type> functions iterate over given container and present
 // users with a prompt like this:
 // 0: String representation of first choice
 // 2: String representation of second choice
@@ -248,6 +248,10 @@ func PromptSelectionFromSlice[T any](c *command, choices []T, toStr func(T) stri
 		return []T{choices[chosen]}, nil
 	}
 	return choices, nil
+}
+
+func PromptSelectionFromSliceString(c *command, choices []string, selOpt SelectionOption) ([]string, error) {
+	return PromptSelectionFromSlice(c, choices, func(s string) string { return s }, selOpt)
 }
 
 func PromptSelectionFromMap[K comparable, T any](c *command, choices map[K]T, toStr func(K, T) string, selOpt SelectionOption) (map[K]T, error) {
@@ -376,6 +380,7 @@ func hostCommand(opts *subCommandOpts) *cobra.Command {
 }
 
 func cvdCommands(opts *subCommandOpts) []*cobra.Command {
+	// Create command
 	createFlags := &CreateCVDFlags{
 		CVDRemoteFlags: opts.RootFlags,
 		CreateCVDOpts:  &CreateCVDOpts{},
@@ -449,6 +454,7 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 		create.Flags().StringVar(f.ValueRef, name, f.Default, f.Desc)
 		create.MarkFlagsMutuallyExclusive(hostFlag, name)
 	}
+	// List command
 	listFlags := &ListCVDsFlags{CVDRemoteFlags: opts.RootFlags}
 	list := &cobra.Command{
 		Use:   "list",
@@ -458,7 +464,15 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 		},
 	}
 	list.Flags().StringVar(&listFlags.Host, hostFlag, "", "Specifies the host")
-	return []*cobra.Command{create, list}
+	// Pull command
+	pull := &cobra.Command{
+		Use:   "pull [HOST]",
+		Short: "Pull cvd runtime artifacts",
+		RunE: func(c *cobra.Command, args []string) error {
+			return runPullCommand(c, args, opts.RootFlags, opts)
+		},
+	}
+	return []*cobra.Command{create, list, pull}
 }
 
 func connectionCommands(opts *subCommandOpts) []*cobra.Command {
@@ -618,6 +632,58 @@ func runListCVDsCommand(c *cobra.Command, flags *ListCVDsFlags, opts *subCommand
 		c.Println(ToPrintableStr(cvd))
 	}
 	return err
+}
+
+func runPullCommand(c *cobra.Command, args []string, flags *CVDRemoteFlags, opts *subCommandOpts) error {
+	service, err := opts.ServiceBuilder(flags, c)
+	if err != nil {
+		return err
+	}
+	host := ""
+	switch l := len(args); l {
+	case 0:
+		sel, err := promptHostNameSelection(&command{c, &flags.Verbose}, service)
+		if err != nil {
+			return err
+		}
+		if sel == "" {
+			c.PrintErrln("No hosts")
+			return nil
+		}
+		host = sel
+	case 1:
+		host = args[0]
+	default /* len(args) > 1 */ :
+		return errors.New("Invalid number of args")
+	}
+	f, err := os.CreateTemp("", "cvdrPull")
+	if err != nil {
+		return err
+	}
+	if err := service.DownloadRuntimeArtifacts(host, f); err != nil {
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+	c.Println("See logs: " + f.Name())
+	return nil
+}
+
+// Returns empty string if there was no host.
+func promptHostNameSelection(c *command, service client.Service) (string, error) {
+	names, err := hostnames(service)
+	if err != nil {
+		return "", fmt.Errorf("Failed to list hosts: %w", err)
+	}
+	if len(names) == 0 {
+		return "", nil
+	}
+	sel, err := PromptSelectionFromSliceString(c, names, 0)
+	if err != nil {
+		return "", err
+	}
+	return sel[0], nil
 }
 
 // Starts a connection agent process and waits for it to report the connection was

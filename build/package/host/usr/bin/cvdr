@@ -2,4 +2,11 @@
 
 export CVDR_CONFIG_PATH=/etc/cvdr.toml
 
-exec /usr/libexec/cvdr "$@"
+cvdrbin="/usr/libexec/cvdr"
+
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  cvdrbin="/usr/local/libexec/cvdr"
+fi
+
+exec $cvdrbin "$@"
+

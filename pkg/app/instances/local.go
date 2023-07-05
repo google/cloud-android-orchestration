@@ -54,11 +54,18 @@ func (m *LocalInstanceManager) GetHostURL(zone string, host string) (*url.URL, e
 }
 
 func (m *LocalInstanceManager) CreateHost(_ string, _ *apiv1.CreateHostRequest, _ accounts.User) (*apiv1.Operation, error) {
-	return nil, fmt.Errorf("%T#CreateHost is not implemented", *m)
+	return &apiv1.Operation{
+		Name: "Create Host",
+		Done: true,
+	}, nil
 }
 
 func (m *LocalInstanceManager) ListHosts(zone string, user accounts.User, req *ListHostsRequest) (*apiv1.ListHostsResponse, error) {
-	return nil, fmt.Errorf("%T#ListHosts is not implemented", *m)
+	return &apiv1.ListHostsResponse{
+		Items: []*apiv1.HostInstance{{
+			Name: "local",
+		}},
+	}, nil
 }
 
 func (m *LocalInstanceManager) DeleteHost(zone string, user accounts.User, name string) (*apiv1.Operation, error) {

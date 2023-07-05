@@ -30,16 +30,16 @@ DatabaseName = "projects/<project id>/instances/<instance id>/databases/<databas
 
 [InstanceManager]
 Type = "unix"
-HostOrchestratorProtocol = "https"
+HostOrchestratorProtocol = "http"
 AllowSelfSignedHostSSLCertificate = true
 
 [InstanceManager.GCP]
 ProjectId = ""
 HostImageFamily = ""
-HostOrchestratorPort = 1443
+HostOrchestratorPort = 1080
 
 [InstanceManager.UNIX]
-HostOrchestratorPort = 1443
+HostOrchestratorPort = 1081
 
 [WebRTC]
 STUNServers = ["stun:stun.l.google.com:19302"]

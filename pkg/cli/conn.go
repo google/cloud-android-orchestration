@@ -126,7 +126,7 @@ type findOrConnRet struct {
 	Error      error
 }
 
-func FindOrConnect(controlDir string, cvd CVD, service client.Service) (findOrConnRet, error) {
+func FindOrConnect(controlDir string, cvd CVD, service client.Service, localICEConfig *wclient.ICEConfig) (findOrConnRet, error) {
 	statuses, err := listCVDConnectionsByHost(controlDir, cvd.Host)
 	// Even with an error some connections may have been listed.
 	if s, ok := statuses[cvd]; ok {
@@ -136,7 +136,7 @@ func FindOrConnect(controlDir string, cvd CVD, service client.Service) (findOrCo
 	// after the checks were made above but before the socket was created below.
 	// The likelihood of hitting that is very low though, and the effort required
 	// to prevent it high, so we are choosing to live with it for the time being.
-	controller, tErr := NewConnController(controlDir, service, cvd)
+	controller, tErr := NewConnController(controlDir, service, cvd, localICEConfig)
 	if tErr != nil {
 		// This error is fatal, ingore any previous ones to avoid unnecessary noise.
 		return findOrConnRet{}, fmt.Errorf("Failed to create connection controller: %w", tErr)
@@ -359,7 +359,11 @@ type ConnController struct {
 	webrtcConn   *wclient.Connection
 }
 
-func NewConnController(controlDir string, service client.Service, cvd CVD) (*ConnController, error) {
+func NewConnController(
+	controlDir string,
+	service client.Service,
+	cvd CVD,
+	localICEConfig *wclient.ICEConfig) (*ConnController, error) {
 	logger, err := createLogger(controlDir, cvd)
 	if err != nil {
 		return nil, err
@@ -375,7 +379,10 @@ func NewConnController(controlDir string, service client.Service, cvd CVD) (*Con
 		logger:       logger,
 	}
 
-	conn, err := service.ConnectWebRTC(cvd.Host, cvd.Name, tc, logger.Writer())
+	opts := client.ConnectWebRTCOpts{
+		LocalICEConfig: localICEConfig,
+	}
+	conn, err := service.ConnectWebRTC(cvd.Host, cvd.Name, tc, logger.Writer(), opts)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to connect to %q: %w", cvd.Name, err)
 	}
@@ -577,4 +584,21 @@ func maybeCleanOldLogs(controlDir string, inactiveTime time.Duration) (int, erro
 		}
 	}
 	return cnt, merr
+}
+
+func loadICEConfigFromFile(path string) (*wclient.ICEConfig, error) {
+	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
+		return nil, err
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	config := struct {
+		Config wclient.ICEConfig `json:"config"`
+	}{}
+	if err := json.Unmarshal(data, &config); err != nil {
+		return nil, err
+	}
+	return &config.Config, nil
 }

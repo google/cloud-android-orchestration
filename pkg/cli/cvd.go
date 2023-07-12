@@ -15,8 +15,10 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/google/cloud-android-orchestration/pkg/client"
@@ -106,6 +108,10 @@ func (c *cvdCreator) createCVDFromLocalBuild() ([]*hoapi.CVD, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Error building list of required image files: %w", err)
 	}
+	if err := verifyCVDHostPackageTar(vars.HostOut); err != nil {
+		return nil, fmt.Errorf("Invalid cvd host package: %w", err)
+	}
+	names = append(names, filepath.Join(vars.HostOut, CVDHostPackageName))
 	uploadDir, err := c.Service.CreateUpload(c.Opts.Host)
 	if err != nil {
 		return nil, err
@@ -226,7 +232,10 @@ func (s MissingEnvVarErr) Error() string {
 	return fmt.Sprintf("Missing environment variable: %q", string(s))
 }
 
-const CVDHostPackageName = "cvd-host_package.tar.gz"
+const (
+	CVDHostPackageDirName = "cvd-host_package"
+	CVDHostPackageName    = "cvd-host_package.tar.gz"
+)
 
 const (
 	AndroidBuildTopVarName   = "ANDROID_BUILD_TOP"
@@ -271,6 +280,20 @@ func ListLocalImageRequiredFiles(vars AndroidEnvVars) ([]string, error) {
 	for _, line := range lines {
 		result = append(result, vars.ProductOut+"/"+line)
 	}
-	result = append(result, vars.HostOut+"/"+CVDHostPackageName)
 	return result, nil
+}
+
+func verifyCVDHostPackageTar(dir string) error {
+	tarInfo, err := os.Stat(filepath.Join(dir, CVDHostPackageName))
+	if errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("%q not found. Please run `m hosttar`.", CVDHostPackageName)
+	}
+	dirInfo, err := os.Stat(filepath.Join(dir, CVDHostPackageDirName))
+	if err != nil {
+		return fmt.Errorf("Failed getting cvd host package directory info: %w", err)
+	}
+	if tarInfo.ModTime().Before(dirInfo.ModTime()) {
+		return fmt.Errorf("%q out of date. Please run `m hosttar`.", CVDHostPackageName)
+	}
+	return nil
 }

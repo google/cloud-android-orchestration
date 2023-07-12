@@ -103,7 +103,6 @@ func TestListLocalImageRequiredFiles(t *testing.T) {
 		"/out/host/linux-x86/foo",
 		"/out/host/linux-x86/bar",
 		"/out/host/linux-x86/baz",
-		"/product/vsoc_x86_64/cvd-host_package.tar.gz",
 	}
 	if diff := cmp.Diff(expected, got); diff != "" {
 		t.Errorf("mismatch (-want +got):\n%s", diff)

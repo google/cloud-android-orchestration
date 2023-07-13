@@ -24,6 +24,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	client "github.com/google/cloud-android-orchestration/pkg/client"
@@ -147,14 +148,15 @@ func FindOrConnect(controlDir string, cvd CVD, service client.Service, localICEC
 
 // Forwards messages between a local TCP server and a webrtc data channel.
 type Forwarder struct {
-	dc       *webrtc.DataChannel
-	listener net.Listener
-	conn     net.Conn
-	port     int
-	state    int
-	stateMtx sync.Mutex
-	logger   *log.Logger
-	readyCh  chan struct{}
+	dc            *webrtc.DataChannel
+	listener      net.Listener
+	conn          net.Conn
+	port          int
+	state         int
+	stateMtx      sync.Mutex
+	logger        *log.Logger
+	readyCh       chan struct{}
+	readyChClosed atomic.Bool
 }
 
 func NewForwarder(logger *log.Logger) (*Forwarder, error) {
@@ -209,7 +211,9 @@ func (f *Forwarder) OnDataChannel(dc *webrtc.DataChannel) {
 			return
 		}
 		go f.acceptLoop()
-		close(f.readyCh)
+		if f.readyChClosed.CompareAndSwap(false, true) {
+			close(f.readyCh)
+		}
 	})
 	dc.OnMessage(func(msg webrtc.DataChannelMessage) {
 		if err := f.Send(msg.Data); err != nil {
@@ -219,7 +223,9 @@ func (f *Forwarder) OnDataChannel(dc *webrtc.DataChannel) {
 	dc.OnClose(func() {
 		f.logger.Printf("Data channel changed state: %v\n", dc.ReadyState())
 		f.StopForwarding(FwdFailed)
-		close(f.readyCh)
+		if f.readyChClosed.CompareAndSwap(false, true) {
+			close(f.readyCh)
+		}
 	})
 }
 

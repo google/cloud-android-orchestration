@@ -24,7 +24,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/cloud-android-orchestration/pkg/client"
+	client "github.com/google/cloud-android-orchestration/pkg/client"
+	wclient "github.com/google/cloud-android-orchestration/pkg/webrtcclient"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
@@ -102,6 +103,14 @@ const (
 	ConnectionAgentCommandName = "agent"
 )
 
+const (
+	iceConfigFlag = "ice_config"
+)
+
+const (
+	iceConfigFlagDesc = "Path to file containing the ICE configuration to be used in the underlaying WebRTC connection"
+)
+
 type AsArgs interface {
 	AsArgs() []string
 }
@@ -155,12 +164,17 @@ type ConnectFlags struct {
 	*CVDRemoteFlags
 	host             string
 	skipConfirmation bool
+	// Path to file containing the ICE configuration to be used in the underlaying WebRTC connection.
+	ice_config string
 }
 
 func (f *ConnectFlags) AsArgs() []string {
 	args := f.CVDRemoteFlags.AsArgs()
 	if f.host != "" {
 		args = append(args, "--"+hostFlag, f.host)
+	}
+	if f.ice_config != "" {
+		args = append(args, "--"+iceConfigFlag, f.ice_config)
 	}
 	return args
 }
@@ -487,6 +501,7 @@ func connectionCommands(opts *subCommandOpts) []*cobra.Command {
 	connect.Flags().StringVar(&connFlags.host, hostFlag, "", "Specifies the host")
 	connect.Flags().BoolVarP(&connFlags.skipConfirmation, "yes", "y", false,
 		"Don't ask for confirmation for closing multiple connections.")
+	connect.Flags().StringVar(&connFlags.ice_config, iceConfigFlag, "", iceConfigFlagDesc)
 	disconnect := &cobra.Command{
 		Use:   fmt.Sprintf("%s <foo> <bar> <baz>", DisconnectCommandName),
 		Short: "Disconnect (ADB) from CVD",
@@ -505,6 +520,7 @@ func connectionCommands(opts *subCommandOpts) []*cobra.Command {
 		},
 	}
 	agent.Flags().StringVar(&connFlags.host, hostFlag, "", "Specifies the host")
+	agent.Flags().StringVar(&connFlags.ice_config, iceConfigFlag, "", iceConfigFlagDesc)
 	agent.MarkPersistentFlagRequired(hostFlag)
 	return []*cobra.Command{connect, disconnect, agent}
 }
@@ -604,7 +620,7 @@ func runCreateCVDCommand(c *cobra.Command, flags *CreateCVDFlags, opts *subComma
 	var merr error
 	for _, cvd := range cvds {
 		statePrinter.Print(fmt.Sprintf(connectCVDStateMsgFmt, cvd.Name))
-		cvd.ConnStatus, err = ConnectDevice(flags.CreateCVDOpts.Host, cvd.Name, &command{c, &flags.Verbose}, opts)
+		cvd.ConnStatus, err = ConnectDevice(flags.CreateCVDOpts.Host, cvd.Name, "", &command{c, &flags.Verbose}, opts)
 		statePrinter.PrintDone(fmt.Sprintf(connectCVDStateMsgFmt, cvd.Name), err)
 		if err != nil {
 			merr = multierror.Append(merr, fmt.Errorf("Failed to connect to device: %w", err))
@@ -688,7 +704,7 @@ func promptHostNameSelection(c *command, service client.Service) (string, error)
 
 // Starts a connection agent process and waits for it to report the connection was
 // successfully created or an error occurred.
-func ConnectDevice(host, device string, c *command, opts *subCommandOpts) (*ConnStatus, error) {
+func ConnectDevice(host, device, ice_config string, c *command, opts *subCommandOpts) (*ConnStatus, error) {
 	// Clean old logs files as we are about to create new ones.
 	go func() {
 		minAge := opts.InitialConfig.LogFilesDeleteThreshold()
@@ -700,7 +716,11 @@ func ConnectDevice(host, device string, c *command, opts *subCommandOpts) (*Conn
 		}
 	}()
 
-	flags := &ConnectFlags{CVDRemoteFlags: opts.RootFlags, host: host}
+	flags := &ConnectFlags{
+		CVDRemoteFlags: opts.RootFlags,
+		host:           host,
+		ice_config:     ice_config,
+	}
 	cmdArgs := buildAgentCmdArgs(flags, device)
 
 	output, err := opts.CommandRunner.StartBgCommand(cmdArgs...)
@@ -725,6 +745,9 @@ func ConnectDevice(host, device string, c *command, opts *subCommandOpts) (*Conn
 }
 
 func runConnectCommand(flags *ConnectFlags, c *command, args []string, opts *subCommandOpts) error {
+	if _, err := verifyICEConfigFlag(flags.ice_config); err != nil {
+		return err
+	}
 	if len(args) > 0 && flags.host == "" {
 		return fmt.Errorf("Missing host for devices: %v", args)
 	}
@@ -783,7 +806,7 @@ func runConnectCommand(flags *ConnectFlags, c *command, args []string, opts *sub
 		go func(connCh chan ConnStatus, errCh chan error, cvd CVD) {
 			defer close(connCh)
 			defer close(errCh)
-			status, err := ConnectDevice(cvd.Host, cvd.Name, c, opts)
+			status, err := ConnectDevice(cvd.Host, cvd.Name, flags.ice_config, c, opts)
 			if err != nil {
 				errCh <- fmt.Errorf("Failed to connect to %q on %q: %w", cvd.Name, cvd.Host, err)
 			} else {
@@ -801,6 +824,17 @@ func runConnectCommand(flags *ConnectFlags, c *command, args []string, opts *sub
 		}
 	}
 	return merr
+}
+
+func verifyICEConfigFlag(v string) (*wclient.ICEConfig, error) {
+	if v == "" {
+		return nil, nil
+	}
+	c, err := loadICEConfigFromFile(v)
+	if err != nil {
+		return nil, fmt.Errorf("Invalid --%s flag value: %w", iceConfigFlag, err)
+	}
+	return c, nil
 }
 
 func printConnection(c *command, cvd CVD, status ConnStatus) {
@@ -828,6 +862,10 @@ func buildAgentCmdArgs(flags *ConnectFlags, device string) []string {
 // execution in the background. Any errors detected when the process is in
 // background are written to the log file instead.
 func runConnectionAgentCommand(flags *ConnectFlags, c *command, args []string, opts *subCommandOpts) error {
+	localICEConfig, err := verifyICEConfigFlag(flags.ice_config)
+	if err != nil {
+		return err
+	}
 	if len(args) > 1 {
 		return fmt.Errorf("Connection agent only supports a single device, received: %v", args)
 	}
@@ -847,7 +885,7 @@ func runConnectionAgentCommand(flags *ConnectFlags, c *command, args []string, o
 	}
 
 	controlDir := opts.InitialConfig.ConnectionControlDirExpanded()
-	ret, err := FindOrConnect(controlDir, devSpec, service)
+	ret, err := FindOrConnect(controlDir, devSpec, service, localICEConfig)
 	if err != nil {
 		return err
 	}

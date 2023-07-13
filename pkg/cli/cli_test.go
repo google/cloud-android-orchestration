@@ -107,7 +107,7 @@ func (fakeService) GetInfraConfig(host string) (*apiv1.InfraConfig, error) {
 	return nil, nil
 }
 
-func (fakeService) ConnectWebRTC(host, device string, observer wclient.Observer, logger io.Writer) (*wclient.Connection, error) {
+func (fakeService) ConnectWebRTC(host, device string, observer wclient.Observer, logger io.Writer, opts client.ConnectWebRTCOpts) (*wclient.Connection, error) {
 	return nil, nil
 }
 
@@ -220,14 +220,14 @@ func TestBuildAgentCmdline(t *testing.T) {
 	// are modified. This should help the developer realize they also need to
 	// modify the corresponding AsArgs method.
 	flags := ConnectFlags{
-		&CVDRemoteFlags{
+		CVDRemoteFlags: &CVDRemoteFlags{
 			"service url",
 			"zone",
 			"http proxy",
 			true, // verbose
 		},
-		"host",
-		false, // skipconfirmation
+		host:             "host",
+		skipConfirmation: false,
 	}
 	device := "device"
 	args := buildAgentCmdArgs(&flags, device)

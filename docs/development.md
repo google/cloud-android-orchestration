@@ -56,14 +56,11 @@ instructions may become obsolete without notice.
 3. Run the host orchestrator:
 
     ```
-    # This is the user the host orchestrator will use to execute cvd as.
-    sudo adduser _cvd-executor
     HO_RUN_DIR=/tmp/host_orchestrator_runtime
     mkdir $HO_RUN_DIR
 
     ORCHESTRATOR_SOCKET_PATH=$HO_RUN_DIR/operator \
     ORCHESTRATOR_HTTP_PORT=1081 \
-    ORCHESTRATOR_HTTPS_PORT=1444 \
     ORCHESTRATOR_CVD_ARTIFACTS_DIR=$HO_RUN_DIR \
     ./host_orchestrator
     ```

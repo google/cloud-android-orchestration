@@ -1,0 +1,33 @@
+.runtime-view {
+    background-color: white;
+    padding: 20px;
+}
+
+#runtime-view-header-title {
+    margin-right: 48px;
+}
+
+.runtime-view-header {
+    display: flex;
+    flex-direction: row;
+}
+
+
+li {
+    list-style: none;
+}
+
+.runtime-view-header-actions {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+}
+
+mat-divider {
+    padding-bottom: 20px;
+}
+
+.view-action {
+    padding: 0px 12px;
+    margin-right: 8px;
+}

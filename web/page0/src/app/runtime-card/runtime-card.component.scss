@@ -1,0 +1,40 @@
+.runtime-card {
+    // box-shadow: none;
+    margin-bottom: 20px;
+    border-radius: 10px;
+    max-width: 480px;
+    min-height: 120px;
+}
+
+
+.host-header {
+    display: flex;
+    align-items: center;
+
+}
+
+.runtime-card-header {
+    position: absolute;
+    right: 0;
+}
+
+.host-delete-button {}
+
+.error-status {}
+
+
+
+.runtime-card-footer {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+}
+
+
+mat-card-content:first-child {
+    margin-top: 20px;
+}
+
+mat-card-content:last-child {
+    margin-bottom: 20px;
+}

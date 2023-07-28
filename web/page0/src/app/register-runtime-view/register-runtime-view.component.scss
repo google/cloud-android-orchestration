@@ -1,0 +1,51 @@
+.register-runtime-view {
+    background-color: white;
+    padding: 20px;
+    padding-bottom: 255px;
+    // height: 100%;
+    min-height: 680px;
+
+}
+
+.full-width-field {
+    width: 100%;
+}
+
+
+.flex-field {
+    flex: 1;
+    margin-right: 10px;
+}
+
+.flex-field:last-child {
+    flex: 1;
+    margin-right: 0;
+}
+
+.flex-container {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+}
+
+mat-divider {
+    margin-bottom: 10px;
+}
+
+.footbar {
+    padding: 30px;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    height: 100px;
+    background-color: whitesmoke;
+    border-top-right-radius: 20px;
+    border-top-left-radius: 20px;
+    width: 100%;
+    z-index: 1;
+}
+
+.footbar-button {
+    font-size: large;
+    margin-right: 20px;
+}

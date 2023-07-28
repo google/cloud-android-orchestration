@@ -1,0 +1,32 @@
+.env-pane {
+    background-color: white;
+    padding: 20px;
+    max-width: 480px;
+}
+
+#env-pane-header-title {
+    margin-right: 48px;
+}
+
+.env-pane-header {
+    display: flex;
+    flex-direction: row;
+}
+
+.view-action {
+    padding: 0px 12px;
+    margin-right: 8px;
+}
+
+li {
+    list-style: none;
+}
+
+.env-pane-header-actions {
+    display: flex;
+    flex-direction: row;
+}
+
+mat-divider {
+    padding-bottom: 20px;
+}

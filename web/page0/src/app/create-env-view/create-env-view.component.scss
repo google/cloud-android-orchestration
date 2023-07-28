@@ -1,0 +1,93 @@
+.env-view {
+    background-color: white;
+    padding: 20px;
+    padding-bottom: 255px;
+}
+
+.full-width-field {
+    width: 100%;
+}
+
+.flex-field {
+    flex: 1;
+    margin-right: 10px;
+}
+
+.flex-field:last-child {
+    flex: 1;
+    margin-right: 0;
+}
+
+.host-setting {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+}
+
+.device-id-setting {
+    display: flex;
+    flex-direction: row;
+}
+
+.device-header-item {
+    margin-right: 20px;
+    font-size: large;
+    height: fit-content;
+    align-self: center;
+    margin-bottom: 20px;
+    width: 40px;
+}
+
+#device-id {
+    flex: 1;
+}
+
+#device-setting {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+}
+
+.device-setting-title {
+    font-size: medium;
+    margin-bottom: 20px;
+}
+
+.device-setting-option {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    margin-right: 10px;
+}
+
+.device-setting-option:last-child {
+    margin-right: 0px;
+}
+
+.footbar {
+    padding: 30px;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    height: 100px;
+    background-color: whitesmoke;
+    border-top-right-radius: 20px;
+    border-top-left-radius: 20px;
+    width: 100%;
+    z-index: 1;
+}
+
+.footbar-button {
+    font-size: large;
+    margin-right: 20px;
+}
+
+mat-divider {
+    margin-bottom: 10px;
+}
+
+li {
+    list-style: none;
+}
+
+.google-symbols {}

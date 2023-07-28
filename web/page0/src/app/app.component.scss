@@ -1,0 +1,54 @@
+.container {
+    display: flex;
+    flex-direction: column;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #2a2a2a;
+    color: #eee;
+}
+
+.page {
+    padding: 20px;
+}
+
+.cloud-android-toolbar {
+    background: #073042;
+    color: #eee;
+    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.5);
+    text-align: center;
+}
+
+.toolbar-actions {
+    position: absolute;
+    right: 0;
+    margin-right: 20px;
+}
+
+.cloud-android-title {
+    margin: 0 auto;
+}
+
+.drawer-container {
+    flex: 1;
+}
+
+.device-view {
+    margin: 0 auto;
+    font-size: 200%;
+    width: 250px;
+    background: rgba(245, 245, 245, 0.8);
+    color: #073042;
+    filter: drop-shadow(4px 4px 10px rgba(0, 0, 0, 0.25));
+    border-radius: 0px 16px 16px 0px;
+}
+
+.version-info {
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    margin: 0px 5px 5px 0px;
+    z-index: 1;
+}

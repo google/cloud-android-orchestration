@@ -1,0 +1,36 @@
+<section class="register-runtime-view">
+    <div>
+        <div>
+            <h1>New Runtime</h1>
+        </div>
+    </div>
+
+    <mat-divider></mat-divider>
+
+    <div>
+        <div class="flex-container">
+            <mat-form-field class="flex-field">
+                <mat-label>Unique Alias</mat-label>
+                <input type="text" matInput placeholder="E.g. gcp-01" />
+            </mat-form-field>
+        </div>
+
+        <div>
+            <mat-form-field class="full-width-field">
+                <mat-label>URL</mat-label>
+                <input type="text" matInput placeholder="E.g. cloud-orchestrator-x86-64-01.com" (change)="onChangeURL($event)" [value]="url" />
+            </mat-form-field>
+        </div>
+    </div>
+
+    <mat-divider></mat-divider>
+</section>
+
+<div class=" footbar">
+    <button class="footbar-button" mat-button routerLink="/list-runtime" color="primary" (click)="onClickRegister()">
+        Register
+    </button>
+    <button class="footbar-button" mat-button routerLink="/list-runtime">
+        Cancel
+    </button>
+</div>

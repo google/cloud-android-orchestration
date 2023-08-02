@@ -110,6 +110,11 @@ func (a *App) InfraConfig() apiv1.InfraConfig {
 	return a.infraConfig
 }
 
+const (
+	headerNameCOInjectBuildAPICreds = "X-Cutf-Cloud-Orchestrator-Inject-BuildAPI-Creds"
+	headerNameHOBuildAPICreds       = "X-Cutf-Host-Orchestrator-BuildAPI-Creds"
+)
+
 func (a *App) ForwardToHost(w http.ResponseWriter, r *http.Request, user accounts.User) error {
 	hostPath := "/" + mux.Vars(r)["hostPath"]
 
@@ -129,9 +134,33 @@ func (a *App) ForwardToHost(w http.ResponseWriter, r *http.Request, user account
 			return err
 		}
 	}
-
+	if len(r.Header.Values(headerNameCOInjectBuildAPICreds)) != 0 {
+		if err := a.injectBuildAPICredsIntoRequest(r, user); err != nil {
+			return err
+		}
+	}
 	r.URL.Path = hostPath
 	hostClient.GetReverseProxy().ServeHTTP(w, r)
+	return nil
+}
+
+func (a *App) injectBuildAPICredsIntoRequest(r *http.Request, user accounts.User) error {
+	tk, err := a.fetchUserCredentials(user)
+	if err != nil {
+		return err
+	}
+	if tk == nil {
+		// There are no credentials in database associated with this user.
+		// Even though the user is already authenticated by the time this code executes, 401 is
+		// returned to cause it to go the /auth URL and follow the OAuth2 flow. If 403 were to
+		// be returned from here it could be construed as "this user doesn't have access to the
+		// resource" instead of "this user has not authorized the app to access the resource on
+		// their behalf". Another way to look at it is that the app lacks authentication
+		// (credentials) to access the build API.
+		return apperr.NewUnauthenticatedError(
+			"The user must authorize the system to access the Build API on their behalf", nil)
+	}
+	r.Header.Set(headerNameHOBuildAPICreds, tk.AccessToken)
 	return nil
 }
 

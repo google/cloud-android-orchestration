@@ -14,16 +14,15 @@
 
     <mat-divider></mat-divider>
 
-    <div *ngIf="runtimes | async; let runtimeList">
+    <div *ngIf="runtimes$ | async; let runtimeList">
         <div *ngIf="runtimeList.length > 0; else none">
-            <li *ngFor="let runtime of runtimes | async">
+            <li *ngFor="let runtime of runtimeList">
                 <app-runtime-card [runtime]="runtime"></app-runtime-card>
             </li>
         </div>
 
         <ng-template #none>
-            <h3> No runtime registered </h3>
+            <h3>No runtime registered</h3>
         </ng-template>
     </div>
-
 </section>

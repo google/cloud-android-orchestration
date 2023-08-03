@@ -1,12 +1,27 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable, scan, shareReplay, startWith, Subject, tap } from 'rxjs';
-import { Runtime } from './runtime-interface';
+import {
+  map,
+  Observable,
+  scan,
+  shareReplay,
+  startWith,
+  Subject,
+  tap,
+} from 'rxjs';
+import { Runtime, RuntimeAdditionalInfo } from './runtime-interface';
 
-interface RuntimeAction {
-  type: 'register' | 'unregister';
+interface RuntimeRegisterAction {
+  type: 'register';
   value: Runtime;
 }
+
+interface RuntimeUnregisterAction {
+  type: 'unregister';
+  value: string;
+}
+
+type RuntimeAction = RuntimeRegisterAction | RuntimeUnregisterAction;
 
 @Injectable({
   providedIn: 'root',
@@ -45,7 +60,7 @@ export class RuntimeService {
       if (action.type === 'register') {
         return [...acc, action.value];
       }
-      return acc.filter((item) => item.alias !== action.value.alias);
+      return acc.filter((item) => item.alias !== action.value);
     }, Array<Runtime>()),
     startWith(this.initialRuntimes),
     tap((runtimes) => console.log('runtimes', runtimes)),
@@ -66,15 +81,21 @@ export class RuntimeService {
     });
   }
 
-  unregisterRuntime(runtime: Runtime) {
+  unregisterRuntime(alias: string) {
     this.runtimeAction.next({
       type: 'unregister',
-      value: runtime,
+      value: alias,
     });
   }
 
-  verifyRuntime(url: string): Observable<Runtime> {
-    return this.httpClient.get<Runtime>(`${url}/verify`);
+  verifyRuntime(url: string, alias: string): Observable<Runtime> {
+    return this.httpClient.get<RuntimeAdditionalInfo>(`${url}/verify`).pipe(
+      map((info) => ({
+        ...info,
+        url,
+        alias,
+      }))
+    );
   }
 
   constructor(private httpClient: HttpClient) {}

@@ -27,8 +27,15 @@ export class RegisterRuntimeViewComponent {
   });
 
   onSubmit() {
+    const url = this.runtimeForm.value.url;
+    const alias = this.runtimeForm.value.alias;
+
+    if (!url || !alias) {
+      return;
+    }
+
     this.runtimeService
-      .verifyRuntime(this.runtimeForm.value.url || '')
+      .verifyRuntime(url, alias)
       .pipe(
         map((runtime) => {
           this.runtimeService.registerRuntime(runtime);

@@ -16,7 +16,7 @@
     </div>
 
     <div class="runtime-card-footer">
-        <button mat-icon-button matTooltip="Unregister runtime">
+        <button mat-icon-button matTooltip="Unregister runtime" (click)="onClickDelete(runtime?.alias)">
             <span class="google-symbols"> delete </span>
         </button>
     </div>

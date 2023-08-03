@@ -1,9 +1,11 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import {
+  forkJoin,
   map,
+  mergeScan,
   Observable,
-  scan,
+  of,
   shareReplay,
   startWith,
   Subject,
@@ -21,7 +23,14 @@ interface RuntimeUnregisterAction {
   value: string;
 }
 
-type RuntimeAction = RuntimeRegisterAction | RuntimeUnregisterAction;
+interface RuntimeRefreshAction {
+  type: 'refresh';
+}
+
+type RuntimeAction =
+  | RuntimeRegisterAction
+  | RuntimeUnregisterAction
+  | RuntimeRefreshAction;
 
 @Injectable({
   providedIn: 'root',
@@ -56,12 +65,23 @@ export class RuntimeService {
   private initialRuntimes: Runtime[] = this.getInitialRuntimes();
 
   private runtimes$: Observable<Runtime[]> = this.runtimeAction.pipe(
-    scan((acc, action) => {
+    tap((action) => console.log(action)),
+    mergeScan((acc, action) => {
       if (action.type === 'register') {
-        return [...acc, action.value];
+        return of([...acc, action.value]);
       }
-      return acc.filter((item) => item.alias !== action.value);
-    }, Array<Runtime>()),
+
+      if (action.type === 'unregister') {
+        return of(acc.filter((item) => item.alias !== action.value));
+      }
+
+      if (action.type === 'refresh') {
+        return forkJoin(
+          acc.map((runtime) => this.verifyRuntime(runtime.url, runtime.alias))
+        );
+      }
+      return of(acc);
+    }, this.initialRuntimes),
     startWith(this.initialRuntimes),
     tap((runtimes) => console.log('runtimes', runtimes)),
     tap((runtimes) =>
@@ -89,6 +109,7 @@ export class RuntimeService {
   }
 
   verifyRuntime(url: string, alias: string): Observable<Runtime> {
+    // TODO: check duplicate alias here
     return this.httpClient.get<RuntimeAdditionalInfo>(`${url}/verify`).pipe(
       map((info) => ({
         ...info,
@@ -96,6 +117,12 @@ export class RuntimeService {
         alias,
       }))
     );
+  }
+
+  refreshRuntimes() {
+    this.runtimeAction.next({
+      type: 'refresh',
+    });
   }
 
   constructor(private httpClient: HttpClient) {}

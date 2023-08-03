@@ -69,7 +69,17 @@ export class RuntimeService {
 
       if (action.type === 'refresh') {
         return forkJoin(
-          acc.map((runtime) => this.verifyRuntime(runtime.url, runtime.alias))
+          acc.map((runtime) =>
+            this.verifyRuntime(runtime.url, runtime.alias).pipe(
+              catchError((error) =>
+                of({
+                  url: runtime.url,
+                  alias: runtime.alias,
+                  status: 'error',
+                } as Runtime)
+              )
+            )
+          )
         ).pipe(
           tap(() => {
             action.loading$.next(false);
@@ -117,11 +127,15 @@ export class RuntimeService {
 
   verifyRuntime(url: string, alias: string): Observable<Runtime> {
     return this.httpClient.get<RuntimeAdditionalInfo>(`${url}/verify`).pipe(
-      map((info) => ({
-        ...info,
-        url,
-        alias,
-      })),
+      map(
+        (info) =>
+          ({
+            ...info,
+            url,
+            alias,
+            status: 'valid',
+          } as Runtime)
+      ),
       first()
     );
   }

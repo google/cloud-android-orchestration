@@ -10,9 +10,8 @@ import { RuntimeService } from '../runtime.service';
 })
 export class RuntimeCardComponent {
   @Input() runtime: Runtime | null = null;
-  panelOpenState = false;
 
-  status = 'error';
+  // TODO: chain zone - host - group list APIs
 
   constructor(private router: Router, private runtimeService: RuntimeService) {}
   onClickAddHost() {

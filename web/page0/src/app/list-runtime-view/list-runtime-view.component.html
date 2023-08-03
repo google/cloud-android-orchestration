@@ -15,6 +15,7 @@
     </div>
 
     <mat-divider></mat-divider>
+    <mat-progress-bar *ngIf="loading$ | async" mode="indeterminate"></mat-progress-bar>
 
     <div *ngIf="runtimes$ | async; let runtimeList">
         <div *ngIf="runtimeList.length > 0; else none">

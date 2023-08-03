@@ -1,7 +1,7 @@
 import { Component } from '@angular/core';
 import { FormBuilder, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
-import { first } from 'rxjs';
+import { mergeMap } from 'rxjs';
 import { RuntimeService } from '../runtime.service';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
@@ -35,9 +35,10 @@ export class RegisterRuntimeViewComponent {
     }
 
     this.loading = true;
+
     this.runtimeService
-      .verifyRuntime(url, alias)
-      .pipe(first())
+      .checkDuplicatedAlias(alias)
+      .pipe(mergeMap(() => this.runtimeService.verifyRuntime(url, alias)))
       .subscribe({
         next: (runtime) => {
           this.runtimeService.registerRuntime(runtime);

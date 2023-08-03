@@ -1,6 +1,8 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import {
+  catchError,
+  first,
   forkJoin,
   map,
   mergeScan,
@@ -12,6 +14,7 @@ import {
   tap,
 } from 'rxjs';
 import { Runtime, RuntimeAdditionalInfo } from './runtime-interface';
+import { defaultRuntimeSettings } from './settings';
 
 interface RuntimeRegisterAction {
   type: 'register';
@@ -25,6 +28,7 @@ interface RuntimeUnregisterAction {
 
 interface RuntimeRefreshAction {
   type: 'refresh';
+  loading$: Subject<boolean>;
 }
 
 type RuntimeAction =
@@ -36,7 +40,7 @@ type RuntimeAction =
   providedIn: 'root',
 })
 export class RuntimeService {
-  private getDefaultRuntimesFInitiallStorage(): Runtime[] {
+  private getStoredRuntimes(): Runtime[] {
     const runtimes = localStorage.getItem('runtimes');
     // TODO: handle type error
     if (runtimes) {
@@ -46,23 +50,11 @@ export class RuntimeService {
     return [];
   }
 
-  private getDefaultRuntimesInitialaultFile(): Runtime[] {
-    // TODO: load from default.json
-    return [];
-  }
-
-  private getInitialRuntimes() {
-    // TODO: handle alias duplicate
-    const storedRuntimes = this.getDefaultRuntimesFInitiallStorage();
-    const defaultRuntimes = this.getDefaultRuntimesInitialaultFile();
-
-    const runtimeSet = new Set([...storedRuntimes, ...defaultRuntimes]);
-    return Array.from(runtimeSet);
-  }
+  private initialized = false;
 
   private runtimeAction = new Subject<RuntimeAction>();
 
-  private initialRuntimes: Runtime[] = this.getInitialRuntimes();
+  private storedRuntimes: Runtime[] = this.getStoredRuntimes();
 
   private runtimes$: Observable<Runtime[]> = this.runtimeAction.pipe(
     tap((action) => console.log(action)),
@@ -78,11 +70,16 @@ export class RuntimeService {
       if (action.type === 'refresh') {
         return forkJoin(
           acc.map((runtime) => this.verifyRuntime(runtime.url, runtime.alias))
+        ).pipe(
+          tap(() => {
+            action.loading$.next(false);
+          })
         );
       }
+
       return of(acc);
-    }, this.initialRuntimes),
-    startWith(this.initialRuntimes),
+    }, this.storedRuntimes),
+    startWith(this.storedRuntimes),
     tap((runtimes) => console.log('runtimes', runtimes)),
     tap((runtimes) =>
       localStorage.setItem('runtimes', JSON.stringify(runtimes))
@@ -108,21 +105,72 @@ export class RuntimeService {
     });
   }
 
+  checkDuplicatedAlias(alias: string): Observable<void> {
+    return this.runtimes$.pipe(
+      map((runtimes) => {
+        if (runtimes.some((runtime) => runtime.alias === alias)) {
+          throw Error(`Cannot have runtime of duplicated alias: ${alias}`);
+        }
+      })
+    );
+  }
+
   verifyRuntime(url: string, alias: string): Observable<Runtime> {
-    // TODO: check duplicate alias here
     return this.httpClient.get<RuntimeAdditionalInfo>(`${url}/verify`).pipe(
       map((info) => ({
         ...info,
         url,
         alias,
-      }))
+      })),
+      first()
     );
   }
 
-  refreshRuntimes() {
+  refreshRuntimes(loading$: Subject<boolean>) {
+    loading$.next(true);
     this.runtimeAction.next({
       type: 'refresh',
+      loading$,
     });
+  }
+
+  initRuntimes(loading$: Subject<boolean>) {
+    if (this.initialized) {
+      return;
+    }
+
+    this.initialized = true;
+
+    const storedRuntimes = this.getStoredRuntimes();
+    const toRegisterSettings = defaultRuntimeSettings.filter(
+      ({ alias }) => !storedRuntimes.some((runtime) => runtime.alias === alias)
+    );
+
+    if (toRegisterSettings.length === 0) {
+      return;
+    }
+
+    loading$.next(true);
+
+    forkJoin(
+      toRegisterSettings.map(({ alias, url }) =>
+        this.verifyRuntime(url, alias).pipe(
+          map((runtime) => {
+            this.registerRuntime(runtime);
+            return of({ success: true });
+          }),
+          catchError((error) => {
+            console.error(`Failed to register runtime: ${alias} (${url})`);
+            console.error(error);
+            return of({ success: false });
+          })
+        )
+      )
+    )
+      .pipe(first())
+      .subscribe((res) => {
+        loading$.next(false);
+      });
   }
 
   constructor(private httpClient: HttpClient) {}

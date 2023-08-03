@@ -1,7 +1,7 @@
 import { Component } from '@angular/core';
 import { FormBuilder, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
-import { map, Observable, of } from 'rxjs';
+import { first } from 'rxjs';
 import { RuntimeService } from '../runtime.service';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
@@ -19,10 +19,10 @@ export class RegisterRuntimeViewComponent {
   ) {}
 
   runtimes$ = this.runtimeService.getRuntimes();
-  loading$: Observable<boolean> = of(true);
+  loading = false;
 
   runtimeForm = this.formBuilder.group({
-    url: ['http://localhost:5000', Validators.required],
+    url: ['http://localhost:3000', Validators.required],
     alias: ['test', Validators.required],
   });
 
@@ -34,23 +34,21 @@ export class RegisterRuntimeViewComponent {
       return;
     }
 
+    this.loading = true;
     this.runtimeService
       .verifyRuntime(url, alias)
-      .pipe(
-        map((runtime) => {
+      .pipe(first())
+      .subscribe({
+        next: (runtime) => {
           this.runtimeService.registerRuntime(runtime);
           this.router.navigate(['/list-runtime']);
-        })
-      )
-      .subscribe({
-        next: (data) => {
           this.snackBar.dismiss();
+          this.loading = false;
         },
         error: (error) => {
           this.snackBar.open(error.message);
+          this.loading = false;
         },
       });
-
-    // TODO: show progress bar
   }
 }

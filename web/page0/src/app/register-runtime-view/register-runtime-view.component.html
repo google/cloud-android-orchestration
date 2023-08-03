@@ -25,7 +25,7 @@
     </section>
 
     <div class="footbar">
-        <mat-progress-bar *ngIf="loading$ | async" mode="indeterminate"></mat-progress-bar>
+        <mat-progress-bar *ngIf="loading" mode="indeterminate"></mat-progress-bar>
 
         <button class="footbar-button" mat-button color="primary" (click)="onSubmit()" [disabled]="!runtimeForm.valid">
             Register

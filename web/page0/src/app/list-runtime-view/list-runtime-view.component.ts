@@ -7,7 +7,7 @@ import { RuntimeService } from '../runtime.service';
   styleUrls: ['./list-runtime-view.component.scss']
 })
 export class ListRuntimeViewComponent {
-  runtimes = this.runtimeService.getRuntimes()
+  runtimes$ = this.runtimeService.getRuntimes()
   
   constructor(private runtimeService: RuntimeService) {}
 

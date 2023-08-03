@@ -34,6 +34,8 @@ import {RegisterRuntimeViewComponent} from './register-runtime-view/register-run
 import {CreateHostViewComponent} from './create-host-view/create-host-view.component';
 import {ListRuntimeViewComponent} from './list-runtime-view/list-runtime-view.component';
 import { RuntimeCardComponent } from './runtime-card/runtime-card.component';
+import {MatProgressBarModule} from '@angular/material/progress-bar';
+import { MatSnackBarModule} from '@angular/material/snack-bar';
 
 
 
@@ -66,10 +68,12 @@ import { RuntimeCardComponent } from './runtime-card/runtime-card.component';
     MatSelectModule,
     MatListModule,
     MatExpansionModule,
+    MatProgressBarModule,
     NgIf,
     ReactiveFormsModule,
     FormsModule,
     HttpClientModule,
+    MatSnackBarModule,
     RouterModule.forRoot([
       {path: 'create-env', component: CreateEnvViewComponent},
       {path: '', component: EnvListViewComponent},

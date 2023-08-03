@@ -1,35 +1,49 @@
-import { HttpClient } from '@angular/common/http';
 import { Component } from '@angular/core';
-import { Subject } from 'rxjs';
+import { FormBuilder, Validators } from '@angular/forms';
+import { Router } from '@angular/router';
+import { map, Observable, of } from 'rxjs';
+import { RuntimeService } from '../runtime.service';
+import { MatSnackBar } from '@angular/material/snack-bar';
 
 @Component({
   selector: 'app-register-runtime-view',
   templateUrl: './register-runtime-view.component.html',
-  styleUrls: ['./register-runtime-view.component.scss']
+  styleUrls: ['./register-runtime-view.component.scss'],
 })
 export class RegisterRuntimeViewComponent {
-  url: string = ""
+  constructor(
+    private runtimeService: RuntimeService,
+    private formBuilder: FormBuilder,
+    private router: Router,
+    private snackBar: MatSnackBar
+  ) {}
 
-  constructor(private httpClient: HttpClient) {}
+  runtimes$ = this.runtimeService.getRuntimes();
+  loading$: Observable<boolean> = of(true);
 
-  onChangeURL(event: Event) {
-    this.url = (event?.target as HTMLInputElement)?.value
-    console.log("URL ", this.url)
+  runtimeForm = this.formBuilder.group({
+    url: ['http://localhost:5000', Validators.required],
+    alias: ['test', Validators.required],
+  });
+
+  onSubmit() {
+    this.runtimeService
+      .verifyRuntime(this.runtimeForm.value.url || '')
+      .pipe(
+        map((runtime) => {
+          this.runtimeService.registerRuntime(runtime);
+          this.router.navigate(['/list-runtime']);
+        })
+      )
+      .subscribe({
+        next: (data) => {
+          this.snackBar.dismiss();
+        },
+        error: (error) => {
+          this.snackBar.open(error.message);
+        },
+      });
+
+    // TODO: show progress bar
   }
-
-  checkValidity(url: string) {
-    console.log(`checking validity of ${url}`)
-    return this.httpClient.get(`${url}/status`)
-  }
-
-  registerSubject: Subject<void> = new Subject()
-
-
-  onClickRegister() {
-    // TODO: get value from URL
-    // TODO: send request to the {URL}/status
-    this.registerSubject.next()
-    this.checkValidity(this.url).pipe()
-  }
-
 }

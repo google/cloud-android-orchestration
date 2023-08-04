@@ -67,7 +67,8 @@ export class EnvCardComponent {
   }
 
   goToPerGroupUI() {
-    window.open("https://google.com", "_blank")
+    // TODO: Open per-group UI w/ safeurl
+    // window.open("https://google.com", "_blank")
   }
 
   /*

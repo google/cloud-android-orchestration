@@ -1,9 +1,9 @@
 import { Component } from '@angular/core';
 import { FormBuilder, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
-import { mergeMap } from 'rxjs';
 import { RuntimeService } from '../runtime.service';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { RuntimesStatus } from '../runtime-interface';
 
 @Component({
   selector: 'app-register-runtime-view',
@@ -16,15 +16,21 @@ export class RegisterRuntimeViewComponent {
     private formBuilder: FormBuilder,
     private router: Router,
     private snackBar: MatSnackBar
-  ) {}
+  ) {
+    this.status$.subscribe((status) => console.log(`status: ${status}`));
+  }
 
   runtimes$ = this.runtimeService.getRuntimes();
-  loading = false;
+  status$ = this.runtimeService.getStatus();
 
   runtimeForm = this.formBuilder.group({
     url: ['http://localhost:3000', Validators.required],
     alias: ['test', Validators.required],
   });
+
+  showProgressBar(status: string | null) {
+    return status === RuntimesStatus.registering;
+  }
 
   onSubmit() {
     const url = this.runtimeForm.value.url;
@@ -34,22 +40,14 @@ export class RegisterRuntimeViewComponent {
       return;
     }
 
-    this.loading = true;
-
-    this.runtimeService
-      .checkDuplicatedAlias(alias)
-      .pipe(mergeMap(() => this.runtimeService.verifyRuntime(url, alias)))
-      .subscribe({
-        next: (runtime) => {
-          this.runtimeService.registerRuntime(runtime);
-          this.router.navigate(['/list-runtime']);
-          this.snackBar.dismiss();
-          this.loading = false;
-        },
-        error: (error) => {
-          this.snackBar.open(error.message);
-          this.loading = false;
-        },
-      });
+    this.runtimeService.registerRuntime(alias, url).subscribe({
+      next: () => {
+        this.router.navigate(['/list-runtime']);
+        this.snackBar.dismiss();
+      },
+      error: (error) => {
+        this.snackBar.open(error.message);
+      },
+    });
   }
 }

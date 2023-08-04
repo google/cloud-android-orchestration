@@ -1,10 +1,12 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import {
+  BehaviorSubject,
   catchError,
   first,
   forkJoin,
   map,
+  mergeMap,
   mergeScan,
   Observable,
   of,
@@ -12,34 +14,65 @@ import {
   startWith,
   Subject,
   tap,
+  withLatestFrom,
 } from 'rxjs';
-import { Runtime, RuntimeAdditionalInfo } from './runtime-interface';
+import {
+  Runtime,
+  RuntimeAdditionalInfo,
+  RuntimesStatus,
+} from './runtime-interface';
 import { defaultRuntimeSettings } from './settings';
 
 interface RuntimeRegisterAction {
   type: 'register';
-  value: Runtime;
+  runtime: Runtime;
 }
 
 interface RuntimeUnregisterAction {
   type: 'unregister';
-  value: string;
+  alias: string;
 }
 
 interface RuntimeRefreshAction {
   type: 'refresh';
-  loading$: Subject<boolean>;
+}
+
+interface RuntimeInitializeAction {
+  type: 'init';
 }
 
 type RuntimeAction =
   | RuntimeRegisterAction
   | RuntimeUnregisterAction
-  | RuntimeRefreshAction;
+  | RuntimeRefreshAction
+  | RuntimeInitializeAction;
 
 @Injectable({
   providedIn: 'root',
 })
 export class RuntimeService {
+  private runtimeAction = new Subject<RuntimeAction>();
+
+  private register(runtime: Runtime) {
+    this.runtimeAction.next({
+      type: 'register',
+      runtime,
+    });
+  }
+
+  private unregister(alias: string) {
+    this.runtimeAction.next({
+      type: 'unregister',
+      alias,
+    });
+  }
+
+  private refresh() {
+    this.runtimeAction.next({
+      type: 'refresh',
+    });
+  }
+
   private getStoredRuntimes(): Runtime[] {
     const runtimes = localStorage.getItem('runtimes');
     // TODO: handle type error
@@ -50,24 +83,57 @@ export class RuntimeService {
     return [];
   }
 
-  private initialized = false;
+  private getInitRuntimeSettings() {
+    const storedRuntimes = this.getStoredRuntimes();
+    if (storedRuntimes.length === 0) {
+      return defaultRuntimeSettings;
+    }
 
-  private runtimeAction = new Subject<RuntimeAction>();
+    return storedRuntimes.map((runtime) => ({
+      alias: runtime.alias,
+      url: runtime.url,
+    }));
+  }
 
-  private storedRuntimes: Runtime[] = this.getStoredRuntimes();
+  private initRuntimeSettings = this.getInitRuntimeSettings();
 
   private runtimes$: Observable<Runtime[]> = this.runtimeAction.pipe(
+    startWith({ type: 'init' } as RuntimeInitializeAction),
     tap((action) => console.log(action)),
     mergeScan((acc, action) => {
+      if (action.type === 'init') {
+        this.status$.next(RuntimesStatus.initializing);
+
+        return forkJoin(
+          this.initRuntimeSettings.map(({ alias, url }) =>
+            this.verifyRuntime(url, alias).pipe(
+              catchError((error) => {
+                console.error(error);
+                return of({
+                  url,
+                  alias,
+                  status: 'error',
+                } as Runtime);
+              })
+            )
+          )
+        ).pipe(
+          tap((runtimes) => {
+            this.status$.next(RuntimesStatus.done);
+          })
+        );
+      }
+
       if (action.type === 'register') {
-        return of([...acc, action.value]);
+        return of([...acc, action.runtime]);
       }
 
       if (action.type === 'unregister') {
-        return of(acc.filter((item) => item.alias !== action.value));
+        return of(acc.filter((item) => item.alias !== action.alias));
       }
 
       if (action.type === 'refresh') {
+        this.status$.next(RuntimesStatus.refreshing);
         return forkJoin(
           acc.map((runtime) =>
             this.verifyRuntime(runtime.url, runtime.alias).pipe(
@@ -82,14 +148,12 @@ export class RuntimeService {
           )
         ).pipe(
           tap(() => {
-            action.loading$.next(false);
+            this.status$.next(RuntimesStatus.done);
           })
         );
       }
-
       return of(acc);
-    }, this.storedRuntimes),
-    startWith(this.storedRuntimes),
+    }, [] as Runtime[]),
     tap((runtimes) => console.log('runtimes', runtimes)),
     tap((runtimes) =>
       localStorage.setItem('runtimes', JSON.stringify(runtimes))
@@ -97,27 +161,44 @@ export class RuntimeService {
     shareReplay(1)
   );
 
+  private status$ = new BehaviorSubject<RuntimesStatus>(
+    RuntimesStatus.initializing
+  );
+
+  getStatus() {
+    return this.status$;
+  }
+
   getRuntimes() {
     return this.runtimes$;
   }
 
-  registerRuntime(runtime: Runtime) {
-    this.runtimeAction.next({
-      type: 'register',
-      value: runtime,
-    });
+  registerRuntime(alias: string, url: string) {
+    this.status$.next(RuntimesStatus.registering);
+
+    return this.checkDuplicatedAlias(alias).pipe(
+      mergeMap(() => this.verifyRuntime(url, alias)),
+      map((runtime) => this.register(runtime)),
+      tap(() => this.status$.next(RuntimesStatus.done)),
+      catchError((error) => {
+        this.status$.next(RuntimesStatus.register_error);
+        throw error;
+      })
+    );
   }
 
   unregisterRuntime(alias: string) {
-    this.runtimeAction.next({
-      type: 'unregister',
-      value: alias,
-    });
+    this.unregister(alias);
   }
 
-  checkDuplicatedAlias(alias: string): Observable<void> {
-    return this.runtimes$.pipe(
-      map((runtimes) => {
+  refreshRuntimes() {
+    this.refresh();
+  }
+
+  private checkDuplicatedAlias(alias: string): Observable<void> {
+    return of(null).pipe(
+      withLatestFrom(this.runtimes$),
+      map(([_, runtimes]) => {
         if (runtimes.some((runtime) => runtime.alias === alias)) {
           throw Error(`Cannot have runtime of duplicated alias: ${alias}`);
         }
@@ -138,53 +219,6 @@ export class RuntimeService {
       ),
       first()
     );
-  }
-
-  refreshRuntimes(loading$: Subject<boolean>) {
-    loading$.next(true);
-    this.runtimeAction.next({
-      type: 'refresh',
-      loading$,
-    });
-  }
-
-  initRuntimes(loading$: Subject<boolean>) {
-    if (this.initialized) {
-      return;
-    }
-
-    this.initialized = true;
-
-    const storedRuntimes = this.getStoredRuntimes();
-    const toRegisterSettings = defaultRuntimeSettings.filter(
-      ({ alias }) => !storedRuntimes.some((runtime) => runtime.alias === alias)
-    );
-
-    if (toRegisterSettings.length === 0) {
-      return;
-    }
-
-    loading$.next(true);
-
-    forkJoin(
-      toRegisterSettings.map(({ alias, url }) =>
-        this.verifyRuntime(url, alias).pipe(
-          map((runtime) => {
-            this.registerRuntime(runtime);
-            return of({ success: true });
-          }),
-          catchError((error) => {
-            console.error(`Failed to register runtime: ${alias} (${url})`);
-            console.error(error);
-            return of({ success: false });
-          })
-        )
-      )
-    )
-      .pipe(first())
-      .subscribe((res) => {
-        loading$.next(false);
-      });
   }
 
   constructor(private httpClient: HttpClient) {}

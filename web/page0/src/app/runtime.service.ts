@@ -171,7 +171,7 @@ export class RuntimeService {
             throw new Error(`Cannot register runtime ${alias} (url: ${url}`);
           }
         }),
-        map((runtime) => this.register(runtime)),
+        tap((runtime) => this.register(runtime)),
         tap(() => this.status$.next(RuntimesStatus.done)),
         catchError((error) => {
           this.status$.next(RuntimesStatus.register_error);

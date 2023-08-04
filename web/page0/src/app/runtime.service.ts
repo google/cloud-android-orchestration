@@ -95,8 +95,6 @@ export class RuntimeService {
     }));
   }
 
-  private initRuntimeSettings = this.getInitRuntimeSettings();
-
   private runtimes$: Observable<Runtime[]> = this.runtimeAction.pipe(
     startWith({ type: 'init' } as RuntimeInitializeAction),
     tap((action) => console.log(action)),
@@ -105,7 +103,7 @@ export class RuntimeService {
         this.status$.next(RuntimesStatus.initializing);
 
         return forkJoin(
-          this.initRuntimeSettings.map(({ alias, url }) =>
+          this.getInitRuntimeSettings().map(({ alias, url }) =>
             this.verifyRuntime(url, alias).pipe(
               catchError((error) => {
                 console.error(error);
@@ -176,15 +174,24 @@ export class RuntimeService {
   registerRuntime(alias: string, url: string) {
     this.status$.next(RuntimesStatus.registering);
 
-    return this.checkDuplicatedAlias(alias).pipe(
-      mergeMap(() => this.verifyRuntime(url, alias)),
-      map((runtime) => this.register(runtime)),
-      tap(() => this.status$.next(RuntimesStatus.done)),
-      catchError((error) => {
-        this.status$.next(RuntimesStatus.register_error);
-        throw error;
-      })
-    );
+    return of(null)
+      .pipe(
+        withLatestFrom(this.runtimes$),
+        map(([_, runtimes]) => {
+          if (runtimes.some((runtime) => runtime.alias === alias)) {
+            throw Error(`Cannot have runtime of duplicated alias: ${alias}`);
+          }
+        })
+      )
+      .pipe(
+        mergeMap(() => this.verifyRuntime(url, alias)),
+        map((runtime) => this.register(runtime)),
+        tap(() => this.status$.next(RuntimesStatus.done)),
+        catchError((error) => {
+          this.status$.next(RuntimesStatus.register_error);
+          throw error;
+        })
+      );
   }
 
   unregisterRuntime(alias: string) {
@@ -193,17 +200,6 @@ export class RuntimeService {
 
   refreshRuntimes() {
     this.refresh();
-  }
-
-  private checkDuplicatedAlias(alias: string): Observable<void> {
-    return of(null).pipe(
-      withLatestFrom(this.runtimes$),
-      map(([_, runtimes]) => {
-        if (runtimes.some((runtime) => runtime.alias === alias)) {
-          throw Error(`Cannot have runtime of duplicated alias: ${alias}`);
-        }
-      })
-    );
   }
 
   verifyRuntime(url: string, alias: string): Observable<Runtime> {

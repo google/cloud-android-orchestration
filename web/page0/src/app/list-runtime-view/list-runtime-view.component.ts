@@ -1,5 +1,5 @@
 import { Component } from '@angular/core';
-import { BehaviorSubject } from 'rxjs';
+import { RuntimesStatus } from '../runtime-interface';
 import { RuntimeService } from '../runtime.service';
 
 @Component({
@@ -9,15 +9,18 @@ import { RuntimeService } from '../runtime.service';
 })
 export class ListRuntimeViewComponent {
   runtimes$ = this.runtimeService.getRuntimes();
-  loading$ = new BehaviorSubject<boolean>(false);
+  status$ = this.runtimeService.getStatus();
 
   constructor(private runtimeService: RuntimeService) {}
 
-  ngOnInit() {
-    this.runtimeService.initRuntimes(this.loading$);
+  onClickRefresh() {
+    this.runtimeService.refreshRuntimes();
   }
 
-  onClickRefresh() {
-    this.runtimeService.refreshRuntimes(this.loading$);
+  showProgressBar(status: string | null) {
+    return (
+      status === RuntimesStatus.initializing ||
+      status === RuntimesStatus.refreshing
+    );
   }
 }

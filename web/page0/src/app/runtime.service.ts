@@ -104,16 +104,7 @@ export class RuntimeService {
 
         return forkJoin(
           this.getInitRuntimeSettings().map(({ alias, url }) =>
-            this.verifyRuntime(url, alias).pipe(
-              catchError((error) => {
-                console.error(error);
-                return of({
-                  url,
-                  alias,
-                  status: 'error',
-                } as Runtime);
-              })
-            )
+            this.getRuntimeInfo(url, alias)
           )
         ).pipe(
           tap((runtimes) => {
@@ -133,17 +124,7 @@ export class RuntimeService {
       if (action.type === 'refresh') {
         this.status$.next(RuntimesStatus.refreshing);
         return forkJoin(
-          acc.map((runtime) =>
-            this.verifyRuntime(runtime.url, runtime.alias).pipe(
-              catchError((error) =>
-                of({
-                  url: runtime.url,
-                  alias: runtime.alias,
-                  status: 'error',
-                } as Runtime)
-              )
-            )
-          )
+          acc.map((runtime) => this.getRuntimeInfo(runtime.url, runtime.alias))
         ).pipe(
           tap(() => {
             this.status$.next(RuntimesStatus.done);
@@ -184,7 +165,12 @@ export class RuntimeService {
         })
       )
       .pipe(
-        mergeMap(() => this.verifyRuntime(url, alias)),
+        mergeMap(() => this.getRuntimeInfo(url, alias)),
+        tap((runtime) => {
+          if (runtime.status === 'error') {
+            throw new Error(`Cannot register runtime ${alias} (url: ${url}`);
+          }
+        }),
         map((runtime) => this.register(runtime)),
         tap(() => this.status$.next(RuntimesStatus.done)),
         catchError((error) => {
@@ -202,7 +188,7 @@ export class RuntimeService {
     this.refresh();
   }
 
-  verifyRuntime(url: string, alias: string): Observable<Runtime> {
+  private getRuntimeInfo(url: string, alias: string): Observable<Runtime> {
     return this.httpClient.get<RuntimeAdditionalInfo>(`${url}/verify`).pipe(
       map(
         (info) =>
@@ -213,6 +199,14 @@ export class RuntimeService {
             status: 'valid',
           } as Runtime)
       ),
+      catchError((error) => {
+        console.error(error);
+        return of({
+          url,
+          alias,
+          status: 'error',
+        } as Runtime);
+      }),
       first()
     );
   }

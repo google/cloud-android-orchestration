@@ -1,83 +1,51 @@
 <form [formGroup]="hostForm">
-  <section class="create-host-view">
-    <div>
-      <div>
-        <h1>New Host</h1>
-      </div>
+    <section class="create-host-view">
+        <div>
+            <div>
+                <h1>New Host</h1>
+            </div>
+        </div>
+
+        <mat-divider></mat-divider>
+
+        <div>
+            <div class="flex-container">
+                <mat-form-field class="flex-field">
+                    <mat-label>Runtime</mat-label>
+                    <input required id="runtime" type="text" matInput value="{{ (runtime$ | async)?.alias }}" disabled />
+                </mat-form-field>
+
+                <mat-form-field class="flex-field">
+                    <mat-label>Zone</mat-label>
+                    <mat-select required formControlName="zone">
+                        <mat-option *ngFor="let zone of zones$ | async" value="{{ zone }}">{{ zone }}</mat-option>
+                    </mat-select>
+                </mat-form-field>
+            </div>
+
+            <div class="flex-container">
+                <mat-form-field class="flex-field">
+                    <mat-label>Machine Type</mat-label>
+                    <input required type="text" matInput placeholder="E.g. n1-standard-4" formControlName="machine_type" />
+                </mat-form-field>
+                <mat-form-field class="flex-field">
+                    <mat-label>Min CPU Platform</mat-label>
+                    <input required type="text" matInput placeholder="E.g. Intel Skylake" formControlName="min_cpu_platform" />
+                </mat-form-field>
+            </div>
+        </div>
+
+        <mat-divider></mat-divider>
+    </section>
+
+    <div class="footbar">
+        <mat-progress-bar *ngIf="showProgressBar(status$ | async)" mode="indeterminate"></mat-progress-bar>
+
+        <button class="footbar-button" mat-button color="primary" (click)="onSubmit()" [disabled]="!hostForm.valid">
+            Create
+        </button>
+        <button class="footbar-button" mat-button (click)="onCancel()">
+            Cancel
+        </button>
     </div>
-
-    <mat-divider></mat-divider>
-
-    <div>
-      <div class="flex-container">
-        <mat-form-field class="flex-field">
-          <mat-label>Runtime</mat-label>
-          <input
-            required
-            id="runtime"
-            type="text"
-            matInput
-            value="{{ runtimeAlias$ | async }}"
-            disabled
-          />
-        </mat-form-field>
-
-        <mat-form-field class="flex-field">
-          <mat-label>Zone</mat-label>
-          <mat-select required formControlName="zone">
-            <mat-option
-              *ngFor="let zone of zones$ | async"
-              value="{{ zone }}"
-              >{{ zone }}</mat-option
-            >
-          </mat-select>
-        </mat-form-field>
-      </div>
-
-      <div class="flex-container">
-        <mat-form-field class="flex-field">
-          <mat-label>Machine Type</mat-label>
-          <input
-            required
-            type="text"
-            matInput
-            placeholder="E.g. n1-standard-4"
-            formControlName="machine_type"
-          />
-        </mat-form-field>
-        <mat-form-field class="flex-field">
-          <mat-label>Min CPU Platform</mat-label>
-          <input
-            required
-            type="text"
-            matInput
-            placeholder="E.g. Intel Skylake"
-            formControlName="min_cpu_platform"
-          />
-        </mat-form-field>
-      </div>
-    </div>
-
-    <mat-divider></mat-divider>
-  </section>
-
-  <div class="footbar">
-    <mat-progress-bar
-      *ngIf="showProgressBar(status$ | async)"
-      mode="indeterminate"
-    ></mat-progress-bar>
-
-    <button
-      class="footbar-button"
-      mat-button
-      color="primary"
-      (click)="onSubmit()"
-      [disabled]="!hostForm.valid"
-    >
-      Create
-    </button>
-    <button class="footbar-button" mat-button (click)="onCancel()">
-      Cancel
-    </button>
-  </div>
 </form>

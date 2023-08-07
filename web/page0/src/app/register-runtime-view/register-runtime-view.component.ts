@@ -3,7 +3,7 @@ import { FormBuilder, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { RuntimeService } from '../runtime.service';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { RuntimesStatus } from '../runtime-interface';
+import { RuntimeViewStatus } from '../runtime-interface';
 
 @Component({
   selector: 'app-register-runtime-view',
@@ -28,8 +28,8 @@ export class RegisterRuntimeViewComponent {
     alias: ['test', Validators.required],
   });
 
-  showProgressBar(status: RuntimesStatus | null) {
-    return status === RuntimesStatus.registering;
+  showProgressBar(status: RuntimeViewStatus | null) {
+    return status === RuntimeViewStatus.registering;
   }
 
   onSubmit() {

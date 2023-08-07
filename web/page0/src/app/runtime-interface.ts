@@ -1,17 +1,21 @@
+import { Host } from './host-interface';
+
+export enum RuntimeStatus {
+  valid = 'valid',
+  error = 'error',
+  loading = 'loading',
+}
+
 export interface Runtime {
   alias: string;
-  runtime_type?: 'local' | 'on-premise' | 'cloud';
+  type?: 'local' | 'on-premise' | 'cloud';
   url: string;
-  hosts?: string[]; // Full urls towards host orchestrators
-  status: 'valid' | 'error' | 'loading';
+  zones?: string[];
+  hosts: Host[];
+  status: RuntimeStatus;
 }
 
-export interface RuntimeAdditionalInfo {
-  runtime_type: 'local' | 'on-premise' | 'cloud';
-  hosts: string[];
-}
-
-export enum RuntimesStatus {
+export enum RuntimeViewStatus {
   initializing = 'initializing',
   refreshing = 'refreshing',
   registering = 'registering',

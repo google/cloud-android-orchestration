@@ -1,9 +1,7 @@
-import { HttpClient } from '@angular/common/http';
-import { Injectable } from '@angular/core';
+import { Host, Injectable } from '@angular/core';
 import {
   BehaviorSubject,
   catchError,
-  first,
   forkJoin,
   map,
   mergeMap,
@@ -13,14 +11,12 @@ import {
   shareReplay,
   startWith,
   Subject,
+  switchMap,
   tap,
   withLatestFrom,
 } from 'rxjs';
-import {
-  Runtime,
-  RuntimeAdditionalInfo,
-  RuntimesStatus,
-} from './runtime-interface';
+import { ApiService } from './api.service';
+import { Runtime, RuntimeViewStatus, RuntimeStatus } from './runtime-interface';
 import { defaultRuntimeSettings } from './settings';
 
 interface RuntimeRegisterAction {
@@ -100,7 +96,7 @@ export class RuntimeService {
     tap((action) => console.log(action)),
     mergeScan((acc, action) => {
       if (action.type === 'init') {
-        this.status$.next(RuntimesStatus.initializing);
+        this.status$.next(RuntimeViewStatus.initializing);
 
         return forkJoin(
           this.getInitRuntimeSettings().map(({ alias, url }) =>
@@ -108,7 +104,7 @@ export class RuntimeService {
           )
         ).pipe(
           tap((runtimes) => {
-            this.status$.next(RuntimesStatus.done);
+            this.status$.next(RuntimeViewStatus.done);
           })
         );
       }
@@ -122,12 +118,12 @@ export class RuntimeService {
       }
 
       if (action.type === 'refresh') {
-        this.status$.next(RuntimesStatus.refreshing);
+        this.status$.next(RuntimeViewStatus.refreshing);
         return forkJoin(
           acc.map((runtime) => this.getRuntimeInfo(runtime.url, runtime.alias))
         ).pipe(
           tap(() => {
-            this.status$.next(RuntimesStatus.done);
+            this.status$.next(RuntimeViewStatus.done);
           })
         );
       }
@@ -140,8 +136,8 @@ export class RuntimeService {
     shareReplay(1)
   );
 
-  private status$ = new BehaviorSubject<RuntimesStatus>(
-    RuntimesStatus.initializing
+  private status$ = new BehaviorSubject<RuntimeViewStatus>(
+    RuntimeViewStatus.initializing
   );
 
   getStatus() {
@@ -159,14 +155,14 @@ export class RuntimeService {
         if (!runtime) {
           throw new Error(`No runtime of alias ${alias}`);
         }
-        return runtime;
+        return runtime as Runtime;
       }),
       shareReplay(1)
     );
   }
 
   registerRuntime(alias: string, url: string) {
-    this.status$.next(RuntimesStatus.registering);
+    this.status$.next(RuntimeViewStatus.registering);
 
     return of(null).pipe(
       withLatestFrom(this.runtimes$),
@@ -182,9 +178,9 @@ export class RuntimeService {
         }
       }),
       tap((runtime) => this.register(runtime)),
-      tap(() => this.status$.next(RuntimesStatus.done)),
+      tap(() => this.status$.next(RuntimeViewStatus.done)),
       catchError((error) => {
-        this.status$.next(RuntimesStatus.register_error);
+        this.status$.next(RuntimeViewStatus.register_error);
         throw error;
       })
     );
@@ -198,28 +194,79 @@ export class RuntimeService {
     this.refresh();
   }
 
-  private getRuntimeInfo(url: string, alias: string): Observable<Runtime> {
-    return this.httpClient.get<RuntimeAdditionalInfo>(`${url}/verify`).pipe(
-      map(
-        (info) =>
-          ({
-            ...info,
-            url,
-            alias,
-            status: 'valid',
-          } as Runtime)
-      ),
-      catchError((error) => {
-        console.error(error);
-        return of({
-          url,
-          alias,
-          status: 'error',
-        } as Runtime);
-      }),
-      first()
+  private getGroups(hostUrl: string) {
+    return this.apiService
+      .listGroups(hostUrl)
+      .pipe(map(({ groups }) => groups));
+  }
+
+  private getHosts(
+    runtimeUrl: string,
+    zone: string,
+    runtimeAlias: string
+  ): Observable<Host[]> {
+    return this.apiService.listHosts(runtimeUrl, zone).pipe(
+      mergeMap(({ items: hosts }) => {
+        return forkJoin(
+          hosts.map((host) => {
+            const hostUrl = `${runtimeUrl}/v1/zones/${zone}/hosts/${host.name}`;
+            return this.getGroups(hostUrl).pipe(
+              map((groups) => ({
+                name: host!.name,
+                zone: zone,
+                url: hostUrl,
+                runtime: runtimeAlias,
+                groups,
+              }))
+            );
+          })
+        );
+      })
     );
   }
 
-  constructor(private httpClient: HttpClient) {}
+  private getRuntimeInfo(url: string, alias: string): Observable<Runtime> {
+    return this.apiService.getRuntimeInfo(url).pipe(
+      switchMap((info) => {
+        // TODO: handle local workstation depending on type
+        return this.apiService.listZones(url).pipe(
+          map(({ items: zones }) => ({
+            type: info.type,
+            zones,
+          }))
+        );
+      }),
+
+      switchMap(({ type, zones }) => {
+        return forkJoin(
+          zones.map((zone) => this.getHosts(url, zone, alias))
+        ).pipe(
+          map((hostLists) => hostLists.flat()),
+          map(
+            (hosts) =>
+              ({
+                alias,
+                type,
+                url,
+                zones,
+                hosts,
+                status: RuntimeStatus.valid,
+              } as Runtime)
+          )
+        );
+      }),
+
+      catchError((error) => {
+        console.error(error);
+        return of({
+          alias,
+          url,
+          hosts: [],
+          status: RuntimeStatus.error,
+        });
+      })
+    );
+  }
+
+  constructor(private apiService: ApiService) {}
 }

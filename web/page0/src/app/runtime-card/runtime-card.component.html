@@ -1,61 +1,42 @@
 <mat-card class="runtime-card">
-  <mat-card-content> Alias: {{ runtime?.alias }} </mat-card-content>
+    <mat-card-content> Alias: {{ runtime?.alias }} </mat-card-content>
 
-  <mat-card-content> Type: {{ runtime?.runtime_type }} </mat-card-content>
+    <mat-card-content> Type: {{ runtime?.type }} </mat-card-content>
 
-  <mat-card-content> URL: {{ runtime?.url }} </mat-card-content>
+    <mat-card-content> URL: {{ runtime?.url }} </mat-card-content>
 
-  <div class="runtime-card-header">
-    <button
-      *ngIf="runtime?.status === 'valid'"
-      mat-icon-button
-      aria-label="Add host button"
-      matTooltip="Add host"
-      (click)="onClickAddHost()"
-    >
-      <span class="google-symbols"> library_add </span>
-    </button>
+    <div class="runtime-card-header">
+        <button *ngIf="runtime?.status === 'valid'" mat-icon-button aria-label="Add host button" matTooltip="Add host" (click)="onClickAddHost()">
+            <span class="google-symbols"> library_add </span>
+        </button>
 
-    <button
-      *ngIf="runtime?.status == 'error'"
-      mat-icon-button
-      aria-label="Status"
-      class="error-status"
-    >
-      <span class="google-symbols"> error </span>
-    </button>
-  </div>
+        <button *ngIf="runtime?.status == 'error'" mat-icon-button aria-label="Status" class="error-status">
+            <span class="google-symbols"> error </span>
+        </button>
+    </div>
 
-  <div class="runtime-card-footer">
-    <button
-      mat-icon-button
-      matTooltip="Unregister runtime"
-      (click)="onClickUnregister(runtime?.alias)"
-    >
-      <span class="google-symbols"> delete </span>
-    </button>
-  </div>
-
-  <mat-card-content *ngIf="runtime?.status === 'valid'">
-    Zones & Hosts:
-    <ul>
-      <li class="host-item" *ngFor="let host of hosts$ | async">
-        <div class="host-header">
-          <div>{{ host.name }} ({{ host.zone }})</div>
-          <button
-            mat-icon-button
-            class="host-delete-button"
-            (click)="onClickDeleteHost(host.url)"
-          >
+    <div class="runtime-card-footer">
+        <button mat-icon-button matTooltip="Unregister runtime" (click)="onClickUnregister(runtime?.alias)">
             <span class="google-symbols"> delete </span>
-          </button>
-        </div>
+        </button>
+    </div>
+
+    <mat-card-content *ngIf="runtime?.status === 'valid'">
+        Zones & Hosts:
         <ul>
-          <li *ngFor="let group of host.groups">
-            {{ group }}
-          </li>
+            <li class="host-item" *ngFor="let host of hosts$ | async">
+                <div class="host-header">
+                    <div>{{ host.name }} ({{ host.zone }})</div>
+                    <button mat-icon-button class="host-delete-button" (click)="onClickDeleteHost(host)">
+                        <span class="google-symbols"> delete </span>
+                    </button>
+                </div>
+                <ul>
+                    <li *ngFor="let group of host.groups">
+                        {{ group }}
+                    </li>
+                </ul>
+            </li>
         </ul>
-      </li>
-    </ul>
-  </mat-card-content>
+    </mat-card-content>
 </mat-card>

@@ -1,5 +1,5 @@
 import { Component } from '@angular/core';
-import { RuntimesStatus } from '../runtime-interface';
+import { RuntimeViewStatus } from '../runtime-interface';
 import { RuntimeService } from '../runtime.service';
 
 @Component({
@@ -19,8 +19,8 @@ export class ListRuntimeViewComponent {
 
   showProgressBar(status: string | null) {
     return (
-      status === RuntimesStatus.initializing ||
-      status === RuntimesStatus.refreshing
+      status === RuntimeViewStatus.initializing ||
+      status === RuntimeViewStatus.refreshing
     );
   }
 }

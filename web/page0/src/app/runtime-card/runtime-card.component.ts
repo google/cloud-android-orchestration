@@ -1,4 +1,3 @@
-import { HttpClient } from '@angular/common/http';
 import { Component, Input } from '@angular/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
@@ -57,10 +56,10 @@ export class RuntimeCardComponent {
     this.runtimeService.unregisterRuntime(alias);
   }
 
-  onClickDeleteHost(hostUrl: string) {
-    this.snackBar.open(`Start to delete host ${hostUrl}`);
+  onClickDeleteHost(host: Host) {
+    this.snackBar.open(`Start to delete host ${host.name} (url: ${host.url})`);
     this.hostService
-      .deleteHost(hostUrl)
+      .deleteHost(host.url)
       .pipe(takeUntil(this.ngUnsubscribe))
       .subscribe({
         next: () => {
@@ -68,7 +67,7 @@ export class RuntimeCardComponent {
         },
         error: (error) => {
           this.snackBar.open(
-            `Failed to delete host ${hostUrl} (error: ${error.message})`
+            `Failed to delete host ${host.url} (error: ${error.message})`
           );
         },
       });

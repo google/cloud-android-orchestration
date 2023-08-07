@@ -1,19 +1,9 @@
-import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import {
-  catchError,
-  forkJoin,
-  map,
-  mergeScan,
-  of,
-  shareReplay,
-  startWith,
-  Subject,
-  switchMap,
-  tap,
-} from 'rxjs';
-import { HostCreateDto, HostResponseDto } from './dto';
-import { Host, HostInfo } from './host-interface';
+import { map, mergeScan, of, shareReplay, startWith, Subject, tap } from 'rxjs';
+import { ApiService } from './api.service';
+import { HostInstance } from './cloud-orchestrator.dto';
+import { Host } from './host-interface';
+import { Runtime } from './runtime-interface';
 import { RuntimeService } from './runtime.service';
 
 interface HostCreateAction {
@@ -38,35 +28,16 @@ type HostAction = HostCreateAction | HostDeleteAction | HostInitAction;
 export class HostService {
   private hostAction = new Subject<HostAction>();
 
-  createHost(hostCreateDto: HostCreateDto, runtimeAlias: string) {
-    return this.runtimeService.getRuntimeByAlias(runtimeAlias).pipe(
-      switchMap((runtime) => {
-        const requestUrl = `${runtime.url}`; // TODO: add zone
-        return this.postHostAPI(requestUrl, hostCreateDto).pipe(
-          map((hostResponse) => ({
-            name: hostResponse.name,
-            url: requestUrl, // TODO: construct/receive host url
-            zone: hostResponse.zone,
-            runtime: runtimeAlias,
-            groups: hostResponse.groups,
-          }))
-        );
-      }),
-      tap((host) => {
-        this.hostAction.next({
-          type: 'create',
-          host,
-        });
-      })
-    );
+  createHost(hostInstance: HostInstance, runtime: Runtime, zone: string) {
+    // TODO: long polling
+    return this.apiService.createHost(runtime.url, zone, {
+      host_instance: hostInstance,
+    });
   }
 
   deleteHost(hostUrl: string) {
-    return this.deleteHostAPI(hostUrl).pipe(
-      tap(() => {
-        this.hostAction.next({ type: 'delete', hostUrl });
-      })
-    );
+    // TODO: long polling
+    return this.apiService.deleteHost(hostUrl);
   }
 
   private hosts$ = this.hostAction.pipe(
@@ -74,30 +45,11 @@ export class HostService {
     tap((action) => console.log('host: ', action)),
     mergeScan((acc, action) => {
       if (action.type === 'init') {
-        return this.runtimeService.getRuntimes().pipe(
-          switchMap((runtimes) => {
-            return forkJoin(
-              runtimes.flatMap((runtime) => {
-                const hosts = runtime.hosts;
-                if (!hosts) {
-                  return [];
-                }
-
-                return hosts.map((hostUrl) => {
-                  return this.getHostInfo(hostUrl).pipe(
-                    map((info) => ({
-                      name: info.name,
-                      zone: info.zone,
-                      runtime: runtime.alias,
-                      groups: info.groups,
-                      url: info.url,
-                    }))
-                  );
-                });
-              })
-            );
-          })
-        );
+        return this.runtimeService
+          .getRuntimes()
+          .pipe(
+            map((runtimes) => runtimes.flatMap((runtime) => runtime.hosts))
+          );
       }
 
       if (action.type === 'create') {
@@ -113,18 +65,6 @@ export class HostService {
     shareReplay(1)
   );
 
-  private getHostInfo(url: string) {
-    return this.httpClient.get<HostInfo>(`${url}/info`);
-  }
-
-  private postHostAPI(requestUrl: string, host: HostCreateDto) {
-    return this.httpClient.post<HostResponseDto>(`${requestUrl}`, host);
-  }
-
-  private deleteHostAPI(hostUrl: string) {
-    return this.httpClient.delete<void>(hostUrl);
-  }
-
   getHosts(runtime: string) {
     return this.hosts$.pipe(
       map((hosts) => hosts.filter((host) => host.runtime === runtime))
@@ -136,7 +76,7 @@ export class HostService {
   }
 
   constructor(
-    private httpClient: HttpClient,
+    private apiService: ApiService,
     private runtimeService: RuntimeService
   ) {}
 }

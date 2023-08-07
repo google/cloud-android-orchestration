@@ -15,6 +15,7 @@ import {
   tap,
   withLatestFrom,
 } from 'rxjs';
+import { RuntimeService } from '../runtime.service';
 
 @Component({
   selector: 'app-create-host-view',
@@ -23,6 +24,7 @@ import {
 })
 export class CreateHostViewComponent {
   constructor(
+    private runtimeService: RuntimeService,
     private hostService: HostService,
     private formBuilder: FormBuilder,
     private router: Router,
@@ -44,9 +46,9 @@ export class CreateHostViewComponent {
     shareReplay(1)
   );
 
-  // TODO: get runtime from here directly instead of from createHost
-  runtimeAlias$ = this.queryParams$.pipe(
-    map((params) => (params['runtime'] ?? '') as string)
+  runtime$ = this.queryParams$.pipe(
+    map((params) => (params['runtime'] ?? '') as string),
+    switchMap((alias) => this.runtimeService.getRuntimeByAlias(alias))
   );
 
   previousUrl$ = this.queryParams$.pipe(
@@ -54,8 +56,7 @@ export class CreateHostViewComponent {
     map((params) => (params['previousUrl'] ?? 'list-runtime') as string)
   );
 
-  // TODO: set up zones from runtime.zones
-  zones$ = new BehaviorSubject<string[]>(['us-central1-c', 'ap-northeast2-a']);
+  zones$ = this.runtime$.pipe(map((runtime) => runtime.zones));
 
   ngOnDestroy() {
     this.ngUnsubscribe.next();
@@ -76,20 +77,23 @@ export class CreateHostViewComponent {
   }
 
   onSubmit() {
-    const { machine_type, min_cpu_platform } = this.hostForm.value;
-    if (!machine_type || !min_cpu_platform) {
+    const { machine_type, min_cpu_platform, zone } = this.hostForm.value;
+    if (!machine_type || !min_cpu_platform || !zone) {
       return;
     }
 
-    this.runtimeAlias$
+    this.runtime$
       .pipe(
-        switchMap((alias) =>
+        switchMap((runtime) =>
           this.hostService.createHost(
             {
-              machine_type,
-              min_cpu_platform,
+              gcp: {
+                machine_type,
+                min_cpu_platform,
+              },
             },
-            alias
+            runtime,
+            zone
           )
         ),
         withLatestFrom(this.previousUrl$),

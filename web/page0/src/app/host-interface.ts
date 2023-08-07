@@ -1,14 +1,7 @@
 export interface Host {
   name: string;
-  url: string;
   zone?: string;
+  url: string;
   runtime: string;
-  groups: string[];
-}
-
-export interface HostInfo {
-  name: string;
-  url: string;
-  zone?: string;
   groups: string[];
 }

@@ -39,6 +39,7 @@ import (
 	appOAuth2 "github.com/google/cloud-android-orchestration/pkg/app/oauth2"
 	"github.com/google/cloud-android-orchestration/pkg/app/session"
 
+	"github.com/google/go-cmp/cmp"
 	"golang.org/x/oauth2"
 )
 
@@ -361,6 +362,56 @@ func TestHostForwarderInjectCredentials(t *testing.T) {
 	req, _ := http.NewRequest(http.MethodPost, reqURL, bytes.NewBuffer(msg))
 
 	makeRequest(w, req, controller)
+	if w.Result().StatusCode != http.StatusOK {
+		t.Errorf("expected <<%+v>>, got: %+v", http.StatusOK, w.Result().StatusCode)
+	}
+}
+
+func TestHostForwarderInjectCredentialsUsingHTTPHeader(t *testing.T) {
+	reqURL := "http://test.com/v1/zones/foo/hosts/bar/foo"
+	credentials := "abcdef"
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if len(r.Header.Values(headerNameHOBuildAPICreds)) == 0 {
+			t.Errorf("no credentials were injected")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		if diff := cmp.Diff(credentials, r.Header.Get(headerNameHOBuildAPICreds)); diff != "" {
+			t.Errorf("credentials mismatch (-want +got):\n%s", diff)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	hostURL, _ := url.Parse(ts.URL)
+	dbs := database.NewInMemoryDBService()
+	tk := &oauth2.Token{
+		AccessToken:  credentials,
+		TokenType:    "Brearer",
+		RefreshToken: "",
+		Expiry:       time.Now().Add(1 * time.Hour),
+	}
+	es := encryption.NewFakeEncryptionService()
+	jsonToken, err := json.Marshal(tk)
+	if err != nil {
+		t.Fatal(err)
+	}
+	encryptedJSONToken, err := es.Encrypt(jsonToken)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dbs.StoreBuildAPICredentials(testUsername, encryptedJSONToken)
+	controller := NewApp(&testInstanceManager{
+		hostClientFactory: func(_, _ string) instances.HostClient {
+			return &testHostClient{hostURL}
+		},
+	}, &testAccountManager{}, nil, encryption.NewFakeEncryptionService(), dbs, "", config.WebRTCConfig{})
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodGet, reqURL, nil)
+	req.Header.Set(headerNameCOInjectBuildAPICreds, "")
+
+	makeRequest(w, req, controller)
+
 	if w.Result().StatusCode != http.StatusOK {
 		t.Errorf("expected <<%+v>>, got: %+v", http.StatusOK, w.Result().StatusCode)
 	}

@@ -1,5 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Component, Input } from '@angular/core';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
 import { BehaviorSubject, of, Subject, takeUntil } from 'rxjs';
 import { Host } from '../host-interface';
@@ -22,7 +23,8 @@ export class RuntimeCardComponent {
   constructor(
     private router: Router,
     private runtimeService: RuntimeService,
-    private hostService: HostService
+    private hostService: HostService,
+    private snackBar: MatSnackBar
   ) {}
 
   ngOnInit() {
@@ -56,6 +58,19 @@ export class RuntimeCardComponent {
   }
 
   onClickDeleteHost(hostUrl: string) {
-    this.hostService.deleteHost(hostUrl);
+    this.snackBar.open(`Start to delete host ${hostUrl}`);
+    this.hostService
+      .deleteHost(hostUrl)
+      .pipe(takeUntil(this.ngUnsubscribe))
+      .subscribe({
+        next: () => {
+          this.snackBar.dismiss();
+        },
+        error: (error) => {
+          this.snackBar.open(
+            `Failed to delete host ${hostUrl} (error: ${error.message})`
+          );
+        },
+      });
   }
 }

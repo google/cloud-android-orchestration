@@ -18,9 +18,7 @@ import { RuntimeService } from './runtime.service';
 
 interface HostCreateAction {
   type: 'create';
-  hostCreateDto: HostCreateDto;
-  requestUrl: string;
-  runtimeAlias: string;
+  host: Host;
 }
 
 interface HostDeleteAction {
@@ -42,24 +40,33 @@ export class HostService {
 
   createHost(hostCreateDto: HostCreateDto, runtimeAlias: string) {
     return this.runtimeService.getRuntimeByAlias(runtimeAlias).pipe(
-      tap((runtime) => {
+      switchMap((runtime) => {
         const requestUrl = `${runtime.url}`; // TODO: add zone
-        console.log('requestUrl ', requestUrl);
+        return this.postHostAPI(requestUrl, hostCreateDto).pipe(
+          map((hostResponse) => ({
+            name: hostResponse.name,
+            url: requestUrl, // TODO: construct/receive host url
+            zone: hostResponse.zone,
+            runtime: runtimeAlias,
+            groups: hostResponse.groups,
+          }))
+        );
+      }),
+      tap((host) => {
         this.hostAction.next({
           type: 'create',
-          hostCreateDto,
-          requestUrl,
-          runtimeAlias,
+          host,
         });
-      }),
-      catchError((error) => {
-        throw error;
       })
     );
   }
 
   deleteHost(hostUrl: string) {
-    this.hostAction.next({ type: 'delete', hostUrl });
+    return this.deleteHostAPI(hostUrl).pipe(
+      tap(() => {
+        this.hostAction.next({ type: 'delete', hostUrl });
+      })
+    );
   }
 
   private hosts$ = this.hostAction.pipe(
@@ -94,38 +101,11 @@ export class HostService {
       }
 
       if (action.type === 'create') {
-        return this.postHostAPI(action.requestUrl, action.hostCreateDto).pipe(
-          map((hostResponse) => {
-            return [
-              ...acc,
-              {
-                name: hostResponse.name,
-                url: action.requestUrl, // TODO: construct/receive host url
-                zone: hostResponse.zone,
-                runtime: action.runtimeAlias,
-                groups: hostResponse.groups,
-              },
-            ];
-          }),
-          catchError((error) => {
-            // TODO: handle error
-            console.error(error);
-            return of(acc);
-          })
-        );
+        return of([...acc, action.host]);
       }
 
       if (action.type === 'delete') {
-        return this.deleteHostAPI(action.hostUrl).pipe(
-          map(() => {
-            return acc.filter((item) => item.url !== action.hostUrl);
-          }),
-          catchError((error) => {
-            // TODO: handle error
-            console.error(error);
-            return of(acc);
-          })
-        );
+        return of(acc.filter((item) => item.url !== action.hostUrl));
       }
 
       return of(acc);

@@ -10,6 +10,7 @@ import {
   mergeMap,
   shareReplay,
   Subject,
+  switchMap,
   takeUntil,
   tap,
   withLatestFrom,
@@ -53,8 +54,7 @@ export class CreateHostViewComponent {
     map((params) => (params['previousUrl'] ?? 'list-runtime') as string)
   );
 
-  isZoneActive = true;
-
+  // TODO: set up zones from runtime.zones
   zones$ = new BehaviorSubject<string[]>(['us-central1-c', 'ap-northeast2-a']);
 
   ngOnDestroy() {
@@ -81,15 +81,20 @@ export class CreateHostViewComponent {
       return;
     }
 
-    this.hostService
-      .createHost(
-        {
-          machine_type,
-          min_cpu_platform,
-        },
-        'test'
+    this.runtimeAlias$
+      .pipe(
+        switchMap((alias) =>
+          this.hostService.createHost(
+            {
+              machine_type,
+              min_cpu_platform,
+            },
+            alias
+          )
+        ),
+        withLatestFrom(this.previousUrl$),
+        takeUntil(this.ngUnsubscribe)
       )
-      .pipe(withLatestFrom(this.previousUrl$), takeUntil(this.ngUnsubscribe))
       .subscribe({
         next: ([_, previousUrl]) => {
           this.router.navigate([previousUrl]);

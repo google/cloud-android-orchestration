@@ -1,46 +1,83 @@
-<section class="create-host-view">
+<form [formGroup]="hostForm">
+  <section class="create-host-view">
     <div>
-        <div>
-            <h1>New Host</h1>
-        </div>
+      <div>
+        <h1>New Host</h1>
+      </div>
     </div>
 
     <mat-divider></mat-divider>
 
     <div>
-        <div class="flex-container">
-            <mat-form-field class="flex-field">
-                <mat-label>Runtime</mat-label>
-                <input required type="text" matInput disabled value="gcp-01" />
-            </mat-form-field>
+      <div class="flex-container">
+        <mat-form-field class="flex-field">
+          <mat-label>Runtime</mat-label>
+          <input
+            required
+            id="runtime"
+            type="text"
+            matInput
+            value="{{ runtimeAlias$ | async }}"
+            disabled
+          />
+        </mat-form-field>
 
-            <mat-form-field class="flex-field">
-                <mat-label>Zone</mat-label>
-                <mat-select required>
-                    <mat-option value="ap-northeast-2">us-central1-c</mat-option>
-                    <mat-option value="ap-northeast-1">ap-northeast2-a</mat-option>
-                </mat-select>
-            </mat-form-field>
-        </div>
+        <mat-form-field class="flex-field" *ngIf="isZoneActive">
+          <mat-label>Zone</mat-label>
+          <mat-select required formControlName="zone">
+            <mat-option
+              *ngFor="let zone of zones$ | async"
+              value="{{ zone }}"
+              >{{ zone }}</mat-option
+            >
+          </mat-select>
+        </mat-form-field>
+      </div>
 
-        <div class="flex-container">
-            <mat-form-field class="flex-field">
-                <mat-label>Machine Type</mat-label>
-                <input required type="text" matInput placeholder="E.g. n1-standard-4" />
-            </mat-form-field>
-            <mat-form-field class="flex-field">
-                <mat-label>Min CPU Platform</mat-label>
-                <input required type="text" matInput placeholder="E.g. Intel Skylake" />
-            </mat-form-field>
-        </div>
+      <div class="flex-container">
+        <mat-form-field class="flex-field">
+          <mat-label>Machine Type</mat-label>
+          <input
+            required
+            type="text"
+            matInput
+            placeholder="E.g. n1-standard-4"
+            formControlName="machine_type"
+          />
+        </mat-form-field>
+        <mat-form-field class="flex-field">
+          <mat-label>Min CPU Platform</mat-label>
+          <input
+            required
+            type="text"
+            matInput
+            placeholder="E.g. Intel Skylake"
+            formControlName="min_cpu_platform"
+          />
+        </mat-form-field>
+      </div>
     </div>
 
     <mat-divider></mat-divider>
-</section>
+  </section>
 
-<div class="footbar">
-    <button class="footbar-button" mat-button routerLink="/list-runtime" color="primary">
-        Register
+  <div class="footbar">
+    <mat-progress-bar
+      *ngIf="showProgressBar(status$ | async)"
+      mode="indeterminate"
+    ></mat-progress-bar>
+
+    <button
+      class="footbar-button"
+      mat-button
+      color="primary"
+      (click)="onSubmit()"
+      [disabled]="!hostForm.valid"
+    >
+      Create
     </button>
-    <button class="footbar-button" mat-button routerLink="/list-runtime">Cancel</button>
-</div>
+    <button class="footbar-button" mat-button (click)="onCancel()">
+      Cancel
+    </button>
+  </div>
+</form>

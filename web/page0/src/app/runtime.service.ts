@@ -152,32 +152,42 @@ export class RuntimeService {
     return this.runtimes$;
   }
 
+  getRuntimeByAlias(alias: string) {
+    return this.runtimes$.pipe(
+      map((runtimes) => runtimes.find((runtime) => runtime.alias === alias)),
+      map((runtime) => {
+        if (!runtime) {
+          throw new Error(`No runtime of alias ${alias}`);
+        }
+        return runtime;
+      }),
+      shareReplay(1)
+    );
+  }
+
   registerRuntime(alias: string, url: string) {
     this.status$.next(RuntimesStatus.registering);
 
-    return of(null)
-      .pipe(
-        withLatestFrom(this.runtimes$),
-        map(([_, runtimes]) => {
-          if (runtimes.some((runtime) => runtime.alias === alias)) {
-            throw Error(`Cannot have runtime of duplicated alias: ${alias}`);
-          }
-        })
-      )
-      .pipe(
-        mergeMap(() => this.getRuntimeInfo(url, alias)),
-        tap((runtime) => {
-          if (runtime.status === 'error') {
-            throw new Error(`Cannot register runtime ${alias} (url: ${url}`);
-          }
-        }),
-        tap((runtime) => this.register(runtime)),
-        tap(() => this.status$.next(RuntimesStatus.done)),
-        catchError((error) => {
-          this.status$.next(RuntimesStatus.register_error);
-          throw error;
-        })
-      );
+    return of(null).pipe(
+      withLatestFrom(this.runtimes$),
+      map(([_, runtimes]) => {
+        if (runtimes.some((runtime) => runtime.alias === alias)) {
+          throw Error(`Cannot have runtime of duplicated alias: ${alias}`);
+        }
+      }),
+      mergeMap(() => this.getRuntimeInfo(url, alias)),
+      tap((runtime) => {
+        if (runtime.status === 'error') {
+          throw new Error(`Cannot register runtime ${alias} (url: ${url}`);
+        }
+      }),
+      tap((runtime) => this.register(runtime)),
+      tap(() => this.status$.next(RuntimesStatus.done)),
+      catchError((error) => {
+        this.status$.next(RuntimesStatus.register_error);
+        throw error;
+      })
+    );
   }
 
   unregisterRuntime(alias: string) {

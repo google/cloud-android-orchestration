@@ -28,7 +28,7 @@ export class RegisterRuntimeViewComponent {
     alias: ['test', Validators.required],
   });
 
-  showProgressBar(status: string | null) {
+  showProgressBar(status: RuntimesStatus | null) {
     return status === RuntimesStatus.registering;
   }
 

@@ -36,6 +36,7 @@ import {ListRuntimeViewComponent} from './list-runtime-view/list-runtime-view.co
 import { RuntimeCardComponent } from './runtime-card/runtime-card.component';
 import {MatProgressBarModule} from '@angular/material/progress-bar';
 import { MatSnackBarModule} from '@angular/material/snack-bar';
+import { DeviceFormComponent } from './device-form/device-form.component';
 
 
 
@@ -50,6 +51,7 @@ import { MatSnackBarModule} from '@angular/material/snack-bar';
     CreateHostViewComponent,
     ListRuntimeViewComponent,
     RuntimeCardComponent,
+    DeviceFormComponent,
   ],
   imports: [
     BrowserModule,

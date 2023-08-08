@@ -1,112 +1,81 @@
-<section class="env-view">
-    <div>
+<form [formGroup]="envForm">
+    <section class="env-view">
         <div>
-            <h1>New Environment</h1>
+            <div>
+                <h1>New Environment</h1>
+            </div>
         </div>
-    </div>
 
-    <mat-divider></mat-divider>
+        <mat-divider></mat-divider>
 
-    <div>
         <div>
-            <mat-form-field class="full-width-field">
-                <mat-label>Group ID</mat-label>
-                <input type="text" matInput [formControl]="groupIdFormControl" placeholder="E.g. group-1" />
-            </mat-form-field>
-        </div>
+            <div>
+                <mat-form-field class="full-width-field">
+                    <mat-label>Group ID</mat-label>
+                    <input type="text" matInput formControlName="groupId" placeholder="E.g. group-1" />
+                </mat-form-field>
+            </div>
 
-        <div class="host-setting">
-            <mat-form-field class="flex-field">
-                <mat-label>Runtime</mat-label>
-                <mat-select required>
-                    <mat-option value="local-workstation">local-workstation</mat-option>
-                    <mat-option value="gcp-01">gcp-01</mat-option>
-                    <mat-option value="gcp-02">gcp-02</mat-option>
-                    <mat-option value="" (click)="onClickRegisterRuntime()">
-                        Register New
-                    </mat-option>
-                </mat-select>
-            </mat-form-field>
-
-            <mat-form-field class="flex-field">
-                <mat-label>Zone</mat-label>
-                <mat-select required>
-                    <mat-option value="ap-northeast-1">ap-northeast-1</mat-option>
-                    <mat-option value="ap-northeast-2">ap-northeast-2</mat-option>
-                    <mat-option value="ap-northeast-3">ap-northeast-3</mat-option>
-                </mat-select>
-            </mat-form-field>
-
-            <mat-form-field class="flex-field">
-                <mat-label>Host</mat-label>
-                <mat-select required>
-                    <mat-option value="xl-gpu-01">xl-gpu-01</mat-option>
-                    <mat-option value="xl-gpu-02">xl-gpu-02</mat-option>
-                    <mat-option value="xl-gpu-03">xl-gpu-03</mat-option>
-                    <mat-option value="" (click)="onClickCreateHost()">
-                        Create New
-                    </mat-option>
-                </mat-select>
-            </mat-form-field>
-        </div>
-    </div>
-
-    <div class="env-view-header">
-        <div>
-            <h1>Devices</h1>
-        </div>
-    </div>
-
-    <mat-divider></mat-divider>
-
-    <ul *ngIf="getIndices() | async; let indices">
-        <li *ngFor="let i of indices">
-            <div class="device-id-setting">
-                <div class="device-header-item">#{{ i + 1 }}</div>
-                <mat-form-field id="device-id">
-                    <mat-label>Device ID</mat-label>
-                    <input type="text" matInput placeholder="E.g. cvd-1" />
+            <div class="host-setting">
+                <mat-form-field class="flex-field">
+                    <mat-label>Runtime</mat-label>
+                    <mat-select required formControlName="runtime">
+                        <mat-option *ngFor="let runtime of runtimes$ | async" value="{{ runtime.alias }}">{{ runtime.alias }}</mat-option>
+                        <mat-option value="new" (click)="onClickRegisterRuntime()">
+                            Register New
+                        </mat-option>
+                    </mat-select>
                 </mat-form-field>
 
-                <button class="device-header-item" mat-flat-button (click)="increment()">
-                    <span class="google-symbols"> content_copy </span>
-                </button>
+                <!-- TODO: fast create option  -->
+                <mat-form-field class="flex-field">
+                    <mat-label>Zone</mat-label>
+                    <mat-select required formControlName="zone">
+                        <mat-option *ngFor="let zone of zones$ | async" value="{{ zone }}">{{ zone }}</mat-option>
+                    </mat-select>
+                </mat-form-field>
 
-                <button class="device-header-item" *ngIf="i !== 0" mat-button (click)="decrement()">
-                    <span class="google-symbols"> delete </span>
-                </button>
+                <mat-form-field class="flex-field">
+                    <mat-label>Host</mat-label>
+                    <mat-select required formControlName="host">
+                        <mat-option *ngFor="let host of hosts$ | async" value="{{ host.name }}">{{ host.name }}
+                        </mat-option>
+                        <mat-option value="new" (click)="onClickCreateHost()">
+                            Create New
+                        </mat-option>
+                    </mat-select>
+                </mat-form-field>
             </div>
+        </div>
 
-            <div id="device-setting">
-                <div class="device-setting-option">
-                    <div class="device-setting-title">Build Details</div>
-
-                    <mat-form-field id="branch">
-                        <mat-label>Branch</mat-label>
-                        <input type="text" matInput />
-                    </mat-form-field>
-
-                    <mat-form-field id="target">
-                        <mat-label>Target</mat-label>
-                        <input type="text" matInput />
-                    </mat-form-field>
-                    <mat-form-field id="build-id">
-                        <mat-label>Build ID</mat-label>
-                        <input type="text" matInput />
-                    </mat-form-field>
-                </div>
+        <div class="env-view-header">
+            <div>
+                <h1>Devices</h1>
             </div>
-        </li>
-    </ul>
+        </div>
 
-    <button mat-button (click)="increment()">
-        <mat-icon>add</mat-icon>Add Device
-    </button>
-</section>
+        <mat-divider></mat-divider>
 
-<div class="footbar">
-    <button class="footbar-button" mat-button routerLink="/" color="primary">
-        Create
-    </button>
-    <button class="footbar-button" mat-button routerLink="/">Cancel</button>
-</div>
+        <ul>
+            <li *ngFor="
+          let form of (deviceSettingsForm$ | async)?.controls;
+          let i = index
+        " [attr.data-index]="i">
+                <app-device-form [form]="form" [idx]="i"></app-device-form>
+            </li>
+        </ul>
+
+        <button mat-button (click)="onClickAddDevice()">
+            <mat-icon>add</mat-icon>Add Device
+        </button>
+    </section>
+
+    <div class="footbar">
+        <button class="footbar-button" mat-button (click)="onSubmit()" color="primary">
+            Create
+        </button>
+        <button class="footbar-button" mat-button (click)="onCancel()">
+            Cancel
+        </button>
+    </div>
+</form>

@@ -1,0 +1,35 @@
+<form [formGroup]="form">
+    <div class="device-id-setting">
+        <div class="device-header-item"># {{ idx + 1 }}</div>
+        <mat-form-field class="device-id">
+            <mat-label>Device ID</mat-label>
+            <input type="text" matInput placeholder="E.g. cvd-1" formControlName="deviceId" />
+        </mat-form-field>
+
+        <button class="device-header-item" mat-button (click)="onClickDuplicateDevice()">
+            <span class="google-symbols"> content_copy </span>
+        </button>
+
+        <button class="device-header-item" *ngIf="idx > 0" mat-button (click)="onClickDeleteDevice()">
+            <span class="google-symbols"> delete </span>
+        </button>
+    </div>
+
+    <div class="device-setting">
+        <div class="device-setting-option">
+            <div class="device-setting-title">Build Details</div>
+            <mat-form-field class="branch">
+                <mat-label>Branch</mat-label>
+                <input type="text" matInput formControlName="branch" />
+            </mat-form-field>
+            <mat-form-field class="target">
+                <mat-label>Target</mat-label>
+                <input type="text" matInput formControlName="target" />
+            </mat-form-field>
+            <mat-form-field class="build-id">
+                <mat-label>Build ID</mat-label>
+                <input type="text" matInput formControlName="buildId" />
+            </mat-form-field>
+        </div>
+    </div>
+</form>

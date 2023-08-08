@@ -16,9 +16,7 @@ export class RegisterRuntimeViewComponent {
     private formBuilder: FormBuilder,
     private router: Router,
     private snackBar: MatSnackBar
-  ) {
-    this.status$.subscribe((status) => console.log(`status: ${status}`));
-  }
+  ) {}
 
   runtimes$ = this.runtimeService.getRuntimes();
   status$ = this.runtimeService.getStatus();

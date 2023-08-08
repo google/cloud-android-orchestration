@@ -1,7 +1,11 @@
-import {Component} from '@angular/core';
-import {FormControl, Validators} from '@angular/forms';
+import { Component } from '@angular/core';
+import { FormBuilder, Validators } from '@angular/forms';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
-import {BehaviorSubject, combineLatestWith, map, Observable, of} from 'rxjs';
+import { combineLatestWith, map, switchMap } from 'rxjs';
+import { DeviceFormService } from '../device-form.service';
+import { HostService } from '../host.service';
+import { RuntimeService } from '../runtime.service';
 
 @Component({
   selector: 'app-create-env-view',
@@ -9,66 +13,78 @@ import {BehaviorSubject, combineLatestWith, map, Observable, of} from 'rxjs';
   styleUrls: ['./create-env-view.component.scss'],
 })
 export class CreateEnvViewComponent {
-  constructor(private router: Router) {}
+  envForm = this.formBuilder.group({
+    groupId: ['', Validators.required],
+    runtime: ['', Validators.required],
+    zone: ['', Validators.required],
+    host: ['', Validators.required],
+  });
 
-  groupIdFormControl = new FormControl('', [
-    Validators.required,
-    Validators.minLength(1),
-  ]);
+  runtimes$ = this.runtimeService.getRuntimes();
 
-  start = of(1);
-  actionSubject = new BehaviorSubject(0);
-  action = this.actionSubject.asObservable();
-  count = this.start.pipe(combineLatestWith(this.action)).pipe(
-    map(([startingValue, action]) => {
-      return startingValue + action;
-    })
+  selectedRuntime$ = this.envForm.controls['runtime'].valueChanges.pipe(
+    map((alias) => alias ?? ''),
+    switchMap((alias: string) => this.runtimeService.getRuntimeByAlias(alias))
   );
 
-  ngOnInit() {
-    this.count.subscribe(count => console.log(count));
-  }
+  zones$ = this.selectedRuntime$.pipe(map((runtime) => runtime?.zones || []));
 
-  increment() {
-    const currentValue = this.actionSubject.getValue();
-    this.actionSubject.next(currentValue + 1);
-  }
+  selectedZone$ = this.envForm.controls['zone'].valueChanges.pipe(
+    map((zone) => zone ?? '')
+  );
 
-  decrement() {
-    const currentValue = this.actionSubject.getValue();
+  hosts$ = this.selectedZone$.pipe(
+    combineLatestWith(this.selectedRuntime$),
+    switchMap(([zone, runtime]) =>
+      this.hostService.getHostsByZone(runtime.alias, zone)
+    )
+  );
 
-    if (currentValue == 1) {
-      return;
-    }
+  deviceSettingsForm$ = this.deviceFormService.getDeviceSettingsForm();
 
-    this.actionSubject.next(currentValue - 1);
-  }
+  // TODO: restore current progress from local storage
+  constructor(
+    private formBuilder: FormBuilder,
+    private router: Router,
+    private snackBar: MatSnackBar,
+    private runtimeService: RuntimeService,
+    private hostService: HostService,
+    private deviceFormService: DeviceFormService
+  ) {}
 
-  getIndices(): Observable<Array<number>> {
-    return this.count.pipe(
-      map(count => {
-        return [...Array(count).keys()];
-      })
-    );
+  ngOnInit() {}
+
+  onClickAddDevice() {
+    this.deviceFormService.addDevice();
   }
 
   onClickRegisterRuntime() {
+    // TODO: save current progress in local storage
     this.router.navigate(['/register-runtime'], {
       queryParams: {
-        previousUrl: "create-env"
-      }
-    })
+        previousUrl: 'create-env',
+      },
+    });
   }
-
 
   onClickCreateHost() {
+    // TODO: save current progress in local storage
+
     this.router.navigate(['/create-host'], {
       queryParams: {
-        previousUrl: "create-env"
-      }
-    })
+        previousUrl: 'create-env',
+      },
+    });
   }
 
+  onSubmit() {
+    // TODO: validation
+    // TODO: Call POST /cvds using options
+    console.log(this.envForm.value);
+    this.router.navigate(['/']);
+  }
 
-  selectedRuntime = '';
+  onCancel() {
+    this.router.navigate(['/']);
+  }
 }

@@ -1,15 +1,6 @@
-interface BaseDevice {
-  device_id: string
-  fingerprint: string
+export interface DeviceSetting {
+  deviceId: string;
+  branch: string;
+  target: string;
+  buildId: string;
 }
-
-interface LocalDevice extends BaseDevice {
-  upload_dir: string
-}
-
-interface RemoteDevice extends BaseDevice {
-  target: string
-  build_id: string
-}
-
-export type Device = LocalDevice | RemoteDevice

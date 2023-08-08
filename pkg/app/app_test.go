@@ -106,7 +106,7 @@ func (hc *testHostClient) GetReverseProxy() *httputil.ReverseProxy {
 }
 
 func TestCreateHostSucceeds(t *testing.T) {
-	controller := NewApp(&testInstanceManager{}, &testAccountManager{}, nil, nil, nil, "", config.WebRTCConfig{})
+	controller := NewApp(&testInstanceManager{}, &testAccountManager{}, nil, nil, nil, "", nil, config.WebRTCConfig{})
 	ts := httptest.NewServer(controller.Handler())
 	defer ts.Close()
 
@@ -120,7 +120,7 @@ func TestCreateHostSucceeds(t *testing.T) {
 }
 
 func TestWaitOperatioSucceeds(t *testing.T) {
-	controller := NewApp(&testInstanceManager{}, &testAccountManager{}, nil, nil, nil, "", config.WebRTCConfig{})
+	controller := NewApp(&testInstanceManager{}, &testAccountManager{}, nil, nil, nil, "", nil, config.WebRTCConfig{})
 	ts := httptest.NewServer(controller.Handler())
 	defer ts.Close()
 
@@ -191,7 +191,7 @@ func TestDeleteHostIsHandled(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	controller := NewApp(&testInstanceManager{}, &testAccountManager{}, nil, nil, nil, "", config.WebRTCConfig{})
+	controller := NewApp(&testInstanceManager{}, &testAccountManager{}, nil, nil, nil, "", nil, config.WebRTCConfig{})
 
 	makeRequest(rr, req, controller)
 
@@ -233,7 +233,7 @@ func TestHostForwarderRequest(t *testing.T) {
 		hostClientFactory: func(_, _ string) instances.HostClient {
 			return &testHostClient{hostURL}
 		},
-	}, &testAccountManager{}, nil, nil, nil, "", config.WebRTCConfig{})
+	}, &testAccountManager{}, nil, nil, nil, "", nil, config.WebRTCConfig{})
 
 	tests := []struct {
 		method  string
@@ -356,7 +356,7 @@ func TestHostForwarderInjectCredentials(t *testing.T) {
 		hostClientFactory: func(_, _ string) instances.HostClient {
 			return &testHostClient{hostURL}
 		},
-	}, &testAccountManager{}, nil, encryption.NewFakeEncryptionService(), dbs, "", config.WebRTCConfig{})
+	}, &testAccountManager{}, nil, encryption.NewFakeEncryptionService(), dbs, "", nil, config.WebRTCConfig{})
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest(http.MethodPost, reqURL, bytes.NewBuffer(msg))
@@ -405,7 +405,7 @@ func TestHostForwarderInjectCredentialsUsingHTTPHeader(t *testing.T) {
 		hostClientFactory: func(_, _ string) instances.HostClient {
 			return &testHostClient{hostURL}
 		},
-	}, &testAccountManager{}, nil, encryption.NewFakeEncryptionService(), dbs, "", config.WebRTCConfig{})
+	}, &testAccountManager{}, nil, encryption.NewFakeEncryptionService(), dbs, "", nil, config.WebRTCConfig{})
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest(http.MethodGet, reqURL, nil)
 	req.Header.Set(headerNameCOInjectBuildAPICreds, "")
@@ -461,7 +461,7 @@ func TestHostForwarderDoesNotInjectCredentials(t *testing.T) {
 		hostClientFactory: func(_, _ string) instances.HostClient {
 			return &testHostClient{hostURL}
 		},
-	}, &testAccountManager{}, nil, nil, dbs, "", config.WebRTCConfig{})
+	}, &testAccountManager{}, nil, nil, dbs, "", nil, config.WebRTCConfig{})
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest(http.MethodPost, reqURL, bytes.NewBuffer(msg))
@@ -487,7 +487,7 @@ func TestBadCSRFTokensInRescindAuth(t *testing.T) {
 				Key:         sessionId,
 				OAuth2State: "righttoken",
 			})
-			controller := NewApp(&testInstanceManager{}, &testAccountManager{}, nil, nil, dbs, "", config.WebRTCConfig{})
+			controller := NewApp(&testInstanceManager{}, &testAccountManager{}, nil, nil, dbs, "", nil, config.WebRTCConfig{})
 			ts := httptest.NewServer(controller.Handler())
 			defer ts.Close()
 

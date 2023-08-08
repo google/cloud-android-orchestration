@@ -48,3 +48,6 @@ HostOrchestratorPort = 1081
 [WebRTC]
 STUNServers = ["stun:stun.l.google.com:19302"]
 
+# List of allowed origins
+# e.g. "https://localhost:8080"
+CorsAllowedOrigins = []

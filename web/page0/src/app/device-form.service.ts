@@ -7,6 +7,10 @@ interface DeviceInitAction {
   type: 'init';
 }
 
+interface DeviceClearAction {
+  type: 'clear';
+}
+
 interface DeviceAddAction {
   type: 'add';
 }
@@ -25,7 +29,8 @@ type DeviceFormAction =
   | DeviceAddAction
   | DeviceDuplicateAction
   | DeviceDeleteAction
-  | DeviceInitAction;
+  | DeviceInitAction
+  | DeviceClearAction;
 
 @Injectable({
   providedIn: 'root',
@@ -56,7 +61,7 @@ export class DeviceFormService {
     ];
   }
 
-  toDeviceForm(setting: DeviceSetting) {
+  private toDeviceForm(setting: DeviceSetting) {
     return this.formBuilder.group({
       deviceId: [setting.deviceId, Validators.required],
       branch: [setting.branch, Validators.required],
@@ -65,17 +70,25 @@ export class DeviceFormService {
     });
   }
 
-  toFormArray(deviceSettings: DeviceSetting[]) {
+  private toFormArray(deviceSettings: DeviceSetting[]) {
     return this.formBuilder.array(
       deviceSettings.map((setting) => this.toDeviceForm(setting))
     );
+  }
+
+  private getInitDeviceForm() {
+    return this.toFormArray(this.getInitDeviceSettings());
   }
 
   private deviceSettingsForm$ = this.deviceFormAction$.pipe(
     startWith({ type: 'init' } as DeviceInitAction),
     scan((form, action) => {
       if (action.type === 'init') {
-        return form;
+        return this.getInitDeviceForm();
+      }
+
+      if (action.type === 'clear') {
+        return this.getInitDeviceForm();
       }
 
       if (action.type === 'add') {
@@ -111,7 +124,7 @@ export class DeviceFormService {
       }
 
       return form;
-    }, this.toFormArray(this.getInitDeviceSettings())),
+    }, this.getInitDeviceForm()),
     tap((form) => console.log(form.value))
   );
 
@@ -143,7 +156,9 @@ export class DeviceFormService {
     );
   }
 
-  // TODO: clear form
+  clearForm() {
+    this.deviceFormAction$.next({ type: 'clear' });
+  }
 
   constructor(private formBuilder: FormBuilder) {}
 }

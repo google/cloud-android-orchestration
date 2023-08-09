@@ -19,14 +19,11 @@ interface EnvFormInitAction {
   type: 'init';
 }
 
-type EnvFormAction = EnvFormInitAction;
-
-interface EnvForm {
-  groupName: string;
-  runtime: string;
-  zone: string;
-  host: string;
+interface EnvFormClearAction {
+  type: 'clear';
 }
+
+type EnvFormAction = EnvFormInitAction | EnvFormClearAction;
 
 @Injectable({
   providedIn: 'root',
@@ -46,33 +43,27 @@ export class EnvFormService {
       if (action.type === 'init') {
         return form;
       }
+
+      if (action.type === 'clear') {
+        form.reset();
+        return form;
+      }
+
       return form;
-    }, this.toFormGroup(this.getInitEnvSetting()))
+    }, this.getInitEnvForm())
   );
 
-  toFormGroup(setting: EnvForm) {
-    const { groupName, runtime, zone, host } = setting;
-
+  getInitEnvForm() {
     return this.formBuilder.group({
-      groupName: [groupName, Validators.required],
-      runtime: [runtime, Validators.required],
-      zone: [zone, Validators.required],
-      host: [host, Validators.required],
+      groupName: ['', Validators.required],
+      runtime: ['', Validators.required],
+      zone: ['', Validators.required],
+      host: ['', Validators.required],
     });
   }
 
   getEnvForm() {
     return this.envForm$;
-  }
-
-  private getInitEnvSetting(): EnvForm {
-    const storedSetting = {} as EnvForm;
-    return {
-      groupName: storedSetting?.groupName ?? '',
-      runtime: storedSetting?.runtime ?? '',
-      zone: storedSetting?.zone ?? '',
-      host: storedSetting?.host ?? '',
-    };
   }
 
   runtimes$ = this.runtimeService.getRuntimes();
@@ -153,5 +144,9 @@ export class EnvFormService {
         );
       })
     );
+  }
+
+  clearForm() {
+    this.envFormAction$.next({ type: 'clear' });
   }
 }

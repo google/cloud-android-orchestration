@@ -82,6 +82,8 @@ export class CreateEnvViewComponent {
       .subscribe({
         next: () => {
           this.snackBar.dismiss();
+          this.envFormService.clearForm();
+          this.deviceFormService.clearForm();
           this.router.navigate(['/']);
         },
         error: (error) => {
@@ -92,5 +94,7 @@ export class CreateEnvViewComponent {
 
   onCancel() {
     this.router.navigate(['/']);
+    this.envFormService.clearForm();
+    this.deviceFormService.clearForm();
   }
 }

@@ -71,7 +71,7 @@ export class RuntimeService {
   }
 
   private getStoredRuntimes(): Runtime[] {
-    const runtimes = localStorage.getItem('runtimes');
+    const runtimes = window.localStorage.getItem('runtimes');
     // TODO: handle type error
     if (runtimes) {
       return JSON.parse(runtimes) as Runtime[];
@@ -132,7 +132,7 @@ export class RuntimeService {
     }, []),
     tap((runtimes) => console.log('runtimes', runtimes)),
     tap((runtimes) =>
-      localStorage.setItem('runtimes', JSON.stringify(runtimes))
+      window.localStorage.setItem('runtimes', JSON.stringify(runtimes))
     ),
     shareReplay(1)
   );

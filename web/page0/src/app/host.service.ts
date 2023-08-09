@@ -79,6 +79,24 @@ export class HostService {
     );
   }
 
+  getHost(runtime: string, zone: string, name: string) {
+    return this.hosts$.pipe(
+      map((hosts) => {
+        const host = hosts.find(
+          (host) =>
+            host.runtime === runtime && host.zone === zone && host.name === name
+        );
+
+        if (!host) {
+          throw new Error(
+            `No host of name ${name} in runtime ${runtime}, zone ${zone}`
+          );
+        }
+        return host;
+      })
+    );
+  }
+
   getAllHosts() {
     return this.hosts$;
   }

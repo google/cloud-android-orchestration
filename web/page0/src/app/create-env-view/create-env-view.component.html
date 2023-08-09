@@ -1,81 +1,83 @@
-<form [formGroup]="envForm">
-    <section class="env-view">
-        <div>
+<div *ngIf="envForm$ | async; let envForm">
+    <form [formGroup]="envForm">
+        <section class="env-view">
             <div>
-                <h1>New Environment</h1>
+                <div>
+                    <h1>New Environment</h1>
+                </div>
             </div>
-        </div>
 
-        <mat-divider></mat-divider>
+            <mat-divider></mat-divider>
 
-        <div>
             <div>
-                <mat-form-field class="full-width-field">
-                    <mat-label>Group ID</mat-label>
-                    <input type="text" matInput formControlName="groupName" placeholder="E.g. group-1" />
-                </mat-form-field>
+                <div>
+                    <mat-form-field class="full-width-field">
+                        <mat-label>Group ID</mat-label>
+                        <input type="text" matInput formControlName="groupName" placeholder="E.g. group-1" />
+                    </mat-form-field>
+                </div>
+
+                <div class="host-setting">
+                    <mat-form-field class="flex-field">
+                        <mat-label>Runtime</mat-label>
+                        <mat-select required formControlName="runtime">
+                            <mat-option *ngFor="let runtime of runtimes$ | async" value="{{ runtime.alias }}">{{ runtime.alias }}</mat-option>
+                            <mat-option (click)="onClickRegisterRuntime()">
+                                Register New
+                            </mat-option>
+                        </mat-select>
+                    </mat-form-field>
+
+                    <!-- TODO: fast create option  -->
+                    <mat-form-field class="flex-field">
+                        <mat-label>Zone</mat-label>
+                        <mat-select required formControlName="zone">
+                            <mat-option *ngFor="let zone of zones$ | async" value="{{ zone }}">{{ zone }}</mat-option>
+                        </mat-select>
+                    </mat-form-field>
+
+                    <mat-form-field class="flex-field">
+                        <mat-label>Host</mat-label>
+                        <mat-select required formControlName="host">
+                            <mat-option *ngFor="let host of hosts$ | async" value="{{ host.name }}">{{ host.name }}
+                            </mat-option>
+                            <mat-option (click)="onClickCreateHost()">
+                                Create New
+                            </mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                </div>
             </div>
 
-            <div class="host-setting">
-                <mat-form-field class="flex-field">
-                    <mat-label>Runtime</mat-label>
-                    <mat-select required formControlName="runtime">
-                        <mat-option *ngFor="let runtime of runtimes$ | async" value="{{ runtime.alias }}">{{ runtime.alias }}</mat-option>
-                        <mat-option value="new" (click)="onClickRegisterRuntime()">
-                            Register New
-                        </mat-option>
-                    </mat-select>
-                </mat-form-field>
-
-                <!-- TODO: fast create option  -->
-                <mat-form-field class="flex-field">
-                    <mat-label>Zone</mat-label>
-                    <mat-select required formControlName="zone">
-                        <mat-option *ngFor="let zone of zones$ | async" value="{{ zone }}">{{ zone }}</mat-option>
-                    </mat-select>
-                </mat-form-field>
-
-                <mat-form-field class="flex-field">
-                    <mat-label>Host</mat-label>
-                    <mat-select required formControlName="host">
-                        <mat-option *ngFor="let host of hosts$ | async" value="{{ host.name }}">{{ host.name }}
-                        </mat-option>
-                        <mat-option value="new" (click)="onClickCreateHost()">
-                            Create New
-                        </mat-option>
-                    </mat-select>
-                </mat-form-field>
+            <div class="env-view-header">
+                <div>
+                    <h1>Devices</h1>
+                </div>
             </div>
+
+            <mat-divider></mat-divider>
+
+            <ul>
+                <li *ngFor="
+            let form of (deviceSettingsForm$ | async)?.controls;
+            let i = index
+          " [attr.data-index]="i">
+                    <app-device-form [form]="form" [idx]="i"></app-device-form>
+                </li>
+            </ul>
+
+            <button mat-button (click)="onClickAddDevice()">
+                <mat-icon>add</mat-icon>Add Device
+            </button>
+        </section>
+
+        <div class="footbar">
+            <button class="footbar-button" mat-button (click)="onSubmit()" color="primary">
+                Create
+            </button>
+            <button class="footbar-button" mat-button (click)="onCancel()">
+                Cancel
+            </button>
         </div>
-
-        <div class="env-view-header">
-            <div>
-                <h1>Devices</h1>
-            </div>
-        </div>
-
-        <mat-divider></mat-divider>
-
-        <ul>
-            <li *ngFor="
-          let form of (deviceSettingsForm$ | async)?.controls;
-          let i = index
-        " [attr.data-index]="i">
-                <app-device-form [form]="form" [idx]="i"></app-device-form>
-            </li>
-        </ul>
-
-        <button mat-button (click)="onClickAddDevice()">
-            <mat-icon>add</mat-icon>Add Device
-        </button>
-    </section>
-
-    <div class="footbar">
-        <button class="footbar-button" mat-button (click)="onSubmit()" color="primary">
-            Create
-        </button>
-        <button class="footbar-button" mat-button (click)="onCancel()">
-            Cancel
-        </button>
-    </div>
-</form>
+    </form>
+</div>

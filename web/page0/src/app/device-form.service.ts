@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
-import { FormArray, FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { map, Observable, scan, startWith, Subject, tap } from 'rxjs';
+import { FormBuilder, Validators } from '@angular/forms';
+import { map, scan, startWith, Subject, tap } from 'rxjs';
 import { DeviceSetting } from './device-interface';
 
 interface DeviceInitAction {
@@ -45,14 +45,16 @@ export class DeviceFormService {
     this.deviceFormAction$.next({ type: 'duplicate', targetIdx });
   }
 
-  defaultDeviceSettings: DeviceSetting[] = [
-    {
-      deviceId: 'cvd-1',
-      branch: 'default',
-      target: 'default',
-      buildId: 'default',
-    },
-  ];
+  private getInitDeviceSettings() {
+    return [
+      {
+        deviceId: 'cvd-1',
+        branch: 'default',
+        target: 'default',
+        buildId: 'default',
+      },
+    ];
+  }
 
   toDeviceForm(setting: DeviceSetting) {
     return this.formBuilder.group({
@@ -73,7 +75,7 @@ export class DeviceFormService {
     startWith({ type: 'init' } as DeviceInitAction),
     scan((form, action) => {
       if (action.type === 'init') {
-        return this.toFormArray(this.defaultDeviceSettings);
+        return form;
       }
 
       if (action.type === 'add') {
@@ -104,16 +106,44 @@ export class DeviceFormService {
             buildId: buildId ?? '',
           })
         );
+
+        return form;
       }
 
       return form;
-    }, this.toFormArray(this.defaultDeviceSettings)),
+    }, this.toFormArray(this.getInitDeviceSettings())),
     tap((form) => console.log(form.value))
   );
 
   getDeviceSettingsForm() {
     return this.deviceSettingsForm$;
   }
+
+  getValue() {
+    return this.deviceSettingsForm$.pipe(
+      map((form) => form.value),
+      tap((v) => console.log(v)),
+      map((deviceSettings) => {
+        console.log(deviceSettings.length);
+        return deviceSettings.map((setting, idx) => {
+          const { deviceId, branch, target, buildId } = setting;
+
+          if (!deviceId || !branch || !target || !buildId) {
+            throw new Error(`Device # ${idx + 1} has empty field`);
+          }
+
+          return {
+            deviceId,
+            branch,
+            target,
+            buildId,
+          };
+        });
+      })
+    );
+  }
+
+  // TODO: clear form
 
   constructor(private formBuilder: FormBuilder) {}
 }

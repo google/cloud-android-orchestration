@@ -1,12 +1,10 @@
 <mat-card class="env-card" [style.backgroundColor]="getColor()">
     <div class="env-card-header">
-        <button *ngIf="this.env?.status === 'running'" mat-icon-button aria-label="Open per-group UI button" matTooltip="Open per-group UI web" (click)="goToPerGroupUI()">
+        <button *ngIf="this.env.status === 'running'" mat-icon-button aria-label="Open per-group UI button" matTooltip="Open per-group UI web" (click)="goToPerGroupUI()">
             <span class="google-symbols"> open_in_new </span>
         </button>
 
         <button mat-icon-button aria-label="Status" matTooltip="{{ tooltip }}">
-            <!-- <mat-icon class="material">{{ icon }}</mat-icon> -->
-
             <span class="google-symbols">
                 {{ icon }}
             </span>
@@ -15,40 +13,26 @@
 
     <mat-card-content class="env-card-first-content">
         Runtime:
-        {{ env?.runtime }}
+        {{ env.runtimeAlias }}
     </mat-card-content>
 
-    <mat-card-content *ngIf="env?.env_type === 'remote'">
-        Host: {{ remoteEnv?.host }}
-    </mat-card-content>
+    <mat-card-content> Host: {{ env.hostUrl }} </mat-card-content>
 
-    <mat-card-content> Group ID: {{ env?.group_id }} </mat-card-content>
+    <mat-card-content> Group ID: {{ env.groupName }} </mat-card-content>
 
     <mat-card-content>
         Devices:
         <ul style="margin-top: 0px">
-            <li *ngFor="let device of env?.devices">
-                {{ device.device_id }} ({{ device.fingerprint }})
+            <li *ngFor="let device of env.devices">
+                {{ device }} (TODO: device fingerprint)
             </li>
         </ul>
     </mat-card-content>
 
     <br />
 
-    <div *ngIf="this.env?.status === 'running'">
-        <mat-card-content class="env-card-last-content" *ngIf="env?.env_type === 'remote'; else localUptime">
-            Up Time: <b>15m (1h 45m to expiray) </b>
-        </mat-card-content>
-
-        <ng-template #localUptime>
-            <mat-card-content class="env-card-last-content">
-                Up Time: <b>15m</b>
-            </mat-card-content>
-        </ng-template>
-    </div>
-
     <div class="env-card-footer">
-        <button *ngIf="this.env?.status === 'running'" mat-icon-button aria-label="Stop group button">
+        <button *ngIf="this.env.status === 'running'" mat-icon-button aria-label="Stop group button">
             <span class="google-symbols"> delete </span>
         </button>
     </div>

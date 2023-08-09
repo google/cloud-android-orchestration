@@ -1,12 +1,3 @@
-export interface CreateCVDRequest {
-  cvd: CVD;
-  additional_instances_num?: number;
-}
-
-export interface CreateCVDResponse {
-  cvds: CVD[];
-}
-
 interface AndroidCIBuild {
   branch: string;
   build_id: string;
@@ -26,6 +17,7 @@ export interface CVD {
   build_source: BuildSource;
   status: string;
   displays: string[];
+  group_name?: string; // TODO: Not in current host orchestrator
 }
 
 export interface BuildSource {
@@ -39,7 +31,19 @@ export interface ListCVDsResponse {
 
 // TODO: Not in current host orchestrator from here
 
-export interface ListGroupsResponse {
-  groups: string[];
+export interface Group {
+  name: string;
+  cvds: CVD[];
 }
 
+export interface ListGroupsResponse {
+  groups: Group[];
+}
+
+export interface CreateGroupRequest {
+  group: Group;
+}
+
+export interface CreateGroupResponse {
+  group: Group;
+}

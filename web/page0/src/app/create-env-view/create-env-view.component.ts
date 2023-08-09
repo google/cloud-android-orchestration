@@ -2,8 +2,9 @@ import { Component } from '@angular/core';
 import { FormBuilder, Validators } from '@angular/forms';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
-import { combineLatestWith, map, switchMap } from 'rxjs';
+import { combineLatestWith, map, shareReplay, switchMap, tap } from 'rxjs';
 import { DeviceFormService } from '../device-form.service';
+import { EnvService } from '../env.service';
 import { HostService } from '../host.service';
 import { RuntimeService } from '../runtime.service';
 
@@ -14,7 +15,7 @@ import { RuntimeService } from '../runtime.service';
 })
 export class CreateEnvViewComponent {
   envForm = this.formBuilder.group({
-    groupId: ['', Validators.required],
+    groupName: ['', Validators.required],
     runtime: ['', Validators.required],
     zone: ['', Validators.required],
     host: ['', Validators.required],
@@ -37,7 +38,8 @@ export class CreateEnvViewComponent {
     combineLatestWith(this.selectedRuntime$),
     switchMap(([zone, runtime]) =>
       this.hostService.getHostsByZone(runtime.alias, zone)
-    )
+    ),
+    shareReplay(1)
   );
 
   deviceSettingsForm$ = this.deviceFormService.getDeviceSettingsForm();
@@ -49,7 +51,8 @@ export class CreateEnvViewComponent {
     private snackBar: MatSnackBar,
     private runtimeService: RuntimeService,
     private hostService: HostService,
-    private deviceFormService: DeviceFormService
+    private deviceFormService: DeviceFormService,
+    private envService: EnvService
   ) {}
 
   ngOnInit() {}
@@ -69,7 +72,6 @@ export class CreateEnvViewComponent {
 
   onClickCreateHost() {
     // TODO: save current progress in local storage
-
     this.router.navigate(['/create-host'], {
       queryParams: {
         previousUrl: 'create-env',
@@ -78,10 +80,56 @@ export class CreateEnvViewComponent {
   }
 
   onSubmit() {
-    // TODO: validation
-    // TODO: Call POST /cvds using options
     console.log(this.envForm.value);
-    this.router.navigate(['/']);
+
+    const { host: hostName, groupName } = this.envForm.value;
+    if (!hostName || !groupName) {
+      return;
+    }
+
+    this.hosts$
+      .pipe(
+        map((hosts) => hosts.find((host) => host.name === hostName)),
+        switchMap((host) => {
+          if (!host) {
+            throw new Error(`No host of name ${hostName}`);
+          }
+
+          return this.deviceSettingsForm$.pipe(
+            map((form) => form.value),
+            switchMap((deviceSettings) => {
+              const devices = deviceSettings.map((setting, idx) => {
+                const { deviceId, branch, target, buildId } = setting;
+
+                if (!deviceId || !branch || !target || !buildId) {
+                  throw new Error(`Device # ${idx + 1} has empty field`);
+                }
+
+                return {
+                  deviceId,
+                  branch,
+                  target,
+                  buildId,
+                };
+              });
+
+              return this.envService.createEnv(host.url, {
+                groupName,
+                devices,
+              });
+            })
+          );
+        })
+      )
+      .subscribe({
+        next: () => {
+          this.snackBar.dismiss();
+          this.router.navigate(['/']);
+        },
+        error: (error) => {
+          this.snackBar.open(error.message);
+        },
+      });
   }
 
   onCancel() {

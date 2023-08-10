@@ -26,7 +26,7 @@ export class ApiService {
   }
 
   listZones(runtimeUrl: string) {
-    return this.httpClient.get<ListZonesResponse>(`${runtimeUrl}/zones`);
+    return this.httpClient.get<ListZonesResponse>(`${runtimeUrl}/v1/zones`);
   }
 
   // Instance Manager Routes

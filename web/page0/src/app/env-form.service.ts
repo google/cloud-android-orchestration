@@ -125,6 +125,7 @@ export class EnvFormService {
       switchMap((form) => {
         const { runtime, zone, groupName, host } = form.value;
         if (!runtime || !zone || !groupName || !host) {
+          console.error(form.value);
           throw new Error(
             'Group name, runtime, zone, host should be specified'
           );

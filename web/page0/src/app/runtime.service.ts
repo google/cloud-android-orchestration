@@ -50,24 +50,10 @@ type RuntimeAction =
 export class RuntimeService {
   private runtimeAction = new Subject<RuntimeAction>();
 
-  private register(runtime: Runtime) {
-    this.runtimeAction.next({
-      type: 'register',
-      runtime,
-    });
-  }
-
-  private unregister(alias: string) {
-    this.runtimeAction.next({
-      type: 'unregister',
-      alias,
-    });
-  }
-
-  private refresh() {
-    this.runtimeAction.next({
-      type: 'refresh',
-    });
+  private refresh(runtimes: { url: string; alias: string }[]) {
+    return forkJoin(
+      runtimes.map((runtime) => this.getRuntimeInfo(runtime.url, runtime.alias))
+    );
   }
 
   private getStoredRuntimes(): Runtime[] {
@@ -95,40 +81,33 @@ export class RuntimeService {
   private runtimes$: Observable<Runtime[]> = this.runtimeAction.pipe(
     startWith<RuntimeAction>({ type: 'init' }),
     tap((action) => console.log(action)),
-    mergeScan((acc: Runtime[], action) => {
+    mergeScan((runtimes: Runtime[], action) => {
       if (action.type === 'init') {
         this.status$.next(RuntimeViewStatus.initializing);
-
-        return forkJoin(
-          this.getInitRuntimeSettings().map(({ alias, url }) =>
-            this.getRuntimeInfo(url, alias)
-          )
-        ).pipe(
-          tap((runtimes) => {
+        return this.refresh(this.getInitRuntimeSettings()).pipe(
+          tap(() => {
             this.status$.next(RuntimeViewStatus.done);
           })
         );
       }
 
       if (action.type === 'register') {
-        return of([...acc, action.runtime]);
+        return of([...runtimes, action.runtime]);
       }
 
       if (action.type === 'unregister') {
-        return of(acc.filter((item) => item.alias !== action.alias));
+        return of(runtimes.filter((item) => item.alias !== action.alias));
       }
 
       if (action.type === 'refresh') {
         this.status$.next(RuntimeViewStatus.refreshing);
-        return forkJoin(
-          acc.map((runtime) => this.getRuntimeInfo(runtime.url, runtime.alias))
-        ).pipe(
+        return this.refresh(runtimes).pipe(
           tap(() => {
             this.status$.next(RuntimeViewStatus.done);
           })
         );
       }
-      return of(acc);
+      return of(runtimes);
     }, []),
     tap((runtimes) => console.log('runtimes', runtimes)),
     tap((runtimes) =>
@@ -175,10 +154,15 @@ export class RuntimeService {
       mergeMap(() => this.getRuntimeInfo(url, alias)),
       tap((runtime) => {
         if (runtime.status === 'error') {
-          throw new Error(`Cannot register runtime ${alias} (url: ${url}`);
+          throw new Error(`Cannot register runtime ${alias} (url: ${url})`);
         }
       }),
-      tap((runtime) => this.register(runtime)),
+      tap((runtime) =>
+        this.runtimeAction.next({
+          type: 'unregister',
+          alias: runtime.alias,
+        })
+      ),
       tap(() => this.status$.next(RuntimeViewStatus.done)),
       catchError((error) => {
         this.status$.next(RuntimeViewStatus.register_error);
@@ -188,11 +172,16 @@ export class RuntimeService {
   }
 
   unregisterRuntime(alias: string) {
-    this.unregister(alias);
+    this.runtimeAction.next({
+      type: 'unregister',
+      alias,
+    });
   }
 
   refreshRuntimes() {
-    this.refresh();
+    this.runtimeAction.next({
+      type: 'refresh',
+    });
   }
 
   private getGroups(hostUrl: string) {
@@ -226,7 +215,7 @@ export class RuntimeService {
     );
   }
 
-  private getRuntimeInfo(url: string, alias: string): Observable<Runtime> {
+  getRuntimeInfo(url: string, alias: string): Observable<Runtime> {
     return this.apiService.getRuntimeInfo(url).pipe(
       switchMap((info) => {
         // TODO: handle local workstation depending on type

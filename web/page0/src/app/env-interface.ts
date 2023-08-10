@@ -5,7 +5,7 @@ export enum EnvStatus {
   error = 'error',
 }
 
-export interface Envrionment {
+export interface Environment {
   runtimeAlias: string;
   hostUrl: string;
   groupName: string;

@@ -1,25 +1,25 @@
 import { Injectable } from '@angular/core';
 import {
-  forkJoin,
   map,
+  merge,
   mergeScan,
   Observable,
   of,
+  scan,
   shareReplay,
-  startWith,
   Subject,
-  switchMap,
   tap,
 } from 'rxjs';
 import { ApiService } from './api.service';
-import { Envrionment, EnvStatus } from './env-interface';
+import { Environment, EnvStatus } from './env-interface';
 import { Host } from './host-interface';
-import { HostService } from './host.service';
+import { Runtime } from './runtime-interface';
+import { RuntimeService } from './runtime.service';
 import { hasDuplicate } from './utils';
 
 interface EnvCreateAction {
   type: 'create';
-  env: Envrionment;
+  env: Environment;
 }
 
 interface EnvDeleteAction {
@@ -28,19 +28,7 @@ interface EnvDeleteAction {
   hostUrl: string;
 }
 
-interface EnvInitAction {
-  type: 'init';
-}
-
-interface EnvRefreshAction {
-  type: 'refresh';
-}
-
-type EnvAction =
-  | EnvCreateAction
-  | EnvDeleteAction
-  | EnvInitAction
-  | EnvRefreshAction;
+type EnvAction = EnvCreateAction | EnvDeleteAction;
 
 @Injectable({
   providedIn: 'root',
@@ -95,38 +83,69 @@ export class EnvService {
     return this.apiService.deleteGroup(hostUrl, groupName);
   }
 
-  private listEnvs(host: Host): Observable<Envrionment[]> {
-    return this.apiService.listGroups(host.url).pipe(
-      map(({ groups }) =>
-        groups.flatMap((group) => {
-          return {
-            runtimeAlias: host.runtime,
-            hostUrl: host.url,
-            groupName: group.name,
-            devices: group.cvds.map((cvd) => cvd.name),
-            status: EnvStatus.running,
-          };
-        })
+  private hostToEnvList(host: Host): Environment[] {
+    return host.groups.flatMap((group) => ({
+      runtimeAlias: host.runtime,
+      hostUrl: host.url,
+      groupName: group.name,
+      devices: group.cvds.map((cvd) => cvd.name),
+      status: EnvStatus.running,
+    }));
+  }
+
+  private runtimeToEnvList(runtime: Runtime): Environment[] {
+    return runtime.hosts.flatMap((host) => this.hostToEnvList(host));
+  }
+
+  private envsFromRuntimes$: Observable<Environment[]> = this.runtimeService
+    .getRuntimes()
+    .pipe(
+      map((runtimes) =>
+        runtimes.flatMap((runtime) => this.runtimeToEnvList(runtime))
       )
+    );
+
+  private envsFromActions$: Observable<Environment[]> = this.envAction.pipe(
+    tap((action) => console.log('env: ', action)),
+    mergeScan((envs, action) => {
+      return of(envs);
+    }, [] as Environment[])
+  );
+
+  private isSame(env1: Environment, env2: Environment) {
+    return (
+      env1.runtimeAlias === env2.runtimeAlias &&
+      env1.groupName === env2.groupName &&
+      env1.hostUrl === env2.hostUrl
     );
   }
 
-  // get env from runtime
-  private environments: Observable<Envrionment[]> = this.envAction.pipe(
-    startWith({ type: 'init' } as EnvInitAction),
-    tap((action) => console.log('env: ', action)),
-    mergeScan((acc, action) => {
-      if (action.type === 'init' || action.type === 'refresh') {
-        return this.hostService.getAllHosts().pipe(
-          switchMap((hosts) =>
-            forkJoin(hosts.map((host) => this.listEnvs(host)))
-          ),
-          map((envLists) => envLists.flat())
-        );
-      }
+  private environments: Observable<Environment[]> = merge(
+    this.envsFromRuntimes$,
+    this.envsFromActions$
+  ).pipe(
+    scan((oldEnvs, newEnvs) => {
+      const oldStarting = oldEnvs.filter(
+        (env) => env.status === EnvStatus.starting
+      );
 
-      return of(acc);
-    }, [] as Envrionment[]),
+      const starting = oldStarting.filter((oldEnv) =>
+        newEnvs.find((newEnv) => this.isSame(oldEnv, newEnv))
+      );
+
+      const oldStopping = oldEnvs.filter(
+        (env) => env.status === EnvStatus.stopping
+      );
+
+      const stoppingAndRunning = newEnvs.map((newEnv) => {
+        if (oldStopping.find((oldEnv) => this.isSame(oldEnv, newEnv))) {
+          newEnv.status = EnvStatus.stopping;
+        }
+        return newEnv;
+      });
+
+      return [...starting, ...stoppingAndRunning];
+    }),
     shareReplay(1)
   );
 
@@ -136,6 +155,6 @@ export class EnvService {
 
   constructor(
     private apiService: ApiService,
-    private hostService: HostService
+    private runtimeService: RuntimeService
   ) {}
 }

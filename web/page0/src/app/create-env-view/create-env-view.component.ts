@@ -1,7 +1,7 @@
 import { Component } from '@angular/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
-import { map, Subject, switchMap, takeUntil, tap, withLatestFrom } from 'rxjs';
+import { Subject, switchMap, takeUntil } from 'rxjs';
 import { DeviceFormService } from '../device-form.service';
 import { EnvFormService } from '../env-form.service';
 import { EnvService } from '../env.service';
@@ -81,9 +81,9 @@ export class CreateEnvViewComponent {
       )
       .subscribe({
         next: () => {
-          this.snackBar.dismiss();
           this.envFormService.clearForm();
           this.deviceFormService.clearForm();
+          this.snackBar.dismiss();
           this.router.navigate(['/']);
         },
         error: (error) => {

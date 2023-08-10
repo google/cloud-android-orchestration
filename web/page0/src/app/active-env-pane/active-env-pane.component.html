@@ -1,28 +1,39 @@
 <section class="env-pane">
-    <div class="env-pane-header">
-        <div id="env-pane-header-title">
-            <h1>Active Environments</h1>
-        </div>
-
-        <div class="env-pane-header-actions">
-            <button mat-button class="view-action" routerLink="/create-env" matTooltip="Create a new environment">
-                Create
-            </button>
-            <button mat-button class="view-action">Refresh</button>
-        </div>
+  <div class="env-pane-header">
+    <div id="env-pane-header-title">
+      <h1>Active Environments</h1>
     </div>
 
-    <mat-divider></mat-divider>
-
-    <div *ngIf="envs | async; let envList">
-        <div *ngIf="envList.length > 0; else none">
-            <li *ngFor="let env of envs | async">
-                <app-env-card [env]="env"></app-env-card>
-            </li>
-        </div>
-
-        <ng-template #none>
-            <h3>Nothing here yet ...</h3>
-        </ng-template>
+    <div class="env-pane-header-actions">
+      <button
+        mat-button
+        class="view-action"
+        routerLink="/create-env"
+        matTooltip="Create a new environment"
+      >
+        Create
+      </button>
+      <button mat-button class="view-action" (click)="onClickRefresh()">
+        Refresh
+      </button>
     </div>
+  </div>
+
+  <mat-divider></mat-divider>
+  <mat-progress-bar
+    *ngIf="showProgressBar(status$ | async)"
+    mode="indeterminate"
+  ></mat-progress-bar>
+
+  <div *ngIf="envs$ | async; let envList">
+    <div *ngIf="envList.length > 0; else none">
+      <li *ngFor="let env of envList">
+        <app-env-card [env]="env"></app-env-card>
+      </li>
+    </div>
+
+    <ng-template #none>
+      <h3>Nothing here yet ...</h3>
+    </ng-template>
+  </div>
 </section>

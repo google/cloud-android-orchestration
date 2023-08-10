@@ -1,5 +1,5 @@
 import { Component, Input } from '@angular/core';
-import { Envrionment } from '../env-interface';
+import { Environment } from '../env-interface';
 
 @Component({
   selector: 'app-env-card',
@@ -7,7 +7,7 @@ import { Envrionment } from '../env-interface';
   styleUrls: ['./env-card.component.scss'],
 })
 export class EnvCardComponent {
-  @Input() env!: Envrionment;
+  @Input() env!: Environment;
 
   constructor() {}
 

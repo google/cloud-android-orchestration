@@ -42,7 +42,8 @@ export class EnvCardComponent {
   }
 
   onClickGoto() {
-    // TODO: Open per-group UI w/ safeurl
+    const { hostUrl, groupName } = this.env;
+    window.open(`${hostUrl}?groupId=${groupName}`);
   }
 
   onClickDelete() {

@@ -1,9 +1,7 @@
-import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import {
   BehaviorSubject,
   catchError,
-  first,
   forkJoin,
   map,
   mergeMap,
@@ -13,14 +11,13 @@ import {
   shareReplay,
   startWith,
   Subject,
+  switchMap,
   tap,
   withLatestFrom,
 } from 'rxjs';
-import {
-  Runtime,
-  RuntimeAdditionalInfo,
-  RuntimesStatus,
-} from './runtime-interface';
+import { ApiService } from './api.service';
+import { Host } from './host-interface';
+import { Runtime, RuntimeViewStatus, RuntimeStatus } from './runtime-interface';
 import { defaultRuntimeSettings } from './settings';
 
 interface RuntimeRegisterAction {
@@ -96,11 +93,11 @@ export class RuntimeService {
   }
 
   private runtimes$: Observable<Runtime[]> = this.runtimeAction.pipe(
-    startWith({ type: 'init' } as RuntimeInitializeAction),
+    startWith<RuntimeAction>({ type: 'init' }),
     tap((action) => console.log(action)),
-    mergeScan((acc, action) => {
+    mergeScan((acc: Runtime[], action) => {
       if (action.type === 'init') {
-        this.status$.next(RuntimesStatus.initializing);
+        this.status$.next(RuntimeViewStatus.initializing);
 
         return forkJoin(
           this.getInitRuntimeSettings().map(({ alias, url }) =>
@@ -108,7 +105,7 @@ export class RuntimeService {
           )
         ).pipe(
           tap((runtimes) => {
-            this.status$.next(RuntimesStatus.done);
+            this.status$.next(RuntimeViewStatus.done);
           })
         );
       }
@@ -122,17 +119,17 @@ export class RuntimeService {
       }
 
       if (action.type === 'refresh') {
-        this.status$.next(RuntimesStatus.refreshing);
+        this.status$.next(RuntimeViewStatus.refreshing);
         return forkJoin(
           acc.map((runtime) => this.getRuntimeInfo(runtime.url, runtime.alias))
         ).pipe(
           tap(() => {
-            this.status$.next(RuntimesStatus.done);
+            this.status$.next(RuntimeViewStatus.done);
           })
         );
       }
       return of(acc);
-    }, [] as Runtime[]),
+    }, []),
     tap((runtimes) => console.log('runtimes', runtimes)),
     tap((runtimes) =>
       localStorage.setItem('runtimes', JSON.stringify(runtimes))
@@ -140,8 +137,8 @@ export class RuntimeService {
     shareReplay(1)
   );
 
-  private status$ = new BehaviorSubject<RuntimesStatus>(
-    RuntimesStatus.initializing
+  private status$ = new BehaviorSubject<RuntimeViewStatus>(
+    RuntimeViewStatus.initializing
   );
 
   getStatus() {
@@ -152,32 +149,42 @@ export class RuntimeService {
     return this.runtimes$;
   }
 
-  registerRuntime(alias: string, url: string) {
-    this.status$.next(RuntimesStatus.registering);
+  getRuntimeByAlias(alias: string) {
+    return this.runtimes$.pipe(
+      map((runtimes) => runtimes.find((runtime) => runtime.alias === alias)),
+      map((runtime) => {
+        if (!runtime) {
+          throw new Error(`No runtime of alias ${alias}`);
+        }
+        return runtime;
+      }),
+      shareReplay(1)
+    );
+  }
 
-    return of(null)
-      .pipe(
-        withLatestFrom(this.runtimes$),
-        map(([_, runtimes]) => {
-          if (runtimes.some((runtime) => runtime.alias === alias)) {
-            throw Error(`Cannot have runtime of duplicated alias: ${alias}`);
-          }
-        })
-      )
-      .pipe(
-        mergeMap(() => this.getRuntimeInfo(url, alias)),
-        tap((runtime) => {
-          if (runtime.status === 'error') {
-            throw new Error(`Cannot register runtime ${alias} (url: ${url}`);
-          }
-        }),
-        tap((runtime) => this.register(runtime)),
-        tap(() => this.status$.next(RuntimesStatus.done)),
-        catchError((error) => {
-          this.status$.next(RuntimesStatus.register_error);
-          throw error;
-        })
-      );
+  registerRuntime(alias: string, url: string) {
+    this.status$.next(RuntimeViewStatus.registering);
+
+    return of(null).pipe(
+      withLatestFrom(this.runtimes$),
+      map(([_, runtimes]) => {
+        if (runtimes.some((runtime) => runtime.alias === alias)) {
+          throw Error(`Cannot have runtime of duplicated alias: ${alias}`);
+        }
+      }),
+      mergeMap(() => this.getRuntimeInfo(url, alias)),
+      tap((runtime) => {
+        if (runtime.status === 'error') {
+          throw new Error(`Cannot register runtime ${alias} (url: ${url}`);
+        }
+      }),
+      tap((runtime) => this.register(runtime)),
+      tap(() => this.status$.next(RuntimeViewStatus.done)),
+      catchError((error) => {
+        this.status$.next(RuntimeViewStatus.register_error);
+        throw error;
+      })
+    );
   }
 
   unregisterRuntime(alias: string) {
@@ -188,28 +195,76 @@ export class RuntimeService {
     this.refresh();
   }
 
-  private getRuntimeInfo(url: string, alias: string): Observable<Runtime> {
-    return this.httpClient.get<RuntimeAdditionalInfo>(`${url}/verify`).pipe(
-      map(
-        (info) =>
-          ({
-            ...info,
-            url,
-            alias,
-            status: 'valid',
-          } as Runtime)
-      ),
-      catchError((error) => {
-        console.error(error);
-        return of({
-          url,
-          alias,
-          status: 'error',
-        } as Runtime);
-      }),
-      first()
+  private getGroups(hostUrl: string) {
+    return this.apiService
+      .listGroups(hostUrl)
+      .pipe(map(({ groups }) => groups));
+  }
+
+  private getHosts(
+    runtimeUrl: string,
+    zone: string,
+    runtimeAlias: string
+  ): Observable<Host[]> {
+    return this.apiService.listHosts(runtimeUrl, zone).pipe(
+      mergeMap(({ items: hosts }) => {
+        return forkJoin(
+          hosts.map((host) => {
+            const hostUrl = `${runtimeUrl}/v1/zones/${zone}/hosts/${host.name}`;
+            return this.getGroups(hostUrl).pipe(
+              map((groups) => ({
+                name: host.name!,
+                zone: zone,
+                url: hostUrl,
+                runtime: runtimeAlias,
+                groups,
+              }))
+            );
+          })
+        );
+      })
     );
   }
 
-  constructor(private httpClient: HttpClient) {}
+  private getRuntimeInfo(url: string, alias: string): Observable<Runtime> {
+    return this.apiService.getRuntimeInfo(url).pipe(
+      switchMap((info) => {
+        // TODO: handle local workstation depending on type
+        return this.apiService.listZones(url).pipe(
+          map(({ items: zones }) => ({
+            type: info.type,
+            zones,
+          }))
+        );
+      }),
+
+      switchMap(({ type, zones }) => {
+        return forkJoin(
+          zones.map((zone) => this.getHosts(url, zone, alias))
+        ).pipe(
+          map((hostLists) => hostLists.flat()),
+          map((hosts: Host[]) => ({
+            alias,
+            type,
+            url,
+            zones,
+            hosts,
+            status: RuntimeStatus.valid,
+          }))
+        );
+      }),
+
+      catchError((error) => {
+        console.error(error);
+        return of({
+          alias,
+          url,
+          hosts: [],
+          status: RuntimeStatus.error,
+        });
+      })
+    );
+  }
+
+  constructor(private apiService: ApiService) {}
 }

@@ -1,7 +1,7 @@
 <mat-card class="runtime-card">
     <mat-card-content> Alias: {{ runtime?.alias }} </mat-card-content>
 
-    <mat-card-content> Type: {{ runtime?.runtime_type }} </mat-card-content>
+    <mat-card-content> Type: {{ runtime?.type }} </mat-card-content>
 
     <mat-card-content> URL: {{ runtime?.url }} </mat-card-content>
 
@@ -16,7 +16,7 @@
     </div>
 
     <div class="runtime-card-footer">
-        <button mat-icon-button matTooltip="Unregister runtime" (click)="onClickDelete(runtime?.alias)">
+        <button mat-icon-button matTooltip="Unregister runtime" (click)="onClickUnregister(runtime?.alias)">
             <span class="google-symbols"> delete </span>
         </button>
     </div>
@@ -24,63 +24,16 @@
     <mat-card-content *ngIf="runtime?.status === 'valid'">
         Zones & Hosts:
         <ul>
-            <li>
-                us-central1-c
-                <ul style="margin-top: 0px">
-                    <li class="host-item">
-                        <div class="host-header">
-                            <div>Host1</div>
-                            <button mat-icon-button class="host-delete-button">
-                                <span class="google-symbols"> delete </span>
-                            </button>
-                        </div>
-                        <ul>
-                            <li>group-1</li>
-                            <li>group-2</li>
-                            <li>group-3</li>
-                        </ul>
-                    </li>
-
-                    <li class="host-item">
-                        <div class="host-header">
-                            <div>Host2</div>
-                            <button mat-icon-button class="host-delete-button">
-                                <span class="google-symbols"> delete </span>
-                            </button>
-                        </div>
-                        <ul>
-                            <li>group-1</li>
-                            <li>group-2</li>
-                        </ul>
-                    </li>
-                </ul>
-            </li>
-            <li>
-                ap-northeast2-a
-                <ul style="margin-top: 0px">
-                    <li class="host-item">
-                        <div class="host-header">
-                            <div>Host1</div>
-                            <button mat-icon-button class="host-delete-button">
-                                <span class="google-symbols"> delete </span>
-                            </button>
-                        </div>
-                        <ul>
-                            <li>group-1</li>
-                            <li>group-2</li>
-                        </ul>
-                    </li>
-
-                    <li class="host-item">
-                        <div class="host-header">
-                            <div>Host2</div>
-                            <button mat-icon-button class="host-delete-button">
-                                <span class="google-symbols"> delete </span>
-                            </button>
-                        </div>
-                        <ul>
-                            <li>group-1</li>
-                        </ul>
+            <li class="host-item" *ngFor="let host of hosts$ | async">
+                <div class="host-header">
+                    <div>{{ host.name }} ({{ host.zone }})</div>
+                    <button mat-icon-button class="host-delete-button" (click)="onClickDeleteHost(host)">
+                        <span class="google-symbols"> delete </span>
+                    </button>
+                </div>
+                <ul>
+                    <li *ngFor="let group of host.groups">
+                        {{ group }}
                     </li>
                 </ul>
             </li>

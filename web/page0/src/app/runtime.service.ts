@@ -159,8 +159,8 @@ export class RuntimeService {
       }),
       tap((runtime) =>
         this.runtimeAction.next({
-          type: 'unregister',
-          alias: runtime.alias,
+          type: 'register',
+          runtime,
         })
       ),
       tap(() => this.status$.next(RuntimeViewStatus.done)),

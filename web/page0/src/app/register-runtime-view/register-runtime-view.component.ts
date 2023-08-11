@@ -56,6 +56,10 @@ export class RegisterRuntimeViewComponent {
     return status === RuntimeViewStatus.registering;
   }
 
+  ngOnInit() {
+    this.runtimes$.pipe(takeUntil(this.ngUnsubscribe)).subscribe();
+  }
+
   onSubmit() {
     const url = this.runtimeForm.value.url;
     const alias = this.runtimeForm.value.alias;

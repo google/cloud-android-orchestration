@@ -6,6 +6,27 @@ import json
 from time import sleep
 import random
 import string
+import asyncio
+
+def get_loop():
+    try:
+        loop = asyncio.get_running_loop()
+        if loop.is_running():
+            return loop
+        return None
+    except:
+        return None
+
+def bg_run(func, second):
+    async def task():
+        await asyncio.sleep(second)
+        func()
+
+    loop = get_loop()
+    if loop:
+        loop.create_task(task())
+    else:
+        asyncio.run(task())
 
 apis = flask.Blueprint("test_apis", __name__)
 
@@ -13,9 +34,11 @@ mem = {"info": {"type": "cloud"}, "zones": defaultdict(list)}
 
 default_build_source = {
     "android_ci_build_source": {
-        "branch": "aosp-main",
-        "build_id": "default",
-        "target": "default",
+        "main_build": {
+            "branch": "aosp-main",
+            "build_id": "default",
+            "target": "default",
+        }
     },
 }
 
@@ -176,6 +199,7 @@ def init():
 @apis.route("/api/info", methods=["GET"])
 def info():
     sleep(0.1)
+
     return mem["info"]
 
 
@@ -203,9 +227,16 @@ def post_host(zone):
     sleep(0.1)
     body = flask.request.json
 
-    mem["zones"][zone].append(
-        {"name": gen_host_name(5), "gcp": body["host_instance"]["gcp"], "groups": []}
-    )
+    def task():
+        mem["zones"][zone].append(
+            {
+                "name": gen_host_name(5),
+                "gcp": body["host_instance"]["gcp"],
+                "groups": [],
+            }
+        )
+
+    bg_run(task, 1)
 
     return {"name": gen_operation_name(15), "done": False}
 
@@ -219,7 +250,11 @@ def delete_host(zone, hostname):
     if idx < 0:
         flask.abort(404)
 
-    mem["zones"][zone].pop(idx)
+    def task():
+        mem["zones"][zone].pop(idx)
+    
+    bg_run(task, 1)
+
     return {"name": gen_operation_name(15), "done": False}
 
 
@@ -250,29 +285,40 @@ def delete_group(zone, hostname, groupname):
     if groupidx < 0:
         flask.abort(404)
 
-    mem["zones"][zone]["groups"].pop(groupIdx)
+    def task():
+        mem["zones"][zone][hostidx]["groups"].pop(groupidx)
+
+    bg_run(task, 10)
 
     return {"name": gen_operation_name(15), "done": False}
 
 
 # POST /v1/zones/:zone/hosts/:host/cvds
 @apis.route("/api/v1/zones/<zone>/hosts/<hostname>/cvds", methods=["POST"])
-def post_group(zone, hostname):
-    sleep(0.1)
+async def post_group(zone, hostname):
+    sleep(1)
     host, hostidx = find_host(mem["zones"][zone], hostname)
 
     if not host:
         flask.abort(404)
 
     body = flask.request.json
-    group = body
-    mem["zones"][zone][hostidx]["groups"].append(group)
+    group = body["group"]
+
+    def task():
+        mem["zones"][zone][hostidx]["groups"].append(group)
+        print(mem["zones"][zone][hostidx]["groups"])
+    
+    bg_run(task, 3)
+    
     return {"name": gen_operation_name(15), "done": False}
 
 
 """
 Mock server-only APIs 
 """
+
+
 @apis.route("/api/reset", methods=["GET"])
 def reset():
     init()

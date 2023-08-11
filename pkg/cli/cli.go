@@ -585,7 +585,6 @@ func disconnectDevicesByHost(host string, opts *subCommandOpts) error {
 
 const (
 	createHostStateMsg    = "Creating Host"
-	createCVDStateMsg     = "Creating CVD"
 	connectCVDStateMsgFmt = "Connecting to %s"
 )
 
@@ -607,9 +606,7 @@ func runCreateCVDCommand(c *cobra.Command, flags *CreateCVDFlags, opts *subComma
 		}
 		flags.CreateCVDOpts.Host = ins.Name
 	}
-	statePrinter.Print(createCVDStateMsg)
-	cvds, err := createCVD(service, *flags.CreateCVDOpts)
-	statePrinter.PrintDone(createCVDStateMsg, err)
+	cvds, err := createCVD(service, *flags.CreateCVDOpts, statePrinter)
 	if err != nil {
 		var apiErr *client.ApiCallError
 		if errors.As(err, &apiErr) && apiErr.Code == http.StatusUnauthorized {
@@ -1087,7 +1084,7 @@ func (p *statePrinter) print(msg string, state statePrinterState) {
 		// Use cursor movement characters for an interactive experience when visuals are on.
 		prefix = "\r\033[K"
 	}
-	result := prefix + toFixedLength(msg, 30, '.') + strings.Repeat(".", 3) + " "
+	result := prefix + toFixedLength(msg, 50, '.') + strings.Repeat(".", 3) + " "
 	if state.Done {
 		if state.DoneErr == nil {
 			result += "OK"
@@ -1101,7 +1098,7 @@ func (p *statePrinter) print(msg string, state statePrinterState) {
 	fmt.Fprint(p.Out, result)
 }
 
-// Return prefix or append a filling charachter building a string of fixed length.
+// Return prefix or append a filling character building a string of fixed length.
 func toFixedLength(v string, l int, filling rune) string {
 	if len(v) > l {
 		return v[:l]

@@ -1,4 +1,4 @@
-import { Host, Injectable } from '@angular/core';
+import { Injectable } from '@angular/core';
 import {
   BehaviorSubject,
   catchError,
@@ -16,6 +16,7 @@ import {
   withLatestFrom,
 } from 'rxjs';
 import { ApiService } from './api.service';
+import { Host } from './host-interface';
 import { Runtime, RuntimeViewStatus, RuntimeStatus } from './runtime-interface';
 import { defaultRuntimeSettings } from './settings';
 
@@ -92,9 +93,9 @@ export class RuntimeService {
   }
 
   private runtimes$: Observable<Runtime[]> = this.runtimeAction.pipe(
-    startWith({ type: 'init' } as RuntimeInitializeAction),
+    startWith<RuntimeAction>({ type: 'init' }),
     tap((action) => console.log(action)),
-    mergeScan((acc, action) => {
+    mergeScan((acc: Runtime[], action) => {
       if (action.type === 'init') {
         this.status$.next(RuntimeViewStatus.initializing);
 
@@ -128,7 +129,7 @@ export class RuntimeService {
         );
       }
       return of(acc);
-    }, [] as Runtime[]),
+    }, []),
     tap((runtimes) => console.log('runtimes', runtimes)),
     tap((runtimes) =>
       localStorage.setItem('runtimes', JSON.stringify(runtimes))
@@ -155,7 +156,7 @@ export class RuntimeService {
         if (!runtime) {
           throw new Error(`No runtime of alias ${alias}`);
         }
-        return runtime as Runtime;
+        return runtime;
       }),
       shareReplay(1)
     );
@@ -212,7 +213,7 @@ export class RuntimeService {
             const hostUrl = `${runtimeUrl}/v1/zones/${zone}/hosts/${host.name}`;
             return this.getGroups(hostUrl).pipe(
               map((groups) => ({
-                name: host!.name,
+                name: host.name!,
                 zone: zone,
                 url: hostUrl,
                 runtime: runtimeAlias,
@@ -242,17 +243,14 @@ export class RuntimeService {
           zones.map((zone) => this.getHosts(url, zone, alias))
         ).pipe(
           map((hostLists) => hostLists.flat()),
-          map(
-            (hosts) =>
-              ({
-                alias,
-                type,
-                url,
-                zones,
-                hosts,
-                status: RuntimeStatus.valid,
-              } as Runtime)
-          )
+          map((hosts: Host[]) => ({
+            alias,
+            type,
+            url,
+            zones,
+            hosts,
+            status: RuntimeStatus.valid,
+          }))
         );
       }),
 

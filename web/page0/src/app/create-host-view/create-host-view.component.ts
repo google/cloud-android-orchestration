@@ -47,13 +47,13 @@ export class CreateHostViewComponent {
   );
 
   runtime$ = this.queryParams$.pipe(
-    map((params) => (params['runtime'] ?? '') as string),
+    map((params) => (params['runtime'] as string) ?? ''),
     switchMap((alias) => this.runtimeService.getRuntimeByAlias(alias))
   );
 
   previousUrl$ = this.queryParams$.pipe(
     tap((previousUrl) => console.log('previousUrl: ', previousUrl)),
-    map((params) => (params['previousUrl'] ?? 'list-runtime') as string)
+    map((params) => (params['previousUrl'] as string) ?? 'list-runtime')
   );
 
   zones$ = this.runtime$.pipe(map((runtime) => runtime.zones));

@@ -41,9 +41,9 @@ export class HostService {
   }
 
   private hosts$ = this.hostAction.pipe(
-    startWith({ type: 'init' } as HostInitAction),
+    startWith<HostAction>({ type: 'init' }),
     tap((action) => console.log('host: ', action)),
-    mergeScan((acc, action) => {
+    mergeScan((acc: Host[], action) => {
       if (action.type === 'init') {
         return this.runtimeService
           .getRuntimes()
@@ -61,7 +61,7 @@ export class HostService {
       }
 
       return of(acc);
-    }, [] as Host[]),
+    }, []),
     shareReplay(1)
   );
 

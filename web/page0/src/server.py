@@ -6,6 +6,9 @@ import requests
 
 import test_apis
 
+EXCLUDED_HEADERS = {'content-encoding', 'content-length', 'transfer-encoding',
+                    'connection'}
+
 _PORT = flags.DEFINE_integer(
     'port',
     default=8071,
@@ -26,15 +29,35 @@ app.register_blueprint(test_apis.apis)
 
 @app.route("/")
 def index():
-    resp = requests.get(_ANGULAR_URL.value)
-    return flask.Response(resp.content, resp.status_code, resp.raw.headers.items())
+    response = requests.get(_ANGULAR_URL.value)
+
+    headers = [(key, value) for (key, value) in response.raw.headers.items()
+                 if key.lower() not in EXCLUDED_HEADERS]
+
+    headers.append(("Access-Control-Allow-Origin", "*"))
+
+    return flask.Response(response.content, response.status_code, headers)
 
 
 @app.route("/<path:path>")
 def proxy(path):
-    resp = requests.get(f"{_ANGULAR_URL.value}{path}")
-    return flask.Response(resp.content, resp.status_code, resp.raw.headers.items())
+    response = requests.get(f"{_ANGULAR_URL.value}{path}")
 
+    headers = [(key, value) for (key, value) in response.raw.headers.items()
+                 if key.lower() not in EXCLUDED_HEADERS]
+
+    headers.append(("Access-Control-Allow-Origin", "*"))
+
+    return flask.Response(response.content, response.status_code, headers)
+
+@app.after_request
+def cors(response):
+    header = response.headers
+    header['Access-Control-Allow-Origin'] = '*'
+    header['Access-Control-Allow-Methods'] =  "GET, POST, OPTIONS, PUT, DELETE"
+    header['Access-Control-Allow-Headers'] =  "Content-Type"
+
+    return response
 
 def main(argv):
   app.run(host='::', port=_PORT.value, debug=True)

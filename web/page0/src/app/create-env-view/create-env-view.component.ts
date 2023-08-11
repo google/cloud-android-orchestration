@@ -1,7 +1,7 @@
 import { Component } from '@angular/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
-import { Subject, switchMap, takeUntil } from 'rxjs';
+import { first, Subject, switchMap, takeUntil } from 'rxjs';
 import { DeviceFormService } from '../device-form.service';
 import { EnvFormService } from '../env-form.service';
 import { EnvService } from '../env.service';
@@ -29,7 +29,7 @@ export class CreateEnvViewComponent {
   private ngUnsubscribe = new Subject<void>();
 
   ngOnInit() {
-    this.zones$.subscribe();
+    this.zones$.pipe(takeUntil(this.ngUnsubscribe)).subscribe();
   }
 
   ngOnDestroy() {
@@ -67,8 +67,10 @@ export class CreateEnvViewComponent {
     this.envFormService
       .getValue()
       .pipe(
+        first(),
         switchMap(({ groupName, hostUrl, runtime }) =>
           this.deviceFormService.getValue().pipe(
+            first(),
             switchMap((devices) =>
               this.envService.createEnv(runtime, hostUrl, {
                 groupName,
@@ -76,15 +78,14 @@ export class CreateEnvViewComponent {
               })
             )
           )
-        ),
-        takeUntil(this.ngUnsubscribe)
+        )
       )
       .subscribe({
         next: () => {
-          this.envFormService.clearForm();
-          this.deviceFormService.clearForm();
           this.snackBar.dismiss();
           this.router.navigate(['/']);
+          this.envFormService.clearForm();
+          this.deviceFormService.clearForm();
         },
         error: (error) => {
           this.snackBar.open(error.message);

@@ -81,14 +81,16 @@ export class DeviceFormService {
   }
 
   private deviceSettingsForm$ = this.deviceFormAction$.pipe(
+    tap((action) => console.log('deviceForm ', action.type)),
     startWith({ type: 'init' } as DeviceInitAction),
     scan((form, action) => {
       if (action.type === 'init') {
-        return this.getInitDeviceForm();
+        return form;
       }
 
       if (action.type === 'clear') {
-        return this.getInitDeviceForm();
+        form.reset(this.getInitDeviceForm().value);
+        return form;
       }
 
       if (action.type === 'add') {

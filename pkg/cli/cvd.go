@@ -137,26 +137,37 @@ func (c *cvdCreator) createCVDFromLocalBuild() ([]*hoapi.CVD, error) {
 }
 
 func (c *cvdCreator) createCVDFromAndroidCI() ([]*hoapi.CVD, error) {
-	req := hoapi.CreateCVDRequest{
+	var mainBuild, kernelBuild, bootloaderBuild, systemImageBuild *hoapi.AndroidCIBuild
+	mainBuild = &c.Opts.MainBuild
+	if c.Opts.KernelBuild != (hoapi.AndroidCIBuild{}) {
+		kernelBuild = &c.Opts.KernelBuild
+	}
+	if c.Opts.BootloaderBuild != (hoapi.AndroidCIBuild{}) {
+		bootloaderBuild = &c.Opts.BootloaderBuild
+	}
+	if c.Opts.SystemImgBuild != (hoapi.AndroidCIBuild{}) {
+		systemImageBuild = &c.Opts.SystemImgBuild
+	}
+	fetchReq := &hoapi.FetchArtifactsRequest{
+		AndroidCIBundle: &hoapi.AndroidCIBundle{Build: mainBuild, Type: hoapi.MainBundleType},
+	}
+	if err := c.Service.FetchArtifacts(c.Opts.Host, fetchReq); err != nil {
+		return nil, err
+	}
+	createReq := &hoapi.CreateCVDRequest{
 		CVD: &hoapi.CVD{
 			BuildSource: &hoapi.BuildSource{
 				AndroidCIBuildSource: &hoapi.AndroidCIBuildSource{
-					MainBuild: &c.Opts.MainBuild,
+					MainBuild:        mainBuild,
+					KernelBuild:      kernelBuild,
+					BootloaderBuild:  bootloaderBuild,
+					SystemImageBuild: systemImageBuild,
 				},
 			},
 		},
 		AdditionalInstancesNum: c.Opts.AdditionalInstancesNum(),
 	}
-	if c.Opts.KernelBuild != (hoapi.AndroidCIBuild{}) {
-		req.CVD.BuildSource.AndroidCIBuildSource.KernelBuild = &c.Opts.KernelBuild
-	}
-	if c.Opts.BootloaderBuild != (hoapi.AndroidCIBuild{}) {
-		req.CVD.BuildSource.AndroidCIBuildSource.BootloaderBuild = &c.Opts.BootloaderBuild
-	}
-	if c.Opts.SystemImgBuild != (hoapi.AndroidCIBuild{}) {
-		req.CVD.BuildSource.AndroidCIBuildSource.SystemImageBuild = &c.Opts.SystemImgBuild
-	}
-	res, err := c.Service.CreateCVD(c.Opts.Host, &req)
+	res, err := c.Service.CreateCVD(c.Opts.Host, createReq)
 	if err != nil {
 		return nil, err
 	}

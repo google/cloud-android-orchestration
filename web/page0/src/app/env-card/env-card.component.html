@@ -1,39 +1,41 @@
-<mat-card class="env-card" [style.backgroundColor]="getColor()">
-    <div class="env-card-header">
-        <button *ngIf="this.env.status === 'running'" mat-icon-button aria-label="Open per-group UI button" matTooltip="Open per-group UI web" (click)="goToPerGroupUI()">
-            <span class="google-symbols"> open_in_new </span>
-        </button>
+<div *ngIf="getCardSetting(); let setting">
+    <mat-card class="env-card" [style.backgroundColor]="setting.backgroundColor">
+        <div class="env-card-header">
+            <button *ngIf="isRunning()" mat-icon-button aria-label="Open per-group UI button" matTooltip="Open per-group UI web" (click)="onClickGoto()">
+                <span class="google-symbols"> open_in_new </span>
+            </button>
 
-        <button mat-icon-button aria-label="Status" matTooltip="{{ tooltip }}">
-            <span class="google-symbols">
-                {{ icon }}
-            </span>
-        </button>
-    </div>
+            <button mat-icon-button aria-label="Status" matTooltip="{{ setting.tooltip }}">
+                <span class="google-symbols">
+                    {{ setting.icon }}
+                </span>
+            </button>
+        </div>
 
-    <mat-card-content class="env-card-first-content">
-        Runtime:
-        {{ env.runtimeAlias }}
-    </mat-card-content>
+        <mat-card-content class="env-card-first-content">
+            Runtime:
+            {{ env.runtimeAlias }}
+        </mat-card-content>
 
-    <mat-card-content> Host: {{ env.hostUrl }} </mat-card-content>
+        <mat-card-content> Host: {{ env.hostUrl }} </mat-card-content>
 
-    <mat-card-content> Group ID: {{ env.groupName }} </mat-card-content>
+        <mat-card-content> Group ID: {{ env.groupName }} </mat-card-content>
 
-    <mat-card-content>
-        Devices:
-        <ul style="margin-top: 0px">
-            <li *ngFor="let device of env.devices">
-                {{ device }} (TODO: device fingerprint)
-            </li>
-        </ul>
-    </mat-card-content>
+        <mat-card-content>
+            Devices:
+            <ul style="margin-top: 0px">
+                <li *ngFor="let device of env.devices">
+                    {{ device.deviceId }} ({{ device.target }}, {{ device.buildId }})
+                </li>
+            </ul>
+        </mat-card-content>
 
-    <br />
+        <br />
 
-    <div class="env-card-footer">
-        <button *ngIf="this.env.status === 'running'" mat-icon-button aria-label="Stop group button">
-            <span class="google-symbols"> delete </span>
-        </button>
-    </div>
-</mat-card>
+        <div class="env-card-footer">
+            <button *ngIf="isRunning()" mat-icon-button aria-label="Stop group button" (click)="onClickDelete()" matTooltip="Delete environment with its devices">
+                <span class="google-symbols"> delete </span>
+            </button>
+        </div>
+    </mat-card>
+</div>

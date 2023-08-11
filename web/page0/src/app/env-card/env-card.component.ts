@@ -1,5 +1,20 @@
 import { Component, Input } from '@angular/core';
-import { Environment } from '../env-interface';
+import { Environment, EnvStatus } from '../env-interface';
+import { EnvService } from '../env.service';
+
+const tooltips = {
+  [EnvStatus.starting]: 'Starting',
+  [EnvStatus.running]: 'Running',
+  [EnvStatus.stopping]: 'Stopping',
+  [EnvStatus.error]: 'Error',
+};
+
+const icons = {
+  [EnvStatus.starting]: 'pending',
+  [EnvStatus.running]: 'check_circle',
+  [EnvStatus.stopping]: 'stop_circle',
+  [EnvStatus.error]: 'error',
+};
 
 @Component({
   selector: 'app-env-card',
@@ -9,41 +24,28 @@ import { Environment } from '../env-interface';
 export class EnvCardComponent {
   @Input() env!: Environment;
 
-  constructor() {}
+  constructor(private envService: EnvService) {}
 
-  ngOnInit() {
+  ngOnInit() {}
+
+  getCardSetting() {
     const status = this.env.status;
-
-    if (status === 'running') {
-      this.tooltip = 'Running';
-      this.icon = 'check_circle';
-      return;
-    }
-
-    if (status === 'stopping') {
-      this.tooltip = 'Stopping';
-      this.icon = 'stop_circle';
-      return;
-    }
-
-    if (status === 'error') {
-      this.tooltip = 'error';
-      this.icon = 'error';
-      return;
-    }
-
-    this.tooltip = 'Starting';
-    this.icon = 'pending';
+    return {
+      tooltip: tooltips[status],
+      icon: icons[status],
+      backgroundColor: 'aliceblue',
+    };
   }
 
-  tooltip = '';
-  icon = '';
-
-  getColor() {
-    return 'aliceblue';
+  isRunning() {
+    return this.env.status === EnvStatus.running;
   }
 
-  goToPerGroupUI() {
+  onClickGoto() {
     // TODO: Open per-group UI w/ safeurl
+  }
+
+  onClickDelete() {
+    this.envService.deleteEnv(this.env);
   }
 }

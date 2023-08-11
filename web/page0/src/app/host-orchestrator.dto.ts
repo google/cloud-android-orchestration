@@ -5,11 +5,11 @@ interface AndroidCIBuild {
 }
 
 interface AndroidCIBuildSource {
-  main_build?: AndroidCIBuild;
-  kernel_build?: AndroidCIBuild;
-  bootloader_build?: AndroidCIBuild;
-  system_image_build?: AndroidCIBuild;
-  credentials?: string;
+  main_build: AndroidCIBuild;
+  // kernel_build?: AndroidCIBuild;
+  // bootloader_build?: AndroidCIBuild;
+  // system_image_build?: AndroidCIBuild;
+  // credentials?: string;
 }
 
 export interface CVD {

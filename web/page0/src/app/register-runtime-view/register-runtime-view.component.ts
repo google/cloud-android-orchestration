@@ -48,7 +48,7 @@ export class RegisterRuntimeViewComponent {
   status$ = this.runtimeService.getStatus();
 
   runtimeForm = this.formBuilder.group({
-    url: ['http://localhost:3000', Validators.required],
+    url: ['http://localhost:8071/api', Validators.required],
     alias: ['test', Validators.required],
   });
 

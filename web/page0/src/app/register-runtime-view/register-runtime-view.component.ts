@@ -46,7 +46,7 @@ export class RegisterRuntimeViewComponent {
         this.snackBar.dismiss();
       },
       error: (error) => {
-        this.snackBar.open(error.message);
+        this.snackBar.open(error.message, 'dismiss');
       },
     });
   }

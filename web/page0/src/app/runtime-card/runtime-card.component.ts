@@ -57,7 +57,10 @@ export class RuntimeCardComponent {
   }
 
   onClickDeleteHost(host: Host) {
-    this.snackBar.open(`Start to delete host ${host.name} (url: ${host.url})`);
+    this.snackBar.open(
+      `Start to delete host ${host.name} (url: ${host.url})`,
+      'dismiss'
+    );
     this.hostService
       .deleteHost(host.url)
       .pipe(takeUntil(this.ngUnsubscribe))
@@ -67,7 +70,8 @@ export class RuntimeCardComponent {
         },
         error: (error) => {
           this.snackBar.open(
-            `Failed to delete host ${host.url} (error: ${error.message})`
+            `Failed to delete host ${host.url} (error: ${error.message})`,
+            'dismiss'
           );
         },
       });

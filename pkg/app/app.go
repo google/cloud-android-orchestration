@@ -58,6 +58,7 @@ type App struct {
 	encryptionService        encryption.Service
 	databaseService          database.Service
 	connectorStaticFilesPath string
+	corsAllowedOrigins       []string
 	infraConfig              apiv1.InfraConfig
 }
 
@@ -68,8 +69,22 @@ func NewApp(
 	es encryption.Service,
 	dbs database.Service,
 	webStaticFilesPath string,
+	corsAllowedOrigins []string,
 	webRTCConfig config.WebRTCConfig) *App {
-	return &App{im, am, oc, es, dbs, webStaticFilesPath, buildInfraCfg(webRTCConfig.STUNServers)}
+	return &App{im, am, oc, es, dbs, webStaticFilesPath, corsAllowedOrigins, buildInfraCfg(webRTCConfig.STUNServers)}
+}
+
+func (c *App) AddCorsHeaderIfNeeded(w http.ResponseWriter, r *http.Request) {
+	origin := r.Header.Get("Origin")
+	if len(origin) == 0 {
+		return
+	}
+	for _, allowed := range c.corsAllowedOrigins {
+		if origin == allowed {
+			w.Header().Add("Access-Control-Allow-Origin", origin)
+			break
+		}
+	}
 }
 
 func (c *App) Handler() http.Handler {
@@ -103,7 +118,13 @@ func (c *App) Handler() http.Handler {
 	router.Handle("/deauth", c.Authenticate(c.RescindAuthorizationHandler)).Methods("POST")
 	router.Handle("/", c.Authenticate(indexHandler))
 
-	return router
+	rootRouter := mux.NewRouter()
+	rootRouter.PathPrefix("/").Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c.AddCorsHeaderIfNeeded(w, r)
+		router.ServeHTTP(w, r)
+	}))
+
+	return rootRouter
 }
 
 func (a *App) InfraConfig() apiv1.InfraConfig {

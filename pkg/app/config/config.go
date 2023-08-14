@@ -32,6 +32,7 @@ type WebRTCConfig struct {
 
 type Config struct {
 	WebStaticFilesPath string
+	CORSAllowedOrigins []string
 	AccountManager     accounts.Config
 	SecretManager      secrets.Config
 	InstanceManager    instances.Config

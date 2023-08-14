@@ -1,5 +1,9 @@
 WebStaticFilesPath = "web"
 
+# List of allowed origins
+# e.g. "https://localhost:8080"
+CORSAllowedOrigins = []
+
 [AccountManager]
 Type = "unix"
 
@@ -43,3 +47,4 @@ HostOrchestratorPort = 1081
 
 [WebRTC]
 STUNServers = ["stun:stun.l.google.com:19302"]
+

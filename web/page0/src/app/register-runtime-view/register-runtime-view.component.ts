@@ -14,6 +14,7 @@ import {
   tap,
   withLatestFrom,
 } from 'rxjs';
+import { handleUrl } from '../utils';
 
 @Component({
   selector: 'app-register-runtime-view',
@@ -61,7 +62,7 @@ export class RegisterRuntimeViewComponent {
   }
 
   onSubmit() {
-    const url = this.runtimeForm.value.url;
+    const url = handleUrl(this.runtimeForm.value.url);
     const alias = this.runtimeForm.value.alias;
 
     if (!url || !alias) {

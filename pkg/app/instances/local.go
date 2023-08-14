@@ -53,6 +53,14 @@ func (m *LocalInstanceManager) GetHostURL(zone string, host string) (*url.URL, e
 	return url.Parse(fmt.Sprintf("%s://%s:%d", m.config.HostOrchestratorProtocol, addr, m.config.UNIX.HostOrchestratorPort))
 }
 
+func (m *LocalInstanceManager) ListZones() (*apiv1.ListZonesResponse, error) {
+	return &apiv1.ListZonesResponse{
+		Items: []*apiv1.Zone{{
+			Name: "local",
+		}},
+	}, nil
+}
+
 func (m *LocalInstanceManager) CreateHost(_ string, _ *apiv1.CreateHostRequest, _ accounts.User) (*apiv1.Operation, error) {
 	return &apiv1.Operation{
 		Name: "Create Host",

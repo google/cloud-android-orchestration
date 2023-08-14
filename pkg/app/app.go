@@ -92,6 +92,7 @@ func (c *App) Handler() http.Handler {
 	router := mux.NewRouter()
 
 	// Instance Manager Routes
+	router.Handle("/v1/zones", c.Authenticate(c.listZones)).Methods("GET")
 	router.Handle("/v1/zones/{zone}/hosts", c.Authenticate(c.createHost)).Methods("POST")
 	router.Handle("/v1/zones/{zone}/hosts", c.Authenticate(c.listHosts)).Methods("GET")
 	// Waits for the specified operation to be DONE or for the request to approach the specified deadline,
@@ -182,6 +183,15 @@ func (a *App) injectBuildAPICredsIntoRequest(r *http.Request, user accounts.User
 			"The user must authorize the system to access the Build API on their behalf", nil)
 	}
 	r.Header.Set(headerNameHOBuildAPICreds, tk.AccessToken)
+	return nil
+}
+
+func (c *App) listZones(w http.ResponseWriter, r *http.Request, user accounts.User) error {
+	res, err := c.instanceManager.ListZones()
+	if err != nil {
+		return err
+	}
+	replyJSON(w, res, http.StatusOK)
 	return nil
 }
 

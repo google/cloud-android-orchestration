@@ -70,11 +70,8 @@ func (o *CreateCVDOpts) AdditionalInstancesNum() uint32 {
 	return uint32(o.NumInstances - 1)
 }
 
-func createCVD(service client.Service, createOpts CreateCVDOpts) ([]*CVDInfo, error) {
-	creator := &cvdCreator{
-		Service: service,
-		Opts:    createOpts,
-	}
+func createCVD(service client.Service, createOpts CreateCVDOpts, statePrinter *statePrinter) ([]*CVDInfo, error) {
+	creator := newCVDCreator(service, createOpts, statePrinter)
 	cvds, err := creator.Create()
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create cvd: %w", err)
@@ -87,12 +84,21 @@ func createCVD(service client.Service, createOpts CreateCVDOpts) ([]*CVDInfo, er
 }
 
 type cvdCreator struct {
-	Service client.Service
-	Opts    CreateCVDOpts
+	service      client.Service
+	opts         CreateCVDOpts
+	statePrinter *statePrinter
+}
+
+func newCVDCreator(service client.Service, opts CreateCVDOpts, statePrinter *statePrinter) *cvdCreator {
+	return &cvdCreator{
+		service:      service,
+		opts:         opts,
+		statePrinter: statePrinter,
+	}
 }
 
 func (c *cvdCreator) Create() ([]*hoapi.CVD, error) {
-	if c.Opts.LocalImage {
+	if c.opts.LocalImage {
 		return c.createCVDFromLocalBuild()
 	} else {
 		return c.createCVDFromAndroidCI()
@@ -112,11 +118,11 @@ func (c *cvdCreator) createCVDFromLocalBuild() ([]*hoapi.CVD, error) {
 		return nil, fmt.Errorf("Invalid cvd host package: %w", err)
 	}
 	names = append(names, filepath.Join(vars.HostOut, CVDHostPackageName))
-	uploadDir, err := c.Service.CreateUpload(c.Opts.Host)
+	uploadDir, err := c.service.CreateUpload(c.opts.Host)
 	if err != nil {
 		return nil, err
 	}
-	if err := c.Service.UploadFiles(c.Opts.Host, uploadDir, names); err != nil {
+	if err := c.service.UploadFiles(c.opts.Host, uploadDir, names); err != nil {
 		return nil, err
 	}
 	req := hoapi.CreateCVDRequest{
@@ -127,31 +133,39 @@ func (c *cvdCreator) createCVDFromLocalBuild() ([]*hoapi.CVD, error) {
 				},
 			},
 		},
-		AdditionalInstancesNum: c.Opts.AdditionalInstancesNum(),
+		AdditionalInstancesNum: c.opts.AdditionalInstancesNum(),
 	}
-	res, err := c.Service.CreateCVD(c.Opts.Host, &req)
+	res, err := c.service.CreateCVD(c.opts.Host, &req)
 	if err != nil {
 		return nil, err
 	}
 	return res.CVDs, nil
 }
 
+const (
+	stateMsgFetchMainBundle = "Fetching main bundle artifacts"
+	stateMsgStartCVD        = "Starting cvd and waiting for boot complete"
+)
+
 func (c *cvdCreator) createCVDFromAndroidCI() ([]*hoapi.CVD, error) {
 	var mainBuild, kernelBuild, bootloaderBuild, systemImageBuild *hoapi.AndroidCIBuild
-	mainBuild = &c.Opts.MainBuild
-	if c.Opts.KernelBuild != (hoapi.AndroidCIBuild{}) {
-		kernelBuild = &c.Opts.KernelBuild
+	mainBuild = &c.opts.MainBuild
+	if c.opts.KernelBuild != (hoapi.AndroidCIBuild{}) {
+		kernelBuild = &c.opts.KernelBuild
 	}
-	if c.Opts.BootloaderBuild != (hoapi.AndroidCIBuild{}) {
-		bootloaderBuild = &c.Opts.BootloaderBuild
+	if c.opts.BootloaderBuild != (hoapi.AndroidCIBuild{}) {
+		bootloaderBuild = &c.opts.BootloaderBuild
 	}
-	if c.Opts.SystemImgBuild != (hoapi.AndroidCIBuild{}) {
-		systemImageBuild = &c.Opts.SystemImgBuild
+	if c.opts.SystemImgBuild != (hoapi.AndroidCIBuild{}) {
+		systemImageBuild = &c.opts.SystemImgBuild
 	}
 	fetchReq := &hoapi.FetchArtifactsRequest{
 		AndroidCIBundle: &hoapi.AndroidCIBundle{Build: mainBuild, Type: hoapi.MainBundleType},
 	}
-	if err := c.Service.FetchArtifacts(c.Opts.Host, fetchReq); err != nil {
+	c.statePrinter.Print(stateMsgFetchMainBundle)
+	err := c.service.FetchArtifacts(c.opts.Host, fetchReq)
+	c.statePrinter.PrintDone(stateMsgFetchMainBundle, err)
+	if err != nil {
 		return nil, err
 	}
 	createReq := &hoapi.CreateCVDRequest{
@@ -165,9 +179,11 @@ func (c *cvdCreator) createCVDFromAndroidCI() ([]*hoapi.CVD, error) {
 				},
 			},
 		},
-		AdditionalInstancesNum: c.Opts.AdditionalInstancesNum(),
+		AdditionalInstancesNum: c.opts.AdditionalInstancesNum(),
 	}
-	res, err := c.Service.CreateCVD(c.Opts.Host, createReq)
+	c.statePrinter.Print(stateMsgStartCVD)
+	res, err := c.service.CreateCVD(c.opts.Host, createReq)
+	c.statePrinter.PrintDone(stateMsgStartCVD, err)
 	if err != nil {
 		return nil, err
 	}

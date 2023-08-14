@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import {
   BehaviorSubject,
   catchError,
+  defaultIfEmpty,
   forkJoin,
   map,
   mergeMap,
@@ -53,7 +54,7 @@ export class RuntimeService {
   private refresh(runtimes: { url: string; alias: string }[]) {
     return forkJoin(
       runtimes.map((runtime) => this.getRuntimeInfo(runtime.url, runtime.alias))
-    );
+    ).pipe(defaultIfEmpty([]));
   }
 
   private getStoredRuntimes(): Runtime[] {
@@ -196,7 +197,8 @@ export class RuntimeService {
     runtimeAlias: string
   ): Observable<Host[]> {
     return this.apiService.listHosts(runtimeUrl, zone).pipe(
-      mergeMap(({ items: hosts }) => {
+      map(({ items: hosts }) => hosts || []),
+      mergeMap((hosts) => {
         return forkJoin(
           hosts.map((host) => {
             const hostUrl = `${runtimeUrl}/v1/zones/${zone}/hosts/${host.name}`;
@@ -210,7 +212,7 @@ export class RuntimeService {
               }))
             );
           })
-        );
+        ).pipe(defaultIfEmpty([]));
       })
     );
   }
@@ -220,17 +222,18 @@ export class RuntimeService {
       switchMap((info) => {
         // TODO: handle local workstation depending on type
         return this.apiService.listZones(url).pipe(
-          map(({ items: zones }) => ({
+          map(({ items: zones }) => zones || []),
+          map((zones) => ({
             type: info.type,
-            zones,
+            zones: zones.map((zone) => zone.name),
           }))
         );
       }),
-
       switchMap(({ type, zones }) => {
         return forkJoin(
           zones.map((zone) => this.getHosts(url, zone, alias))
         ).pipe(
+          defaultIfEmpty([]),
           map((hostLists) => hostLists.flat()),
           map((hosts: Host[]) => ({
             alias,

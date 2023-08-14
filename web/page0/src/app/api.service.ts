@@ -5,7 +5,7 @@ import {
   ListHostsResponse,
   ListZonesResponse,
   Operation,
-  RuntimeResponse,
+  RuntimeInfo,
 } from './cloud-orchestrator.dto';
 import {
   ListCVDsResponse,
@@ -22,7 +22,7 @@ export class ApiService {
 
   // Global Routes
   getRuntimeInfo(runtimeUrl: string) {
-    return this.httpClient.get<RuntimeResponse>(`${runtimeUrl}/info`);
+    return this.httpClient.get<RuntimeInfo>(`${runtimeUrl}/info`);
   }
 
   listZones(runtimeUrl: string) {

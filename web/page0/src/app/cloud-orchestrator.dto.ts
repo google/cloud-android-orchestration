@@ -1,3 +1,5 @@
+// Should be aligned with api/v1/instancemanager.go
+
 export interface CreateHostRequest {
   host_instance: HostInstance;
 }
@@ -24,17 +26,19 @@ export interface OperationResult {
 }
 
 export interface ListHostsResponse {
-  items: HostInstance[];
+  items?: HostInstance[];
   nextPageToken?: string;
 }
 
-// TODO: Not in current cloud orchestrator from here
-
-export interface RuntimeResponse {
+export interface RuntimeInfo {
   type: 'local' | 'on-premise' | 'cloud';
   // TODO: Add other information e.g. chipset, machine_type
 }
 
+export interface Zone {
+  name: string;
+}
+
 export interface ListZonesResponse {
-  items: string[];
+  items?: Zone[];
 }

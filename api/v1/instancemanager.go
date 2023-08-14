@@ -5,6 +5,10 @@ type CreateHostRequest struct {
 	HostInstance *HostInstance `json:"host_instance"`
 }
 
+type Zone struct {
+	Name string `json:"name"`
+}
+
 type HostInstance struct {
 	// [Output Only] Instance name.
 	Name string `json:"name,omitempty"`
@@ -41,6 +45,10 @@ type OperationResult struct {
 	// method is standard: `Get`/`Create`/`Update`, the response should be the relevant resource
 	// encoded in JSON format.
 	Response string `json:"response,omitempty"`
+}
+
+type ListZonesResponse struct {
+	Items []*Zone `json:"items"`
 }
 
 type ListHostsResponse struct {

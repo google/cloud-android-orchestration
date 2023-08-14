@@ -69,6 +69,10 @@ func (m *testInstanceManager) GetHostURL(zone string, host string) (*url.URL, er
 	return url.Parse("http://127.0.0.1:8080")
 }
 
+func (m *testInstanceManager) ListZones() (*apiv1.ListZonesResponse, error) {
+	return &apiv1.ListZonesResponse{}, nil
+}
+
 func (m *testInstanceManager) CreateHost(_ string, _ *apiv1.CreateHostRequest, _ accounts.User) (*apiv1.Operation, error) {
 	return &apiv1.Operation{}, nil
 }
@@ -103,6 +107,19 @@ func (hc *testHostClient) Post(path, query string, bodyJSON any, res *instances.
 
 func (hc *testHostClient) GetReverseProxy() *httputil.ReverseProxy {
 	return httputil.NewSingleHostReverseProxy(hc.url)
+}
+
+func TestListZonesSucceeds(t *testing.T) {
+	controller := NewApp(&testInstanceManager{}, &testAccountManager{}, nil, nil, nil, "", nil, config.WebRTCConfig{})
+	ts := httptest.NewServer(controller.Handler())
+	defer ts.Close()
+
+	res, _ := http.Get(ts.URL + "/v1/zones")
+
+	expected := http.StatusOK
+	if res.StatusCode != expected {
+		t.Errorf("unexpected status code <<%d>>, want: %d", res.StatusCode, expected)
+	}
 }
 
 func TestCreateHostSucceeds(t *testing.T) {

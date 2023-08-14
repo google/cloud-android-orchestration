@@ -22,6 +22,8 @@ import (
 )
 
 type Manager interface {
+	// List zones
+	ListZones() (*apiv1.ListZonesResponse, error)
 	// Creates a host instance.
 	CreateHost(zone string, req *apiv1.CreateHostRequest, user accounts.User) (*apiv1.Operation, error)
 	// List hosts

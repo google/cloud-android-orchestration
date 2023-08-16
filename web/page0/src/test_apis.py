@@ -8,6 +8,7 @@ import random
 import string
 import asyncio
 
+
 def get_loop():
     try:
         loop = asyncio.get_running_loop()
@@ -16,6 +17,7 @@ def get_loop():
         return None
     except:
         return None
+
 
 def bg_run(func, second):
     async def task():
@@ -27,6 +29,7 @@ def bg_run(func, second):
         loop.create_task(task())
     else:
         asyncio.run(task())
+
 
 apis = flask.Blueprint("test_apis", __name__)
 
@@ -252,7 +255,7 @@ def delete_host(zone, hostname):
 
     def task():
         mem["zones"][zone].pop(idx)
-    
+
     bg_run(task, 1)
 
     return {"name": gen_operation_name(15), "done": False}
@@ -308,9 +311,9 @@ async def post_group(zone, hostname):
     def task():
         mem["zones"][zone][hostidx]["groups"].append(group)
         print(mem["zones"][zone][hostidx]["groups"])
-    
+
     bg_run(task, 3)
-    
+
     return {"name": gen_operation_name(15), "done": False}
 
 
@@ -325,6 +328,7 @@ def reset():
 
 
 """
-Main
+Initialize memory
 """
+
 init()

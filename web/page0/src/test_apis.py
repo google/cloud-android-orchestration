@@ -34,7 +34,7 @@ apis = flask.Blueprint("test_apis", __name__)
 
 mem = {"info": {"type": "cloud"}, "zones": defaultdict(list)}
 
-default_build_source = {
+DEFAULT_BUILD_SOURCE = {
     "android_ci_build_source": {
         "main_build": {
             "branch": "aosp-main",
@@ -44,7 +44,7 @@ default_build_source = {
     },
 }
 
-data = {
+DATA = {
     "zones": {
         "us-central1-a": [
             {
@@ -59,14 +59,14 @@ data = {
                         "cvds": [
                             {
                                 "name": "cvd-1",
-                                "build_source": default_build_source,
+                                "build_source": DEFAULT_BUILD_SOURCE,
                                 "status": "done",
                                 "displays": [],
                                 "group_name": "group-1",
                             },
                             {
                                 "name": "cvd-2",
-                                "build_source": default_build_source,
+                                "build_source": DEFAULT_BUILD_SOURCE,
                                 "status": "done",
                                 "displays": [],
                                 "group_name": "group-1",
@@ -105,14 +105,14 @@ data = {
                         "cvds": [
                             {
                                 "name": "cvd-1",
-                                "build_source": default_build_source,
+                                "build_source": DEFAULT_BUILD_SOURCE,
                                 "status": "done",
                                 "displays": [],
                                 "group_name": "group-1",
                             },
                             {
                                 "name": "cvd-2",
-                                "build_source": default_build_source,
+                                "build_source": DEFAULT_BUILD_SOURCE,
                                 "status": "done",
                                 "displays": [],
                                 "group_name": "group-1",
@@ -124,14 +124,14 @@ data = {
                         "cvds": [
                             {
                                 "name": "cvd-1",
-                                "build_source": default_build_source,
+                                "build_source": DEFAULT_BUILD_SOURCE,
                                 "status": "done",
                                 "displays": [],
                                 "group_name": "group-2",
                             },
                             {
                                 "name": "cvd-2",
-                                "build_source": default_build_source,
+                                "build_source": DEFAULT_BUILD_SOURCE,
                                 "status": "done",
                                 "displays": [],
                                 "group_name": "group-2",
@@ -143,14 +143,14 @@ data = {
                         "cvds": [
                             {
                                 "name": "cvd-1",
-                                "build_source": default_build_source,
+                                "build_source": DEFAULT_BUILD_SOURCE,
                                 "status": "done",
                                 "displays": [],
                                 "group_name": "group-3",
                             },
                             {
                                 "name": "cvd-2",
-                                "build_source": default_build_source,
+                                "build_source": DEFAULT_BUILD_SOURCE,
                                 "status": "done",
                                 "displays": [],
                                 "group_name": "group-3",
@@ -193,8 +193,8 @@ def find_group(groups, name):
 
 
 def init():
-    for zone in data["zones"]:
-        mem["zones"][zone] = data["zones"][zone]
+    for zone in DATA["zones"]:
+        mem["zones"][zone] = DATA["zones"][zone]
 
 
 # GET /info

@@ -76,12 +76,10 @@ func NewApp(
 
 func (c *App) AddCorsHeaderIfNeeded(w http.ResponseWriter, r *http.Request) {
 	origin := r.Header.Get("Origin")
-
 	if len(origin) == 0 {
 		return
 	}
-
-	for _, allowed := range(c.corsAllowedOrigins) {
+	for _, allowed := range c.corsAllowedOrigins {
 		if origin == allowed {
 			w.Header().Add("Access-Control-Allow-Origin", origin)
 			break
@@ -121,11 +119,9 @@ func (c *App) Handler() http.Handler {
 	router.Handle("/", c.Authenticate(indexHandler))
 
 	rootRouter := mux.NewRouter()
-
 	rootRouter.PathPrefix("/").Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		c.AddCorsHeaderIfNeeded(w, r);
-
-		router.ServeHTTP(w, r);
+		c.AddCorsHeaderIfNeeded(w, r)
+		router.ServeHTTP(w, r)
 	}))
 
 	return rootRouter

@@ -168,7 +168,7 @@ func main() {
 	encryptionService := LoadEncryptionService(config)
 	dbService := LoadDatabaseService(config)
 	controller := app.NewApp(instanceManager, accountManager, oauth2Helper,
-		encryptionService, dbService, config.WebStaticFilesPath, config.WebRTC.CorsAllowedOrigins, config.WebRTC)
+		encryptionService, dbService, config.WebStaticFilesPath, config.CORSAllowedOrigins, config.WebRTC)
 
 	iface := ChooseNetworkInterface(config)
 	port := ServerPort()

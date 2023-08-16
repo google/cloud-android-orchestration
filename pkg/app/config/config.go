@@ -27,8 +27,7 @@ import (
 )
 
 type WebRTCConfig struct {
-	STUNServers        []string
-	CorsAllowedOrigins []string
+	STUNServers []string
 }
 
 type Config struct {

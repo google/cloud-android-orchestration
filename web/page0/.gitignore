@@ -42,4 +42,5 @@ testem.log
 Thumbs.db
 
 
+# Python cache files
 __pycache__

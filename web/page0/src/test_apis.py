@@ -3,7 +3,6 @@
 import flask
 from collections import defaultdict
 import json
-from time import sleep
 import random
 import string
 import asyncio
@@ -201,15 +200,12 @@ def init():
 # GET /info
 @apis.route("/api/info", methods=["GET"])
 def info():
-    sleep(0.1)
-
     return mem["info"]
 
 
 # GET /v1/zones
 @apis.route("/api/v1/zones", methods=["GET"])
 def zones():
-    sleep(0.1)
     zones = list(mem["zones"].keys())
     return {"items": zones}
 
@@ -217,7 +213,6 @@ def zones():
 # GET /v1/zones/:zone/hosts
 @apis.route("/api/v1/zones/<zone>/hosts", methods=["GET"])
 def get_hosts(zone):
-    sleep(0.1)
     hosts = []
     for host in mem["zones"][zone]:
         hosts.append({"name": host["name"], "gcp": host["gcp"]})
@@ -227,7 +222,6 @@ def get_hosts(zone):
 # POST /v1/zones/:zone/hosts
 @apis.route("/api/v1/zones/<zone>/hosts", methods=["POST"])
 def post_host(zone):
-    sleep(0.1)
     body = flask.request.json
 
     def task():
@@ -247,7 +241,6 @@ def post_host(zone):
 # DELETE /v1/zones/:zone/hosts/:host
 @apis.route("/api/v1/zones/<zone>/hosts/<hostname>", methods=["DELETE"])
 def delete_host(zone, hostname):
-    sleep(0.1)
     _, idx = find_host(mem["zones"][zone], hostname)
 
     if idx < 0:
@@ -264,7 +257,6 @@ def delete_host(zone, hostname):
 # GET /v1/zones/:zone/hosts/:host/groups
 @apis.route("/api/v1/zones/<zone>/hosts/<hostname>/groups", methods=["GET"])
 def get_groups(zone, hostname):
-    sleep(0.1)
     host, _ = find_host(mem["zones"][zone], hostname)
     if not host:
         flask.abort(404)
@@ -277,7 +269,6 @@ def get_groups(zone, hostname):
     "/api/v1/zones/<zone>/hosts/<hostname>/groups/<groupname>", methods=["DELETE"]
 )
 def delete_group(zone, hostname, groupname):
-    sleep(0.1)
     host, hostidx = find_host(mem["zones"][zone], hostname)
 
     if not host:
@@ -299,7 +290,6 @@ def delete_group(zone, hostname, groupname):
 # POST /v1/zones/:zone/hosts/:host/cvds
 @apis.route("/api/v1/zones/<zone>/hosts/<hostname>/cvds", methods=["POST"])
 async def post_group(zone, hostname):
-    sleep(1)
     host, hostidx = find_host(mem["zones"][zone], hostname)
 
     if not host:

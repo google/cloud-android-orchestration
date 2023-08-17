@@ -8,7 +8,7 @@ require (
 	cloud.google.com/go/spanner v1.45.1
 	github.com/cenkalti/backoff/v4 v4.2.0
 	github.com/golang-jwt/jwt v3.2.2+incompatible
-	github.com/google/android-cuttlefish/frontend/src/liboperator v0.0.0-20230810225838-daffcedce884
+	github.com/google/android-cuttlefish/frontend/src/liboperator v0.0.0-20230816000905-8c6005fa6a10
 	github.com/google/go-cmp v0.5.9
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0

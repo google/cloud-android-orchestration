@@ -163,7 +163,7 @@ func (c *cvdCreator) createCVDFromAndroidCI() ([]*hoapi.CVD, error) {
 		AndroidCIBundle: &hoapi.AndroidCIBundle{Build: mainBuild, Type: hoapi.MainBundleType},
 	}
 	c.statePrinter.Print(stateMsgFetchMainBundle)
-	err := c.service.FetchArtifacts(c.opts.Host, fetchReq)
+	fetchMainBuildRes, err := c.service.FetchArtifacts(c.opts.Host, fetchReq)
 	c.statePrinter.PrintDone(stateMsgFetchMainBundle, err)
 	if err != nil {
 		return nil, err
@@ -172,7 +172,7 @@ func (c *cvdCreator) createCVDFromAndroidCI() ([]*hoapi.CVD, error) {
 		CVD: &hoapi.CVD{
 			BuildSource: &hoapi.BuildSource{
 				AndroidCIBuildSource: &hoapi.AndroidCIBuildSource{
-					MainBuild:        mainBuild,
+					MainBuild:        fetchMainBuildRes.AndroidCIBundle.Build,
 					KernelBuild:      kernelBuild,
 					BootloaderBuild:  bootloaderBuild,
 					SystemImageBuild: systemImageBuild,

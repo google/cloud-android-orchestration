@@ -35,6 +35,7 @@ import {MatProgressBarModule} from '@angular/material/progress-bar';
 import {MatSnackBarModule} from '@angular/material/snack-bar';
 import {DeviceFormComponent} from './device-form/device-form.component';
 import {SafeUrlPipe} from './safe-url.pipe';
+import {httpInterceptorProviders} from 'src/http-interceptors';
 
 @NgModule({
   declarations: [
@@ -81,7 +82,7 @@ import {SafeUrlPipe} from './safe-url.pipe';
       {path: 'register-runtime', component: RegisterRuntimeViewComponent},
     ]),
   ],
-  providers: [],
+  providers: [httpInterceptorProviders],
   bootstrap: [AppComponent],
 })
 export class AppModule {}

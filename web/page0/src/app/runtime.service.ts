@@ -1,21 +1,17 @@
 import { Injectable } from '@angular/core';
+import { BehaviorSubject, Observable, of, Subject, forkJoin } from 'rxjs';
 import {
-  BehaviorSubject,
-  catchError,
-  defaultIfEmpty,
-  forkJoin,
   map,
-  mergeMap,
   mergeScan,
-  Observable,
-  of,
   shareReplay,
   startWith,
-  Subject,
-  switchMap,
   tap,
   withLatestFrom,
-} from 'rxjs';
+  switchMap,
+  catchError,
+  mergeMap,
+  defaultIfEmpty,
+} from 'rxjs/operators';
 import { ApiService } from './api.service';
 import { Host } from './host-interface';
 import { Runtime, RuntimeViewStatus, RuntimeStatus } from './runtime-interface';
@@ -53,7 +49,9 @@ export class RuntimeService {
 
   private refresh(runtimes: { url: string; alias: string }[]) {
     return forkJoin(
-      runtimes.map((runtime) => this.getRuntimeInfo(runtime.url, runtime.alias))
+      runtimes.map((runtime) =>
+        this.getRuntimeInfo(runtime.url, runtime.alias),
+      ),
     ).pipe(defaultIfEmpty([]));
   }
 
@@ -88,7 +86,7 @@ export class RuntimeService {
         return this.refresh(this.getInitRuntimeSettings()).pipe(
           tap(() => {
             this.status$.next(RuntimeViewStatus.done);
-          })
+          }),
         );
       }
 
@@ -105,20 +103,20 @@ export class RuntimeService {
         return this.refresh(runtimes).pipe(
           tap(() => {
             this.status$.next(RuntimeViewStatus.done);
-          })
+          }),
         );
       }
       return of(runtimes);
     }, []),
     tap((runtimes) => console.log('runtimes', runtimes)),
     tap((runtimes) =>
-      window.localStorage.setItem('runtimes', JSON.stringify(runtimes))
+      window.localStorage.setItem('runtimes', JSON.stringify(runtimes)),
     ),
-    shareReplay(1)
+    shareReplay(1),
   );
 
   private status$ = new BehaviorSubject<RuntimeViewStatus>(
-    RuntimeViewStatus.initializing
+    RuntimeViewStatus.initializing,
   );
 
   getStatus() {
@@ -138,7 +136,7 @@ export class RuntimeService {
         }
         return runtime;
       }),
-      shareReplay(1)
+      shareReplay(1),
     );
   }
 
@@ -162,13 +160,13 @@ export class RuntimeService {
         this.runtimeAction.next({
           type: 'register',
           runtime,
-        })
+        }),
       ),
       tap(() => this.status$.next(RuntimeViewStatus.done)),
       catchError((error) => {
         this.status$.next(RuntimeViewStatus.register_error);
         throw error;
-      })
+      }),
     );
   }
 
@@ -194,7 +192,7 @@ export class RuntimeService {
   private getHosts(
     runtimeUrl: string,
     zone: string,
-    runtimeAlias: string
+    runtimeAlias: string,
   ): Observable<Host[]> {
     return this.apiService.listHosts(runtimeUrl, zone).pipe(
       map(({ items: hosts }) => hosts || []),
@@ -209,11 +207,11 @@ export class RuntimeService {
                 url: hostUrl,
                 runtime: runtimeAlias,
                 groups,
-              }))
+              })),
             );
-          })
+          }),
         ).pipe(defaultIfEmpty([]));
-      })
+      }),
     );
   }
 
@@ -226,12 +224,12 @@ export class RuntimeService {
           map((zones) => ({
             type: info.type,
             zones: zones.map((zone) => zone.name),
-          }))
+          })),
         );
       }),
       switchMap(({ type, zones }) => {
         return forkJoin(
-          zones.map((zone) => this.getHosts(url, zone, alias))
+          zones.map((zone) => this.getHosts(url, zone, alias)),
         ).pipe(
           defaultIfEmpty([]),
           map((hostLists) => hostLists.flat()),
@@ -242,7 +240,7 @@ export class RuntimeService {
             zones,
             hosts,
             status: RuntimeStatus.valid,
-          }))
+          })),
         );
       }),
 
@@ -254,7 +252,7 @@ export class RuntimeService {
           hosts: [],
           status: RuntimeStatus.error,
         });
-      })
+      }),
     );
   }
 

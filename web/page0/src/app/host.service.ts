@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
-import { map, mergeScan, of, shareReplay, startWith, Subject, tap } from 'rxjs';
+import { of, Subject } from 'rxjs';
+import { map, mergeScan, shareReplay, startWith, tap } from 'rxjs/operators';
 import { ApiService } from './api.service';
 import { HostInstance } from './cloud-orchestrator.dto';
 import { Host } from './host-interface';

@@ -1,15 +1,13 @@
 import { Injectable } from '@angular/core';
+import { Observable, of, Subject } from 'rxjs';
 import {
   map,
-  merge,
   mergeScan,
-  Observable,
-  of,
-  scan,
-  shareReplay,
-  Subject,
   tap,
-} from 'rxjs';
+  shareReplay,
+  scan,
+  mergeWith,
+} from 'rxjs/operators';
 import { ApiService } from './api.service';
 import { DeviceSetting, GroupForm } from './device-interface';
 import { Environment, EnvStatus } from './env-interface';
@@ -84,7 +82,7 @@ export class EnvService {
               status: EnvStatus.starting,
             },
           });
-        })
+        }),
       );
   }
 
@@ -128,22 +126,20 @@ export class EnvService {
     .getRuntimes()
     .pipe(
       map((runtimes) =>
-        runtimes.flatMap((runtime) => this.runtimeToEnvList(runtime))
+        runtimes.flatMap((runtime) => this.runtimeToEnvList(runtime)),
       ),
       map((envs) => ({
         type: 'init',
         envs,
-      }))
+      })),
     );
 
   private isSame(env1: Environment, env2: Environment) {
     return env1.groupName === env2.groupName && env1.hostUrl === env2.hostUrl;
   }
 
-  private environments: Observable<Environment[]> = merge(
-    this.envsFromRuntimes$,
-    this.envAction
-  ).pipe(
+  private environments: Observable<Environment[]> = this.envsFromRuntimes$.pipe(
+    mergeWith(this.envAction),
     mergeScan((envs: Environment[], action) => {
       if (action.type === 'init') {
         return of(action.envs);
@@ -156,7 +152,7 @@ export class EnvService {
               env.status = EnvStatus.stopping;
             }
             return env;
-          })
+          }),
         );
       }
 
@@ -168,15 +164,15 @@ export class EnvService {
     }, []),
     scan((oldEnvs, newEnvs) => {
       const oldStarting = oldEnvs.filter(
-        (env) => env.status === EnvStatus.starting
+        (env) => env.status === EnvStatus.starting,
       );
 
       const starting = oldStarting.filter(
-        (oldEnv) => !newEnvs.find((newEnv) => this.isSame(oldEnv, newEnv))
+        (oldEnv) => !newEnvs.find((newEnv) => this.isSame(oldEnv, newEnv)),
       );
 
       const oldStopping = oldEnvs.filter(
-        (env) => env.status === EnvStatus.stopping
+        (env) => env.status === EnvStatus.stopping,
       );
 
       const stoppingAndRunning = newEnvs.map((newEnv) => {
@@ -188,7 +184,7 @@ export class EnvService {
 
       return [...starting, ...stoppingAndRunning];
     }),
-    shareReplay(1)
+    shareReplay(1),
   );
 
   getEnvs() {
@@ -197,6 +193,6 @@ export class EnvService {
 
   constructor(
     private apiService: ApiService,
-    private runtimeService: RuntimeService
+    private runtimeService: RuntimeService,
   ) {}
 }

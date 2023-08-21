@@ -70,11 +70,7 @@ func (m *GCEInstanceManager) ListZones() (*apiv1.ListZonesResponse, error) {
 
 	var items []*apiv1.Zone
 	for _, item := range res.Items {
-		hi, err := BuildZone(item)
-		if err != nil {
-			return nil, err
-		}
-		items = append(items, hi)
+		items = append(items, &apiv1.Zone{Name: item.Name})
 	}
 	return &apiv1.ListZonesResponse{
 		Items: items,
@@ -261,12 +257,6 @@ func validateRequest(r *apiv1.CreateHostRequest) error {
 
 func buildDefaultNetworkName(projectID string) string {
 	return fmt.Sprintf("projects/%s/global/networks/default", projectID)
-}
-
-func BuildZone(in *compute.Zone) (*apiv1.Zone, error) {
-	return &apiv1.Zone{
-		Name: in.Name,
-	}, nil
 }
 
 func BuildHostInstance(in *compute.Instance) (*apiv1.HostInstance, error) {

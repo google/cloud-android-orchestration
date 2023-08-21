@@ -46,6 +46,7 @@ import (
 
 const (
 	sessionIdCookie = "sessionid"
+	allowedMethods  = "GET, POST, PUT, DELETE, OPTIONS, HEAD"
 )
 
 // The controller implements the web API of the cloud orchestrator. It parses
@@ -82,7 +83,7 @@ func (c *App) AddCorsHeaderIfNeeded(w http.ResponseWriter, r *http.Request) {
 	for _, allowed := range c.corsAllowedOrigins {
 		if origin == allowed {
 			w.Header().Add("Access-Control-Allow-Origin", origin)
-			w.Header().Add("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE")
+			w.Header().Add("Access-Control-Allow-Methods", allowedMethods)
 			w.Header().Add("Access-Control-Allow-Headers", "Content-Type")
 			w.Header().Add("Access-Control-Allow-Credentials", "true")
 			break
@@ -125,6 +126,13 @@ func (c *App) Handler() http.Handler {
 	rootRouter.PathPrefix("/").Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c.AddCorsHeaderIfNeeded(w, r)
 		router.ServeHTTP(w, r)
+		if r.Method == "OPTIONS" {
+			w.Header().Add("Allow", allowedMethods)
+			w.WriteHeader(http.StatusNoContent)
+			return
+		} else {
+			router.ServeHTTP(w, r)
+		}
 	}))
 
 	return rootRouter

@@ -206,7 +206,7 @@ def info():
 # GET /v1/zones
 @apis.route("/api/v1/zones", methods=["GET"])
 def zones():
-    zones = list(mem["zones"].keys())
+    zones = list(map(lambda name: {"name": name}, mem["zones"].keys()))
     return {"items": zones}
 
 

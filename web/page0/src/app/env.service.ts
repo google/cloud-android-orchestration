@@ -11,7 +11,7 @@ import {
   tap,
 } from 'rxjs';
 import { ApiService } from './api.service';
-import { DeviceSetting } from './device-interface';
+import { DeviceSetting, GroupForm } from './device-interface';
 import { Environment, EnvStatus } from './env-interface';
 import { Host } from './host-interface';
 import { CVD } from './host-orchestrator.dto';
@@ -42,19 +42,7 @@ type EnvAction = EnvCreateAction | EnvDeleteAction | EnvInitAction;
 export class EnvService {
   private envAction = new Subject<EnvAction>();
 
-  createEnv(
-    runtimeAlias: string,
-    hostUrl: string,
-    groupForm: {
-      groupName: string;
-      devices: {
-        deviceId: string;
-        branch: string;
-        target: string;
-        buildId: string;
-      }[];
-    }
-  ) {
+  createEnv(runtimeAlias: string, hostUrl: string, groupForm: GroupForm) {
     // TODO: long polling
 
     const { groupName, devices } = groupForm;
@@ -156,7 +144,7 @@ export class EnvService {
     this.envsFromRuntimes$,
     this.envAction
   ).pipe(
-    mergeScan((envs, action) => {
+    mergeScan((envs: Environment[], action) => {
       if (action.type === 'init') {
         return of(action.envs);
       }
@@ -177,7 +165,7 @@ export class EnvService {
       }
 
       return of(envs);
-    }, [] as Environment[]),
+    }, []),
     scan((oldEnvs, newEnvs) => {
       const oldStarting = oldEnvs.filter(
         (env) => env.status === EnvStatus.starting

@@ -4,3 +4,8 @@ export interface DeviceSetting {
   target: string;
   buildId: string;
 }
+
+export interface GroupForm {
+  groupName: string;
+  devices: DeviceSetting[];
+}

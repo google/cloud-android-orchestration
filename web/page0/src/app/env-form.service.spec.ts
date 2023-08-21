@@ -1,3 +1,4 @@
+import {HttpClientModule} from '@angular/common/http';
 import {TestBed} from '@angular/core/testing';
 
 import {EnvFormService} from './env-form.service';
@@ -6,7 +7,9 @@ describe('EnvFormService', () => {
   let service: EnvFormService;
 
   beforeEach(() => {
-    TestBed.configureTestingModule({});
+    TestBed.configureTestingModule({
+      imports: [HttpClientModule],
+    });
     service = TestBed.inject(EnvFormService);
   });
 

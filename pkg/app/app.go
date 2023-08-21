@@ -82,6 +82,10 @@ func (c *App) AddCorsHeaderIfNeeded(w http.ResponseWriter, r *http.Request) {
 	for _, allowed := range c.corsAllowedOrigins {
 		if origin == allowed {
 			w.Header().Add("Access-Control-Allow-Origin", origin)
+			w.Header().Add("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE, HEAD")
+			w.Header().Add("Access-Control-Allow-Headers", "Content-Type")
+			w.Header().Add("Access-Control-Allow-Credentials", "true")
+			// w.Header().Add("Access-Control-Max-Age", "0")
 			break
 		}
 	}
@@ -120,8 +124,15 @@ func (c *App) Handler() http.Handler {
 
 	rootRouter := mux.NewRouter()
 	rootRouter.PathPrefix("/").Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Println("Checking options: method - ", r.Method)
 		c.AddCorsHeaderIfNeeded(w, r)
-		router.ServeHTTP(w, r)
+		if r.Method == "OPTIONS" {
+			w.Header().Add("Allow", "OPTIONS, GET, POST, HEAD, DELETE")
+			w.WriteHeader(http.StatusNoContent)
+			return
+		} else {
+			router.ServeHTTP(w, r)
+		}
 	}))
 
 	return rootRouter
@@ -587,8 +598,13 @@ func uint32Value(value string) (uint32, error) {
 	return uint32(uint64v), err
 }
 
+// func corsHandler(w http.ResponseWriter, r *http.Request, use accounts.User) error {
+// 	return nil
+// }
+
 func indexHandler(w http.ResponseWriter, r *http.Request, user accounts.User) error {
-	fmt.Fprintln(w, "Home page")
+	fmt.Fprintln(w, "Sanga's Home page for Page 0")
+
 	return nil
 }
 

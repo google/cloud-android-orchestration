@@ -69,8 +69,8 @@ func (m *GCEInstanceManager) ListZones() (*apiv1.ListZonesResponse, error) {
 	}
 
 	var items []*apiv1.Zone
-	for _, i := range res.Items {
-		hi, err := BuildZone(i)
+	for _, item := range res.Items {
+		hi, err := BuildZone(item)
 		if err != nil {
 			return nil, err
 		}
@@ -184,8 +184,8 @@ func (m *GCEInstanceManager) ListHosts(zone string, user accounts.User, req *Lis
 		return nil, toAppError(err)
 	}
 	var items []*apiv1.HostInstance
-	for _, i := range res.Items {
-		hi, err := BuildHostInstance(i)
+	for _, item := range res.Items {
+		hi, err := BuildHostInstance(item)
 		if err != nil {
 			return nil, err
 		}

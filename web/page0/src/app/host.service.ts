@@ -1,11 +1,11 @@
-import { Injectable } from '@angular/core';
-import { of, Subject } from 'rxjs';
-import { map, mergeScan, shareReplay, startWith, tap } from 'rxjs/operators';
-import { ApiService } from './api.service';
-import { HostInstance } from './cloud-orchestrator.dto';
-import { Host } from './host-interface';
-import { Runtime } from './runtime-interface';
-import { RuntimeService } from './runtime.service';
+import {Injectable} from '@angular/core';
+import {of, Subject} from 'rxjs';
+import {map, mergeScan, shareReplay, startWith, tap} from 'rxjs/operators';
+import {ApiService} from './api.service';
+import {HostInstance} from './cloud-orchestrator.dto';
+import {Host} from './host-interface';
+import {Runtime} from './runtime-interface';
+import {RuntimeService} from './runtime.service';
 
 interface HostCreateAction {
   type: 'create';
@@ -42,15 +42,13 @@ export class HostService {
   }
 
   private hosts$ = this.hostAction.pipe(
-    startWith<HostAction>({ type: 'init' }),
-    tap((action) => console.log('host: ', action)),
+    startWith<HostAction>({type: 'init'}),
+    tap(action => console.log('host: ', action)),
     mergeScan((acc: Host[], action) => {
       if (action.type === 'init') {
         return this.runtimeService
           .getRuntimes()
-          .pipe(
-            map((runtimes) => runtimes.flatMap((runtime) => runtime.hosts))
-          );
+          .pipe(map(runtimes => runtimes.flatMap(runtime => runtime.hosts)));
       }
 
       if (action.type === 'create') {
@@ -58,7 +56,7 @@ export class HostService {
       }
 
       if (action.type === 'delete') {
-        return of(acc.filter((item) => item.url !== action.hostUrl));
+        return of(acc.filter(item => item.url !== action.hostUrl));
       }
 
       return of(acc);
@@ -68,23 +66,23 @@ export class HostService {
 
   getHostsByZone(runtime: string, zone: string) {
     return this.hosts$.pipe(
-      map((hosts) =>
-        hosts.filter((host) => host.runtime === runtime && host.zone === zone)
+      map(hosts =>
+        hosts.filter(host => host.runtime === runtime && host.zone === zone)
       )
     );
   }
 
   getHosts(runtime: string) {
     return this.hosts$.pipe(
-      map((hosts) => hosts.filter((host) => host.runtime === runtime))
+      map(hosts => hosts.filter(host => host.runtime === runtime))
     );
   }
 
   getHost(runtime: string, zone: string, name: string) {
     return this.hosts$.pipe(
-      map((hosts) => {
+      map(hosts => {
         const host = hosts.find(
-          (host) =>
+          host =>
             host.runtime === runtime && host.zone === zone && host.name === name
         );
 

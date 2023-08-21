@@ -1,7 +1,7 @@
-import { Component } from '@angular/core';
-import { EnvService } from '../env.service';
-import { RuntimeViewStatus } from '../runtime-interface';
-import { RuntimeService } from '../runtime.service';
+import {Component} from '@angular/core';
+import {EnvService} from '../env.service';
+import {RuntimeViewStatus} from '../runtime-interface';
+import {RuntimeService} from '../runtime.service';
 
 @Component({
   selector: 'app-active-env-pane',

@@ -1,6 +1,6 @@
-import { Component } from '@angular/core';
-import { RuntimeViewStatus } from '../runtime-interface';
-import { RuntimeService } from '../runtime.service';
+import {Component} from '@angular/core';
+import {RuntimeViewStatus} from '../runtime-interface';
+import {RuntimeService} from '../runtime.service';
 
 @Component({
   selector: 'app-list-runtime-view',

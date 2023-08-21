@@ -1,4 +1,4 @@
-import { DeviceSetting } from './device-interface';
+import {DeviceSetting} from './device-interface';
 
 export enum EnvStatus {
   starting = 'starting',

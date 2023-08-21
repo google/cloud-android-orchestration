@@ -1,6 +1,6 @@
-import { TestBed } from '@angular/core/testing';
+import {TestBed} from '@angular/core/testing';
 
-import { EnvService } from './env.service';
+import {EnvService} from './env.service';
 
 describe('EnvService', () => {
   let service: EnvService;

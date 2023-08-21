@@ -1,6 +1,6 @@
-import { Component, Input } from '@angular/core';
-import { Environment, EnvStatus } from '../env-interface';
-import { EnvService } from '../env.service';
+import {Component, Input} from '@angular/core';
+import {Environment, EnvStatus} from '../env-interface';
+import {EnvService} from '../env.service';
 
 const tooltips = {
   [EnvStatus.starting]: 'Starting',
@@ -42,7 +42,7 @@ export class EnvCardComponent {
   }
 
   onClickGoto() {
-    const { hostUrl, groupName } = this.env;
+    const {hostUrl, groupName} = this.env;
     window.open(`${hostUrl}?groupId=${groupName}`);
   }
 

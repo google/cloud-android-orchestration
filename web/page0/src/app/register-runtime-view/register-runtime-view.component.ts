@@ -1,9 +1,9 @@
-import { Component } from '@angular/core';
-import { FormBuilder, Validators } from '@angular/forms';
-import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
-import { RuntimeService } from '../runtime.service';
-import { MatSnackBar } from '@angular/material/snack-bar';
-import { RuntimeViewStatus } from '../runtime-interface';
+import {Component} from '@angular/core';
+import {FormBuilder, Validators} from '@angular/forms';
+import {ActivatedRoute, NavigationEnd, Router} from '@angular/router';
+import {RuntimeService} from '../runtime.service';
+import {MatSnackBar} from '@angular/material/snack-bar';
+import {RuntimeViewStatus} from '../runtime-interface';
 import {
   filter,
   map,
@@ -14,7 +14,7 @@ import {
   tap,
   withLatestFrom,
 } from 'rxjs';
-import { handleUrl } from '../utils';
+import {handleUrl} from '../utils';
 
 @Component({
   selector: 'app-register-runtime-view',
@@ -41,8 +41,8 @@ export class RegisterRuntimeViewComponent {
   private ngUnsubscribe = new Subject<void>();
 
   previousUrl$ = this.queryParams$.pipe(
-    tap((previousUrl) => console.log('previousUrl: ', previousUrl)),
-    map((params) => (params['previousUrl'] ?? 'list-runtime') as string)
+    tap(previousUrl => console.log('previousUrl: ', previousUrl)),
+    map(params => (params['previousUrl'] ?? 'list-runtime') as string)
   );
 
   runtimes$ = this.runtimeService.getRuntimes();
@@ -77,7 +77,7 @@ export class RegisterRuntimeViewComponent {
           this.router.navigate([previousUrl]);
           this.snackBar.dismiss();
         },
-        error: (error) => {
+        error: error => {
           this.snackBar.open(error.message);
         },
       });
@@ -86,7 +86,7 @@ export class RegisterRuntimeViewComponent {
   onCancel() {
     this.previousUrl$
       .pipe(takeUntil(this.ngUnsubscribe))
-      .subscribe((previousUrl) => {
+      .subscribe(previousUrl => {
         this.router.navigate([previousUrl]);
       });
   }

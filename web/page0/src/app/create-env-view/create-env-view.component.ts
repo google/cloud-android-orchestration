@@ -1,15 +1,11 @@
-import { Component } from '@angular/core';
-import { MatSnackBar } from '@angular/material/snack-bar';
-import { Router } from '@angular/router';
-import { Subject } from 'rxjs';
-import {
-  switchMap,
-  takeUntil,
-  first,
-} from 'rxjs/operators';
-import { DeviceFormService } from '../device-form.service';
-import { EnvFormService } from '../env-form.service';
-import { EnvService } from '../env.service';
+import {Component} from '@angular/core';
+import {MatSnackBar} from '@angular/material/snack-bar';
+import {Router} from '@angular/router';
+import {Subject} from 'rxjs';
+import {switchMap, takeUntil, first} from 'rxjs/operators';
+import {DeviceFormService} from '../device-form.service';
+import {EnvFormService} from '../env-form.service';
+import {EnvService} from '../env.service';
 @Component({
   selector: 'app-create-env-view',
   templateUrl: './create-env-view.component.html',
@@ -27,7 +23,7 @@ export class CreateEnvViewComponent {
     private snackBar: MatSnackBar,
     private deviceFormService: DeviceFormService,
     private envService: EnvService,
-    private envFormService: EnvFormService,
+    private envFormService: EnvFormService
   ) {}
 
   private ngUnsubscribe = new Subject<void>();
@@ -57,7 +53,7 @@ export class CreateEnvViewComponent {
     this.envFormService
       .getSelectedRuntime()
       .pipe(takeUntil(this.ngUnsubscribe))
-      .subscribe((runtime) => {
+      .subscribe(runtime => {
         this.router.navigate(['/create-host'], {
           queryParams: {
             previousUrl: 'create-env',
@@ -72,17 +68,17 @@ export class CreateEnvViewComponent {
       .getValue()
       .pipe(
         first(),
-        switchMap(({ groupName, hostUrl, runtime }) =>
+        switchMap(({groupName, hostUrl, runtime}) =>
           this.deviceFormService.getValue().pipe(
             first(),
-            switchMap((devices) =>
+            switchMap(devices =>
               this.envService.createEnv(runtime, hostUrl, {
                 groupName,
                 devices,
-              }),
-            ),
-          ),
-        ),
+              })
+            )
+          )
+        )
       )
       .subscribe({
         next: () => {
@@ -91,7 +87,7 @@ export class CreateEnvViewComponent {
           this.envFormService.clearForm();
           this.deviceFormService.clearForm();
         },
-        error: (error) => {
+        error: error => {
           this.snackBar.open(error.message);
         },
       });

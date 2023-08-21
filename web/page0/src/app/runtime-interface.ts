@@ -1,4 +1,4 @@
-import { Host } from './host-interface';
+import {Host} from './host-interface';
 
 export enum RuntimeStatus {
   valid = 'valid',

@@ -1,6 +1,6 @@
-import { TestBed } from '@angular/core/testing';
+import {TestBed} from '@angular/core/testing';
 
-import { RuntimeService } from './runtime.service';
+import {RuntimeService} from './runtime.service';
 
 describe('RuntimeService', () => {
   let service: RuntimeService;

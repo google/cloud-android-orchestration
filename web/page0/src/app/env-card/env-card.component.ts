@@ -1,5 +1,20 @@
-import {Component, Input} from '@angular/core';
-import {Envrionment, LocalEnvironment, RemoteEnvironment} from '../env-interface';
+import { Component, Input } from '@angular/core';
+import { Environment, EnvStatus } from '../env-interface';
+import { EnvService } from '../env.service';
+
+const tooltips = {
+  [EnvStatus.starting]: 'Starting',
+  [EnvStatus.running]: 'Running',
+  [EnvStatus.stopping]: 'Stopping',
+  [EnvStatus.error]: 'Error',
+};
+
+const icons = {
+  [EnvStatus.starting]: 'pending',
+  [EnvStatus.running]: 'check_circle',
+  [EnvStatus.stopping]: 'stop_circle',
+  [EnvStatus.error]: 'error',
+};
 
 @Component({
   selector: 'app-env-card',
@@ -7,72 +22,31 @@ import {Envrionment, LocalEnvironment, RemoteEnvironment} from '../env-interface
   styleUrls: ['./env-card.component.scss'],
 })
 export class EnvCardComponent {
-  @Input() env: Envrionment | null = null;
-  remoteEnv: RemoteEnvironment | null = null;
-  localEnv: LocalEnvironment | null = null;
+  @Input() env!: Environment;
 
-  constructor() {}
+  constructor(private envService: EnvService) {}
 
-  ngOnInit() {
-    if (this.env?.env_type === "local") {
-      this.localEnv = this.env as LocalEnvironment
-    }
+  ngOnInit() {}
 
-    if (this.env?.env_type === "remote") {
-      this.remoteEnv = this.env as RemoteEnvironment
-    }
-
-    status = this.env?.status || "starting"
-
-    if (status === "running") {
-      this.tooltip = "Running"
-      this.icon = "check_circle"
-      return
-    }
-
-    if (status === "stopping") {
-      this.tooltip = "Stopping"
-      this.icon = "stop_circle"
-      return
-    }
-
-    if (status === "error") {
-      this.tooltip = "error"
-      this.icon = "error"
-      return
-    }
- 
-    this.tooltip = "Starting"
-    this.icon = "pending"
+  getCardSetting() {
+    const status = this.env.status;
+    return {
+      tooltip: tooltips[status],
+      icon: icons[status],
+      backgroundColor: 'aliceblue',
+    };
   }
 
-  tooltip = ""
-  icon = ""
-
-
-  getColor() {
-    if (this.env?.runtime === 'GCE') {
-      return 'aliceblue';
-    }
-
-    if (this.env?.runtime === 'ARM') {
-      return 'green';
-    }
-
-    return '#cfcfcf';
+  isRunning() {
+    return this.env.status === EnvStatus.running;
   }
 
-  toggleFavorite() {
-    
+  onClickGoto() {
+    const { hostUrl, groupName } = this.env;
+    window.open(`${hostUrl}?groupId=${groupName}`);
   }
 
-  goToPerGroupUI() {
-    // TODO: Open per-group UI w/ safeurl
-    // window.open("https://google.com", "_blank")
+  onClickDelete() {
+    this.envService.deleteEnv(this.env);
   }
-
-  /*
-    TODOs
-
-  */
 }

@@ -1,57 +1,38 @@
 <form [formGroup]="runtimeForm">
-  <section class="register-runtime-view">
-    <div>
-      <div>
-        <h1>New Runtime</h1>
-      </div>
+    <section class="register-runtime-view">
+        <div>
+            <div>
+                <h1>New Runtime</h1>
+            </div>
+        </div>
+
+        <mat-divider></mat-divider>
+
+        <div class="flex-container">
+            <mat-form-field class="flex-field">
+                <mat-label>Unique Alias</mat-label>
+                <input type="text" formControlName="alias" matInput placeholder="gcp-01" />
+            </mat-form-field>
+        </div>
+
+        <div>
+            <mat-form-field class="full-width-field">
+                <mat-label>URL</mat-label>
+                <input type="text" formControlName="url" matInput placeholder="https://cloud-orchestrator-x86-64-01.com" />
+            </mat-form-field>
+        </div>
+        <mat-divider></mat-divider>
+    </section>
+
+    <div class="footbar">
+        <mat-progress-bar *ngIf="showProgressBar(status$ | async)" mode="indeterminate"></mat-progress-bar>
+
+        <button class="footbar-button" mat-button color="primary" (click)="onSubmit()" [disabled]="!runtimeForm.valid">
+            Register
+        </button>
+
+        <button class="footbar-button" mat-button (click)="onCancel()">
+            Cancel
+        </button>
     </div>
-
-    <mat-divider></mat-divider>
-
-    <div class="flex-container">
-      <mat-form-field class="flex-field">
-        <mat-label>Unique Alias</mat-label>
-        <input
-          type="text"
-          formControlName="alias"
-          matInput
-          placeholder="gcp-01"
-        />
-      </mat-form-field>
-    </div>
-
-    <div>
-      <mat-form-field class="full-width-field">
-        <mat-label>URL</mat-label>
-        <input
-          type="text"
-          formControlName="url"
-          matInput
-          placeholder="https://cloud-orchestrator-x86-64-01.com"
-        />
-      </mat-form-field>
-    </div>
-    <mat-divider></mat-divider>
-  </section>
-
-  <div class="footbar">
-    <mat-progress-bar
-      *ngIf="showProgressBar(status$ | async)"
-      mode="indeterminate"
-    ></mat-progress-bar>
-
-    <button
-      class="footbar-button"
-      mat-button
-      color="primary"
-      (click)="onSubmit()"
-      [disabled]="!runtimeForm.valid"
-    >
-      Register
-    </button>
-
-    <button class="footbar-button" mat-button routerLink="/list-runtime">
-      Cancel
-    </button>
-  </div>
 </form>

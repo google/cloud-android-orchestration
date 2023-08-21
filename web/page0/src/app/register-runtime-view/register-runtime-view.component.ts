@@ -1,9 +1,20 @@
 import { Component } from '@angular/core';
 import { FormBuilder, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
+import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
 import { RuntimeService } from '../runtime.service';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { RuntimeViewStatus } from '../runtime-interface';
+import {
+  filter,
+  map,
+  mergeMap,
+  shareReplay,
+  Subject,
+  takeUntil,
+  tap,
+  withLatestFrom,
+} from 'rxjs';
+import { handleUrl } from '../utils';
 
 @Component({
   selector: 'app-register-runtime-view',
@@ -15,16 +26,30 @@ export class RegisterRuntimeViewComponent {
     private runtimeService: RuntimeService,
     private formBuilder: FormBuilder,
     private router: Router,
-    private snackBar: MatSnackBar
+    private snackBar: MatSnackBar,
+    private activatedRoute: ActivatedRoute
   ) {
-    this.status$.subscribe((status) => console.log(`status: ${status}`));
+    this.queryParams$.pipe(takeUntil(this.ngUnsubscribe)).subscribe();
   }
+
+  queryParams$ = this.router.events.pipe(
+    filter((event): event is NavigationEnd => event instanceof NavigationEnd),
+    mergeMap(() => this.activatedRoute.queryParams),
+    shareReplay(1)
+  );
+
+  private ngUnsubscribe = new Subject<void>();
+
+  previousUrl$ = this.queryParams$.pipe(
+    tap((previousUrl) => console.log('previousUrl: ', previousUrl)),
+    map((params) => (params['previousUrl'] ?? 'list-runtime') as string)
+  );
 
   runtimes$ = this.runtimeService.getRuntimes();
   status$ = this.runtimeService.getStatus();
 
   runtimeForm = this.formBuilder.group({
-    url: ['http://localhost:3000', Validators.required],
+    url: ['http://localhost:8071/api', Validators.required],
     alias: ['test', Validators.required],
   });
 
@@ -32,22 +57,42 @@ export class RegisterRuntimeViewComponent {
     return status === RuntimeViewStatus.registering;
   }
 
+  ngOnInit() {
+    this.runtimes$.pipe(takeUntil(this.ngUnsubscribe)).subscribe();
+  }
+
   onSubmit() {
-    const url = this.runtimeForm.value.url;
+    const url = handleUrl(this.runtimeForm.value.url);
     const alias = this.runtimeForm.value.alias;
 
     if (!url || !alias) {
       return;
     }
 
-    this.runtimeService.registerRuntime(alias, url).subscribe({
-      next: () => {
-        this.router.navigate(['/list-runtime']);
-        this.snackBar.dismiss();
-      },
-      error: (error) => {
-        this.snackBar.open(error.message, 'dismiss');
-      },
-    });
+    this.runtimeService
+      .registerRuntime(alias, url)
+      .pipe(withLatestFrom(this.previousUrl$), takeUntil(this.ngUnsubscribe))
+      .subscribe({
+        next: ([_, previousUrl]) => {
+          this.router.navigate([previousUrl]);
+          this.snackBar.dismiss();
+        },
+        error: (error) => {
+          this.snackBar.open(error.message);
+        },
+      });
+  }
+
+  onCancel() {
+    this.previousUrl$
+      .pipe(takeUntil(this.ngUnsubscribe))
+      .subscribe((previousUrl) => {
+        this.router.navigate([previousUrl]);
+      });
+  }
+
+  ngOnDestroy() {
+    this.ngUnsubscribe.next();
+    this.ngUnsubscribe.complete();
   }
 }

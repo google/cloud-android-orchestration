@@ -65,9 +65,35 @@ export class HostService {
     shareReplay(1)
   );
 
+  getHostsByZone(runtime: string, zone: string) {
+    return this.hosts$.pipe(
+      map((hosts) =>
+        hosts.filter((host) => host.runtime === runtime && host.zone === zone)
+      )
+    );
+  }
+
   getHosts(runtime: string) {
     return this.hosts$.pipe(
       map((hosts) => hosts.filter((host) => host.runtime === runtime))
+    );
+  }
+
+  getHost(runtime: string, zone: string, name: string) {
+    return this.hosts$.pipe(
+      map((hosts) => {
+        const host = hosts.find(
+          (host) =>
+            host.runtime === runtime && host.zone === zone && host.name === name
+        );
+
+        if (!host) {
+          throw new Error(
+            `No host of name ${name} in runtime ${runtime}, zone ${zone}`
+          );
+        }
+        return host;
+      })
     );
   }
 

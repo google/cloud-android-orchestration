@@ -24,46 +24,6 @@
     justify-content: space-between;
 }
 
-.device-id-setting {
-    display: flex;
-    flex-direction: row;
-}
-
-.device-header-item {
-    margin-right: 20px;
-    font-size: large;
-    height: fit-content;
-    align-self: center;
-    margin-bottom: 20px;
-    width: 40px;
-}
-
-#device-id {
-    flex: 1;
-}
-
-#device-setting {
-    display: flex;
-    flex-direction: row;
-    justify-content: space-between;
-}
-
-.device-setting-title {
-    font-size: medium;
-    margin-bottom: 20px;
-}
-
-.device-setting-option {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    margin-right: 10px;
-}
-
-.device-setting-option:last-child {
-    margin-right: 0px;
-}
-
 .footbar {
     padding: 30px;
     position: fixed;

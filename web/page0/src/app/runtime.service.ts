@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import {
   BehaviorSubject,
   catchError,
+  defaultIfEmpty,
   forkJoin,
   map,
   mergeMap,
@@ -50,28 +51,14 @@ type RuntimeAction =
 export class RuntimeService {
   private runtimeAction = new Subject<RuntimeAction>();
 
-  private register(runtime: Runtime) {
-    this.runtimeAction.next({
-      type: 'register',
-      runtime,
-    });
-  }
-
-  private unregister(alias: string) {
-    this.runtimeAction.next({
-      type: 'unregister',
-      alias,
-    });
-  }
-
-  private refresh() {
-    this.runtimeAction.next({
-      type: 'refresh',
-    });
+  private refresh(runtimes: { url: string; alias: string }[]) {
+    return forkJoin(
+      runtimes.map((runtime) => this.getRuntimeInfo(runtime.url, runtime.alias))
+    ).pipe(defaultIfEmpty([]));
   }
 
   private getStoredRuntimes(): Runtime[] {
-    const runtimes = localStorage.getItem('runtimes');
+    const runtimes = window.localStorage.getItem('runtimes');
     // TODO: handle type error
     if (runtimes) {
       return JSON.parse(runtimes) as Runtime[];
@@ -95,44 +82,37 @@ export class RuntimeService {
   private runtimes$: Observable<Runtime[]> = this.runtimeAction.pipe(
     startWith<RuntimeAction>({ type: 'init' }),
     tap((action) => console.log(action)),
-    mergeScan((acc: Runtime[], action) => {
+    mergeScan((runtimes: Runtime[], action) => {
       if (action.type === 'init') {
         this.status$.next(RuntimeViewStatus.initializing);
-
-        return forkJoin(
-          this.getInitRuntimeSettings().map(({ alias, url }) =>
-            this.getRuntimeInfo(url, alias)
-          )
-        ).pipe(
-          tap((runtimes) => {
+        return this.refresh(this.getInitRuntimeSettings()).pipe(
+          tap(() => {
             this.status$.next(RuntimeViewStatus.done);
           })
         );
       }
 
       if (action.type === 'register') {
-        return of([...acc, action.runtime]);
+        return of([...runtimes, action.runtime]);
       }
 
       if (action.type === 'unregister') {
-        return of(acc.filter((item) => item.alias !== action.alias));
+        return of(runtimes.filter((item) => item.alias !== action.alias));
       }
 
       if (action.type === 'refresh') {
         this.status$.next(RuntimeViewStatus.refreshing);
-        return forkJoin(
-          acc.map((runtime) => this.getRuntimeInfo(runtime.url, runtime.alias))
-        ).pipe(
+        return this.refresh(runtimes).pipe(
           tap(() => {
             this.status$.next(RuntimeViewStatus.done);
           })
         );
       }
-      return of(acc);
+      return of(runtimes);
     }, []),
     tap((runtimes) => console.log('runtimes', runtimes)),
     tap((runtimes) =>
-      localStorage.setItem('runtimes', JSON.stringify(runtimes))
+      window.localStorage.setItem('runtimes', JSON.stringify(runtimes))
     ),
     shareReplay(1)
   );
@@ -175,10 +155,15 @@ export class RuntimeService {
       mergeMap(() => this.getRuntimeInfo(url, alias)),
       tap((runtime) => {
         if (runtime.status === 'error') {
-          throw new Error(`Cannot register runtime ${alias} (url: ${url}`);
+          throw new Error(`Cannot register runtime ${alias} (url: ${url})`);
         }
       }),
-      tap((runtime) => this.register(runtime)),
+      tap((runtime) =>
+        this.runtimeAction.next({
+          type: 'register',
+          runtime,
+        })
+      ),
       tap(() => this.status$.next(RuntimeViewStatus.done)),
       catchError((error) => {
         this.status$.next(RuntimeViewStatus.register_error);
@@ -188,11 +173,16 @@ export class RuntimeService {
   }
 
   unregisterRuntime(alias: string) {
-    this.unregister(alias);
+    this.runtimeAction.next({
+      type: 'unregister',
+      alias,
+    });
   }
 
   refreshRuntimes() {
-    this.refresh();
+    this.runtimeAction.next({
+      type: 'refresh',
+    });
   }
 
   private getGroups(hostUrl: string) {
@@ -207,7 +197,8 @@ export class RuntimeService {
     runtimeAlias: string
   ): Observable<Host[]> {
     return this.apiService.listHosts(runtimeUrl, zone).pipe(
-      mergeMap(({ items: hosts }) => {
+      map(({ items: hosts }) => hosts || []),
+      mergeMap((hosts) => {
         return forkJoin(
           hosts.map((host) => {
             const hostUrl = `${runtimeUrl}/v1/zones/${zone}/hosts/${host.name}`;
@@ -221,27 +212,28 @@ export class RuntimeService {
               }))
             );
           })
-        );
+        ).pipe(defaultIfEmpty([]));
       })
     );
   }
 
-  private getRuntimeInfo(url: string, alias: string): Observable<Runtime> {
+  getRuntimeInfo(url: string, alias: string): Observable<Runtime> {
     return this.apiService.getRuntimeInfo(url).pipe(
       switchMap((info) => {
         // TODO: handle local workstation depending on type
         return this.apiService.listZones(url).pipe(
-          map(({ items: zones }) => ({
+          map(({ items: zones }) => zones || []),
+          map((zones) => ({
             type: info.type,
-            zones,
+            zones: zones.map((zone) => zone.name),
           }))
         );
       }),
-
       switchMap(({ type, zones }) => {
         return forkJoin(
           zones.map((zone) => this.getHosts(url, zone, alias))
         ).pipe(
+          defaultIfEmpty([]),
           map((hostLists) => hostLists.flat()),
           map((hosts: Host[]) => ({
             alias,

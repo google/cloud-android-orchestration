@@ -5,9 +5,14 @@ import {
   ListHostsResponse,
   ListZonesResponse,
   Operation,
-  RuntimeResponse,
+  RuntimeInfo,
 } from './cloud-orchestrator.dto';
-import { ListGroupsResponse } from './host-orchestrator.dto';
+import {
+  ListCVDsResponse,
+  ListGroupsResponse,
+  CreateGroupRequest,
+  CreateGroupResponse,
+} from './host-orchestrator.dto';
 
 @Injectable({
   providedIn: 'root',
@@ -17,22 +22,22 @@ export class ApiService {
 
   // Global Routes
   getRuntimeInfo(runtimeUrl: string) {
-    return this.httpClient.get<RuntimeResponse>(`${runtimeUrl}/info`);
+    return this.httpClient.get<RuntimeInfo>(`${runtimeUrl}/info`);
   }
 
   listZones(runtimeUrl: string) {
-    return this.httpClient.get<ListZonesResponse>(`${runtimeUrl}/zones`);
+    return this.httpClient.get<ListZonesResponse>(`${runtimeUrl}/v1/zones`);
   }
 
   // Instance Manager Routes
   createHost(
     runtimeUrl: string,
     zone: string,
-    createHostInstance: CreateHostRequest
+    createHostRequest: CreateHostRequest
   ) {
     return this.httpClient.post<Operation>(
       `${runtimeUrl}/v1/zones/${zone}/hosts`,
-      createHostInstance
+      createHostRequest
     );
   }
 
@@ -51,9 +56,18 @@ export class ApiService {
     return this.httpClient.get<ListGroupsResponse>(`${hostUrl}/groups`);
   }
 
-  createGroup() {}
+  createGroup(hostUrl: string, createGroupRequest: CreateGroupRequest) {
+    return this.httpClient.post<CreateGroupResponse>(
+      `${hostUrl}/cvds`,
+      createGroupRequest
+    );
+  }
 
-  deleteGroup(hostUrl: string, groupName: string) {}
+  deleteGroup(hostUrl: string, groupName: string) {
+    return this.httpClient.delete(`${hostUrl}/groups/${groupName}`);
+  }
 
-  listCvds(hostUrl: string, groupName: string) {}
+  listCvds(hostUrl: string) {
+    return this.httpClient.get<ListCVDsResponse>(`${hostUrl}/cvds`);
+  }
 }

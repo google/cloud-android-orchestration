@@ -1,22 +1,16 @@
-import { Device } from "./device-interface"
+import { DeviceSetting } from './device-interface';
 
-interface BaseEnvrionment {
-    runtime: string
-    group_id: string
-    devices: Device[]
-    created_at: number
-    favorite: boolean
-    status: "starting" | "stopping" | "running" | "error"
+export enum EnvStatus {
+  starting = 'starting',
+  running = 'running',
+  stopping = 'stopping',
+  error = 'error',
 }
 
-export interface RemoteEnvironment extends BaseEnvrionment {
-    env_type: "remote"
-    host: string
-    expired_at: number
+export interface Environment {
+  runtimeAlias: string;
+  hostUrl: string;
+  groupName: string;
+  devices: DeviceSetting[];
+  status: EnvStatus;
 }
-
-export interface LocalEnvironment extends BaseEnvrionment {
-    env_type: "local"
-}
-
-export type Envrionment = LocalEnvironment | RemoteEnvironment

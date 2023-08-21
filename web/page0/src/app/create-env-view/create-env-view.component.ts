@@ -1,7 +1,10 @@
-import {Component} from '@angular/core';
-import {FormControl, Validators} from '@angular/forms';
+import { Component } from '@angular/core';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
-import {BehaviorSubject, combineLatestWith, map, Observable, of} from 'rxjs';
+import { first, Subject, switchMap, takeUntil } from 'rxjs';
+import { DeviceFormService } from '../device-form.service';
+import { EnvFormService } from '../env-form.service';
+import { EnvService } from '../env.service';
 
 @Component({
   selector: 'app-create-env-view',
@@ -9,66 +12,90 @@ import {BehaviorSubject, combineLatestWith, map, Observable, of} from 'rxjs';
   styleUrls: ['./create-env-view.component.scss'],
 })
 export class CreateEnvViewComponent {
-  constructor(private router: Router) {}
+  envForm$ = this.envFormService.getEnvForm();
+  runtimes$ = this.envFormService.runtimes$;
+  zones$ = this.envFormService.zones$;
+  hosts$ = this.envFormService.hosts$;
+  deviceSettingsForm$ = this.deviceFormService.getDeviceSettingsForm();
 
-  groupIdFormControl = new FormControl('', [
-    Validators.required,
-    Validators.minLength(1),
-  ]);
+  constructor(
+    private router: Router,
+    private snackBar: MatSnackBar,
+    private deviceFormService: DeviceFormService,
+    private envService: EnvService,
+    private envFormService: EnvFormService
+  ) {}
 
-  start = of(1);
-  actionSubject = new BehaviorSubject(0);
-  action = this.actionSubject.asObservable();
-  count = this.start.pipe(combineLatestWith(this.action)).pipe(
-    map(([startingValue, action]) => {
-      return startingValue + action;
-    })
-  );
+  private ngUnsubscribe = new Subject<void>();
 
   ngOnInit() {
-    this.count.subscribe(count => console.log(count));
+    this.zones$.pipe(takeUntil(this.ngUnsubscribe)).subscribe();
   }
 
-  increment() {
-    const currentValue = this.actionSubject.getValue();
-    this.actionSubject.next(currentValue + 1);
+  ngOnDestroy() {
+    this.ngUnsubscribe.next();
+    this.ngUnsubscribe.complete();
   }
 
-  decrement() {
-    const currentValue = this.actionSubject.getValue();
-
-    if (currentValue == 1) {
-      return;
-    }
-
-    this.actionSubject.next(currentValue - 1);
-  }
-
-  getIndices(): Observable<Array<number>> {
-    return this.count.pipe(
-      map(count => {
-        return [...Array(count).keys()];
-      })
-    );
+  onClickAddDevice() {
+    this.deviceFormService.addDevice();
   }
 
   onClickRegisterRuntime() {
     this.router.navigate(['/register-runtime'], {
       queryParams: {
-        previousUrl: "create-env"
-      }
-    })
+        previousUrl: 'create-env',
+      },
+    });
   }
-
 
   onClickCreateHost() {
-    this.router.navigate(['/create-host'], {
-      queryParams: {
-        previousUrl: "create-env"
-      }
-    })
+    this.envFormService
+      .getSelectedRuntime()
+      .pipe(takeUntil(this.ngUnsubscribe))
+      .subscribe((runtime) => {
+        this.router.navigate(['/create-host'], {
+          queryParams: {
+            previousUrl: 'create-env',
+            runtime,
+          },
+        });
+      });
   }
 
+  onSubmit() {
+    this.envFormService
+      .getValue()
+      .pipe(
+        first(),
+        switchMap(({ groupName, hostUrl, runtime }) =>
+          this.deviceFormService.getValue().pipe(
+            first(),
+            switchMap((devices) =>
+              this.envService.createEnv(runtime, hostUrl, {
+                groupName,
+                devices,
+              })
+            )
+          )
+        )
+      )
+      .subscribe({
+        next: () => {
+          this.snackBar.dismiss();
+          this.router.navigate(['/']);
+          this.envFormService.clearForm();
+          this.deviceFormService.clearForm();
+        },
+        error: (error) => {
+          this.snackBar.open(error.message);
+        },
+      });
+  }
 
-  selectedRuntime = '';
+  onCancel() {
+    this.router.navigate(['/']);
+    this.envFormService.clearForm();
+    this.deviceFormService.clearForm();
+  }
 }

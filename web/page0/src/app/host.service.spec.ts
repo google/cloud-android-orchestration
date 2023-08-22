@@ -16,4 +16,12 @@ describe('HostService', () => {
   it('should be created', () => {
     expect(service).toBeTruthy();
   });
+
+  // TODO:
+  // createHost
+  // deleteHost
+  // getHostsByZone
+  // getHosts
+  // getHost
+  // getAllHosts
 });

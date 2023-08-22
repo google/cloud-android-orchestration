@@ -190,6 +190,7 @@ export class RuntimeService {
     zone: string,
     runtimeAlias: string
   ): Observable<Host[]> {
+    console.log(`getHosts: ${runtimeAlias} / ${zone}`);
     return this.apiService.listHosts(runtimeUrl, zone).pipe(
       map(({items: hosts}) => hosts || []),
       mergeMap(hosts => {

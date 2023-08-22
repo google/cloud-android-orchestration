@@ -16,4 +16,12 @@ describe('EnvFormService', () => {
   it('should be created', () => {
     expect(service).toBeTruthy();
   });
+
+  // TODO:
+  // getInitEnvForm
+  // getEnvForm
+  // runtimes, zones, hosts
+  // getSelectedRuntime
+  // getValue
+  // clearForm
 });

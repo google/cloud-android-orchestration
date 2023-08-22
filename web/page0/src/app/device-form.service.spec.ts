@@ -13,4 +13,12 @@ describe('DeviceFormService', () => {
   it('should be created', () => {
     expect(service).toBeTruthy();
   });
+
+  // TODO:
+  // addDevice
+  // deleteDevice
+  // duplicateDevice
+  // getDeviceSettingsForm
+  // getValue
+  // clearForm
 });

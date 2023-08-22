@@ -58,7 +58,7 @@ export const deriveApis = (mockCloudOrchestrator: Runtime): MockApi[] => {
         method: 'GET',
         url: `${url}/v1/zones/${zone}/hosts`,
       },
-      data: hosts.filter(host => host.zone === zone),
+      data: {items: hosts.filter(host => host.zone === zone)},
     })),
 
     ...hosts.map(host => ({
@@ -66,7 +66,7 @@ export const deriveApis = (mockCloudOrchestrator: Runtime): MockApi[] => {
         method: 'GET',
         url: `${url}/v1/zones/${host.zone}/hosts/${host.name}/groups`,
       },
-      data: host.groups,
+      data: {groups: host.groups},
     })),
   ];
 };

@@ -82,7 +82,7 @@ export class MockLocalStorage {
     return JSON.stringify(this.store[key]);
   }
   setItem(key: string, value: string) {
-    this.store[key] = value;
+    this.store[key] = JSON.parse(value);
   }
   removeItem(key: string) {
     delete this.store[key];

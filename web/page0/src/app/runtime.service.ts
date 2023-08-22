@@ -1,25 +1,21 @@
-import { Injectable } from '@angular/core';
+import {Injectable} from '@angular/core';
+import {BehaviorSubject, Observable, of, Subject, forkJoin} from 'rxjs';
 import {
-  BehaviorSubject,
-  catchError,
-  defaultIfEmpty,
-  forkJoin,
   map,
-  mergeMap,
   mergeScan,
-  Observable,
-  of,
   shareReplay,
   startWith,
-  Subject,
-  switchMap,
   tap,
   withLatestFrom,
-} from 'rxjs';
-import { ApiService } from './api.service';
-import { Host } from './host-interface';
-import { Runtime, RuntimeViewStatus, RuntimeStatus } from './runtime-interface';
-import { defaultRuntimeSettings } from './settings';
+  switchMap,
+  catchError,
+  mergeMap,
+  defaultIfEmpty,
+} from 'rxjs/operators';
+import {ApiService} from './api.service';
+import {Host} from './host-interface';
+import {Runtime, RuntimeViewStatus, RuntimeStatus} from './runtime-interface';
+import {defaultRuntimeSettings} from './settings';
 
 interface RuntimeRegisterAction {
   type: 'register';
@@ -51,9 +47,9 @@ type RuntimeAction =
 export class RuntimeService {
   private runtimeAction = new Subject<RuntimeAction>();
 
-  private refresh(runtimes: { url: string; alias: string }[]) {
+  private refresh(runtimes: {url: string; alias: string}[]) {
     return forkJoin(
-      runtimes.map((runtime) => this.getRuntimeInfo(runtime.url, runtime.alias))
+      runtimes.map(runtime => this.getRuntimeInfo(runtime.url, runtime.alias))
     ).pipe(defaultIfEmpty([]));
   }
 
@@ -73,15 +69,15 @@ export class RuntimeService {
       return defaultRuntimeSettings;
     }
 
-    return storedRuntimes.map((runtime) => ({
+    return storedRuntimes.map(runtime => ({
       alias: runtime.alias,
       url: runtime.url,
     }));
   }
 
   private runtimes$: Observable<Runtime[]> = this.runtimeAction.pipe(
-    startWith<RuntimeAction>({ type: 'init' }),
-    tap((action) => console.log(action)),
+    startWith<RuntimeAction>({type: 'init'}),
+    tap(action => console.log(action)),
     mergeScan((runtimes: Runtime[], action) => {
       if (action.type === 'init') {
         this.status$.next(RuntimeViewStatus.initializing);
@@ -97,7 +93,7 @@ export class RuntimeService {
       }
 
       if (action.type === 'unregister') {
-        return of(runtimes.filter((item) => item.alias !== action.alias));
+        return of(runtimes.filter(item => item.alias !== action.alias));
       }
 
       if (action.type === 'refresh') {
@@ -110,8 +106,8 @@ export class RuntimeService {
       }
       return of(runtimes);
     }, []),
-    tap((runtimes) => console.log('runtimes', runtimes)),
-    tap((runtimes) =>
+    tap(runtimes => console.log('runtimes', runtimes)),
+    tap(runtimes =>
       window.localStorage.setItem('runtimes', JSON.stringify(runtimes))
     ),
     shareReplay(1)
@@ -131,8 +127,8 @@ export class RuntimeService {
 
   getRuntimeByAlias(alias: string) {
     return this.runtimes$.pipe(
-      map((runtimes) => runtimes.find((runtime) => runtime.alias === alias)),
-      map((runtime) => {
+      map(runtimes => runtimes.find(runtime => runtime.alias === alias)),
+      map(runtime => {
         if (!runtime) {
           throw new Error(`No runtime of alias ${alias}`);
         }
@@ -148,24 +144,24 @@ export class RuntimeService {
     return of(null).pipe(
       withLatestFrom(this.runtimes$),
       map(([_, runtimes]) => {
-        if (runtimes.some((runtime) => runtime.alias === alias)) {
+        if (runtimes.some(runtime => runtime.alias === alias)) {
           throw Error(`Cannot have runtime of duplicated alias: ${alias}`);
         }
       }),
       mergeMap(() => this.getRuntimeInfo(url, alias)),
-      tap((runtime) => {
+      tap(runtime => {
         if (runtime.status === 'error') {
           throw new Error(`Cannot register runtime ${alias} (url: ${url})`);
         }
       }),
-      tap((runtime) =>
+      tap(runtime =>
         this.runtimeAction.next({
           type: 'register',
           runtime,
         })
       ),
       tap(() => this.status$.next(RuntimeViewStatus.done)),
-      catchError((error) => {
+      catchError(error => {
         this.status$.next(RuntimeViewStatus.register_error);
         throw error;
       })
@@ -186,9 +182,7 @@ export class RuntimeService {
   }
 
   private getGroups(hostUrl: string) {
-    return this.apiService
-      .listGroups(hostUrl)
-      .pipe(map(({ groups }) => groups));
+    return this.apiService.listGroups(hostUrl).pipe(map(({groups}) => groups));
   }
 
   private getHosts(
@@ -197,13 +191,13 @@ export class RuntimeService {
     runtimeAlias: string
   ): Observable<Host[]> {
     return this.apiService.listHosts(runtimeUrl, zone).pipe(
-      map(({ items: hosts }) => hosts || []),
-      mergeMap((hosts) => {
+      map(({items: hosts}) => hosts || []),
+      mergeMap(hosts => {
         return forkJoin(
-          hosts.map((host) => {
+          hosts.map(host => {
             const hostUrl = `${runtimeUrl}/v1/zones/${zone}/hosts/${host.name}`;
             return this.getGroups(hostUrl).pipe(
-              map((groups) => ({
+              map(groups => ({
                 name: host.name!,
                 zone: zone,
                 url: hostUrl,
@@ -219,22 +213,22 @@ export class RuntimeService {
 
   getRuntimeInfo(url: string, alias: string): Observable<Runtime> {
     return this.apiService.getRuntimeInfo(url).pipe(
-      switchMap((info) => {
+      switchMap(info => {
         // TODO: handle local workstation depending on type
         return this.apiService.listZones(url).pipe(
-          map(({ items: zones }) => zones || []),
-          map((zones) => ({
+          map(({items: zones}) => zones || []),
+          map(zones => ({
             type: info.type,
-            zones: zones.map((zone) => zone.name),
+            zones: zones.map(zone => zone.name),
           }))
         );
       }),
-      switchMap(({ type, zones }) => {
+      switchMap(({type, zones}) => {
         return forkJoin(
-          zones.map((zone) => this.getHosts(url, zone, alias))
+          zones.map(zone => this.getHosts(url, zone, alias))
         ).pipe(
           defaultIfEmpty([]),
-          map((hostLists) => hostLists.flat()),
+          map(hostLists => hostLists.flat()),
           map((hosts: Host[]) => ({
             alias,
             type,
@@ -246,7 +240,7 @@ export class RuntimeService {
         );
       }),
 
-      catchError((error) => {
+      catchError(error => {
         console.error(error);
         return of({
           alias,

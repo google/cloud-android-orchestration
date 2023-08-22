@@ -1,6 +1,6 @@
-import { Component, Input } from '@angular/core';
-import { FormGroup } from '@angular/forms';
-import { DeviceFormService } from '../device-form.service';
+import {Component, Input} from '@angular/core';
+import {FormGroup} from '@angular/forms';
+import {DeviceFormService} from '../device-form.service';
 
 @Component({
   selector: 'app-device-form',

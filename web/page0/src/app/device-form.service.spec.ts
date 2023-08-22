@@ -1,6 +1,6 @@
-import { TestBed } from '@angular/core/testing';
+import {TestBed} from '@angular/core/testing';
 
-import { DeviceFormService } from './device-form.service';
+import {DeviceFormService} from './device-form.service';
 
 describe('DeviceFormService', () => {
   let service: DeviceFormService;

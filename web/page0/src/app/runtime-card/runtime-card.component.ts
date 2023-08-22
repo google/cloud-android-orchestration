@@ -1,11 +1,12 @@
-import { Component, Input } from '@angular/core';
-import { MatSnackBar } from '@angular/material/snack-bar';
-import { Router } from '@angular/router';
-import { BehaviorSubject, of, Subject, takeUntil } from 'rxjs';
-import { Host } from '../host-interface';
-import { HostService } from '../host.service';
-import { Runtime } from '../runtime-interface';
-import { RuntimeService } from '../runtime.service';
+import {Component, Input} from '@angular/core';
+import {MatSnackBar} from '@angular/material/snack-bar';
+import {Router} from '@angular/router';
+import {BehaviorSubject, Subject} from 'rxjs';
+import {takeUntil} from 'rxjs/operators';
+import {Host} from '../host-interface';
+import {HostService} from '../host.service';
+import {Runtime} from '../runtime-interface';
+import {RuntimeService} from '../runtime.service';
 
 @Component({
   selector: 'app-runtime-card',
@@ -34,7 +35,7 @@ export class RuntimeCardComponent {
     this.hostService
       .getHosts(this.runtime.alias)
       .pipe(takeUntil(this.ngUnsubscribe))
-      .subscribe((hosts) => this.hosts$.next(hosts));
+      .subscribe(hosts => this.hosts$.next(hosts));
   }
 
   ngOnDestroy() {
@@ -44,7 +45,7 @@ export class RuntimeCardComponent {
 
   onClickAddHost() {
     this.router.navigate(['/create-host'], {
-      queryParams: { runtime: this.runtime?.alias },
+      queryParams: {runtime: this.runtime?.alias},
     });
   }
 
@@ -68,7 +69,7 @@ export class RuntimeCardComponent {
         next: () => {
           this.snackBar.dismiss();
         },
-        error: (error) => {
+        error: error => {
           this.snackBar.open(
             `Failed to delete host ${host.url} (error: ${error.message})`,
             'dismiss'

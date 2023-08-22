@@ -1,7 +1,7 @@
-import { Injectable } from '@angular/core';
-import { FormBuilder, Validators } from '@angular/forms';
-import { map, scan, startWith, Subject, tap } from 'rxjs';
-import { DeviceSetting } from './device-interface';
+import {Injectable} from '@angular/core';
+import {FormBuilder, Validators} from '@angular/forms';
+import {map, scan, startWith, Subject, tap} from 'rxjs';
+import {DeviceSetting} from './device-interface';
 
 interface DeviceInitAction {
   type: 'init';
@@ -39,15 +39,15 @@ export class DeviceFormService {
   private deviceFormAction$ = new Subject<DeviceFormAction>();
 
   addDevice() {
-    this.deviceFormAction$.next({ type: 'add' });
+    this.deviceFormAction$.next({type: 'add'});
   }
 
   deleteDevice(targetIdx: number) {
-    this.deviceFormAction$.next({ type: 'delete', targetIdx });
+    this.deviceFormAction$.next({type: 'delete', targetIdx});
   }
 
   duplicateDevice(targetIdx: number) {
-    this.deviceFormAction$.next({ type: 'duplicate', targetIdx });
+    this.deviceFormAction$.next({type: 'duplicate', targetIdx});
   }
 
   private getInitDeviceSettings() {
@@ -72,7 +72,7 @@ export class DeviceFormService {
 
   private toFormArray(deviceSettings: DeviceSetting[]) {
     return this.formBuilder.array(
-      deviceSettings.map((setting) => this.toDeviceForm(setting))
+      deviceSettings.map(setting => this.toDeviceForm(setting))
     );
   }
 
@@ -81,8 +81,8 @@ export class DeviceFormService {
   }
 
   private deviceSettingsForm$ = this.deviceFormAction$.pipe(
-    tap((action) => console.log('deviceForm ', action.type)),
-    startWith({ type: 'init' } as DeviceInitAction),
+    tap(action => console.log('deviceForm ', action.type)),
+    startWith({type: 'init'} as DeviceInitAction),
     scan((form, action) => {
       if (action.type === 'init') {
         return form;
@@ -111,7 +111,7 @@ export class DeviceFormService {
       }
 
       if (action.type === 'duplicate') {
-        const { branch, target, buildId } = form.at(action.targetIdx).value;
+        const {branch, target, buildId} = form.at(action.targetIdx).value;
 
         form.push(
           this.toDeviceForm({
@@ -127,7 +127,7 @@ export class DeviceFormService {
 
       return form;
     }, this.getInitDeviceForm()),
-    tap((form) => console.log(form.value))
+    tap(form => console.log(form.value))
   );
 
   getDeviceSettingsForm() {
@@ -136,12 +136,12 @@ export class DeviceFormService {
 
   getValue() {
     return this.deviceSettingsForm$.pipe(
-      map((form) => form.value),
-      tap((v) => console.log(v)),
-      map((deviceSettings) => {
+      map(form => form.value),
+      tap(v => console.log(v)),
+      map(deviceSettings => {
         console.log(deviceSettings.length);
         return deviceSettings.map((setting, idx) => {
-          const { deviceId, branch, target, buildId } = setting;
+          const {deviceId, branch, target, buildId} = setting;
 
           if (!deviceId || !branch || !target || !buildId) {
             throw new Error(`Device # ${idx + 1} has empty field`);
@@ -159,7 +159,7 @@ export class DeviceFormService {
   }
 
   clearForm() {
-    this.deviceFormAction$.next({ type: 'clear' });
+    this.deviceFormAction$.next({type: 'clear'});
   }
 
   constructor(private formBuilder: FormBuilder) {}

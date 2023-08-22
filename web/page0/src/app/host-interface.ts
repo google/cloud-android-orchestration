@@ -1,4 +1,4 @@
-import { Group } from './host-orchestrator.dto';
+import {Group} from './host-orchestrator.dto';
 
 export interface Host {
   name: string;

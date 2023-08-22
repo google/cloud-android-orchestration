@@ -1,6 +1,6 @@
-import { Injectable } from '@angular/core';
-import { FormBuilder, Validators } from '@angular/forms';
-import { RuntimeService } from './runtime.service';
+import {Injectable} from '@angular/core';
+import {FormBuilder, Validators} from '@angular/forms';
+import {RuntimeService} from './runtime.service';
 import {
   catchError,
   combineLatestWith,
@@ -13,7 +13,7 @@ import {
   switchMap,
   tap,
 } from 'rxjs';
-import { HostService } from './host.service';
+import {HostService} from './host.service';
 
 interface EnvFormInitAction {
   type: 'init';
@@ -38,7 +38,7 @@ export class EnvFormService {
   private envFormAction$ = new Subject<EnvFormAction>();
 
   private envForm$ = this.envFormAction$.pipe(
-    startWith({ type: 'init' } as EnvFormInitAction),
+    startWith({type: 'init'} as EnvFormInitAction),
     scan((form, action) => {
       if (action.type === 'init') {
         return form;
@@ -69,17 +69,17 @@ export class EnvFormService {
   runtimes$ = this.runtimeService.getRuntimes();
 
   private selectedRuntime$ = this.envForm$.pipe(
-    switchMap((form) => {
+    switchMap(form => {
       return form.controls.runtime.valueChanges.pipe(
-        map((alias) => alias ?? ''),
-        tap((alias) => console.log(`selected runtime: ${alias}`)),
+        map(alias => alias ?? ''),
+        tap(alias => console.log(`selected runtime: ${alias}`)),
         tap(() => {
           form.controls.zone.setValue('');
         }),
         switchMap((alias: string) =>
           this.runtimeService.getRuntimeByAlias(alias)
         ),
-        catchError((error) => {
+        catchError(error => {
           return of();
         })
       );
@@ -88,15 +88,15 @@ export class EnvFormService {
   );
 
   zones$ = this.selectedRuntime$.pipe(
-    map((runtime) => runtime?.zones || []),
-    tap((zones) => console.log('zones: ', zones.length))
+    map(runtime => runtime?.zones || []),
+    tap(zones => console.log('zones: ', zones.length))
   );
 
   private selectedZone$ = this.envForm$.pipe(
-    switchMap((form) =>
+    switchMap(form =>
       form.controls.zone.valueChanges.pipe(
-        map((zone) => zone ?? ''),
-        tap((zone) => console.log('selected zone: ', zone)),
+        map(zone => zone ?? ''),
+        tap(zone => console.log('selected zone: ', zone)),
         tap(() => {
           form.controls.host.setValue('');
         })
@@ -113,17 +113,17 @@ export class EnvFormService {
       }
       return this.hostService.getHostsByZone(runtime.alias, zone);
     }),
-    tap((hosts) => console.log('hosts: ', hosts.length))
+    tap(hosts => console.log('hosts: ', hosts.length))
   );
 
   getSelectedRuntime() {
-    return this.envForm$.pipe(map((form) => form.value.runtime));
+    return this.envForm$.pipe(map(form => form.value.runtime));
   }
 
   getValue() {
     return this.envForm$.pipe(
-      switchMap((form) => {
-        const { runtime, zone, groupName, host } = form.value;
+      switchMap(form => {
+        const {runtime, zone, groupName, host} = form.value;
         if (!runtime || !zone || !groupName || !host) {
           console.error(form.value);
           throw new Error(
@@ -132,9 +132,9 @@ export class EnvFormService {
         }
 
         return this.hostService.getHost(runtime, zone, host).pipe(
-          map((host) => {
+          map(host => {
             if (!host) {
-              throw new Error(`Invalid host`);
+              throw new Error('Invalid host');
             }
             return {
               groupName,
@@ -148,6 +148,6 @@ export class EnvFormService {
   }
 
   clearForm() {
-    this.envFormAction$.next({ type: 'clear' });
+    this.envFormAction$.next({type: 'clear'});
   }
 }

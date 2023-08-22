@@ -1,14 +1,5 @@
 import {RequestMatch} from '@angular/common/http/testing';
-import {Host} from 'src/app/host-interface';
-import {Runtime} from 'src/app/runtime-interface';
-
-export interface MockCloudOrchestrator {
-  alias: string;
-  type?: 'local' | 'on-premise' | 'cloud';
-  url: string;
-  zones: string[];
-  hosts: Host[];
-}
+import {Runtime, RuntimeStatus} from 'src/app/runtime-interface';
 
 interface MockApi {
   params: RequestMatch;
@@ -17,9 +8,9 @@ interface MockApi {
 }
 
 export const deriveApis = (mockCloudOrchestrator: Runtime): MockApi[] => {
-  const {url, zones, hosts, type} = mockCloudOrchestrator;
+  const {url, zones, hosts, type, status} = mockCloudOrchestrator;
 
-  if (!zones) {
+  if (status === RuntimeStatus.error) {
     return [
       {
         params: {
@@ -33,6 +24,10 @@ export const deriveApis = (mockCloudOrchestrator: Runtime): MockApi[] => {
         },
       },
     ];
+  }
+
+  if (!zones) {
+    throw new Error('Invalid mockCloudOrchestrator');
   }
 
   return [
@@ -96,3 +91,10 @@ export class MockLocalStorage {
     this.store = {};
   }
 }
+
+export const invalidRuntime = {
+  alias: 'INVALID',
+  url: 'INVALID',
+  status: RuntimeStatus.error,
+  hosts: [],
+};

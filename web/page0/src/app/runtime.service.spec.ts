@@ -1,14 +1,20 @@
 import {HttpTestingController} from '@angular/common/http/testing';
 import {TestBed} from '@angular/core/testing';
-import {lastValueFrom, take} from 'rxjs';
-import {deriveApis, MockLocalStorage} from 'src/mock/apis';
+import {shareReplay, take} from 'rxjs/operators';
+import {TestScheduler} from 'rxjs/testing';
+import {deriveApis, invalidRuntime, MockLocalStorage} from 'src/mock/apis';
 import {modules} from './modules';
-import {Runtime, RuntimeStatus} from './runtime-interface';
+import {Runtime, RuntimeStatus, RuntimeViewStatus} from './runtime-interface';
+
 import {RuntimeService} from './runtime.service';
 
+const testScheduler = new TestScheduler((actual, expected) => {
+  expect(actual).toEqual(expected);
+});
+
 describe('RuntimeService', () => {
-  async function setUp() {
-    const runtimes: Runtime[] = [
+  function setUp() {
+    const storedRuntimes: Runtime[] = [
       {
         alias: 'runtime1',
         type: 'cloud',
@@ -28,7 +34,7 @@ describe('RuntimeService', () => {
     ];
 
     const mockLocalStorage = new MockLocalStorage({
-      runtimes,
+      runtimes: storedRuntimes,
     });
 
     spyOn(window.localStorage, 'getItem').and.callFake(
@@ -43,22 +49,198 @@ describe('RuntimeService', () => {
     const service = TestBed.inject(RuntimeService);
     const http = TestBed.inject(HttpTestingController);
 
-    return {service, runtimes, http};
+    return {service, storedRuntimes, http};
   }
 
-  fit('should be created', async () => {
-    const {service} = await setUp();
+  it('should be created', () => {
+    const {service} = setUp();
     expect(service).toBeTruthy();
   });
 
-  fit('default runtimes should be load', async () => {
-    const {service, runtimes, http} = await setUp();
+  it('#getRuntimes: initial load', done => {
+    const {service, storedRuntimes, http} = setUp();
 
     service.getRuntimes().subscribe(runtimes => {
       console.log(runtimes);
+      expect(runtimes.length).toBe(storedRuntimes.length);
+      done();
     });
 
-    runtimes.forEach(runtime => {
+    storedRuntimes.forEach(runtime => {
+      const apis = deriveApis(runtime);
+      for (const api of apis) {
+        const {params, data, opts} = api;
+        http.expectOne(params).flush(data, opts);
+      }
+    });
+  });
+
+  it('#getRuntimeInfo: valid runtime', done => {
+    const {service, storedRuntimes, http} = setUp();
+    const validRuntime = storedRuntimes[0];
+    const {alias, url} = validRuntime;
+
+    service.getRuntimeInfo(url, alias).subscribe(runtime => {
+      expect(runtime.status).toBe(RuntimeStatus.valid);
+      expect(runtime.zones?.length).toBe(validRuntime.zones?.length);
+      expect(runtime.hosts?.length).toBe(validRuntime.hosts?.length);
+      done();
+    });
+
+    const apis = deriveApis(validRuntime);
+    for (const api of apis) {
+      const {params, data, opts} = api;
+      http.expectOne(params).flush(data, opts);
+    }
+  });
+
+  it('#getRuntimeInfo: invalid runtime', done => {
+    const {service, storedRuntimes, http} = setUp();
+    const {alias, url} = invalidRuntime;
+    expect(!storedRuntimes.find(r => r.alias === alias)).toBe(true);
+
+    service.getRuntimeInfo(url, alias).subscribe(runtime => {
+      expect(runtime.status).toBe(RuntimeStatus.error);
+      done();
+    });
+
+    const apis = deriveApis(invalidRuntime);
+    for (const api of apis) {
+      const {params, data, opts} = api;
+      http.expectOne(params).flush(data, opts);
+    }
+  });
+
+  it('#register: valid runtime', done => {
+    const {service, storedRuntimes, http} = setUp();
+
+    testScheduler.run(({expectObservable}) => {
+      const status$ = service.getStatus().pipe(shareReplay(5));
+      status$.subscribe();
+
+      const newRuntime = {
+        alias: 'NEW_RUNTIME',
+        type: 'cloud',
+        url: 'http://new-runtime.example.com/api',
+        zones: ['zone1'],
+        hosts: [],
+        status: RuntimeStatus.valid,
+      } as Runtime;
+
+      const {alias, url} = newRuntime;
+
+      service
+        .getRuntimes()
+        .pipe(take(1))
+        .subscribe({
+          error: err => done.fail(err),
+          next: runtimes => {
+            const hasDuplicate = !!runtimes.find(
+              runtime => runtime.alias === alias
+            );
+
+            expect(hasDuplicate).toBe(false);
+          },
+        });
+
+      storedRuntimes.forEach(runtime => {
+        const apis = deriveApis(runtime);
+        for (const api of apis) {
+          const {params, data, opts} = api;
+          http.expectOne(params).flush(data, opts);
+        }
+      });
+
+      service.registerRuntime(alias, url).subscribe(runtime => {
+        expect(runtime.alias).toBe(alias);
+        expect(runtime.url).toBe(url);
+        done();
+      });
+
+      const apis = deriveApis(newRuntime);
+      for (const api of apis) {
+        const {params, data, opts} = api;
+        http.expectOne(params).flush(data, opts);
+      }
+
+      expectObservable(status$).toBe('(iidrd)', {
+        i: RuntimeViewStatus.initializing,
+        d: RuntimeViewStatus.done,
+        r: RuntimeViewStatus.registering,
+      });
+    });
+  });
+
+  it('#register: duplicated runtime', done => {
+    const {service, storedRuntimes, http} = setUp();
+    const dupRuntime = storedRuntimes[0];
+    const {alias, url} = dupRuntime;
+
+    testScheduler.run(({expectObservable}) => {
+      const status$ = service.getStatus().pipe(shareReplay(5));
+      status$.subscribe();
+
+      service
+        .getRuntimes()
+        .pipe(take(1))
+        .subscribe({
+          error: err => done.fail(err),
+          next: runtimes => {
+            const hasDuplicate = !!runtimes.find(
+              runtime => runtime.alias === alias
+            );
+
+            expect(hasDuplicate).toBe(true);
+          },
+        });
+
+      storedRuntimes.forEach(runtime => {
+        const apis = deriveApis(runtime);
+        for (const api of apis) {
+          const {params, data, opts} = api;
+          http.expectOne(params).flush(data, opts);
+        }
+      });
+
+      service.registerRuntime(alias, url).subscribe({
+        error: () => done(),
+        next: () => done.fail('Should emit error'),
+      });
+
+      const apis = deriveApis(dupRuntime);
+      for (const api of apis) {
+        const {params} = api;
+        http.expectNone(params);
+      }
+
+      expectObservable(status$).toBe('(iidre)', {
+        i: RuntimeViewStatus.initializing,
+        d: RuntimeViewStatus.done,
+        r: RuntimeViewStatus.registering,
+        e: RuntimeViewStatus.register_error,
+      });
+    });
+  });
+
+  it('#unregister', done => {
+    const {service, storedRuntimes, http} = setUp();
+    const toBeRemovedRuntime = storedRuntimes[0];
+    const {alias} = toBeRemovedRuntime;
+
+    service
+      .getRuntimes()
+      .pipe(take(1))
+      .subscribe({
+        error: err => done.fail(err),
+        next: runtimes => {
+          const hasRuntime = !!runtimes.find(
+            runtime => runtime.alias === alias
+          );
+          expect(hasRuntime).toBe(true);
+        },
+      });
+
+    storedRuntimes.forEach(runtime => {
       const apis = deriveApis(runtime);
       for (const api of apis) {
         const {params, data, opts} = api;
@@ -66,69 +248,108 @@ describe('RuntimeService', () => {
       }
     });
 
-    // const initialRuntimes = await lastValueFrom(
-    //   service.getRuntimes().pipe(take(1))
-    // );
-    // expect(initialRuntimes.length).toBe(runtimes.length);
-  });
-
-  it('#getRuntimeInfo', async done => {
-    const {service} = await setUp();
+    service.unregisterRuntime(alias);
 
     service
-      .getRuntimeInfo('http://localhost:8071/api', 'default')
-      .subscribe(runtime => {
-        expect(runtime.zones?.length).toBe(2);
-        done();
-      });
-  });
-
-  it('#register', async done => {
-    const {service} = await setUp();
-
-    const NEW_RUNTIME_ALIAS = 'new_runtime';
-    const NEW_RUNTIME_URL = 'http://localhost:8071/api';
-
-    service
-      .registerRuntime(NEW_RUNTIME_ALIAS, NEW_RUNTIME_URL)
-      .subscribe(runtime => {
-        expect(runtime.alias).toBe(NEW_RUNTIME_ALIAS);
-        expect(runtime.url).toBe(NEW_RUNTIME_URL);
-        done();
-      });
-  });
-
-  it('#register duplicate', async done => {
-    const {service} = await setUp();
-
-    const DUPLICATE_RUNTIME_ALIAS = 'runtime1';
-    const DUPLICATE_RUNTIME_URL = 'http://localhost:8071/api';
-
-    service
-      .registerRuntime(DUPLICATE_RUNTIME_ALIAS, DUPLICATE_RUNTIME_URL)
+      .getRuntimes()
+      .pipe(take(1))
       .subscribe({
-        next: runtime => done.fail('Should fail with duplicate runtime error'),
-        error: () => {
+        next: runtimes => {
+          const hasRuntime = !!runtimes.find(
+            runtime => runtime.alias === alias
+          );
+          expect(hasRuntime).toBe(false);
           done();
         },
+        error: err => done.fail(err),
       });
   });
 
-  it('#unregister', async () => {
-    const {service} = await setUp();
-    service.unregisterRuntime('runtime1');
+  it('#refreshRuntimes', done => {
+    const {service, storedRuntimes, http} = setUp();
+    testScheduler.run(({expectObservable}) => {
+      const status$ = service.getStatus().pipe(shareReplay(5));
+      status$.subscribe();
 
-    const runtimes = await lastValueFrom(service.getRuntimes().pipe(take(2)));
+      service
+        .getRuntimes()
+        .pipe(take(1))
+        .subscribe({
+          error: err => done.fail(err),
+        });
 
-    expect(runtimes.length).toBe(1);
+      storedRuntimes.forEach(runtime => {
+        const apis = deriveApis(runtime);
+        for (const api of apis) {
+          const {params, data, opts} = api;
+          http.expectOne(params).flush(data, opts);
+        }
+      });
+
+      service.refreshRuntimes();
+
+      service
+        .getRuntimes()
+        .pipe(take(1))
+        .subscribe({
+          error: err => done.fail(err),
+          next: () => done(),
+        });
+
+      storedRuntimes.forEach(runtime => {
+        const apis = deriveApis(runtime);
+        for (const api of apis) {
+          const {params, data, opts} = api;
+          http.expectOne(params).flush(data, opts);
+        }
+      });
+
+      expectObservable(status$).toBe('(iidfd)', {
+        i: RuntimeViewStatus.initializing,
+        d: RuntimeViewStatus.done,
+        f: RuntimeViewStatus.refreshing,
+      });
+    });
   });
 
-  // it('#unregister', fakeAsync(async () => {
-  //   const { service } = setUp();
-  //   service.unregisterRuntime('runtime1');
-  //   service.getRuntimes().subscribe((runtimes) => {
-  //     expect(runtimes.length).toBe(1);
-  //     expect(runtimes[0].alias === 'runtime2');
-  //   });
-  // }));
+  it('#getRuntimeByAlias: exists', done => {
+    const {service, storedRuntimes, http} = setUp();
+    const targetRuntime = storedRuntimes[0];
+    const {alias, url} = targetRuntime;
+
+    service.getRuntimeByAlias(alias).subscribe({
+      next: runtime => {
+        expect(runtime.url).toBe(url);
+        done();
+      },
+      error: err => done.fail(err),
+    });
+
+    storedRuntimes.forEach(runtime => {
+      const apis = deriveApis(runtime);
+      for (const api of apis) {
+        const {params, data, opts} = api;
+        http.expectOne(params).flush(data, opts);
+      }
+    });
+  });
+
+  it('#getRuntimeByAlias: does not exist', done => {
+    const {service, storedRuntimes, http} = setUp();
+    const {alias} = invalidRuntime;
+    expect(!storedRuntimes.find(r => r.alias === alias)).toBe(true);
+
+    service.getRuntimeByAlias(alias).subscribe({
+      error: () => done(),
+      next: () => done.fail('Should emit error'),
+    });
+
+    storedRuntimes.forEach(runtime => {
+      const apis = deriveApis(runtime);
+      for (const api of apis) {
+        const {params, data, opts} = api;
+        http.expectOne(params).flush(data, opts);
+      }
+    });
+  });
 });

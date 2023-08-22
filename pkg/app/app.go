@@ -125,7 +125,6 @@ func (c *App) Handler() http.Handler {
 	rootRouter := mux.NewRouter()
 	rootRouter.PathPrefix("/").Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c.AddCorsHeaderIfNeeded(w, r)
-		router.ServeHTTP(w, r)
 		if r.Method == "OPTIONS" {
 			w.Header().Add("Allow", allowedMethods)
 			w.WriteHeader(http.StatusNoContent)

@@ -1,5 +1,5 @@
 import {Injectable} from '@angular/core';
-import {Observable, of, Subject} from 'rxjs';
+import {Observable, of, Subject, throwError} from 'rxjs';
 import {
   map,
   mergeScan,
@@ -46,7 +46,9 @@ export class EnvService {
     const {groupName, devices} = groupForm;
 
     if (hasDuplicate(devices.map(device => device.deviceId))) {
-      throw new Error('Devices in a group should have distinct ids');
+      return throwError(
+        () => new Error('Devices in a group should have distinct ids')
+      );
     }
 
     return this.apiService

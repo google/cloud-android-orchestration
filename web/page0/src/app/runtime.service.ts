@@ -37,19 +37,6 @@ export class RuntimeService {
     return this.runtimes$;
   }
 
-  getRuntimeByAlias(alias: string) {
-    return this.runtimes$.pipe(
-      map(runtimes => runtimes.find(runtime => runtime.alias === alias)),
-      map(runtime => {
-        if (!runtime) {
-          throw new Error(`No runtime of alias ${alias}`);
-        }
-        return runtime;
-      }),
-      shareReplay(1)
-    );
-  }
-
   registerRuntime(alias: string, url: string) {
     return of(null).pipe(
       withLatestFrom(this.runtimes$),

@@ -1,6 +1,5 @@
 import {Injectable} from '@angular/core';
 import {FormBuilder, Validators} from '@angular/forms';
-import {RuntimeService} from './runtime.service';
 import {
   catchError,
   combineLatestWith,
@@ -14,6 +13,7 @@ import {
   tap,
 } from 'rxjs';
 import {HostService} from './host.service';
+import {Store} from 'src/store/store';
 
 interface EnvFormInitAction {
   type: 'init';
@@ -31,8 +31,8 @@ type EnvFormAction = EnvFormInitAction | EnvFormClearAction;
 export class EnvFormService {
   constructor(
     private formBuilder: FormBuilder,
-    private runtimeService: RuntimeService,
-    private hostService: HostService
+    private hostService: HostService,
+    private store: Store
   ) {}
 
   private envFormAction$ = new Subject<EnvFormAction>();
@@ -66,7 +66,7 @@ export class EnvFormService {
     return this.envForm$;
   }
 
-  runtimes$ = this.runtimeService.getRuntimes();
+  runtimes$ = this.store.select(state => state.runtimes);
 
   private selectedRuntime$ = this.envForm$.pipe(
     switchMap(form => {
@@ -77,9 +77,21 @@ export class EnvFormService {
           form.controls.zone.setValue('');
         }),
         switchMap((alias: string) =>
-          this.runtimeService.getRuntimeByAlias(alias)
+          this.store
+            .select(state =>
+              state.runtimes.find(runtime => runtime.alias === alias)
+            )
+            .pipe(
+              map(runtime => {
+                if (!runtime) {
+                  throw new Error(`No runtime of alias ${alias}`);
+                }
+                return runtime;
+              })
+            )
         ),
         catchError(error => {
+          console.error(error);
           return of();
         })
       );

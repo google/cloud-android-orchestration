@@ -3,7 +3,6 @@ import {Store} from 'src/store/store';
 import {EnvService} from '../env.service';
 import {RefreshService} from '../refresh.service';
 import {RuntimeViewStatus} from '../runtime-interface';
-import {RuntimeService} from '../runtime.service';
 
 @Component({
   selector: 'app-active-env-pane',

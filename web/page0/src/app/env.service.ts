@@ -8,13 +8,13 @@ import {
   scan,
   mergeWith,
 } from 'rxjs/operators';
+import {Store} from 'src/store/store';
 import {ApiService} from './api.service';
 import {DeviceSetting, GroupForm} from './device-interface';
 import {Environment, EnvStatus} from './env-interface';
 import {Host} from './host-interface';
 import {CVD} from './host-orchestrator.dto';
 import {Runtime} from './runtime-interface';
-import {RuntimeService} from './runtime.service';
 import {hasDuplicate} from './utils';
 
 interface EnvCreateAction {
@@ -122,8 +122,8 @@ export class EnvService {
     return runtime.hosts.flatMap(host => this.hostToEnvList(host));
   }
 
-  private envsFromRuntimes$: Observable<EnvInitAction> = this.runtimeService
-    .getRuntimes()
+  private envsFromRuntimes$: Observable<EnvInitAction> = this.store
+    .select(state => state.runtimes)
     .pipe(
       map(runtimes =>
         runtimes.flatMap(runtime => this.runtimeToEnvList(runtime))
@@ -193,6 +193,6 @@ export class EnvService {
 
   constructor(
     private apiService: ApiService,
-    private runtimeService: RuntimeService
+    private store: Store
   ) {}
 }

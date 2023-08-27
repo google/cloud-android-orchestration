@@ -12,7 +12,6 @@ import {
   switchMap,
   tap,
 } from 'rxjs';
-import {HostService} from './host.service';
 import {Store} from 'src/store/store';
 import {
   hostListSelectorFactory,

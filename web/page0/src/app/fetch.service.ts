@@ -9,7 +9,7 @@ import {
 } from 'rxjs/operators';
 import {ApiService} from './api.service';
 import {Host} from './host-interface';
-import { Group } from './host-orchestrator.dto';
+import {Group} from './host-orchestrator.dto';
 import {Runtime, RuntimeStatus} from './runtime-interface';
 
 @Injectable({

@@ -1,58 +1,26 @@
 import {Injectable} from '@angular/core';
-import {BehaviorSubject, Observable, of, Subject, forkJoin} from 'rxjs';
+import {Observable, of, forkJoin, merge} from 'rxjs';
 import {
   map,
-  mergeScan,
   shareReplay,
-  startWith,
   tap,
   withLatestFrom,
   switchMap,
   catchError,
   mergeMap,
   defaultIfEmpty,
+  mergeAll,
 } from 'rxjs/operators';
+import {Store} from 'src/store/store';
 import {ApiService} from './api.service';
 import {Host} from './host-interface';
 import {Runtime, RuntimeViewStatus, RuntimeStatus} from './runtime-interface';
 import {defaultRuntimeSettings} from './settings';
 
-interface RuntimeRegisterAction {
-  type: 'register';
-  runtime: Runtime;
-}
-
-interface RuntimeUnregisterAction {
-  type: 'unregister';
-  alias: string;
-}
-
-interface RuntimeRefreshAction {
-  type: 'refresh';
-}
-
-interface RuntimeInitializeAction {
-  type: 'init';
-}
-
-type RuntimeAction =
-  | RuntimeRegisterAction
-  | RuntimeUnregisterAction
-  | RuntimeRefreshAction
-  | RuntimeInitializeAction;
-
 @Injectable({
   providedIn: 'root',
 })
 export class RuntimeService {
-  private runtimeAction = new Subject<RuntimeAction>();
-
-  private refresh(runtimes: {url: string; alias: string}[]) {
-    return forkJoin(
-      runtimes.map(runtime => this.getRuntimeInfo(runtime.url, runtime.alias))
-    ).pipe(defaultIfEmpty([]));
-  }
-
   private getStoredRuntimes(): Runtime[] {
     const runtimes = window.localStorage.getItem('runtimes');
     // TODO: handle type error
@@ -75,47 +43,22 @@ export class RuntimeService {
     }));
   }
 
-  private runtimes$: Observable<Runtime[]> = this.runtimeAction.pipe(
-    startWith<RuntimeAction>({type: 'init'}),
-    tap(action => console.log(action)),
-    mergeScan((runtimes: Runtime[], action) => {
-      if (action.type === 'init') {
-        this.status$.next(RuntimeViewStatus.initializing);
-        return this.refresh(this.getInitRuntimeSettings()).pipe(
-          tap(() => {
-            this.status$.next(RuntimeViewStatus.done);
-          })
-        );
-      }
-
-      if (action.type === 'register') {
-        return of([...runtimes, action.runtime]);
-      }
-
-      if (action.type === 'unregister') {
-        return of(runtimes.filter(item => item.alias !== action.alias));
-      }
-
-      if (action.type === 'refresh') {
-        this.status$.next(RuntimeViewStatus.refreshing);
-        return this.refresh(runtimes).pipe(
-          tap(() => {
-            this.status$.next(RuntimeViewStatus.done);
-          })
-        );
-      }
-      return of(runtimes);
-    }, []),
-    tap(runtimes => console.log('runtimes', runtimes)),
-    tap(runtimes =>
-      window.localStorage.setItem('runtimes', JSON.stringify(runtimes))
-    ),
-    shareReplay(1)
+  private status$ = this.store.select<RuntimeViewStatus>(
+    store => store.runtimesLoadStatus
   );
 
-  private status$ = new BehaviorSubject<RuntimeViewStatus>(
-    RuntimeViewStatus.initializing
-  );
+  private runtimes$: Observable<Runtime[]> = this.store
+    .select<Runtime[]>(store => store.runtimes)
+    .pipe(
+      withLatestFrom(this.status$),
+      map(([runtimes, status]) => {
+        if (status === RuntimeViewStatus.done) {
+          window.localStorage.setItem('runtimes', JSON.stringify(runtimes));
+        }
+
+        return runtimes;
+      })
+    );
 
   getStatus() {
     return this.status$;
@@ -139,10 +82,9 @@ export class RuntimeService {
   }
 
   registerRuntime(alias: string, url: string) {
-    this.status$.next(RuntimeViewStatus.registering);
-
     return of(null).pipe(
       withLatestFrom(this.runtimes$),
+      tap(() => this.store.dispatch({type: 'runtime-register-start'})),
       map(([_, runtimes]) => {
         if (runtimes.some(runtime => runtime.alias === alias)) {
           throw Error(`Cannot have runtime of duplicated alias: ${alias}`);
@@ -155,30 +97,43 @@ export class RuntimeService {
         }
       }),
       tap(runtime =>
-        this.runtimeAction.next({
-          type: 'register',
+        this.store.dispatch({
+          type: 'runtime-register-complete',
           runtime,
         })
       ),
-      tap(() => this.status$.next(RuntimeViewStatus.done)),
       catchError(error => {
-        this.status$.next(RuntimeViewStatus.register_error);
+        this.store.dispatch({
+          type: 'runtime-register-error',
+        });
+
         throw error;
       })
     );
   }
 
   unregisterRuntime(alias: string) {
-    this.runtimeAction.next({
-      type: 'unregister',
+    this.store.dispatch({
+      type: 'runtime-unregister',
       alias,
     });
   }
 
   refreshRuntimes() {
-    this.runtimeAction.next({
-      type: 'refresh',
+    this.store.dispatch({
+      type: 'runtime-refresh-start',
     });
+
+    const settings = this.getInitRuntimeSettings();
+
+    merge(settings.map(({url, alias}) => this.getRuntimeInfo(url, alias)))
+      .pipe(mergeAll())
+      .subscribe({
+        complete: () => {
+          this.store.dispatch({type: 'runtime-load-complete'});
+        },
+        next: runtime => this.store.dispatch({type: 'runtime-load', runtime}),
+      });
   }
 
   private getGroups(hostUrl: string) {
@@ -241,6 +196,7 @@ export class RuntimeService {
       }),
 
       catchError(error => {
+        console.error(`Error from getRuntimeInfo of: ${alias} (${url})`);
         console.error(error);
         return of({
           alias,
@@ -252,5 +208,10 @@ export class RuntimeService {
     );
   }
 
-  constructor(private apiService: ApiService) {}
+  constructor(
+    private apiService: ApiService,
+    private store: Store
+  ) {
+    this.refreshRuntimes();
+  }
 }

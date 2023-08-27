@@ -1,6 +1,7 @@
 import {Injectable} from '@angular/core';
 import {Subject} from 'rxjs';
-import {map, scan, startWith, tap} from 'rxjs/operators';
+import {map, scan, shareReplay, startWith, tap} from 'rxjs/operators';
+import {Action, InitAction} from './actions';
 import {match} from './reducers';
 import {AppState, initialState} from './state';
 
@@ -10,16 +11,17 @@ import {AppState, initialState} from './state';
 export class Store {
   constructor() {}
 
-  private actionSubject = new Subject<Action>();
+  action$ = new Subject<Action>();
 
   // should be updated by all reducers
-  private state$ = this.actionSubject.pipe(
-    tap(action => console.log(action.type)),
+  private state$ = this.action$.pipe(
+    tap(action => console.log('action ', action.type)),
     startWith({type: 'init'} as InitAction),
     map(action => {
       return match(action);
     }),
-    scan((prevState, handler) => handler(prevState), initialState)
+    scan((prevState, handler) => handler(prevState), initialState),
+    shareReplay(1)
   );
 
   select<T>(selector: (state: AppState) => T) {
@@ -27,6 +29,8 @@ export class Store {
   }
 
   dispatch<T>(action: Action) {
-    this.actionSubject.next(action);
+    this.action$.next(action);
   }
+
+  addAfterEffect() {}
 }

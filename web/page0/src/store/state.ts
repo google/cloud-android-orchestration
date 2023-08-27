@@ -1,7 +1,11 @@
+import {Runtime, RuntimeViewStatus} from 'src/app/runtime-interface';
+
 export interface AppState {
-  counter: number;
+  runtimes: Runtime[];
+  runtimesLoadStatus: RuntimeViewStatus;
 }
 
 export const initialState: AppState = {
-  counter: 0,
+  runtimes: [],
+  runtimesLoadStatus: RuntimeViewStatus.initializing,
 };

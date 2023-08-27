@@ -85,14 +85,6 @@ export class EnvService {
       );
   }
 
-  deleteEnv(target: Environment) {
-    // TODO: long polling
-    const {hostUrl, groupName} = target;
-    this.envAction.next({type: 'delete', target});
-
-    return this.apiService.deleteGroup(hostUrl, groupName).subscribe();
-  }
-
   private cvdToDevice(cvd: CVD): DeviceSetting {
     const {name, build_source} = cvd;
     const {android_ci_build_source} = build_source;

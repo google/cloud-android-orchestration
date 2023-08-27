@@ -1,4 +1,5 @@
 import {Component} from '@angular/core';
+import {Store} from 'src/store/store';
 import {EnvService} from '../env.service';
 import {RefreshService} from '../refresh.service';
 import {RuntimeViewStatus} from '../runtime-interface';
@@ -11,12 +12,14 @@ import {RuntimeService} from '../runtime.service';
 })
 export class ActiveEnvPaneComponent {
   envs$ = this.envService.getEnvs();
-  status$ = this.runtimeService.getStatus();
+  status$ = this.store.select<RuntimeViewStatus>(
+    store => store.runtimesLoadStatus
+  );
 
   constructor(
     private envService: EnvService,
-    private runtimeService: RuntimeService,
-    private refreshService: RefreshService
+    private refreshService: RefreshService,
+    private store: Store
   ) {}
 
   onClickRefresh() {

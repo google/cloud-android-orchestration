@@ -15,6 +15,8 @@ import {
   withLatestFrom,
 } from 'rxjs';
 import {handleUrl} from '../utils';
+import {Store} from 'src/store/store';
+import {placeholderRuntimeSetting} from '../settings';
 
 @Component({
   selector: 'app-register-runtime-view',
@@ -27,7 +29,8 @@ export class RegisterRuntimeViewComponent {
     private formBuilder: FormBuilder,
     private router: Router,
     private snackBar: MatSnackBar,
-    private activatedRoute: ActivatedRoute
+    private activatedRoute: ActivatedRoute,
+    private store: Store
   ) {
     this.queryParams$.pipe(takeUntil(this.ngUnsubscribe)).subscribe();
   }
@@ -46,11 +49,13 @@ export class RegisterRuntimeViewComponent {
   );
 
   runtimes$ = this.runtimeService.getRuntimes();
-  status$ = this.runtimeService.getStatus();
+  status$ = this.store.select<RuntimeViewStatus>(
+    store => store.runtimesLoadStatus
+  );
 
   runtimeForm = this.formBuilder.group({
-    url: ['http://localhost:8071/api', Validators.required],
-    alias: ['test', Validators.required],
+    url: [placeholderRuntimeSetting.url, Validators.required],
+    alias: [placeholderRuntimeSetting.alias, Validators.required],
   });
 
   showProgressBar(status: RuntimeViewStatus | null) {

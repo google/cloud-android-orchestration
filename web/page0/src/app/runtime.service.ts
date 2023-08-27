@@ -33,10 +33,6 @@ export class RuntimeService {
       })
     );
 
-  getStatus() {
-    return this.status$;
-  }
-
   getRuntimes() {
     return this.runtimes$;
   }

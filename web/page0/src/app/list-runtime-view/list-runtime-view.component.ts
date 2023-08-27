@@ -1,4 +1,5 @@
 import {Component} from '@angular/core';
+import {Store} from 'src/store/store';
 import {RefreshService} from '../refresh.service';
 import {RuntimeViewStatus} from '../runtime-interface';
 import {RuntimeService} from '../runtime.service';
@@ -10,11 +11,14 @@ import {RuntimeService} from '../runtime.service';
 })
 export class ListRuntimeViewComponent {
   runtimes$ = this.runtimeService.getRuntimes();
-  status$ = this.runtimeService.getStatus();
+  status$ = this.store.select<RuntimeViewStatus>(
+    store => store.runtimesLoadStatus
+  );
 
   constructor(
     private runtimeService: RuntimeService,
-    private refreshService: RefreshService
+    private refreshService: RefreshService,
+    private store: Store
   ) {}
 
   onClickRefresh() {

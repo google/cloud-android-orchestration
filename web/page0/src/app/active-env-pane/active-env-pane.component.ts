@@ -1,5 +1,6 @@
 import {Component} from '@angular/core';
 import {EnvService} from '../env.service';
+import {RefreshService} from '../refresh.service';
 import {RuntimeViewStatus} from '../runtime-interface';
 import {RuntimeService} from '../runtime.service';
 
@@ -14,11 +15,12 @@ export class ActiveEnvPaneComponent {
 
   constructor(
     private envService: EnvService,
-    private runtimeService: RuntimeService
+    private runtimeService: RuntimeService,
+    private refreshService: RefreshService
   ) {}
 
   onClickRefresh() {
-    this.runtimeService.refreshRuntimes();
+    this.refreshService.refresh();
   }
 
   showProgressBar(status: RuntimeViewStatus | null) {

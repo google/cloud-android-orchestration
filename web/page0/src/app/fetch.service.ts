@@ -23,8 +23,6 @@ export class FetchService {
           groups.map(group => {
             return this.apiService.listDevicesByGroup(hostUrl, group).pipe(
               map(device => {
-                console.log('getGroups');
-                console.log(device);
                 const cvds = device.map(device => ({
                   name: device.device_id,
                   build_source: {

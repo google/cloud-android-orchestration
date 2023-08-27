@@ -1,6 +1,7 @@
 import {Injectable} from '@angular/core';
 import {of, Subject} from 'rxjs';
 import {map, mergeScan, shareReplay, startWith, tap} from 'rxjs/operators';
+import {runtimeListSelector} from 'src/store/selectors';
 import {Store} from 'src/store/store';
 import {ApiService} from './api.service';
 import {HostInstance} from './cloud-orchestrator.dto';
@@ -47,7 +48,7 @@ export class HostService {
     mergeScan((acc: Host[], action) => {
       if (action.type === 'init') {
         return this.store
-          .select(state => state.runtimes)
+          .select(runtimeListSelector)
           .pipe(map(runtimes => runtimes.flatMap(runtime => runtime.hosts)));
       }
 
@@ -94,10 +95,6 @@ export class HostService {
         return host;
       })
     );
-  }
-
-  getAllHosts() {
-    return this.hosts$;
   }
 
   constructor(

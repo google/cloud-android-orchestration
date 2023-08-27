@@ -14,6 +14,7 @@ import {
 } from 'rxjs';
 import {HostService} from './host.service';
 import {Store} from 'src/store/store';
+import {runtimeListSelector} from 'src/store/selectors';
 
 interface EnvFormInitAction {
   type: 'init';
@@ -66,7 +67,7 @@ export class EnvFormService {
     return this.envForm$;
   }
 
-  runtimes$ = this.store.select(state => state.runtimes);
+  runtimes$ = this.store.select(runtimeListSelector);
 
   private selectedRuntime$ = this.envForm$.pipe(
     switchMap(form => {

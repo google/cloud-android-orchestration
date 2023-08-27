@@ -8,6 +8,7 @@ import {
   catchError,
   mergeMap,
 } from 'rxjs/operators';
+import {runtimeListSelector} from 'src/store/selectors';
 import {Store} from 'src/store/store';
 import {FetchService} from './fetch.service';
 import {Runtime, RuntimeViewStatus} from './runtime-interface';
@@ -21,7 +22,7 @@ export class RuntimeService {
   );
 
   private runtimes$: Observable<Runtime[]> = this.store
-    .select<Runtime[]>(store => store.runtimes)
+    .select<Runtime[]>(runtimeListSelector)
     .pipe(
       withLatestFrom(this.status$),
       map(([runtimes, status]) => {

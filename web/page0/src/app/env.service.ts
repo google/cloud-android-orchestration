@@ -8,6 +8,7 @@ import {
   scan,
   mergeWith,
 } from 'rxjs/operators';
+import {runtimeListSelector} from 'src/store/selectors';
 import {Store} from 'src/store/store';
 import {ApiService} from './api.service';
 import {DeviceSetting, GroupForm} from './device-interface';
@@ -123,7 +124,7 @@ export class EnvService {
   }
 
   private envsFromRuntimes$: Observable<EnvInitAction> = this.store
-    .select(state => state.runtimes)
+    .select(runtimeListSelector)
     .pipe(
       map(runtimes =>
         runtimes.flatMap(runtime => this.runtimeToEnvList(runtime))

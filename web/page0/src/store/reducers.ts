@@ -70,6 +70,13 @@ const reducers: {[key: ActionType]: Reducer} = {
       ...prevState,
       runtimes: prevState.runtimes.filter(item => item.alias !== action.alias),
     };
+
+    // TODO: long polling
+    // 'host-create-start': (action) => prevState => {
+    //   return {
+    //     ...prevState,
+    //   }
+    // }
   },
 } as const;
 

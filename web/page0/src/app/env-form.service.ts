@@ -14,7 +14,11 @@ import {
 } from 'rxjs';
 import {HostService} from './host.service';
 import {Store} from 'src/store/store';
-import {runtimeListSelector} from 'src/store/selectors';
+import {
+  hostListSelectorFactory,
+  hostSelectorFactory,
+  runtimeListSelector,
+} from 'src/store/selectors';
 
 interface EnvFormInitAction {
   type: 'init';
@@ -32,7 +36,6 @@ type EnvFormAction = EnvFormInitAction | EnvFormClearAction;
 export class EnvFormService {
   constructor(
     private formBuilder: FormBuilder,
-    private hostService: HostService,
     private store: Store
   ) {}
 
@@ -124,7 +127,9 @@ export class EnvFormService {
       if (!runtime) {
         return of([]);
       }
-      return this.hostService.getHostsByZone(runtime.alias, zone);
+      return this.store.select(
+        hostListSelectorFactory({runtimeAlias: runtime.alias, zone})
+      );
     }),
     tap(hosts => console.log('hosts: ', hosts.length))
   );
@@ -144,18 +149,22 @@ export class EnvFormService {
           );
         }
 
-        return this.hostService.getHost(runtime, zone, host).pipe(
-          map(host => {
-            if (!host) {
-              throw new Error('Invalid host');
-            }
-            return {
-              groupName,
-              hostUrl: host.url,
-              runtime: host.runtime,
-            };
-          })
-        );
+        return this.store
+          .select(
+            hostSelectorFactory({runtimeAlias: runtime, zone, name: host})
+          )
+          .pipe(
+            map(host => {
+              if (!host) {
+                throw new Error('Invalid host');
+              }
+              return {
+                groupName,
+                hostUrl: host.url,
+                runtime: host.runtime,
+              };
+            })
+          );
       })
     );
   }

@@ -48,5 +48,6 @@ export class EnvCardComponent {
 
   onClickDelete() {
     // TODO: this should delete host where env lies on
+    this.envService.deleteEnv(this.env);
   }
 }

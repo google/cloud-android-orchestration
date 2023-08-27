@@ -1,3 +1,4 @@
+import {Environment} from 'src/app/env-interface';
 import {Runtime} from 'src/app/runtime-interface';
 
 export type Action =
@@ -9,7 +10,9 @@ export type Action =
   | RuntimeLoadAction
   | RuntimeLoadCompleteAction
   | RuntimeRegisterErrorAction
-  | RuntimeRegisterStartAction;
+  | RuntimeRegisterStartAction
+  | EnvCreateStartAction
+  | EnvDeleteStartAction;
 
 export interface InitAction {
   type: 'init';
@@ -48,4 +51,14 @@ export interface RuntimeLoadAction {
 
 export interface RuntimeLoadCompleteAction {
   type: 'runtime-load-complete';
+}
+
+export interface EnvCreateStartAction {
+  type: 'env-create-start';
+  env: Environment;
+}
+
+export interface EnvDeleteStartAction {
+  type: 'env-delete-start';
+  target: Environment;
 }

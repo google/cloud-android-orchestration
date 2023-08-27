@@ -6,25 +6,10 @@ import {ApiService} from './api.service';
 import {GroupForm} from './device-interface';
 import {Environment, EnvStatus} from './env-interface';
 import {hasDuplicate} from './utils';
-
-interface EnvCreateAction {
-  type: 'create';
-  env: Environment;
-}
-
-interface EnvDeleteAction {
-  type: 'delete';
-  target: Environment;
-}
-
-type EnvAction = EnvCreateAction | EnvDeleteAction;
-
 @Injectable({
   providedIn: 'root',
 })
 export class EnvService {
-  private envAction = new Subject<EnvAction>();
-
   createEnv(runtimeAlias: string, hostUrl: string, groupForm: GroupForm) {
     // TODO: long polling
 
@@ -55,8 +40,8 @@ export class EnvService {
       })
       .pipe(
         tap(() => {
-          this.envAction.next({
-            type: 'create',
+          this.store.dispatch({
+            type: 'env-create-start',
             env: {
               runtimeAlias,
               hostUrl,
@@ -73,49 +58,10 @@ export class EnvService {
     return env1.groupName === env2.groupName && env1.hostUrl === env2.hostUrl;
   }
 
-  private environments: Observable<Environment[]> = this.envAction.pipe(
-    mergeScan((envs: Environment[], action) => {
-      if (action.type === 'delete') {
-        return of(
-          envs.map(env => {
-            if (this.isSame(env, action.target)) {
-              env.status = EnvStatus.stopping;
-            }
-            return env;
-          })
-        );
-      }
-
-      if (action.type === 'create') {
-        return of([...envs, action.env]);
-      }
-
-      return of(envs);
-    }, []),
-    scan((oldEnvs, newEnvs) => {
-      const oldStarting = oldEnvs.filter(
-        env => env.status === EnvStatus.starting
-      );
-
-      const starting = oldStarting.filter(
-        oldEnv => !newEnvs.find(newEnv => this.isSame(oldEnv, newEnv))
-      );
-
-      const oldStopping = oldEnvs.filter(
-        env => env.status === EnvStatus.stopping
-      );
-
-      const stoppingAndRunning = newEnvs.map(newEnv => {
-        if (oldStopping.find(oldEnv => this.isSame(oldEnv, newEnv))) {
-          newEnv.status = EnvStatus.stopping;
-        }
-        return newEnv;
-      });
-
-      return [...starting, ...stoppingAndRunning];
-    }),
-    shareReplay(1)
-  );
+  deleteEnv(target: Environment) {
+    // TODO: long polling
+    this.store.dispatch({type: 'env-delete-start', target});
+  }
 
   constructor(
     private apiService: ApiService,

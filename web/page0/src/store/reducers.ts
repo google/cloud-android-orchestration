@@ -1,6 +1,9 @@
 import {RuntimeViewStatus} from 'src/app/runtime-interface';
+import {runtimeToEnvList} from 'src/interface/utils';
 import {
   Action,
+  EnvCreateStartAction,
+  EnvDeleteStartAction,
   InitAction,
   RuntimeLoadAction,
   RuntimeLoadCompleteAction,
@@ -27,8 +30,32 @@ const reducers: {[key: ActionType]: Reducer} = {
     }),
 
   'runtime-load': (action: RuntimeLoadAction) => prevState => {
+    const envs = runtimeToEnvList(action.runtime);
+
+    const nextStartingEnvs = prevState.startingEnvs.filter(
+      startingEnv =>
+        startingEnv.runtimeAlias !== action.runtime.alias ||
+        !envs.find(
+          env =>
+            env.groupName === startingEnv.groupName &&
+            env.hostUrl === startingEnv.hostUrl
+        )
+    );
+
+    const nextStoppingEnvs = prevState.stoppingEnvs.filter(
+      stoppingEnv =>
+        stoppingEnv.runtimeAlias !== action.runtime.alias ||
+        !!envs.find(
+          env =>
+            env.groupName === stoppingEnv.groupName &&
+            env.hostUrl === stoppingEnv.hostUrl
+        )
+    );
+
     return {
       ...prevState,
+      stoppingEnvs: nextStoppingEnvs,
+      startingEnvs: nextStartingEnvs,
       runtimes: [...prevState.runtimes, action.runtime],
     };
   },
@@ -70,14 +97,29 @@ const reducers: {[key: ActionType]: Reducer} = {
       ...prevState,
       runtimes: prevState.runtimes.filter(item => item.alias !== action.alias),
     };
-
-    // TODO: long polling
-    // 'host-create-start': (action) => prevState => {
-    //   return {
-    //     ...prevState,
-    //   }
-    // }
   },
+
+  // TODO: long polling
+  'env-create-start': (action: EnvCreateStartAction) => prevState => {
+    return {
+      ...prevState,
+      startingEnvs: [...prevState.startingEnvs, action.env],
+    };
+  },
+
+  'env-delete-start': (action: EnvDeleteStartAction) => prevState => {
+    return {
+      ...prevState,
+      stoppingEnvs: [...prevState.stoppingEnvs, action.target],
+    };
+  },
+
+  // TODO: long polling
+  // 'host-create-start': (action) => prevState => {
+  //   return {
+  //     ...prevState,
+  //   }
+  // }
 } as const;
 
 const handlers: Map<ActionType, Reducer> = new Map<ActionType, Reducer>(

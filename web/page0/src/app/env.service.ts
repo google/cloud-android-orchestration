@@ -52,23 +52,21 @@ export class EnvService {
 
     return this.apiService
       .createGroup(hostUrl, {
-        group: {
-          name: groupName,
-          cvds: devices.map(device => ({
-            name: device.deviceId,
-            build_source: {
-              android_ci_build_source: {
-                main_build: {
-                  branch: device.branch,
-                  build_id: device.buildId,
-                  target: device.target,
-                },
+        group_name: groupName,
+        instance_names: devices.map(device => device.deviceId),
+        cvd: {
+          name: devices[0].deviceId,
+          build_source: {
+            android_ci_build_source: {
+              main_build: {
+                branch: devices[0].branch,
+                build_id: devices[0].buildId,
+                target: devices[0].target,
               },
             },
-            status: '',
-            displays: [],
-            group_name: groupName,
-          })),
+          },
+          status: '',
+          displays: [],
         },
       })
       .pipe(

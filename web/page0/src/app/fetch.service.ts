@@ -9,14 +9,47 @@ import {
 } from 'rxjs/operators';
 import {ApiService} from './api.service';
 import {Host} from './host-interface';
+import { Group } from './host-orchestrator.dto';
 import {Runtime, RuntimeStatus} from './runtime-interface';
 
 @Injectable({
   providedIn: 'root',
 })
 export class FetchService {
-  private fetchGroups(hostUrl: string) {
-    return this.apiService.listGroups(hostUrl).pipe(map(({groups}) => groups));
+  private fetchGroups(hostUrl: string): Observable<Group[]> {
+    return this.apiService.listGroups(hostUrl).pipe(
+      mergeMap(groups => {
+        return forkJoin(
+          groups.map(group => {
+            return this.apiService.listDevicesByGroup(hostUrl, group).pipe(
+              map(device => {
+                console.log('getGroups');
+                console.log(device);
+                const cvds = device.map(device => ({
+                  name: device.device_id,
+                  build_source: {
+                    android_ci_build_source: {
+                      main_build: {
+                        branch: 'aosp-main',
+                        build_id: '10678986',
+                        target: 'aosp_cf_x86_64_phone-trunk_staging-userdebug',
+                      },
+                    },
+                  },
+                  status: 'running',
+                  displays: [],
+                }));
+
+                return {
+                  name: group,
+                  cvds,
+                };
+              })
+            );
+          })
+        ).pipe(defaultIfEmpty([]));
+      })
+    );
   }
 
   private fetchHosts(

@@ -43,7 +43,7 @@ export class EnvCardComponent {
 
   onClickGoto() {
     const {hostUrl, groupName} = this.env;
-    window.open(`${hostUrl}?groupId=${groupName}`);
+    window.open(`${hostUrl}/?groupId=${groupName}`);
   }
 
   onClickDelete() {

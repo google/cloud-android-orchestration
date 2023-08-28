@@ -1,9 +1,9 @@
 import {Injectable} from '@angular/core';
-import {Store} from 'src/store/store';
+import {Store} from 'src/app/store/store';
 import {defaultRuntimeSettings} from './settings';
 import {merge} from 'rxjs';
 import {mergeAll} from 'rxjs/operators';
-import {Runtime} from './runtime-interface';
+import {Runtime} from 'src/app/interface/runtime-interface';
 import {FetchService} from './fetch.service';
 
 @Injectable({

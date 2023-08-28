@@ -8,9 +8,9 @@ import {
   switchMap,
 } from 'rxjs/operators';
 import {ApiService} from './api.service';
-import {Host} from './host-interface';
-import {Group} from './host-orchestrator.dto';
-import {Runtime, RuntimeStatus} from './runtime-interface';
+import {Host} from 'src/app/interface/host-interface';
+import {Group} from 'src/app/interface/host-orchestrator.dto';
+import {Runtime, RuntimeStatus} from 'src/app/interface/runtime-interface';
 
 @Injectable({
   providedIn: 'root',

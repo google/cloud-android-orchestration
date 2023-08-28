@@ -1,25 +1,19 @@
 import {Injectable} from '@angular/core';
 import {Observable, of} from 'rxjs';
+import {map, tap, withLatestFrom, catchError, mergeMap} from 'rxjs/operators';
 import {
-  map,
-  shareReplay,
-  tap,
-  withLatestFrom,
-  catchError,
-  mergeMap,
-} from 'rxjs/operators';
-import {runtimeListSelector} from 'src/store/selectors';
-import {Store} from 'src/store/store';
+  runtimeListSelector,
+  runtimesLoadStatusSelector,
+} from 'src/app/store/selectors';
+import {Store} from 'src/app/store/store';
 import {FetchService} from './fetch.service';
-import {Runtime, RuntimeViewStatus} from './runtime-interface';
+import {Runtime, RuntimeViewStatus} from 'src/app/interface/runtime-interface';
 
 @Injectable({
   providedIn: 'root',
 })
 export class RuntimeService {
-  private status$ = this.store.select<RuntimeViewStatus>(
-    store => store.runtimesLoadStatus
-  );
+  private status$ = this.store.select(runtimesLoadStatusSelector);
 
   private runtimes$: Observable<Runtime[]> = this.store
     .select<Runtime[]>(runtimeListSelector)

@@ -1,8 +1,8 @@
-import {DeviceSetting} from 'src/app/device-interface';
-import {Environment, EnvStatus} from 'src/app/env-interface';
-import {Host} from 'src/app/host-interface';
-import {CVD, Group} from 'src/app/host-orchestrator.dto';
-import {Runtime} from 'src/app/runtime-interface';
+import {DeviceSetting} from 'src/app/interface/device-interface';
+import {Environment, EnvStatus} from 'src/app/interface/env-interface';
+import {Host} from 'src/app/interface/host-interface';
+import {CVD} from 'src/app/interface/host-orchestrator.dto';
+import {Runtime} from 'src/app/interface/runtime-interface';
 
 const cvdToDevice = (cvd: CVD): DeviceSetting => {
   const {name, build_source} = cvd;

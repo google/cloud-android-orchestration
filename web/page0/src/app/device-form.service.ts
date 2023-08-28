@@ -1,7 +1,14 @@
 import {Injectable} from '@angular/core';
-import {FormBuilder, Validators} from '@angular/forms';
-import {map, scan, startWith, Subject, tap} from 'rxjs';
-import {DeviceSetting} from './device-interface';
+import {
+  FormArray,
+  FormBuilder,
+  FormControl,
+  FormGroup,
+  Validators,
+} from '@angular/forms';
+import {Observable, Subject} from 'rxjs';
+import {map, scan, startWith, tap} from 'rxjs/operators';
+import {DeviceSetting} from './interface/device-interface';
 
 interface DeviceInitAction {
   type: 'init';
@@ -31,6 +38,15 @@ type DeviceFormAction =
   | DeviceDeleteAction
   | DeviceInitAction
   | DeviceClearAction;
+
+type DeviceForm = FormArray<
+  FormGroup<{
+    deviceId: FormControl<string | null>;
+    branch: FormControl<string | null>;
+    target: FormControl<string | null>;
+    buildId: FormControl<string | null>;
+  }>
+>;
 
 @Injectable({
   providedIn: 'root',
@@ -70,20 +86,20 @@ export class DeviceFormService {
     });
   }
 
-  private toFormArray(deviceSettings: DeviceSetting[]) {
+  private toFormArray(deviceSettings: DeviceSetting[]): DeviceForm {
     return this.formBuilder.array(
       deviceSettings.map(setting => this.toDeviceForm(setting))
     );
   }
 
-  private getInitDeviceForm() {
+  private getInitDeviceForm(): DeviceForm {
     return this.toFormArray(this.getInitDeviceSettings());
   }
 
   private deviceSettingsForm$ = this.deviceFormAction$.pipe(
-    tap(action => console.log('deviceForm ', action.type)),
+    tap((action: DeviceFormAction) => console.log('deviceForm ', action.type)),
     startWith({type: 'init'} as DeviceInitAction),
-    scan((form, action) => {
+    scan((form: DeviceForm, action) => {
       if (action.type === 'init') {
         return form;
       }
@@ -134,10 +150,9 @@ export class DeviceFormService {
     return this.deviceSettingsForm$;
   }
 
-  getValue() {
+  getValue(): Observable<DeviceSetting[]> {
     return this.deviceSettingsForm$.pipe(
-      map(form => form.value),
-      tap(v => console.log(v)),
+      map((form: DeviceForm) => form.value),
       map(deviceSettings => {
         console.log(deviceSettings.length);
         return deviceSettings.map((setting, idx) => {

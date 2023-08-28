@@ -15,7 +15,8 @@ import {
   withLatestFrom,
 } from 'rxjs/operators';
 
-import {Store} from 'src/store/store';
+import {Store} from 'src/app/store/store';
+import {runtimeSelectorFactory} from '../store/selectors';
 
 @Component({
   selector: 'app-create-host-view',
@@ -47,18 +48,14 @@ export class CreateHostViewComponent {
   runtime$ = this.queryParams$.pipe(
     map(params => (params['runtime'] as string) ?? ''),
     switchMap(alias =>
-      this.store
-        .select(state =>
-          state.runtimes.find(runtime => runtime.alias === alias)
-        )
-        .pipe(
-          map(runtime => {
-            if (!runtime) {
-              throw new Error(`No runtime of alias ${alias}`);
-            }
-            return runtime;
-          })
-        )
+      this.store.select(runtimeSelectorFactory({alias})).pipe(
+        map(runtime => {
+          if (!runtime) {
+            throw new Error(`No runtime of alias ${alias}`);
+          }
+          return runtime;
+        })
+      )
     )
   );
 

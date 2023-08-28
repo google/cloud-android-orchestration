@@ -1,5 +1,5 @@
 import {Component, Input} from '@angular/core';
-import {Environment, EnvStatus} from '../env-interface';
+import {Environment, EnvStatus} from '../interface/env-interface';
 import {EnvService} from '../env.service';
 
 const tooltips = {
@@ -43,6 +43,7 @@ export class EnvCardComponent {
 
   onClickGoto() {
     const {hostUrl, groupName} = this.env;
+    // TODO: use safeurl
     window.open(`${hostUrl}/?groupId=${groupName}`);
   }
 

@@ -1,6 +1,5 @@
-import {Environment} from 'src/app/env-interface';
-import {Host} from 'src/app/host-interface';
-import {Runtime, RuntimeViewStatus} from 'src/app/runtime-interface';
+import {Environment} from 'src/app/interface/env-interface';
+import {Runtime, RuntimeViewStatus} from 'src/app/interface/runtime-interface';
 
 export interface AppState {
   runtimes: Runtime[];

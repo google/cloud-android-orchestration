@@ -6,8 +6,11 @@ import {
   ListZonesResponse,
   Operation,
   RuntimeInfo,
-} from './cloud-orchestrator.dto';
-import {ListCVDsResponse, CreateGroupRequest} from './host-orchestrator.dto';
+} from 'src/app/interface/cloud-orchestrator.dto';
+import {
+  ListCVDsResponse,
+  CreateGroupRequest,
+} from 'src/app/interface/host-orchestrator.dto';
 
 @Injectable({
   providedIn: 'root',

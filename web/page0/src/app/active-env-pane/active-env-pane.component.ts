@@ -1,9 +1,8 @@
 import {Component} from '@angular/core';
-import {envSelector} from 'src/store/selectors';
-import {Store} from 'src/store/store';
-import {EnvService} from '../env.service';
+import {envSelector, runtimesLoadStatusSelector} from 'src/app/store/selectors';
+import {Store} from 'src/app/store/store';
 import {RefreshService} from '../refresh.service';
-import {RuntimeViewStatus} from '../runtime-interface';
+import {RuntimeViewStatus} from 'src/app/interface/runtime-interface';
 
 @Component({
   selector: 'app-active-env-pane',
@@ -12,9 +11,7 @@ import {RuntimeViewStatus} from '../runtime-interface';
 })
 export class ActiveEnvPaneComponent {
   envs$ = this.store.select(envSelector);
-  status$ = this.store.select<RuntimeViewStatus>(
-    store => store.runtimesLoadStatus
-  );
+  status$ = this.store.select(runtimesLoadStatusSelector);
 
   constructor(
     private refreshService: RefreshService,

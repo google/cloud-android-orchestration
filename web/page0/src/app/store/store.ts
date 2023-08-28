@@ -1,5 +1,5 @@
 import {Injectable} from '@angular/core';
-import {Subject} from 'rxjs';
+import {Observable, Subject} from 'rxjs';
 import {map, scan, shareReplay, startWith, tap} from 'rxjs/operators';
 import {Action, InitAction} from './actions';
 import {match} from './reducers';
@@ -24,13 +24,11 @@ export class Store {
     shareReplay(1)
   );
 
-  select<T>(selector: (state: AppState) => T) {
+  select<T>(selector: (state: AppState) => T): Observable<T> {
     return this.state$.pipe(map(state => selector(state)));
   }
 
-  dispatch<T>(action: Action) {
+  dispatch(action: Action) {
     this.action$.next(action);
   }
-
-  addAfterEffect() {}
 }

@@ -1,8 +1,9 @@
 import {Component} from '@angular/core';
-import {Store} from 'src/store/store';
+import {Store} from 'src/app/store/store';
 import {RefreshService} from '../refresh.service';
-import {RuntimeViewStatus} from '../runtime-interface';
+import {RuntimeViewStatus} from 'src/app/interface/runtime-interface';
 import {RuntimeService} from '../runtime.service';
+import {runtimesLoadStatusSelector} from '../store/selectors';
 
 @Component({
   selector: 'app-list-runtime-view',
@@ -11,9 +12,7 @@ import {RuntimeService} from '../runtime.service';
 })
 export class ListRuntimeViewComponent {
   runtimes$ = this.runtimeService.getRuntimes();
-  status$ = this.store.select<RuntimeViewStatus>(
-    store => store.runtimesLoadStatus
-  );
+  status$ = this.store.select(runtimesLoadStatusSelector);
 
   constructor(
     private runtimeService: RuntimeService,

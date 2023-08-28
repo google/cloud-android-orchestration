@@ -1,6 +1,7 @@
 import {AppState} from './state';
-import {runtimeToEnvList} from '../interface/utils';
-import {EnvStatus} from 'src/app/env-interface';
+import {runtimeToEnvList} from 'src/app/interface/utils';
+import {EnvStatus} from 'src/app/interface/env-interface';
+import {Runtime} from '../interface/runtime-interface';
 
 // TODO: add starting & stopping envs here
 export const runtimeListSelector = (state: AppState) => state.runtimes;
@@ -15,7 +16,7 @@ export const hostListSelectorFactory = (params: {
   const {runtimeAlias, zone} = params;
 
   return (state: AppState) => {
-    const runtime = state.runtimes.find(
+    const runtime: Runtime | undefined = state.runtimes.find(
       runtime => runtime.alias === runtimeAlias
     );
 
@@ -39,7 +40,7 @@ export const hostSelectorFactory = (params: {
   return (state: AppState) => {
     const {runtimeAlias, zone, name} = params;
 
-    const runtime = state.runtimes.find(
+    const runtime: Runtime | undefined = state.runtimes.find(
       runtime => runtime.alias === runtimeAlias
     );
     if (!runtime) {
@@ -71,4 +72,16 @@ export const envSelector = (state: AppState) => {
     });
 
   return [...runningAndStoppingEnvs, ...state.startingEnvs];
+};
+
+export const runtimesLoadStatusSelector = (state: AppState) => {
+  return state.runtimesLoadStatus;
+};
+
+export const runtimeSelectorFactory = (params: {
+  alias: string;
+}): ((state: AppState) => Runtime | undefined) => {
+  return (state: AppState) => {
+    return state.runtimes.find(runtime => runtime.alias === params.alias);
+  };
 };

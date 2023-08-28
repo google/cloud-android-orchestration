@@ -1,22 +1,28 @@
 import {Component} from '@angular/core';
 import {FormBuilder, Validators} from '@angular/forms';
-import {ActivatedRoute, NavigationEnd, Router} from '@angular/router';
+import {
+  ActivatedRoute,
+  Event,
+  NavigationEnd,
+  Params,
+  Router,
+} from '@angular/router';
 import {RuntimeService} from '../runtime.service';
 import {MatSnackBar} from '@angular/material/snack-bar';
-import {RuntimeViewStatus} from '../runtime-interface';
+import {RuntimeViewStatus} from 'src/app/interface/runtime-interface';
+import {Subject} from 'rxjs';
 import {
   filter,
   map,
   mergeMap,
   shareReplay,
-  Subject,
   takeUntil,
-  tap,
   withLatestFrom,
-} from 'rxjs';
+} from 'rxjs/operators';
 import {handleUrl} from '../utils';
-import {Store} from 'src/store/store';
+import {Store} from 'src/app/store/store';
 import {placeholderRuntimeSetting} from '../settings';
+import {runtimesLoadStatusSelector} from 'src/app/store/selectors';
 
 @Component({
   selector: 'app-register-runtime-view',
@@ -36,7 +42,9 @@ export class RegisterRuntimeViewComponent {
   }
 
   queryParams$ = this.router.events.pipe(
-    filter((event): event is NavigationEnd => event instanceof NavigationEnd),
+    filter(
+      (event: Event): event is NavigationEnd => event instanceof NavigationEnd
+    ),
     mergeMap(() => this.activatedRoute.queryParams),
     shareReplay(1)
   );
@@ -44,14 +52,11 @@ export class RegisterRuntimeViewComponent {
   private ngUnsubscribe = new Subject<void>();
 
   previousUrl$ = this.queryParams$.pipe(
-    tap(previousUrl => console.log('previousUrl: ', previousUrl)),
-    map(params => (params['previousUrl'] ?? 'list-runtime') as string)
+    map((params: Params) => (params['previousUrl'] ?? 'list-runtime') as string)
   );
 
   runtimes$ = this.runtimeService.getRuntimes();
-  status$ = this.store.select<RuntimeViewStatus>(
-    store => store.runtimesLoadStatus
-  );
+  status$ = this.store.select(runtimesLoadStatusSelector);
 
   runtimeForm = this.formBuilder.group({
     url: [placeholderRuntimeSetting.url, Validators.required],

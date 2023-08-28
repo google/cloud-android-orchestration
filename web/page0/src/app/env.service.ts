@@ -1,10 +1,9 @@
 import {Injectable} from '@angular/core';
-import {Observable, of, Subject} from 'rxjs';
-import {mergeScan, tap, shareReplay, scan} from 'rxjs/operators';
-import {Store} from 'src/store/store';
+import {tap} from 'rxjs/operators';
+import {Store} from 'src/app/store/store';
 import {ApiService} from './api.service';
-import {GroupForm} from './device-interface';
-import {Environment, EnvStatus} from './env-interface';
+import {GroupForm} from './interface/device-interface';
+import {Environment, EnvStatus} from './interface/env-interface';
 import {hasDuplicate} from './utils';
 @Injectable({
   providedIn: 'root',

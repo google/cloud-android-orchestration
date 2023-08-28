@@ -1,23 +1,23 @@
 import {Injectable} from '@angular/core';
-import {FormBuilder, Validators} from '@angular/forms';
+import {FormBuilder, FormControl, FormGroup, Validators} from '@angular/forms';
+import {of, Subject} from 'rxjs';
 import {
-  catchError,
   combineLatestWith,
+  catchError,
   map,
-  of,
   scan,
   shareReplay,
   startWith,
-  Subject,
   switchMap,
   tap,
-} from 'rxjs';
-import {Store} from 'src/store/store';
+} from 'rxjs/operators';
+import {Store} from 'src/app/store/store';
 import {
   hostListSelectorFactory,
   hostSelectorFactory,
   runtimeListSelector,
-} from 'src/store/selectors';
+  runtimeSelectorFactory,
+} from 'src/app/store/selectors';
 
 interface EnvFormInitAction {
   type: 'init';
@@ -28,6 +28,13 @@ interface EnvFormClearAction {
 }
 
 type EnvFormAction = EnvFormInitAction | EnvFormClearAction;
+
+type EnvForm = FormGroup<{
+  groupName: FormControl<string | null>;
+  runtime: FormControl<string | null>;
+  zone: FormControl<string | null>;
+  host: FormControl<string | null>;
+}>;
 
 @Injectable({
   providedIn: 'root',
@@ -42,7 +49,7 @@ export class EnvFormService {
 
   private envForm$ = this.envFormAction$.pipe(
     startWith({type: 'init'} as EnvFormInitAction),
-    scan((form, action) => {
+    scan((form: EnvForm, action: EnvFormAction) => {
       if (action.type === 'init') {
         return form;
       }
@@ -56,7 +63,7 @@ export class EnvFormService {
     }, this.getInitEnvForm())
   );
 
-  getInitEnvForm() {
+  getInitEnvForm(): EnvForm {
     return this.formBuilder.group({
       groupName: ['', Validators.required],
       runtime: ['', Validators.required],
@@ -80,20 +87,16 @@ export class EnvFormService {
           form.controls.zone.setValue('');
         }),
         switchMap((alias: string) =>
-          this.store
-            .select(state =>
-              state.runtimes.find(runtime => runtime.alias === alias)
-            )
-            .pipe(
-              map(runtime => {
-                if (!runtime) {
-                  throw new Error(`No runtime of alias ${alias}`);
-                }
-                return runtime;
-              })
-            )
+          this.store.select(runtimeSelectorFactory({alias})).pipe(
+            map(runtime => {
+              if (!runtime) {
+                throw new Error(`No runtime of alias ${alias}`);
+              }
+              return runtime;
+            })
+          )
         ),
-        catchError(error => {
+        catchError((error: Error) => {
           console.error(error);
           return of();
         })

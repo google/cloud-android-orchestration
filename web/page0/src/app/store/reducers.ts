@@ -1,5 +1,5 @@
-import {RuntimeViewStatus} from 'src/app/runtime-interface';
-import {runtimeToEnvList} from 'src/interface/utils';
+import {RuntimeViewStatus} from 'src/app/interface/runtime-interface';
+import {runtimeToEnvList} from 'src/app/interface/utils';
 import {
   Action,
   EnvCreateStartAction,

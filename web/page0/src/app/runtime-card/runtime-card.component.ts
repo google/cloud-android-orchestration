@@ -3,11 +3,11 @@ import {MatSnackBar} from '@angular/material/snack-bar';
 import {Router} from '@angular/router';
 import {BehaviorSubject, Subject} from 'rxjs';
 import {takeUntil} from 'rxjs/operators';
-import {hostListSelectorFactory} from 'src/store/selectors';
-import {Store} from 'src/store/store';
-import {Host} from '../host-interface';
+import {hostListSelectorFactory} from 'src/app/store/selectors';
+import {Store} from 'src/app/store/store';
+import {Host} from 'src/app/interface/host-interface';
 import {HostService} from '../host.service';
-import {Runtime} from '../runtime-interface';
+import {Runtime} from 'src/app/interface/runtime-interface';
 import {RuntimeService} from '../runtime.service';
 
 @Component({

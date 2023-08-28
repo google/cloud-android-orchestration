@@ -1,5 +1,5 @@
-import {Environment} from 'src/app/env-interface';
-import {Runtime} from 'src/app/runtime-interface';
+import {Environment} from 'src/app/interface/env-interface';
+import {Runtime} from 'src/app/interface/runtime-interface';
 
 export type Action =
   | InitAction

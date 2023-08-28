@@ -1,12 +1,9 @@
 import {Injectable} from '@angular/core';
-import {of, Subject} from 'rxjs';
-import {map, mergeScan, shareReplay, startWith, tap} from 'rxjs/operators';
-import {hostListSelector, runtimeListSelector} from 'src/store/selectors';
-import {Store} from 'src/store/store';
+import {hostListSelector} from 'src/app/store/selectors';
+import {Store} from 'src/app/store/store';
 import {ApiService} from './api.service';
-import {HostInstance} from './cloud-orchestrator.dto';
-import {Host} from './host-interface';
-import {Runtime} from './runtime-interface';
+import {HostInstance} from 'src/app/interface/cloud-orchestrator.dto';
+import {Runtime} from 'src/app/interface/runtime-interface';
 
 @Injectable({
   providedIn: 'root',

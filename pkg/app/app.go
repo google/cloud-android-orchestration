@@ -15,12 +15,10 @@
 package app
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"log"
 	"math/rand"
 	"net/http"
@@ -28,7 +26,6 @@ import (
 	"strconv"
 	"strings"
 
-	hoapi "github.com/google/android-cuttlefish/frontend/src/liboperator/api/v1"
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
 	"github.com/google/cloud-android-orchestration/pkg/app/accounts"
 	"github.com/google/cloud-android-orchestration/pkg/app/config"
@@ -158,13 +155,6 @@ func (a *App) ForwardToHost(w http.ResponseWriter, r *http.Request, user account
 	if err != nil {
 		return err
 	}
-
-	// Credentials are only needed in created cvd requests
-	if hostPath == "/cvds" && r.Method == http.MethodPost {
-		if err := a.injectCredentialsIntoCreateCVDRequest(r, user); err != nil {
-			return err
-		}
-	}
 	if len(r.Header.Values(headerNameCOInjectBuildAPICreds)) != 0 {
 		if err := a.injectBuildAPICredsIntoRequest(r, user); err != nil {
 			return err
@@ -192,45 +182,6 @@ func (a *App) injectBuildAPICredsIntoRequest(r *http.Request, user accounts.User
 			"The user must authorize the system to access the Build API on their behalf", nil)
 	}
 	r.Header.Set(headerNameHOBuildAPICreds, tk.AccessToken)
-	return nil
-}
-
-func (a *App) injectCredentialsIntoCreateCVDRequest(r *http.Request, user accounts.User) error {
-	// Read and parse the request body
-	msg := hoapi.CreateCVDRequest{}
-	if err := json.NewDecoder(r.Body).Decode(&msg); err != nil {
-		return err
-	}
-	// Credentials are only injected on non-user builds that don't already provide user credentials.
-	if msg.CVD != nil && msg.CVD.BuildSource != nil &&
-		msg.CVD.BuildSource.AndroidCIBuildSource != nil &&
-		msg.CVD.BuildSource.AndroidCIBuildSource.Credentials == "" {
-		// Get the credentials.
-		tk, err := a.fetchUserCredentials(user)
-		if err != nil {
-			return err
-		}
-		if tk == nil {
-			// There are no credentials in database associated with this user.
-			// Even though the user is already authenticated by the time this code executes, 401 is
-			// returned to cause it to go the /auth URL and follow the OAuth2 flow. If 403 were to
-			// be returned from here it could be construed as "this user doesn't have access to the
-			// resource" instead of "this user has not authorized the app to access the resource on
-			// their behalf". Another way to look at it is that the app lacks authentication
-			// (credentials) to access the build API.
-			return apperr.NewUnauthenticatedError(
-				"The user must authorize the system to access the Build API on their behalf", nil)
-		}
-		credentials := tk.AccessToken
-		msg.CVD.BuildSource.AndroidCIBuildSource.Credentials = credentials
-	}
-	buf, err := json.Marshal(msg)
-	if err != nil {
-		return err
-	}
-	// Replace the request body with a new reader for the reverse proxy to consume.
-	r.ContentLength = int64(len(buf))
-	r.Body = io.NopCloser(bytes.NewReader(buf))
 	return nil
 }
 

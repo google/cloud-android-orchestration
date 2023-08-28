@@ -56,7 +56,5 @@ export class RefreshService {
   constructor(
     private store: Store,
     private fetchService: FetchService
-  ) {
-    this.refresh();
-  }
+  ) {}
 }

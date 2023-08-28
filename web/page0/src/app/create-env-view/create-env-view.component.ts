@@ -28,10 +28,6 @@ export class CreateEnvViewComponent {
 
   private ngUnsubscribe = new Subject<void>();
 
-  ngOnInit() {
-    this.zones$.pipe(takeUntil(this.ngUnsubscribe)).subscribe();
-  }
-
   ngOnDestroy() {
     this.ngUnsubscribe.next();
     this.ngUnsubscribe.complete();

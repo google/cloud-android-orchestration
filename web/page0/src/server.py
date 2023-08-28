@@ -4,7 +4,7 @@ from absl import flags
 import flask
 import requests
 
-from test_apis import test_apis
+import test_apis
 
 EXCLUDED_HEADERS = {
     "content-encoding",

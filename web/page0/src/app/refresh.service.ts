@@ -1,7 +1,7 @@
 import {Injectable} from '@angular/core';
 import {Store} from 'src/app/store/store';
 import {defaultRuntimeSettings} from './settings';
-import {merge} from 'rxjs';
+import {merge, Subscription} from 'rxjs';
 import {mergeAll} from 'rxjs/operators';
 import {Runtime} from 'src/app/interface/runtime-interface';
 import {FetchService} from './fetch.service';
@@ -10,6 +10,8 @@ import {FetchService} from './fetch.service';
   providedIn: 'root',
 })
 export class RefreshService {
+  private prevSubscription: Subscription | undefined = undefined;
+
   private getStoredRuntimes(): Runtime[] {
     const runtimes = window.localStorage.getItem('runtimes');
     // TODO: handle type error
@@ -33,13 +35,13 @@ export class RefreshService {
   }
 
   refresh() {
-    this.store.dispatch({
-      type: 'runtime-refresh-start',
-    });
-
     const settings = this.getInitRuntimeSettings();
 
-    merge(
+    if (this.prevSubscription) {
+      this.prevSubscription.unsubscribe();
+    }
+
+    const subscription = merge(
       settings.map(({url, alias}) =>
         this.fetchService.fetchRuntimeInfo(url, alias)
       )
@@ -51,6 +53,12 @@ export class RefreshService {
         },
         next: runtime => this.store.dispatch({type: 'runtime-load', runtime}),
       });
+
+    this.store.dispatch({
+      type: 'runtime-refresh-start',
+    });
+
+    this.prevSubscription = subscription;
   }
 
   constructor(

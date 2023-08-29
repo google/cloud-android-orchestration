@@ -1,7 +1,7 @@
 import {AppState} from './state';
 import {runtimeToEnvList} from 'src/app/interface/utils';
 import {EnvStatus} from 'src/app/interface/env-interface';
-import {Runtime, RuntimeCard} from '../interface/runtime-interface';
+import {Runtime, RuntimeCard, RuntimeStatus} from '../interface/runtime-interface';
 import {HostStatus} from '../interface/host-interface';
 import {
   HostCreateWait,
@@ -11,6 +11,8 @@ import {
 
 // TODO: add starting & stopping envs here
 export const runtimeListSelector = (state: AppState) => state.runtimes;
+
+export const validRuntimeListSelector = (state: AppState) => state.runtimes.filter(runtime => runtime.status === RuntimeStatus.valid)
 
 export const hostListSelector = (state: AppState) =>
   state.runtimes.flatMap(runtime => runtime.hosts);

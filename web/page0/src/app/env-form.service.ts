@@ -15,8 +15,8 @@ import {Store} from 'src/app/store/store';
 import {
   hostListSelectorFactory,
   hostSelectorFactory,
-  runtimeListSelector,
   runtimeSelectorFactory,
+  validRuntimeListSelector,
 } from 'src/app/store/selectors';
 
 interface EnvFormInitAction {
@@ -76,7 +76,7 @@ export class EnvFormService {
     return this.envForm$;
   }
 
-  runtimes$ = this.store.select(runtimeListSelector);
+  runtimes$ = this.store.select(validRuntimeListSelector);
 
   private selectedRuntime$ = this.envForm$.pipe(
     switchMap(form => {

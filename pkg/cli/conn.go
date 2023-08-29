@@ -44,11 +44,11 @@ type ConnStatus struct {
 }
 
 type StatusCmdRes struct {
-	CVD    CVD
+	CVD    RemoteCVDLocator
 	Status ConnStatus
 }
 
-func ControlSocketName(_ CVD, cs ConnStatus) string {
+func ControlSocketName(_ RemoteCVDLocator, cs ConnStatus) string {
 	// The canonical name is too long to use as a unix socket name, use the port
 	// instead and use the canonical name to create a symlink to the socket.
 	return fmt.Sprintf("%d.sock", cs.ADB.Port)
@@ -65,7 +65,7 @@ func EnsureConnDirsExist(controlDir string) error {
 	return nil
 }
 
-func DisconnectCVD(controlDir string, cvd CVD, status ConnStatus) error {
+func DisconnectCVD(controlDir string, cvd RemoteCVDLocator, status ConnStatus) error {
 	conn, err := net.Dial("unixpacket", fmt.Sprintf("%s/%s", controlDir, ControlSocketName(cvd, status)))
 	if err != nil {
 		return fmt.Errorf("Failed to connect to %s/%s's agent: %w", cvd.Host, cvd.Name, err)
@@ -79,9 +79,9 @@ func DisconnectCVD(controlDir string, cvd CVD, status ConnStatus) error {
 
 // Finds all existing connection agents. Returns the list of connection agents it was able
 // to gather along with a multierror detailing the unreachable ones.
-func listCVDConnections(controlDir string) (map[CVD]ConnStatus, error) {
+func listCVDConnections(controlDir string) (map[RemoteCVDLocator]ConnStatus, error) {
 	var merr error
-	statuses := make(map[CVD]ConnStatus)
+	statuses := make(map[RemoteCVDLocator]ConnStatus)
 	entries, err := os.ReadDir(controlDir)
 	if err != nil {
 		return statuses, fmt.Errorf("Error reading %s: %w", controlDir, err)
@@ -109,9 +109,9 @@ func listCVDConnections(controlDir string) (map[CVD]ConnStatus, error) {
 	return statuses, merr
 }
 
-func listCVDConnectionsByHost(controlDir string, host string) (map[CVD]ConnStatus, error) {
+func listCVDConnectionsByHost(controlDir string, host string) (map[RemoteCVDLocator]ConnStatus, error) {
 	l, err := listCVDConnections(controlDir)
-	ret := make(map[CVD]ConnStatus, 0)
+	ret := make(map[RemoteCVDLocator]ConnStatus, 0)
 	for cvd, status := range l {
 		if host != cvd.Host {
 			continue
@@ -127,7 +127,7 @@ type findOrConnRet struct {
 	Error      error
 }
 
-func FindOrConnect(controlDir string, cvd CVD, service client.Service, localICEConfig *wclient.ICEConfig) (findOrConnRet, error) {
+func FindOrConnect(controlDir string, cvd RemoteCVDLocator, service client.Service, localICEConfig *wclient.ICEConfig) (findOrConnRet, error) {
 	statuses, err := listCVDConnectionsByHost(controlDir, cvd.Host)
 	// Even with an error some connections may have been listed.
 	if s, ok := statuses[cvd]; ok {
@@ -358,7 +358,7 @@ const (
 // Controls the webrtc connection maintained between the connection agent and a cvd.
 // Implements the Observer interface for the webrtc client.
 type ConnController struct {
-	cvd          CVD
+	cvd          RemoteCVDLocator
 	control      *net.UnixListener
 	adbForwarder *Forwarder
 	logger       *log.Logger
@@ -368,7 +368,7 @@ type ConnController struct {
 func NewConnController(
 	controlDir string,
 	service client.Service,
-	cvd CVD,
+	cvd RemoteCVDLocator,
 	localICEConfig *wclient.ICEConfig) (*ConnController, error) {
 	logger, err := createLogger(controlDir, cvd)
 	if err != nil {
@@ -547,7 +547,7 @@ func logsDir(controlDir string) string {
 	return controlDir + "/logs"
 }
 
-func createLogger(controlDir string, dev CVD) (*log.Logger, error) {
+func createLogger(controlDir string, dev RemoteCVDLocator) (*log.Logger, error) {
 	logsDir := logsDir(controlDir)
 	// The name looks like 123456_us-central1-c_cf-12345-12345_cvd-1.log
 	path := fmt.Sprintf("%s/%d_%s_%s.log", logsDir, time.Now().Unix(), dev.Host, dev.Name)

@@ -24,7 +24,7 @@ import (
 )
 
 func TestCVDOutput(t *testing.T) {
-	output := NewCVDInfo("http://foo.com", "bar", &hoapi.CVD{
+	output := NewRemoteCVD("http://foo.com", "bar", &hoapi.CVD{
 		Name:     "cvd-1",
 		Status:   "Running",
 		Displays: []string{"720 x 1280 ( 320 )"},

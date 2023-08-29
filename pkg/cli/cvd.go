@@ -27,22 +27,22 @@ import (
 	"github.com/hashicorp/go-multierror"
 )
 
-type CVD struct {
+type RemoteCVDLocator struct {
 	ServiceRootEndpoint string `json:"service_root_endpoint"`
 	Host                string `json:"host"`
 	Name                string `json:"name"`
 }
 
-type CVDInfo struct {
-	CVD
+type RemoteCVD struct {
+	RemoteCVDLocator
 	Status     string
 	Displays   []string
 	ConnStatus *ConnStatus
 }
 
-func NewCVDInfo(url, host string, cvd *hoapi.CVD) *CVDInfo {
-	return &CVDInfo{
-		CVD: CVD{
+func NewRemoteCVD(url, host string, cvd *hoapi.CVD) *RemoteCVD {
+	return &RemoteCVD{
+		RemoteCVDLocator: RemoteCVDLocator{
 			ServiceRootEndpoint: url,
 			Host:                host,
 			Name:                cvd.Name,
@@ -70,15 +70,15 @@ func (o *CreateCVDOpts) AdditionalInstancesNum() uint32 {
 	return uint32(o.NumInstances - 1)
 }
 
-func createCVD(service client.Service, createOpts CreateCVDOpts, statePrinter *statePrinter) ([]*CVDInfo, error) {
+func createCVD(service client.Service, createOpts CreateCVDOpts, statePrinter *statePrinter) ([]*RemoteCVD, error) {
 	creator := newCVDCreator(service, createOpts, statePrinter)
 	cvds, err := creator.Create()
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create cvd: %w", err)
 	}
-	result := []*CVDInfo{}
+	result := []*RemoteCVD{}
 	for _, cvd := range cvds {
-		result = append(result, NewCVDInfo(service.RootURI(), createOpts.Host, cvd))
+		result = append(result, NewRemoteCVD(service.RootURI(), createOpts.Host, cvd))
 	}
 	return result, nil
 }
@@ -191,11 +191,11 @@ func (c *cvdCreator) createCVDFromAndroidCI() ([]*hoapi.CVD, error) {
 }
 
 type cvdListResult struct {
-	Result []*CVDInfo
+	Result []*RemoteCVD
 	Error  error
 }
 
-func listAllCVDs(service client.Service, controlDir string) ([]*CVDInfo, error) {
+func listAllCVDs(service client.Service, controlDir string) ([]*RemoteCVD, error) {
 	hl, err := service.ListHosts()
 	if err != nil {
 		return nil, fmt.Errorf("Error listing hosts: %w", err)
@@ -214,7 +214,7 @@ func listAllCVDs(service client.Service, controlDir string) ([]*CVDInfo, error) 
 			ch <- cvdListResult{Result: cvds, Error: err}
 		}(host, ch)
 	}
-	var cvds []*CVDInfo
+	var cvds []*RemoteCVD
 	for i, ch := range chans {
 		host := hosts[i]
 		result := <-ch
@@ -226,7 +226,7 @@ func listAllCVDs(service client.Service, controlDir string) ([]*CVDInfo, error) 
 	return cvds, merr
 }
 
-func listHostCVDs(service client.Service, controlDir, host string) ([]*CVDInfo, error) {
+func listHostCVDs(service client.Service, controlDir, host string) ([]*RemoteCVD, error) {
 	statuses, merr := listCVDConnectionsByHost(controlDir, host)
 	result, err := listHostCVDsInner(service, host, statuses)
 	if err != nil {
@@ -236,15 +236,15 @@ func listHostCVDs(service client.Service, controlDir, host string) ([]*CVDInfo, 
 }
 
 // Calling listCVDConnectionsByHost is inefficient, this internal function avoids that for listAllCVDs.
-func listHostCVDsInner(service client.Service, host string, statuses map[CVD]ConnStatus) ([]*CVDInfo, error) {
+func listHostCVDsInner(service client.Service, host string, statuses map[RemoteCVDLocator]ConnStatus) ([]*RemoteCVD, error) {
 	cvds, err := service.ListCVDs(host)
 	if err != nil {
 		return nil, err
 	}
-	ret := make([]*CVDInfo, len(cvds))
+	ret := make([]*RemoteCVD, len(cvds))
 	for i, c := range cvds {
-		ret[i] = NewCVDInfo(service.RootURI(), host, c)
-		if status, ok := statuses[ret[i].CVD]; ok {
+		ret[i] = NewRemoteCVD(service.RootURI(), host, c)
+		if status, ok := statuses[ret[i].RemoteCVDLocator]; ok {
 			ret[i].ConnStatus = &status
 		}
 	}

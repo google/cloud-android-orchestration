@@ -206,7 +206,7 @@ func (c *command) Parent() *command {
 	return &command{p, c.verbose}
 }
 
-func ToPrintableStr(o *CVDInfo) string {
+func ToPrintableStr(o *RemoteCVD) string {
 	res := fmt.Sprintf("%s (%s)", o.Name, o.Host)
 	res += "\n  " + "Status: " + o.Status
 	adbState := ""
@@ -634,7 +634,7 @@ func runListCVDsCommand(c *cobra.Command, flags *ListCVDsFlags, opts *subCommand
 	if err != nil {
 		return err
 	}
-	var cvds []*CVDInfo
+	var cvds []*RemoteCVD
 	if flags.Host != "" {
 		cvds, err = listHostCVDs(service, opts.InitialConfig.ConnectionControlDirExpanded(), flags.Host)
 	} else {
@@ -752,9 +752,9 @@ func runConnectCommand(flags *ConnectFlags, c *command, args []string, opts *sub
 	if err != nil {
 		return err
 	}
-	var cvds []CVD
+	var cvds []RemoteCVDLocator
 	for _, d := range args {
-		cvds = append(cvds, CVD{
+		cvds = append(cvds, RemoteCVDLocator{
 			ServiceRootEndpoint: service.RootURI(),
 			Host:                flags.host,
 			Name:                d,
@@ -762,31 +762,31 @@ func runConnectCommand(flags *ConnectFlags, c *command, args []string, opts *sub
 	}
 	// Find the user's cvds if they didn't specify any.
 	if len(cvds) == 0 {
-		var infos []*CVDInfo
+		var selectList []*RemoteCVD
 		if flags.host == "" {
-			infos, err = listAllCVDs(service, opts.InitialConfig.ConnectionControlDirExpanded())
+			selectList, err = listAllCVDs(service, opts.InitialConfig.ConnectionControlDirExpanded())
 		} else {
-			infos, err = listHostCVDs(service, flags.host, opts.InitialConfig.ConnectionControlDirExpanded())
+			selectList, err = listHostCVDs(service, flags.host, opts.InitialConfig.ConnectionControlDirExpanded())
 		}
 		if err != nil {
 			return err
 		}
 		// Only those that are not connected yet
-		infos = filterSlice(infos, func(cvd *CVDInfo) bool { return cvd.ConnStatus == nil })
+		selectList = filterSlice(selectList, func(cvd *RemoteCVD) bool { return cvd.ConnStatus == nil })
 		// Confirmation is only necessary when the user didn't specify devices.
-		if len(infos) > 1 && !flags.skipConfirmation {
-			toStr := func(c *CVDInfo) string {
+		if len(selectList) > 1 && !flags.skipConfirmation {
+			toStr := func(c *RemoteCVD) string {
 				return fmt.Sprintf("%s/%s", c.Host, c.Name)
 			}
-			infos, err = PromptSelectionFromSlice(c, infos, toStr, AllowAll)
+			selectList, err = PromptSelectionFromSlice(c, selectList, toStr, AllowAll)
 			if err != nil {
 				// A failure to read user input cancels the entire command.
 				return err
 			}
 		}
-		cvds = make([]CVD, len(infos))
-		for idx, info := range infos {
-			cvds[idx] = info.CVD
+		cvds = make([]RemoteCVDLocator, len(selectList))
+		for idx, e := range selectList {
+			cvds[idx] = e.RemoteCVDLocator
 		}
 	}
 
@@ -800,7 +800,7 @@ func runConnectCommand(flags *ConnectFlags, c *command, args []string, opts *sub
 		// closing of the other channel.
 		connChs[i] = make(chan ConnStatus, 0)
 		errChs[i] = make(chan error, 0)
-		go func(connCh chan ConnStatus, errCh chan error, cvd CVD) {
+		go func(connCh chan ConnStatus, errCh chan error, cvd RemoteCVDLocator) {
 			defer close(connCh)
 			defer close(errCh)
 			status, err := ConnectDevice(cvd.Host, cvd.Name, flags.ice_config, c, opts)
@@ -834,7 +834,7 @@ func verifyICEConfigFlag(v string) (*wclient.ICEConfig, error) {
 	return c, nil
 }
 
-func printConnection(c *command, cvd CVD, status ConnStatus) {
+func printConnection(c *command, cvd RemoteCVDLocator, status ConnStatus) {
 	state := status.ADB.State
 	if status.ADB.Port > 0 {
 		state = fmt.Sprintf("127.0.0.1:%d", status.ADB.Port)
@@ -875,7 +875,7 @@ func runConnectionAgentCommand(flags *ConnectFlags, c *command, args []string, o
 		return err
 	}
 
-	devSpec := CVD{
+	devSpec := RemoteCVDLocator{
 		ServiceRootEndpoint: service.RootURI(),
 		Host:                flags.host,
 		Name:                device,
@@ -938,7 +938,7 @@ func runDisconnectCommand(flags *ConnectFlags, c *command, args []string, opts *
 		return fmt.Errorf("Missing host for devices: %v", args)
 	}
 	controlDir := opts.InitialConfig.ConnectionControlDirExpanded()
-	var statuses map[CVD]ConnStatus
+	var statuses map[RemoteCVDLocator]ConnStatus
 	var merr error
 	if flags.host != "" {
 		statuses, merr = listCVDConnectionsByHost(controlDir, flags.host)
@@ -954,7 +954,7 @@ func runDisconnectCommand(flags *ConnectFlags, c *command, args []string, opts *
 		for _, a := range args {
 			devices[a] = true
 		}
-		statuses = filterMap(statuses, func(cvd CVD, s ConnStatus) bool {
+		statuses = filterMap(statuses, func(cvd RemoteCVDLocator, s ConnStatus) bool {
 			if devices[cvd.Name] {
 				delete(devices, cvd.Name)
 				return true
@@ -983,9 +983,9 @@ func runDisconnectCommand(flags *ConnectFlags, c *command, args []string, opts *
 	return merr
 }
 
-func promptConnectionSelection(devices map[CVD]ConnStatus, c *command) (map[CVD]ConnStatus, error) {
+func promptConnectionSelection(devices map[RemoteCVDLocator]ConnStatus, c *command) (map[RemoteCVDLocator]ConnStatus, error) {
 	c.PrintErrln("Multiple connections match:")
-	toStr := func(cvd CVD, d ConnStatus) string {
+	toStr := func(cvd RemoteCVDLocator, d ConnStatus) string {
 		return fmt.Sprintf("%s %s", cvd.Host, cvd.Name)
 	}
 	return PromptSelectionFromMap(c, devices, toStr, AllowAll)

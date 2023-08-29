@@ -63,4 +63,8 @@ export class RuntimeCardComponent {
       },
     });
   }
+
+  isRunning(host: Host) {
+    return host.status === HostStatus.running;
+  }
 }

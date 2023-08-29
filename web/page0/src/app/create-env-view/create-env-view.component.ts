@@ -68,7 +68,7 @@ export class CreateEnvViewComponent {
           this.deviceFormService.getValue().pipe(
             first(),
             switchMap(devices =>
-              this.envService.createEnv(runtime, hostUrl, {
+              this.envService.createEnv(runtime, hostUrl!, {
                 groupName,
                 devices,
               })

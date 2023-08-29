@@ -21,7 +21,7 @@ const cvdToDevice = (cvd: CVD): DeviceSetting => {
 const hostToEnvList = (host: Host): Environment[] => {
   return host.groups.flatMap(group => ({
     runtimeAlias: host.runtime,
-    hostUrl: host.url,
+    hostUrl: host.url!,
     groupName: group.name,
     devices: group.cvds.map(cvd => cvdToDevice(cvd)),
     status: EnvStatus.running,

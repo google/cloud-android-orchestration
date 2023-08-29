@@ -87,4 +87,8 @@ export class ApiService {
   listCvds(hostUrl: string) {
     return this.httpClient.get<ListCVDsResponse>(`${hostUrl}/cvds`);
   }
+
+  wait<T>(waitUrl: string) {
+    return this.httpClient.post<T>(`${waitUrl}/:wait`, {});
+  }
 }

@@ -1,9 +1,12 @@
 import {RuntimeViewStatus} from 'src/app/interface/runtime-interface';
 import {runtimeToEnvList} from 'src/app/interface/utils';
+import {Wait} from '../interface/wait-interface';
 import {
   Action,
   EnvCreateStartAction,
   EnvDeleteStartAction,
+  HostCreateCompleteAction,
+  HostCreateStartAction,
   InitAction,
   RuntimeLoadAction,
   RuntimeLoadCompleteAction,
@@ -114,12 +117,43 @@ const reducers: {[key: ActionType]: Reducer} = {
     };
   },
 
-  // TODO: long polling
-  // 'host-create-start': (action) => prevState => {
-  //   return {
-  //     ...prevState,
-  //   }
-  // }
+  'host-create-start': (action: HostCreateStartAction) => prevState => {
+    return {
+      ...prevState,
+      waits: {...prevState.waits, [action.wait.waitUrl]: action.wait},
+    };
+  },
+
+  'host-create-complete': (action: HostCreateCompleteAction) => prevState => {
+    const newHost = action.host;
+    return {
+      ...prevState,
+      runtimes: prevState.runtimes.map(runtime => {
+        if (runtime.alias !== newHost.runtime) {
+          return runtime;
+        }
+
+        if (
+          runtime.hosts.find(
+            host => host.name === newHost.name && host.zone === newHost.zone
+          )
+        ) {
+          return runtime;
+        }
+
+        return {
+          ...runtime,
+          hosts: [...runtime.hosts, newHost],
+        };
+      }),
+      waits: Object.keys(prevState.waits)
+        .filter(key => key !== action.waitUrl)
+        .reduce((obj: {[key: string]: Wait}, key) => {
+          obj[key] = prevState.waits[key];
+          return obj;
+        }, {}),
+    };
+  },
 } as const;
 
 const handlers: Map<ActionType, Reducer> = new Map<ActionType, Reducer>(

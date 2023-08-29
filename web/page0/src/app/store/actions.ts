@@ -1,5 +1,7 @@
 import {Environment} from 'src/app/interface/env-interface';
 import {Runtime} from 'src/app/interface/runtime-interface';
+import {Host} from 'src/app/interface/host-interface';
+import {Wait} from 'src/app/interface/wait-interface';
 
 export type Action =
   | InitAction
@@ -12,7 +14,10 @@ export type Action =
   | RuntimeRegisterErrorAction
   | RuntimeRegisterStartAction
   | EnvCreateStartAction
-  | EnvDeleteStartAction;
+  | EnvDeleteStartAction
+  | HostCreateStartAction
+  | HostCreateCompleteAction
+  | HostCreateErrorAction;
 
 export interface InitAction {
   type: 'init';
@@ -61,4 +66,20 @@ export interface EnvCreateStartAction {
 export interface EnvDeleteStartAction {
   type: 'env-delete-start';
   target: Environment;
+}
+
+export interface HostCreateStartAction {
+  type: 'host-create-start';
+  wait: Wait;
+}
+
+export interface HostCreateCompleteAction {
+  type: 'host-create-complete';
+  waitUrl: string;
+  host: Host;
+}
+
+export interface HostCreateErrorAction {
+  type: 'host-create-error';
+  waitUrl?: string;
 }

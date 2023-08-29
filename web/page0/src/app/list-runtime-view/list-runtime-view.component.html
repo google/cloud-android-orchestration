@@ -1,31 +1,39 @@
 <section class="runtime-view">
-    <div class="runtime-view-header">
-        <div id="runtime-view-header-title">
-            <h1>Runtimes</h1>
-        </div>
-
-        <div class="runtime-view-header-actions">
-            <button mat-button routerLink="/register-runtime" matTooltip="Register a new runtime" class="view-action">
-                Register
-            </button>
-            <button mat-button class="view-action" (click)="onClickRefresh()">
-                Refresh
-            </button>
-        </div>
+  <div class="runtime-view-header">
+    <div id="runtime-view-header-title">
+      <h1>Runtimes</h1>
     </div>
 
-    <mat-divider></mat-divider>
-    <mat-progress-bar *ngIf="showProgressBar(status$ | async)" mode="indeterminate"></mat-progress-bar>
-
-    <div *ngIf="runtimes$ | async; let runtimeList">
-        <div *ngIf="runtimeList.length > 0; else none">
-            <li *ngFor="let runtime of runtimeList">
-                <app-runtime-card [runtime]="runtime"></app-runtime-card>
-            </li>
-        </div>
-
-        <ng-template #none>
-            <h3>No runtime registered</h3>
-        </ng-template>
+    <div class="runtime-view-header-actions">
+      <button
+        mat-button
+        routerLink="/register-runtime"
+        matTooltip="Register a new runtime"
+        class="view-action"
+      >
+        Register
+      </button>
+      <button mat-button class="view-action" (click)="onClickRefresh()">
+        Refresh
+      </button>
     </div>
+  </div>
+
+  <mat-divider></mat-divider>
+  <mat-progress-bar
+    *ngIf="showProgressBar(status$ | async)"
+    mode="indeterminate"
+  ></mat-progress-bar>
+
+  <div *ngIf="runtimes$ | async; let runtimeList">
+    <div *ngIf="runtimeList.length > 0; else none">
+      <li *ngFor="let runtime of runtimeList">
+        <app-runtime-card [runtimeAlias]="runtime.alias"></app-runtime-card>
+      </li>
+    </div>
+
+    <ng-template #none>
+      <h3>No runtime registered</h3>
+    </ng-template>
+  </div>
 </section>

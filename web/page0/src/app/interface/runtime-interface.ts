@@ -22,3 +22,17 @@ export enum RuntimeViewStatus {
   register_error = 'register_error',
   done = 'done',
 }
+
+// // TODO
+// export interface EnvCard {}
+
+// // TODO
+// export interface HostItem {}
+
+export interface RuntimeCard {
+  alias: string;
+  type?: 'local' | 'on-premise' | 'cloud';
+  url: string;
+  hosts: Host[];
+  status: RuntimeStatus;
+}

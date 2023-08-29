@@ -267,7 +267,7 @@ func newTestIOStreams() (IOStreams, *bytes.Buffer, *bytes.Buffer) {
 
 func cvdOutput(serviceURL, host string, cvd hoapi.CVD, port int) string {
 	out := &bytes.Buffer{}
-	cvdOut := NewCVDInfo(fakeService{}.RootURI(), host, &cvd)
+	cvdOut := NewRemoteCVD(fakeService{}.RootURI(), host, &cvd)
 	cvdOut.ConnStatus = &ConnStatus{
 		ADB: ForwarderState{
 			State: "not connected",

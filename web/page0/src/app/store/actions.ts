@@ -17,7 +17,10 @@ export type Action =
   | EnvDeleteStartAction
   | HostCreateStartAction
   | HostCreateCompleteAction
-  | HostCreateErrorAction;
+  | HostCreateErrorAction
+  | HostDeleteStartAction
+  | HostDeleteCompleteAction
+  | HostDeleteErrorAction;
 
 export interface InitAction {
   type: 'init';
@@ -82,4 +85,19 @@ export interface HostCreateCompleteAction {
 export interface HostCreateErrorAction {
   type: 'host-create-error';
   waitUrl?: string;
+}
+
+export interface HostDeleteStartAction {
+  type: 'host-delete-start';
+  wait: Wait;
+}
+
+export interface HostDeleteCompleteAction {
+  type: 'host-delete-complete';
+  waitUrl: string;
+}
+
+export interface HostDeleteErrorAction {
+  type: 'host-delete-error';
+  waitUrl: string;
 }

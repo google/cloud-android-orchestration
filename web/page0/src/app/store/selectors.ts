@@ -3,6 +3,11 @@ import {runtimeToEnvList} from 'src/app/interface/utils';
 import {EnvStatus} from 'src/app/interface/env-interface';
 import {Runtime, RuntimeCard} from '../interface/runtime-interface';
 import {HostStatus} from '../interface/host-interface';
+import {
+  HostCreateWait,
+  isHostCreateWait,
+  isHostDeleteWait,
+} from '../interface/wait-interface';
 
 // TODO: add starting & stopping envs here
 export const runtimeListSelector = (state: AppState) => state.runtimes;
@@ -22,17 +27,30 @@ export const runtimeCardSelectorFactory =
       return undefined;
     }
 
-    const hostCreateRequests = Object.values(state.waits).filter(
-      wait =>
-        wait.metadata.type === 'host-create' &&
-        wait.metadata.runtimeAlias === alias
+    const hostCreateRequests = Object.values(state.waits)
+      .filter(isHostCreateWait)
+      .filter(wait => wait.metadata.runtimeAlias === alias);
+
+    const hostDeleteRequests = Object.values(state.waits).filter(
+      isHostDeleteWait
     );
 
     return {
       alias: runtime.alias,
       url: runtime.url,
       hosts: [
-        ...runtime.hosts,
+        ...runtime.hosts.map(host => {
+          const isStopping = hostDeleteRequests.find(
+            req => req.metadata.hostUrl === host.url
+          );
+          if (!isStopping) {
+            return host;
+          }
+          return {
+            ...host,
+            status: HostStatus.stopping,
+          };
+        }),
         ...hostCreateRequests.map(wait => ({
           name: 'New host',
           zone: wait.metadata.zone,

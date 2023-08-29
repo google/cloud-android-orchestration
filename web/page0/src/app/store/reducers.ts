@@ -1,12 +1,14 @@
 import {RuntimeViewStatus} from 'src/app/interface/runtime-interface';
 import {runtimeToEnvList} from 'src/app/interface/utils';
-import {Wait} from '../interface/wait-interface';
+import {isHostDeleteWait, Wait} from '../interface/wait-interface';
 import {
   Action,
   EnvCreateStartAction,
   EnvDeleteStartAction,
   HostCreateCompleteAction,
   HostCreateStartAction,
+  HostDeleteCompleteAction,
+  HostDeleteStartAction,
   InitAction,
   RuntimeLoadAction,
   RuntimeLoadCompleteAction,
@@ -144,6 +146,39 @@ const reducers: {[key: ActionType]: Reducer} = {
         return {
           ...runtime,
           hosts: [...runtime.hosts, newHost],
+        };
+      }),
+      waits: Object.keys(prevState.waits)
+        .filter(key => key !== action.waitUrl)
+        .reduce((obj: {[key: string]: Wait}, key) => {
+          obj[key] = prevState.waits[key];
+          return obj;
+        }, {}),
+    };
+  },
+
+  'host-delete-start': (action: HostDeleteStartAction) => prevState => {
+    return {
+      ...prevState,
+      waits: {...prevState.waits, [action.wait.waitUrl]: action.wait},
+    };
+  },
+
+  'host-delete-complete': (action: HostDeleteCompleteAction) => prevState => {
+    const wait = prevState.waits[action.waitUrl];
+
+    if (!isHostDeleteWait(wait)) {
+      return prevState;
+    }
+
+    return {
+      ...prevState,
+      runtimes: prevState.runtimes.map(runtime => {
+        return {
+          ...runtime,
+          hosts: runtime.hosts.filter(
+            host => host.url !== wait.metadata.hostUrl
+          ),
         };
       }),
       waits: Object.keys(prevState.waits)

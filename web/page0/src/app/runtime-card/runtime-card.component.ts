@@ -3,7 +3,7 @@ import {MatSnackBar} from '@angular/material/snack-bar';
 import {Router} from '@angular/router';
 import {runtimeCardSelectorFactory} from 'src/app/store/selectors';
 import {Store} from 'src/app/store/store';
-import {Host} from 'src/app/interface/host-interface';
+import {Host, HostStatus} from 'src/app/interface/host-interface';
 import {HostService} from '../host.service';
 import {RuntimeService} from '../runtime.service';
 
@@ -41,6 +41,11 @@ export class RuntimeCardComponent {
   }
 
   onClickDeleteHost(host: Host) {
+    if (host.status !== HostStatus.running || !host.url) {
+      this.snackBar.open('Cannot delete non-running host', 'dismiss');
+      return;
+    }
+
     this.snackBar.open(
       `Start to delete host ${host.name} (url: ${host.url})`,
       'dismiss'

@@ -6,7 +6,7 @@ import {Runtime} from 'src/app/interface/runtime-interface';
 import {of, throwError} from 'rxjs';
 import {catchError, tap} from 'rxjs/operators';
 import {OperationService} from './operation.service';
-import {HostStatus} from './interface/host-interface';
+import {Host, HostStatus} from './interface/host-interface';
 
 @Injectable({
   providedIn: 'root',
@@ -66,8 +66,33 @@ export class HostService {
   }
 
   deleteHost(hostUrl: string) {
-    // TODO: long polling
-    return this.apiService.deleteHost(hostUrl);
+    this.store.dispatch({
+      type: 'host-delete-start',
+      wait: {
+        waitUrl: hostUrl,
+        metadata: {
+          type: 'host-delete',
+          hostUrl,
+        },
+      },
+    });
+
+    return this.apiService.deleteHost(hostUrl).pipe(
+      tap(() => {
+        this.store.dispatch({
+          type: 'host-delete-complete',
+          waitUrl: hostUrl,
+        });
+      }),
+      catchError(error => {
+        this.store.dispatch({
+          type: 'host-delete-error',
+          waitUrl: hostUrl,
+        });
+
+        return throwError(() => error);
+      })
+    );
   }
 
   constructor(

@@ -409,9 +409,9 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 	}
 	create.Flags().StringVar(&createFlags.Host, hostFlag, "", "Specifies the host")
 	// Main build flags.
-	create.Flags().StringVar(&createFlags.MainBuild.Branch, branchFlag, "aosp-master", "The branch name")
+	create.Flags().StringVar(&createFlags.MainBuild.Branch, branchFlag, "aosp-main", "The branch name")
 	create.Flags().StringVar(&createFlags.MainBuild.BuildID, buildIDFlag, "", "Android build identifier")
-	create.Flags().StringVar(&createFlags.MainBuild.Target, targetFlag, "aosp_cf_x86_64_phone-userdebug",
+	create.Flags().StringVar(&createFlags.MainBuild.Target, targetFlag, "aosp_cf_x86_64_phone-trunk_staging-userdebug",
 		"Android build target")
 	create.MarkFlagsMutuallyExclusive(branchFlag, buildIDFlag)
 	// Kernel build flags

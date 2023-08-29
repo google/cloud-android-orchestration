@@ -91,7 +91,7 @@ export class CreateHostViewComponent {
 
   // TODO: refactor with 'host status'
   showProgressBar(status: string | null) {
-    return status === 'registering';
+    return status === 'sending create request';
   }
 
   onSubmit() {
@@ -104,6 +104,7 @@ export class CreateHostViewComponent {
       .pipe(
         take(1),
         switchMap(runtime => {
+          this.status$.next('sending create request');
           return this.hostService.createHost(
             {
               gcp: {
@@ -120,6 +121,7 @@ export class CreateHostViewComponent {
       )
       .subscribe({
         next: ([_, previousUrl]) => {
+          this.status$.next('done');
           this.router.navigate([previousUrl]);
           this.snackBar.dismiss();
         },

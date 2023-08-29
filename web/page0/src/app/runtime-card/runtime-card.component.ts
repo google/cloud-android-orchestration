@@ -1,13 +1,10 @@
 import {Component, Input} from '@angular/core';
 import {MatSnackBar} from '@angular/material/snack-bar';
 import {Router} from '@angular/router';
-import {BehaviorSubject, Subject} from 'rxjs';
-import {takeUntil} from 'rxjs/operators';
-import {hostListSelectorFactory} from 'src/app/store/selectors';
+import {runtimeCardSelectorFactory} from 'src/app/store/selectors';
 import {Store} from 'src/app/store/store';
 import {Host} from 'src/app/interface/host-interface';
 import {HostService} from '../host.service';
-import {Runtime} from 'src/app/interface/runtime-interface';
 import {RuntimeService} from '../runtime.service';
 
 @Component({
@@ -16,11 +13,10 @@ import {RuntimeService} from '../runtime.service';
   styleUrls: ['./runtime-card.component.scss'],
 })
 export class RuntimeCardComponent {
-  @Input() runtime: Runtime | undefined = undefined;
+  @Input() runtimeAlias = '';
 
-  hosts$ = new BehaviorSubject<Host[]>([]);
-
-  private ngUnsubscribe = new Subject<void>();
+  getRuntimeCard = (alias: string) =>
+    this.store.select(runtimeCardSelectorFactory(alias));
 
   constructor(
     private router: Router,
@@ -30,25 +26,9 @@ export class RuntimeCardComponent {
     private store: Store
   ) {}
 
-  ngOnInit() {
-    if (!this.runtime) {
-      return;
-    }
-
-    this.store
-      .select(hostListSelectorFactory({runtimeAlias: this.runtime.alias}))
-      .pipe(takeUntil(this.ngUnsubscribe))
-      .subscribe(hosts => this.hosts$.next(hosts));
-  }
-
-  ngOnDestroy() {
-    this.ngUnsubscribe.next();
-    this.ngUnsubscribe.complete();
-  }
-
   onClickAddHost() {
     this.router.navigate(['/create-host'], {
-      queryParams: {runtime: this.runtime?.alias},
+      queryParams: {runtime: this.runtimeAlias},
     });
   }
 
@@ -65,19 +45,17 @@ export class RuntimeCardComponent {
       `Start to delete host ${host.name} (url: ${host.url})`,
       'dismiss'
     );
-    this.hostService
-      .deleteHost(host.url)
-      .pipe(takeUntil(this.ngUnsubscribe))
-      .subscribe({
-        next: () => {
-          this.snackBar.dismiss();
-        },
-        error: error => {
-          this.snackBar.open(
-            `Failed to delete host ${host.url} (error: ${error.message})`,
-            'dismiss'
-          );
-        },
-      });
+
+    this.hostService.deleteHost(host.url!).subscribe({
+      next: () => {
+        this.snackBar.dismiss();
+      },
+      error: error => {
+        this.snackBar.open(
+          `Failed to delete host ${host.url} (error: ${error.message})`,
+          'dismiss'
+        );
+      },
+    });
   }
 }

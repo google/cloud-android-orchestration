@@ -10,6 +10,7 @@ import {
   mergeMap,
   shareReplay,
   switchMap,
+  take,
   takeUntil,
   tap,
   withLatestFrom,
@@ -101,8 +102,9 @@ export class CreateHostViewComponent {
 
     this.runtime$
       .pipe(
-        switchMap(runtime =>
-          this.hostService.createHost(
+        take(1),
+        switchMap(runtime => {
+          return this.hostService.createHost(
             {
               gcp: {
                 machine_type,
@@ -111,8 +113,8 @@ export class CreateHostViewComponent {
             },
             runtime,
             zone
-          )
-        ),
+          );
+        }),
         withLatestFrom(this.previousUrl$),
         takeUntil(this.ngUnsubscribe)
       )

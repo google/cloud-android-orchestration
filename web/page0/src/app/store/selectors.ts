@@ -1,13 +1,49 @@
 import {AppState} from './state';
 import {runtimeToEnvList} from 'src/app/interface/utils';
 import {EnvStatus} from 'src/app/interface/env-interface';
-import {Runtime} from '../interface/runtime-interface';
+import {Runtime, RuntimeCard} from '../interface/runtime-interface';
+import {HostStatus} from '../interface/host-interface';
 
 // TODO: add starting & stopping envs here
 export const runtimeListSelector = (state: AppState) => state.runtimes;
 
 export const hostListSelector = (state: AppState) =>
   state.runtimes.flatMap(runtime => runtime.hosts);
+
+export const runtimeCardSelectorFactory =
+  (alias: string | undefined) =>
+  (state: AppState): RuntimeCard | undefined => {
+    if (!alias) {
+      return undefined;
+    }
+
+    const runtime = runtimeSelectorFactory({alias})(state);
+    if (!runtime) {
+      return undefined;
+    }
+
+    const hostCreateRequests = Object.values(state.waits).filter(
+      wait =>
+        wait.metadata.type === 'host-create' &&
+        wait.metadata.runtimeAlias === alias
+    );
+
+    return {
+      alias: runtime.alias,
+      url: runtime.url,
+      hosts: [
+        ...runtime.hosts,
+        ...hostCreateRequests.map(wait => ({
+          name: 'New host',
+          zone: wait.metadata.zone,
+          runtime: alias,
+          groups: [],
+          status: HostStatus.starting,
+        })),
+      ],
+      status: runtime.status,
+    };
+  };
 
 export const hostListSelectorFactory = (params: {
   runtimeAlias: string;

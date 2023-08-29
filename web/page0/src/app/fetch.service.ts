@@ -8,7 +8,7 @@ import {
   switchMap,
 } from 'rxjs/operators';
 import {ApiService} from './api.service';
-import {Host} from 'src/app/interface/host-interface';
+import {Host, HostStatus} from 'src/app/interface/host-interface';
 import {Group} from 'src/app/interface/host-orchestrator.dto';
 import {Runtime, RuntimeStatus} from 'src/app/interface/runtime-interface';
 
@@ -68,6 +68,7 @@ export class FetchService {
                 url: hostUrl,
                 runtime: runtimeAlias,
                 groups,
+                status: HostStatus.running,
               }))
             );
           })

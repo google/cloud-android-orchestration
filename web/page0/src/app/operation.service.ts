@@ -13,6 +13,7 @@ export class OperationService {
   longPolling<T>(waitUrl: string): Observable<T> {
     return this.apiService.wait<T>(waitUrl).pipe(
       retry({
+        count: 1000,
         delay: (err: HttpErrorResponse, retryCount) => {
           if (retryCount % 10 === 0) {
             console.warn(

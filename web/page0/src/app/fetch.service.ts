@@ -1,24 +1,21 @@
 import {Injectable} from '@angular/core';
 import {forkJoin, Observable, of} from 'rxjs';
-import {
-  map,
-  catchError,
-  mergeMap,
-  defaultIfEmpty,
-  switchMap,
-} from 'rxjs/operators';
+import {map, catchError, defaultIfEmpty, switchMap, tap} from 'rxjs/operators';
 import {ApiService} from './api.service';
 import {Host, HostStatus} from 'src/app/interface/host-interface';
 import {Group} from 'src/app/interface/host-orchestrator.dto';
 import {Runtime, RuntimeStatus} from 'src/app/interface/runtime-interface';
+import {Store} from './store/store';
+import {Environment, EnvStatus} from './interface/env-interface';
+import {cvdToDevice} from 'src/app/interface/utils';
 
 @Injectable({
   providedIn: 'root',
 })
 export class FetchService {
-  private fetchGroups(hostUrl: string): Observable<Group[]> {
+  fetchEnvs(runtimeAlias: string, hostUrl: string): Observable<Environment[]> {
     return this.apiService.listGroups(hostUrl).pipe(
-      mergeMap(groups => {
+      switchMap(groups => {
         return forkJoin(
           groups.map(group => {
             return this.apiService.listDevicesByGroup(hostUrl, group).pipe(
@@ -45,39 +42,46 @@ export class FetchService {
               })
             );
           })
-        ).pipe(defaultIfEmpty([]));
+        ).pipe(
+          defaultIfEmpty([]),
+          map((groups: Group[]) => {
+            return groups.map(group => ({
+              runtimeAlias,
+              hostUrl,
+              groupName: group.name,
+              devices: group.cvds.map(cvd => cvdToDevice(cvd)),
+              status: EnvStatus.running,
+            }));
+          })
+        );
       })
     );
   }
 
-  private fetchHosts(
+  fetchHosts(
     runtimeUrl: string,
     zone: string,
     runtimeAlias: string
   ): Observable<Host[]> {
     return this.apiService.listHosts(runtimeUrl, zone).pipe(
-      map(({items: hosts}) => hosts || []),
-      mergeMap(hosts => {
-        return forkJoin(
-          hosts.map(host => {
-            const hostUrl = `${runtimeUrl}/v1/zones/${zone}/hosts/${host.name}`;
-            return this.fetchGroups(hostUrl).pipe(
-              map(groups => ({
-                name: host.name!,
-                zone: zone,
-                url: hostUrl,
-                runtime: runtimeAlias,
-                groups,
-                status: HostStatus.running,
-              }))
-            );
-          })
-        ).pipe(defaultIfEmpty([]));
-      })
+      map(({items: hostInstances}) => hostInstances || []),
+      map(hostInstances =>
+        hostInstances.map(hostInstance => {
+          const hostUrl = `${runtimeUrl}/v1/zones/${zone}/hosts/${hostInstance.name!}`;
+
+          return {
+            name: hostInstance.name!,
+            runtime: runtimeAlias,
+            zone: zone,
+            url: hostUrl,
+            status: HostStatus.running,
+          };
+        })
+      )
     );
   }
 
-  fetchRuntimeInfo(url: string, alias: string): Observable<Runtime> {
+  fetchRuntime(url: string, alias: string): Observable<Runtime> {
     return this.apiService.getRuntimeInfo(url).pipe(
       switchMap(info => {
         // TODO: handle local workstation depending on type
@@ -89,25 +93,19 @@ export class FetchService {
           }))
         );
       }),
-      switchMap(({type, zones}) => {
-        return forkJoin(
-          zones.map(zone => this.fetchHosts(url, zone, alias))
-        ).pipe(
-          defaultIfEmpty([]),
-          map(hostLists => hostLists.flat()),
-          map((hosts: Host[]) => ({
-            alias,
-            type,
-            url,
-            zones,
-            hosts,
-            status: RuntimeStatus.valid,
-          }))
-        );
+
+      map(({type, zones}) => {
+        return {
+          alias,
+          type,
+          url,
+          zones,
+          status: RuntimeStatus.valid,
+        };
       }),
 
       catchError(error => {
-        console.error(`Error from fetchRuntimeInfo of: ${alias} (${url})`);
+        console.error(`Error from fetchRuntime of: ${alias} (${url})`);
         console.error(error);
         return of({
           alias,
@@ -119,5 +117,46 @@ export class FetchService {
     );
   }
 
-  constructor(private apiService: ApiService) {}
+  loadHosts(runtime: Runtime) {
+    if (runtime.status !== RuntimeStatus.valid || !runtime.zones) {
+      return of([]);
+    }
+
+    return forkJoin(
+      runtime.zones.map(zone =>
+        this.fetchHosts(runtime.url, zone, runtime.alias).pipe(
+          tap(hosts => {
+            hosts.forEach(host => {
+              this.store.dispatch({
+                type: 'host-load',
+                host,
+              });
+            });
+          }),
+
+          switchMap(hosts => {
+            return forkJoin(
+              hosts.flatMap(host =>
+                this.fetchEnvs(host.runtime, host.url!).pipe(
+                  tap(envs => {
+                    envs.forEach(env => {
+                      this.store.dispatch({
+                        type: 'env-load',
+                        env,
+                      });
+                    });
+                  })
+                )
+              )
+            ).pipe(defaultIfEmpty([]));
+          })
+        )
+      )
+    ).pipe(defaultIfEmpty([]));
+  }
+
+  constructor(
+    private apiService: ApiService,
+    private store: Store
+  ) {}
 }

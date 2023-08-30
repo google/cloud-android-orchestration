@@ -1,5 +1,8 @@
 import {Component} from '@angular/core';
-import {envSelector, runtimesLoadStatusSelector} from 'src/app/store/selectors';
+import {
+  envCardListSelector,
+  runtimesLoadStatusSelector,
+} from 'src/app/store/selectors';
 import {Store} from 'src/app/store/store';
 import {RefreshService} from '../refresh.service';
 import {RuntimeViewStatus} from 'src/app/interface/runtime-interface';
@@ -10,7 +13,7 @@ import {RuntimeViewStatus} from 'src/app/interface/runtime-interface';
   styleUrls: ['./active-env-pane.component.scss'],
 })
 export class ActiveEnvPaneComponent {
-  envs$ = this.store.select(envSelector);
+  envs$ = this.store.select(envCardListSelector);
   status$ = this.store.select(runtimesLoadStatusSelector);
 
   constructor(

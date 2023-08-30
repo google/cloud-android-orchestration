@@ -11,7 +11,6 @@ export interface Runtime {
   type?: 'local' | 'on-premise' | 'cloud';
   url: string;
   zones?: string[];
-  hosts: Host[];
   status: RuntimeStatus;
 }
 
@@ -23,16 +22,3 @@ export enum RuntimeViewStatus {
   done = 'done',
 }
 
-// // TODO
-// export interface EnvCard {}
-
-// // TODO
-// export interface HostItem {}
-
-export interface RuntimeCard {
-  alias: string;
-  type?: 'local' | 'on-premise' | 'cloud';
-  url: string;
-  hosts: Host[];
-  status: RuntimeStatus;
-}

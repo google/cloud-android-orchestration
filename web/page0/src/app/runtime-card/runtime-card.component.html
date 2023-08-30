@@ -28,15 +28,12 @@
                 <div class="host-header">
                     <div>{{ host.name }} ({{ host.zone }}) ({{ host.status }})</div>
 
-
                     <button *ngIf="isRunning(host)" mat-icon-button class="host-delete-button" (click)="onClickDeleteHost(host)">
                         <span class="google-symbols"> delete </span>
                     </button>
                 </div>
                 <ul>
-                    <li *ngFor="let group of host.groups">
-                        {{ group.name }}
-                    </li>
+                    <li *ngFor="let env of host.envs">{{ env.groupName }}</li>
                 </ul>
             </li>
         </ul>

@@ -3,10 +3,10 @@ import {Store} from 'src/app/store/store';
 import {ApiService} from './api.service';
 import {HostInstance} from 'src/app/interface/cloud-orchestrator.dto';
 import {Runtime} from 'src/app/interface/runtime-interface';
-import {of, throwError} from 'rxjs';
+import {throwError} from 'rxjs';
 import {catchError, tap} from 'rxjs/operators';
 import {OperationService} from './operation.service';
-import {Host, HostStatus} from './interface/host-interface';
+import {HostStatus} from './interface/host-interface';
 
 @Injectable({
   providedIn: 'root',
@@ -41,7 +41,6 @@ export class HostService {
                   zone,
                   url: `${runtime.url}/v1/zones/${zone}/hosts/${hostInstance.name}`,
                   runtime: runtime.alias,
-                  groups: [],
                   status: HostStatus.running,
                 },
               });

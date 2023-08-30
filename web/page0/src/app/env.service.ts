@@ -1,9 +1,12 @@
 import {Injectable} from '@angular/core';
-import {tap} from 'rxjs/operators';
+import {throwError} from 'rxjs';
+import {catchError, tap} from 'rxjs/operators';
 import {Store} from 'src/app/store/store';
 import {ApiService} from './api.service';
 import {GroupForm} from './interface/device-interface';
 import {Environment, EnvStatus} from './interface/env-interface';
+import {Group} from './interface/host-orchestrator.dto';
+import {OperationService} from './operation.service';
 import {hasDuplicate} from './utils';
 @Injectable({
   providedIn: 'root',
@@ -38,32 +41,67 @@ export class EnvService {
         },
       })
       .pipe(
-        tap(() => {
+        tap(operation => {
+          const waitUrl = `${hostUrl}/operations/${operation.name}`;
           this.store.dispatch({
             type: 'env-create-start',
-            env: {
-              runtimeAlias,
-              hostUrl,
-              groupName,
-              devices,
-              status: EnvStatus.starting,
+            wait: {
+              waitUrl,
+              metadata: {
+                type: 'env-create',
+                hostUrl,
+                groupName,
+                runtimeAlias,
+                devices,
+              },
             },
           });
+
+          this.waitService.longPolling<Group>(waitUrl).subscribe({
+            next: (group: Group) => {
+              this.store.dispatch({
+                type: 'env-create-complete',
+                waitUrl,
+                env: {
+                  runtimeAlias,
+                  hostUrl,
+                  groupName, // TODO: The result should return real build id, target, branch
+                  devices: group.cvds.map(cvd => ({
+                    deviceId: cvd.name,
+                    buildId: 'unknown',
+                    target: 'unknown',
+                    branch: 'unknown',
+                    status: 'Running',
+                    displays: cvd.displays,
+                  })),
+                  status: EnvStatus.running,
+                },
+              });
+            },
+            error: error => {
+              this.store.dispatch({
+                type: 'env-create-error',
+                waitUrl,
+              });
+              throw error;
+            },
+          });
+        }),
+        catchError(error => {
+          this.store.dispatch({
+            type: 'env-create-error',
+          });
+
+          return throwError(() => error);
         })
       );
   }
 
-  private isSame(env1: Environment, env2: Environment) {
-    return env1.groupName === env2.groupName && env1.hostUrl === env2.hostUrl;
-  }
-
-  deleteEnv(target: Environment) {
-    // TODO: long polling
-    this.store.dispatch({type: 'env-delete-start', target});
-  }
+  deleteEnv(target: Environment) {}
 
   constructor(
     private apiService: ApiService,
-    private store: Store
+    private store: Store,
+    private waitService: OperationService
   ) {}
 }

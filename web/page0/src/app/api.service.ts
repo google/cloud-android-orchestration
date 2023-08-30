@@ -55,7 +55,7 @@ export class ApiService {
   }
 
   createGroup(hostUrl: string, createGroupRequest: CreateGroupRequest) {
-    return this.httpClient.post<void>(`${hostUrl}/cvds`, {
+    return this.httpClient.post<Operation>(`${hostUrl}/cvds`, {
       // TODO: use data from createGroupRequest for cvd
       group_name: createGroupRequest.group_name,
       cvd: {

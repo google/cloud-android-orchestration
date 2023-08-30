@@ -2,7 +2,11 @@ import {AppState} from './state';
 import {EnvStatus} from 'src/app/interface/env-interface';
 import {Runtime, RuntimeStatus} from '../interface/runtime-interface';
 import {HostStatus} from '../interface/host-interface';
-import {isHostCreateWait, isHostDeleteWait} from '../interface/wait-interface';
+import {
+  isEnvCreateWait,
+  isHostCreateWait,
+  isHostDeleteWait,
+} from '../interface/wait-interface';
 import {RuntimeCard} from '../interface/component-interface';
 
 export const runtimeListSelector = (state: AppState) => state.runtimes;
@@ -30,6 +34,10 @@ export const runtimeCardSelectorFactory =
       isHostDeleteWait
     );
 
+    const allEnvs = allEnvListSelector(state).filter(
+      env => env.runtimeAlias === alias
+    );
+
     return {
       alias: runtime.alias,
       url: runtime.url,
@@ -42,7 +50,7 @@ export const runtimeCardSelectorFactory =
           if (!isStopping) {
             return {
               ...host,
-              envs: state.envs.filter(env => env.hostUrl === host.url),
+              envs: allEnvs.filter(env => env.hostUrl === host.url),
               status: HostStatus.running,
             };
           }
@@ -110,8 +118,50 @@ export const hostListSelectorFactory = (params: {
 };
 
 export const envCardListSelector = (state: AppState) => {
-  // TODO: get starting & stopping envs from state.waits
-  return state.envs;
+  return allEnvListSelector(state);
+};
+
+const allEnvListSelector = (state: AppState) => {
+  const envCreateRequests = Object.values(state.waits).filter(isEnvCreateWait);
+
+  const hostDeleteRequests = Object.values(state.waits).filter(
+    isHostDeleteWait
+  );
+
+  const startingEnvs = envCreateRequests.map(req => {
+    const {groupName, hostUrl, runtimeAlias, devices} = req.metadata;
+
+    return {
+      groupName,
+      hostUrl,
+      devices,
+      runtimeAlias,
+      status: EnvStatus.starting,
+    };
+  });
+
+  return [
+    ...startingEnvs.filter(
+      env =>
+        !state.envs.find(
+          runningEnv =>
+            runningEnv.groupName === env.groupName &&
+            runningEnv.hostUrl === env.hostUrl
+        )
+    ),
+    ...state.envs.map(env => {
+      if (
+        hostDeleteRequests.find(req => req.metadata.hostUrl === env.hostUrl)
+      ) {
+        return {
+          ...env,
+          status: EnvStatus.stopping,
+        };
+      }
+
+      return env;
+    }),
+  ];
 };
 
 export const runtimesLoadStatusSelector = (state: AppState) => {

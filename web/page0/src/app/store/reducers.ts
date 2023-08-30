@@ -3,7 +3,6 @@ import {isHostDeleteWait, Wait} from '../interface/wait-interface';
 import {
   Action,
   EnvCreateStartAction,
-  EnvDeleteStartAction,
   HostCreateCompleteAction,
   HostCreateStartAction,
   HostDeleteCompleteAction,
@@ -18,6 +17,7 @@ import {
   RefreshCompleteAction,
   HostLoadAction,
   EnvLoadAction,
+  EnvCreateCompleteAction,
 } from './actions';
 import {AppState, initialState} from './state';
 
@@ -105,19 +105,35 @@ const reducers: {[key: ActionType]: Reducer} = {
     return {
       ...prevState,
       runtimes: prevState.runtimes.filter(item => item.alias !== action.alias),
+      hosts: prevState.hosts.filter(host => host.runtime !== action.alias),
+      envs: prevState.envs.filter(env => env.runtimeAlias !== action.alias),
     };
   },
 
-  // TODO: long polling
   'env-create-start': (action: EnvCreateStartAction) => prevState => {
     return {
       ...prevState,
+      waits: {...prevState.waits, [action.wait.waitUrl]: action.wait},
     };
   },
 
-  'env-delete-start': (action: EnvDeleteStartAction) => prevState => {
+  'env-create-complete': (action: EnvCreateCompleteAction) => prevState => {
+    const newEnv = action.env;
+
+    const alreadyHasNewEnv = !!prevState.envs.find(
+      env =>
+        env.hostUrl === newEnv.hostUrl && env.groupName === newEnv.groupName
+    );
+
     return {
       ...prevState,
+      envs: alreadyHasNewEnv ? prevState.envs : [...prevState.envs, newEnv],
+      waits: Object.keys(prevState.waits)
+        .filter(key => key !== action.waitUrl)
+        .reduce((obj: {[key: string]: Wait}, key) => {
+          obj[key] = prevState.waits[key];
+          return obj;
+        }, {}),
     };
   },
 
@@ -166,6 +182,7 @@ const reducers: {[key: ActionType]: Reducer} = {
     return {
       ...prevState,
       hosts: prevState.hosts.filter(host => host.url !== wait.metadata.hostUrl),
+      envs: prevState.envs.filter(env => env.hostUrl !== wait.metadata.hostUrl),
       waits: Object.keys(prevState.waits)
         .filter(key => key !== action.waitUrl)
         .reduce((obj: {[key: string]: Wait}, key) => {

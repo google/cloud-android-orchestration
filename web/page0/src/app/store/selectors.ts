@@ -1,21 +1,14 @@
 import {AppState} from './state';
-import {runtimeToEnvList} from 'src/app/interface/utils';
 import {EnvStatus} from 'src/app/interface/env-interface';
-import {Runtime, RuntimeCard, RuntimeStatus} from '../interface/runtime-interface';
+import {Runtime, RuntimeStatus} from '../interface/runtime-interface';
 import {HostStatus} from '../interface/host-interface';
-import {
-  HostCreateWait,
-  isHostCreateWait,
-  isHostDeleteWait,
-} from '../interface/wait-interface';
+import {isHostCreateWait, isHostDeleteWait} from '../interface/wait-interface';
+import {RuntimeCard} from '../interface/component-interface';
 
-// TODO: add starting & stopping envs here
 export const runtimeListSelector = (state: AppState) => state.runtimes;
 
-export const validRuntimeListSelector = (state: AppState) => state.runtimes.filter(runtime => runtime.status === RuntimeStatus.valid)
-
-export const hostListSelector = (state: AppState) =>
-  state.runtimes.flatMap(runtime => runtime.hosts);
+export const validRuntimeListSelector = (state: AppState) =>
+  state.runtimes.filter(runtime => runtime.status === RuntimeStatus.valid);
 
 export const runtimeCardSelectorFactory =
   (alias: string | undefined) =>
@@ -40,16 +33,22 @@ export const runtimeCardSelectorFactory =
     return {
       alias: runtime.alias,
       url: runtime.url,
+      type: runtime.type,
       hosts: [
-        ...runtime.hosts.map(host => {
+        ...state.hosts.map(host => {
           const isStopping = hostDeleteRequests.find(
             req => req.metadata.hostUrl === host.url
           );
           if (!isStopping) {
-            return host;
+            return {
+              ...host,
+              envs: state.envs.filter(env => env.hostUrl === host.url),
+              status: HostStatus.running,
+            };
           }
           return {
             ...host,
+            envs: [],
             status: HostStatus.stopping,
           };
         }),
@@ -57,36 +56,13 @@ export const runtimeCardSelectorFactory =
           name: 'New host',
           zone: wait.metadata.zone,
           runtime: alias,
-          groups: [],
+          envs: [],
           status: HostStatus.starting,
         })),
       ],
       status: runtime.status,
     };
   };
-
-export const hostListSelectorFactory = (params: {
-  runtimeAlias: string;
-  zone?: string;
-}) => {
-  const {runtimeAlias, zone} = params;
-
-  return (state: AppState) => {
-    const runtime: Runtime | undefined = state.runtimes.find(
-      runtime => runtime.alias === runtimeAlias
-    );
-
-    if (!runtime) {
-      return [];
-    }
-
-    if (!zone) {
-      return runtime.hosts;
-    }
-
-    return runtime.hosts.filter(host => host.zone === zone);
-  };
-};
 
 export const hostSelectorFactory = (params: {
   runtimeAlias: string;
@@ -96,38 +72,46 @@ export const hostSelectorFactory = (params: {
   return (state: AppState) => {
     const {runtimeAlias, zone, name} = params;
 
-    const runtime: Runtime | undefined = state.runtimes.find(
-      runtime => runtime.alias === runtimeAlias
-    );
-    if (!runtime) {
+    const host = state.hosts.find(host => {
+      return (
+        host.runtime === runtimeAlias &&
+        host.zone === zone &&
+        host.name === name
+      );
+    });
+
+    if (!host) {
       return undefined;
     }
 
-    return runtime.hosts.find(host => host.zone === zone && host.name === name);
+    return host;
   };
 };
 
-export const envSelector = (state: AppState) => {
-  const runningAndStoppingEnvs = state.runtimes
-    .flatMap(runtime => runtimeToEnvList(runtime))
-    .map(env => {
-      if (
-        !state.stoppingEnvs.find(
-          stoppingEnv =>
-            stoppingEnv.groupName === env.groupName &&
-            stoppingEnv.hostUrl === env.hostUrl
-        )
-      ) {
-        return env;
+export const hostListSelectorFactory = (params: {
+  runtimeAlias: string;
+  zone?: string;
+}) => {
+  const {runtimeAlias, zone} = params;
+
+  return (state: AppState) => {
+    return state.hosts.filter(host => {
+      if (host.runtime !== runtimeAlias) {
+        return false;
       }
 
-      return {
-        ...env,
-        status: EnvStatus.stopping,
-      };
-    });
+      if (zone && host.zone !== zone) {
+        return false;
+      }
 
-  return [...runningAndStoppingEnvs, ...state.startingEnvs];
+      return true;
+    });
+  };
+};
+
+export const envCardListSelector = (state: AppState) => {
+  // TODO: get starting & stopping envs from state.waits
+  return state.envs;
 };
 
 export const runtimesLoadStatusSelector = (state: AppState) => {

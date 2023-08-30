@@ -1,10 +1,9 @@
-import {Group} from './host-orchestrator.dto';
-
 export enum HostStatus {
   starting = 'starting',
   running = 'running',
   stopping = 'stopping',
   error = 'error',
+  loading = 'loading',
 }
 
 export interface Host {
@@ -12,6 +11,5 @@ export interface Host {
   zone?: string;
   url?: string;
   runtime: string;
-  groups: Group[];
   status: HostStatus;
 }

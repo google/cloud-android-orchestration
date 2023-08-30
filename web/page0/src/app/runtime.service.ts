@@ -1,6 +1,6 @@
 import {Injectable} from '@angular/core';
 import {Observable, of} from 'rxjs';
-import {map, tap, withLatestFrom, catchError, mergeMap} from 'rxjs/operators';
+import {map, tap, withLatestFrom, catchError, switchMap} from 'rxjs/operators';
 import {
   runtimeListSelector,
   runtimesLoadStatusSelector,
@@ -41,7 +41,7 @@ export class RuntimeService {
           throw Error(`Cannot have runtime of duplicated alias: ${alias}`);
         }
       }),
-      mergeMap(() => this.fetchService.fetchRuntimeInfo(url, alias)),
+      switchMap(() => this.fetchService.fetchRuntime(url, alias)),
       tap(runtime => {
         if (runtime.status === 'error') {
           throw new Error(`Cannot register runtime ${alias} (url: ${url})`);

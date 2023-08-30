@@ -5,12 +5,12 @@ import {Wait} from 'src/app/interface/wait-interface';
 
 export type Action =
   | InitAction
+  | RefreshStartAction
+  | RefreshCompleteAction
   | RuntimeRegisterCompleteAction
   | RuntimeUnregisterAction
   | RuntimeInitializeAction
-  | RuntimeRefreshStartAction
   | RuntimeLoadAction
-  | RuntimeLoadCompleteAction
   | RuntimeRegisterErrorAction
   | RuntimeRegisterStartAction
   | EnvCreateStartAction
@@ -20,7 +20,17 @@ export type Action =
   | HostCreateErrorAction
   | HostDeleteStartAction
   | HostDeleteCompleteAction
-  | HostDeleteErrorAction;
+  | HostDeleteErrorAction
+  | HostLoadAction
+  | EnvLoadAction;
+
+export interface RefreshStartAction {
+  type: 'refresh-start';
+}
+
+export interface RefreshCompleteAction {
+  type: 'refresh-complete';
+}
 
 export interface InitAction {
   type: 'init';
@@ -48,13 +58,19 @@ export interface RuntimeInitializeAction {
   type: 'runtime-init';
 }
 
-export interface RuntimeRefreshStartAction {
-  type: 'runtime-refresh-start';
-}
-
 export interface RuntimeLoadAction {
   type: 'runtime-load';
   runtime: Runtime;
+}
+
+export interface HostLoadAction {
+  type: 'host-load';
+  host: Host;
+}
+
+export interface EnvLoadAction {
+  type: 'env-load';
+  env: Environment;
 }
 
 export interface RuntimeLoadCompleteAction {

@@ -10,12 +10,14 @@ import {
 import {RuntimeService} from '../runtime.service';
 import {MatSnackBar} from '@angular/material/snack-bar';
 import {RuntimeViewStatus} from 'src/app/interface/runtime-interface';
-import {Subject} from 'rxjs';
+import {of, Subject} from 'rxjs';
 import {
+  catchError,
   filter,
   map,
   mergeMap,
   shareReplay,
+  switchMap,
   takeUntil,
   withLatestFrom,
 } from 'rxjs/operators';
@@ -23,6 +25,7 @@ import {handleUrl} from '../utils';
 import {Store} from 'src/app/store/store';
 import {placeholderRuntimeSetting} from '../settings';
 import {runtimesLoadStatusSelector} from 'src/app/store/selectors';
+import {FetchService} from '../fetch.service';
 
 @Component({
   selector: 'app-register-runtime-view',
@@ -36,7 +39,8 @@ export class RegisterRuntimeViewComponent {
     private router: Router,
     private snackBar: MatSnackBar,
     private activatedRoute: ActivatedRoute,
-    private store: Store
+    private store: Store,
+    private fetchService: FetchService
   ) {
     this.queryParams$.pipe(takeUntil(this.ngUnsubscribe)).subscribe();
   }
@@ -81,16 +85,26 @@ export class RegisterRuntimeViewComponent {
 
     this.runtimeService
       .registerRuntime(alias, url)
-      .pipe(withLatestFrom(this.previousUrl$), takeUntil(this.ngUnsubscribe))
-      .subscribe({
-        next: ([_, previousUrl]) => {
+      .pipe(
+        withLatestFrom(this.previousUrl$),
+        map(([runtime, previousUrl]) => {
           this.router.navigate([previousUrl]);
           this.snackBar.dismiss();
-        },
-        error: error => {
+          return runtime;
+        }),
+        catchError(error => {
           this.snackBar.open(error.message);
-        },
-      });
+          return of(undefined);
+        }),
+        switchMap(runtime => {
+          if (!runtime) {
+            return of();
+          }
+
+          return this.fetchService.loadHosts(runtime);
+        })
+      )
+      .subscribe();
   }
 
   onCancel() {

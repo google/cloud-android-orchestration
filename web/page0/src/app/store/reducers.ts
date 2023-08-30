@@ -1,5 +1,4 @@
 import {RuntimeViewStatus} from 'src/app/interface/runtime-interface';
-import {runtimeToEnvList} from 'src/app/interface/utils';
 import {isHostDeleteWait, Wait} from '../interface/wait-interface';
 import {
   Action,
@@ -11,12 +10,14 @@ import {
   HostDeleteStartAction,
   InitAction,
   RuntimeLoadAction,
-  RuntimeLoadCompleteAction,
-  RuntimeRefreshStartAction,
+  RefreshStartAction,
   RuntimeRegisterCompleteAction,
   RuntimeRegisterErrorAction,
   RuntimeRegisterStartAction,
   RuntimeUnregisterAction,
+  RefreshCompleteAction,
+  HostLoadAction,
+  EnvLoadAction,
 } from './actions';
 import {AppState, initialState} from './state';
 
@@ -27,48 +28,51 @@ const identityReducer = (action: Action) => (prevState: AppState) => prevState;
 
 const reducers: {[key: ActionType]: Reducer} = {
   init: (action: InitAction) => (prevState: AppState) => initialState,
-  'runtime-refresh-start':
-    (action: RuntimeRefreshStartAction) => prevState => ({
-      ...prevState,
-      runtimesLoadStatus: RuntimeViewStatus.refreshing,
-      runtimes: [],
-    }),
+  'refresh-start': (action: RefreshStartAction) => prevState => ({
+    ...prevState,
+    runtimesLoadStatus: RuntimeViewStatus.refreshing,
+    runtimes: [],
+    hosts: [],
+    envs: [],
+  }),
+
+  'refresh-complete': (action: RefreshCompleteAction) => prevState => ({
+    ...prevState,
+    runtimesLoadStatus: RuntimeViewStatus.done,
+  }),
 
   'runtime-load': (action: RuntimeLoadAction) => prevState => {
-    const envs = runtimeToEnvList(action.runtime);
-
-    const nextStartingEnvs = prevState.startingEnvs.filter(
-      startingEnv =>
-        startingEnv.runtimeAlias !== action.runtime.alias ||
-        !envs.find(
-          env =>
-            env.groupName === startingEnv.groupName &&
-            env.hostUrl === startingEnv.hostUrl
-        )
-    );
-
-    const nextStoppingEnvs = prevState.stoppingEnvs.filter(
-      stoppingEnv =>
-        stoppingEnv.runtimeAlias !== action.runtime.alias ||
-        !!envs.find(
-          env =>
-            env.groupName === stoppingEnv.groupName &&
-            env.hostUrl === stoppingEnv.hostUrl
-        )
-    );
-
     return {
       ...prevState,
-      stoppingEnvs: nextStoppingEnvs,
-      startingEnvs: nextStartingEnvs,
       runtimes: [...prevState.runtimes, action.runtime],
     };
   },
 
-  'runtime-load-complete': (action: RuntimeLoadCompleteAction) => prevState => {
+  'host-load': (action: HostLoadAction) => prevState => {
+    if (prevState.hosts.find(host => host.url === action.host.url)) {
+      return prevState;
+    }
+
     return {
       ...prevState,
-      runtimesLoadStatus: RuntimeViewStatus.done,
+      hosts: [...prevState.hosts, action.host],
+    };
+  },
+
+  'env-load': (action: EnvLoadAction) => prevState => {
+    const newEnv = action.env;
+    if (
+      prevState.envs.find(
+        env =>
+          env.hostUrl === newEnv.hostUrl && env.groupName === newEnv.groupName
+      )
+    ) {
+      return prevState;
+    }
+
+    return {
+      ...prevState,
+      envs: [...prevState.envs, newEnv],
     };
   },
 
@@ -108,14 +112,12 @@ const reducers: {[key: ActionType]: Reducer} = {
   'env-create-start': (action: EnvCreateStartAction) => prevState => {
     return {
       ...prevState,
-      startingEnvs: [...prevState.startingEnvs, action.env],
     };
   },
 
   'env-delete-start': (action: EnvDeleteStartAction) => prevState => {
     return {
       ...prevState,
-      stoppingEnvs: [...prevState.stoppingEnvs, action.target],
     };
   },
 
@@ -128,26 +130,16 @@ const reducers: {[key: ActionType]: Reducer} = {
 
   'host-create-complete': (action: HostCreateCompleteAction) => prevState => {
     const newHost = action.host;
+
+    const alreadyHasNewHost = !!prevState.hosts.find(
+      host => host.url === newHost.url
+    );
+
     return {
       ...prevState,
-      runtimes: prevState.runtimes.map(runtime => {
-        if (runtime.alias !== newHost.runtime) {
-          return runtime;
-        }
-
-        if (
-          runtime.hosts.find(
-            host => host.name === newHost.name && host.zone === newHost.zone
-          )
-        ) {
-          return runtime;
-        }
-
-        return {
-          ...runtime,
-          hosts: [...runtime.hosts, newHost],
-        };
-      }),
+      hosts: alreadyHasNewHost
+        ? prevState.hosts
+        : [...prevState.hosts, newHost],
       waits: Object.keys(prevState.waits)
         .filter(key => key !== action.waitUrl)
         .reduce((obj: {[key: string]: Wait}, key) => {
@@ -173,14 +165,7 @@ const reducers: {[key: ActionType]: Reducer} = {
 
     return {
       ...prevState,
-      runtimes: prevState.runtimes.map(runtime => {
-        return {
-          ...runtime,
-          hosts: runtime.hosts.filter(
-            host => host.url !== wait.metadata.hostUrl
-          ),
-        };
-      }),
+      hosts: prevState.hosts.filter(host => host.url !== wait.metadata.hostUrl),
       waits: Object.keys(prevState.waits)
         .filter(key => key !== action.waitUrl)
         .reduce((obj: {[key: string]: Wait}, key) => {

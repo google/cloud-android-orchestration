@@ -1,8 +1,8 @@
 import {Injectable} from '@angular/core';
 import {Store} from 'src/app/store/store';
 import {defaultRuntimeSettings} from './settings';
-import {merge, Subscription} from 'rxjs';
-import {mergeAll} from 'rxjs/operators';
+import {forkJoin, Observable, Subscription} from 'rxjs';
+import {defaultIfEmpty, map, switchMap, tap} from 'rxjs/operators';
 import {Runtime} from 'src/app/interface/runtime-interface';
 import {FetchService} from './fetch.service';
 
@@ -34,6 +34,21 @@ export class RefreshService {
     }));
   }
 
+  refreshRuntime(url: string, alias: string): Observable<void> {
+    return this.fetchService.fetchRuntime(url, alias).pipe(
+      tap((runtime: Runtime) => {
+        this.store.dispatch({
+          type: 'runtime-load',
+          runtime,
+        });
+      }),
+      switchMap(runtime => this.fetchService.loadHosts(runtime)),
+      map(() => {
+        return;
+      })
+    );
+  }
+
   refresh() {
     const settings = this.getInitRuntimeSettings();
 
@@ -41,21 +56,18 @@ export class RefreshService {
       this.prevSubscription.unsubscribe();
     }
 
-    const subscription = merge(
-      settings.map(({url, alias}) =>
-        this.fetchService.fetchRuntimeInfo(url, alias)
-      )
+    const subscription = forkJoin(
+      settings.map(({url, alias}) => this.refreshRuntime(url, alias))
     )
-      .pipe(mergeAll())
+      .pipe(defaultIfEmpty([]))
       .subscribe({
         complete: () => {
-          this.store.dispatch({type: 'runtime-load-complete'});
+          this.store.dispatch({type: 'refresh-complete'});
         },
-        next: runtime => this.store.dispatch({type: 'runtime-load', runtime}),
       });
 
     this.store.dispatch({
-      type: 'runtime-refresh-start',
+      type: 'refresh-start',
     });
 
     this.prevSubscription = subscription;

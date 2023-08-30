@@ -401,10 +401,10 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 		CreateHostOpts: &CreateHostOpts{},
 	}
 	create := &cobra.Command{
-		Use:   "create",
+		Use:   "create [config.json]",
 		Short: "Creates a CVD",
 		RunE: func(c *cobra.Command, args []string) error {
-			return runCreateCVDCommand(c, createFlags, opts)
+			return runCreateCVDCommand(c, args, createFlags, opts)
 		},
 	}
 	create.Flags().StringVar(&createFlags.Host, hostFlag, "", "Specifies the host")
@@ -588,7 +588,19 @@ const (
 	connectCVDStateMsgFmt = "Connecting to %s"
 )
 
-func runCreateCVDCommand(c *cobra.Command, flags *CreateCVDFlags, opts *subCommandOpts) error {
+func runCreateCVDCommand(c *cobra.Command, args []string, flags *CreateCVDFlags, opts *subCommandOpts) error {
+	if len(args) > 0 {
+		// Load and parse the passed environment configuration.
+		data, err := os.ReadFile(args[0])
+		if err != nil {
+			return fmt.Errorf("Invalid configuration file: %w", err)
+		}
+		envConfig := make(map[string]interface{})
+		if err := json.Unmarshal(data, &envConfig); err != nil {
+			return fmt.Errorf("Invalid configuration file content: %w", err)
+		}
+		flags.CreateCVDOpts.EnvConfig = envConfig
+	}
 	if flags.NumInstances <= 0 {
 		return fmt.Errorf("Invalid --num_instances flag value: %d", flags.NumInstances)
 	}

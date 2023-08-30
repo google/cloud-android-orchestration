@@ -1,6 +1,13 @@
 import {Injectable} from '@angular/core';
 import {forkJoin, Observable, of} from 'rxjs';
-import {map, catchError, defaultIfEmpty, switchMap, tap} from 'rxjs/operators';
+import {
+  map,
+  catchError,
+  defaultIfEmpty,
+  switchMap,
+  tap,
+  retry,
+} from 'rxjs/operators';
 import {ApiService} from './api.service';
 import {Host, HostStatus} from 'src/app/interface/host-interface';
 import {Group} from 'src/app/interface/host-orchestrator.dto';
@@ -15,6 +22,7 @@ import {cvdToDevice} from 'src/app/interface/utils';
 export class FetchService {
   fetchEnvs(runtimeAlias: string, hostUrl: string): Observable<Environment[]> {
     return this.apiService.listGroups(hostUrl).pipe(
+      retry(1000),
       switchMap(groups => {
         return forkJoin(
           groups.map(group => {

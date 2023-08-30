@@ -1,6 +1,8 @@
 import {Component, Input} from '@angular/core';
 import {Environment, EnvStatus} from '../interface/env-interface';
 import {EnvService} from '../env.service';
+import {HostService} from '../host.service';
+import {MatSnackBar} from '@angular/material/snack-bar';
 
 const tooltips = {
   [EnvStatus.starting]: 'Starting',
@@ -24,7 +26,10 @@ const icons = {
 export class EnvCardComponent {
   @Input() env!: Environment;
 
-  constructor(private envService: EnvService) {}
+  constructor(
+    private hostService: HostService,
+    private snackBar: MatSnackBar
+  ) {}
 
   ngOnInit() {}
 
@@ -48,7 +53,16 @@ export class EnvCardComponent {
   }
 
   onClickDelete() {
-    // TODO: this should delete host where env lies on
-    this.envService.deleteEnv(this.env);
+    this.hostService.deleteHost(this.env.hostUrl).subscribe({
+      next: () => {
+        this.snackBar.dismiss();
+      },
+      error: error => {
+        this.snackBar.open(
+          `Failed to delete host ${this.env.hostUrl} (error: ${error.message})`,
+          'dismiss'
+        );
+      },
+    });
   }
 }

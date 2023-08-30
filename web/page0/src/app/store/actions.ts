@@ -13,8 +13,6 @@ export type Action =
   | RuntimeLoadAction
   | RuntimeRegisterErrorAction
   | RuntimeRegisterStartAction
-  | EnvCreateStartAction
-  | EnvDeleteStartAction
   | HostCreateStartAction
   | HostCreateCompleteAction
   | HostCreateErrorAction
@@ -22,7 +20,10 @@ export type Action =
   | HostDeleteCompleteAction
   | HostDeleteErrorAction
   | HostLoadAction
-  | EnvLoadAction;
+  | EnvLoadAction
+  | EnvCreateStartAction
+  | EnvCreateErrorAction
+  | EnvCreateCompleteAction;
 
 export interface RefreshStartAction {
   type: 'refresh-start';
@@ -77,16 +78,6 @@ export interface RuntimeLoadCompleteAction {
   type: 'runtime-load-complete';
 }
 
-export interface EnvCreateStartAction {
-  type: 'env-create-start';
-  env: Environment;
-}
-
-export interface EnvDeleteStartAction {
-  type: 'env-delete-start';
-  target: Environment;
-}
-
 export interface HostCreateStartAction {
   type: 'host-create-start';
   wait: Wait;
@@ -116,4 +107,20 @@ export interface HostDeleteCompleteAction {
 export interface HostDeleteErrorAction {
   type: 'host-delete-error';
   waitUrl: string;
+}
+
+export interface EnvCreateStartAction {
+  type: 'env-create-start';
+  wait: Wait;
+}
+
+export interface EnvCreateCompleteAction {
+  type: 'env-create-complete';
+  waitUrl: string;
+  env: Environment;
+}
+
+export interface EnvCreateErrorAction {
+  type: 'env-create-error';
+  waitUrl?: string;
 }

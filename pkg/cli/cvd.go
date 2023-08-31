@@ -61,6 +61,9 @@ type CreateCVDOpts struct {
 	LocalImage      bool
 	// Creates multiple instances. Only relevant if given a single build source.
 	NumInstances int
+	// Structure: https://android.googlesource.com/device/google/cuttlefish/+/8bbd3b9cd815f756f332791d45c4f492b663e493/host/commands/cvd/parser/README.md
+	// Example: https://cs.android.com/android/platform/superproject/main/+/main:device/google/cuttlefish/host/cvd_test_configs/main_phone-main_watch.json;drc=b2e8f4f014abb7f9cb56c0ae199334aacb04542d
+	EnvConfig map[string]interface{}
 }
 
 func (o *CreateCVDOpts) AdditionalInstancesNum() uint32 {
@@ -144,10 +147,31 @@ func (c *cvdCreator) createCVDFromLocalBuild() ([]*hoapi.CVD, error) {
 
 const (
 	stateMsgFetchMainBundle = "Fetching main bundle artifacts"
-	stateMsgStartCVD        = "Starting cvd and waiting for boot complete"
+	stateMsgStartCVD        = "Starting and waiting for boot complete"
+	stateMsgFetchAndStart   = "Fetching, starting and waiting for boot complete"
 )
 
 func (c *cvdCreator) createCVDFromAndroidCI() ([]*hoapi.CVD, error) {
+	if c.opts.EnvConfig != nil {
+		return c.createWithCanonicalConfig()
+	}
+	return c.createWithOpts()
+}
+
+func (c *cvdCreator) createWithCanonicalConfig() ([]*hoapi.CVD, error) {
+	createReq := &hoapi.CreateCVDRequest{
+		EnvConfig: c.opts.EnvConfig,
+	}
+	c.statePrinter.Print(stateMsgFetchAndStart)
+	res, err := c.service.CreateCVD(c.opts.Host, createReq)
+	c.statePrinter.PrintDone(stateMsgFetchAndStart, err)
+	if err != nil {
+		return nil, err
+	}
+	return res.CVDs, nil
+}
+
+func (c *cvdCreator) createWithOpts() ([]*hoapi.CVD, error) {
 	var mainBuild, kernelBuild, bootloaderBuild, systemImageBuild *hoapi.AndroidCIBuild
 	mainBuild = &c.opts.MainBuild
 	if c.opts.KernelBuild != (hoapi.AndroidCIBuild{}) {

@@ -1,6 +1,9 @@
 import {Component} from '@angular/core';
-import {RuntimeViewStatus} from '../runtime-interface';
+import {Store} from 'src/app/store/store';
+import {RefreshService} from '../refresh.service';
+import {RuntimeViewStatus} from 'src/app/interface/runtime-interface';
 import {RuntimeService} from '../runtime.service';
+import {runtimesLoadStatusSelector} from '../store/selectors';
 
 @Component({
   selector: 'app-list-runtime-view',
@@ -9,12 +12,16 @@ import {RuntimeService} from '../runtime.service';
 })
 export class ListRuntimeViewComponent {
   runtimes$ = this.runtimeService.getRuntimes();
-  status$ = this.runtimeService.getStatus();
+  status$ = this.store.select(runtimesLoadStatusSelector);
 
-  constructor(private runtimeService: RuntimeService) {}
+  constructor(
+    private runtimeService: RuntimeService,
+    private refreshService: RefreshService,
+    private store: Store
+  ) {}
 
   onClickRefresh() {
-    this.runtimeService.refreshRuntimes();
+    this.refreshService.refresh();
   }
 
   showProgressBar(status: string | null) {

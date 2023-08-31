@@ -6,13 +6,11 @@ import {
   ListZonesResponse,
   Operation,
   RuntimeInfo,
-} from './cloud-orchestrator.dto';
+} from 'src/app/interface/cloud-orchestrator.dto';
 import {
   ListCVDsResponse,
-  ListGroupsResponse,
   CreateGroupRequest,
-  CreateGroupResponse,
-} from './host-orchestrator.dto';
+} from 'src/app/interface/host-orchestrator.dto';
 
 @Injectable({
   providedIn: 'root',
@@ -22,7 +20,7 @@ export class ApiService {
 
   // Global Routes
   getRuntimeInfo(runtimeUrl: string) {
-    return this.httpClient.get<RuntimeInfo>(`${runtimeUrl}/info`);
+    return this.httpClient.get<RuntimeInfo>(`${runtimeUrl}/v1/info`);
   }
 
   listZones(runtimeUrl: string) {
@@ -53,18 +51,37 @@ export class ApiService {
 
   // Host Orchestrator Proxy Routes
   listGroups(hostUrl: string) {
-    return this.httpClient.get<ListGroupsResponse>(`${hostUrl}/groups`);
+    return this.httpClient.get<string[]>(`${hostUrl}/groups`);
   }
 
   createGroup(hostUrl: string, createGroupRequest: CreateGroupRequest) {
-    return this.httpClient.post<CreateGroupResponse>(
-      `${hostUrl}/cvds`,
-      createGroupRequest
-    );
+    return this.httpClient.post<void>(`${hostUrl}/cvds`, {
+      // TODO: use data from createGroupRequest for cvd
+      group_name: createGroupRequest.group_name,
+      cvd: {
+        name: '',
+        build_source: {
+          android_ci_build_source: {
+            branch: 'aosp-main',
+            build_id: '10678986',
+            target: 'aosp_cf_x86_64_phone-trunk_staging-userdebug',
+          },
+        },
+        status: '',
+        displays: [],
+      },
+      instance_names: createGroupRequest.instance_names,
+    });
   }
 
   deleteGroup(hostUrl: string, groupName: string) {
     return this.httpClient.delete(`${hostUrl}/groups/${groupName}`);
+  }
+
+  listDevicesByGroup(hostUrl: string, groupName: string) {
+    return this.httpClient.get<{device_id: string; group_id: string}[]>(
+      `${hostUrl}/devices?groupId=${groupName}`
+    );
   }
 
   listCvds(hostUrl: string) {

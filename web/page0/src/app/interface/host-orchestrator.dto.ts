@@ -29,21 +29,13 @@ export interface ListCVDsResponse {
   cvds: CVD[];
 }
 
-// TODO: Not in current host orchestrator from here
-
 export interface Group {
   name: string;
   cvds: CVD[];
 }
 
-export interface ListGroupsResponse {
-  groups: Group[];
-}
-
 export interface CreateGroupRequest {
-  group: Group;
-}
-
-export interface CreateGroupResponse {
-  group: Group;
+  group_name: string;
+  cvd: CVD;
+  instance_names: string[];
 }

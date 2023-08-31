@@ -1,19 +1,23 @@
 import {Injectable} from '@angular/core';
-import {FormBuilder, Validators} from '@angular/forms';
-import {RuntimeService} from './runtime.service';
+import {FormBuilder, FormControl, FormGroup, Validators} from '@angular/forms';
+import {of, Subject} from 'rxjs';
 import {
-  catchError,
   combineLatestWith,
+  catchError,
   map,
-  of,
   scan,
   shareReplay,
   startWith,
-  Subject,
   switchMap,
   tap,
-} from 'rxjs';
-import {HostService} from './host.service';
+} from 'rxjs/operators';
+import {Store} from 'src/app/store/store';
+import {
+  hostListSelectorFactory,
+  hostSelectorFactory,
+  runtimeListSelector,
+  runtimeSelectorFactory,
+} from 'src/app/store/selectors';
 
 interface EnvFormInitAction {
   type: 'init';
@@ -25,21 +29,27 @@ interface EnvFormClearAction {
 
 type EnvFormAction = EnvFormInitAction | EnvFormClearAction;
 
+type EnvForm = FormGroup<{
+  groupName: FormControl<string | null>;
+  runtime: FormControl<string | null>;
+  zone: FormControl<string | null>;
+  host: FormControl<string | null>;
+}>;
+
 @Injectable({
   providedIn: 'root',
 })
 export class EnvFormService {
   constructor(
     private formBuilder: FormBuilder,
-    private runtimeService: RuntimeService,
-    private hostService: HostService
+    private store: Store
   ) {}
 
   private envFormAction$ = new Subject<EnvFormAction>();
 
   private envForm$ = this.envFormAction$.pipe(
     startWith({type: 'init'} as EnvFormInitAction),
-    scan((form, action) => {
+    scan((form: EnvForm, action: EnvFormAction) => {
       if (action.type === 'init') {
         return form;
       }
@@ -53,7 +63,7 @@ export class EnvFormService {
     }, this.getInitEnvForm())
   );
 
-  getInitEnvForm() {
+  getInitEnvForm(): EnvForm {
     return this.formBuilder.group({
       groupName: ['', Validators.required],
       runtime: ['', Validators.required],
@@ -66,7 +76,7 @@ export class EnvFormService {
     return this.envForm$;
   }
 
-  runtimes$ = this.runtimeService.getRuntimes();
+  runtimes$ = this.store.select(runtimeListSelector);
 
   private selectedRuntime$ = this.envForm$.pipe(
     switchMap(form => {
@@ -77,9 +87,17 @@ export class EnvFormService {
           form.controls.zone.setValue('');
         }),
         switchMap((alias: string) =>
-          this.runtimeService.getRuntimeByAlias(alias)
+          this.store.select(runtimeSelectorFactory({alias})).pipe(
+            map(runtime => {
+              if (!runtime) {
+                throw new Error(`No runtime of alias ${alias}`);
+              }
+              return runtime;
+            })
+          )
         ),
-        catchError(error => {
+        catchError((error: Error) => {
+          console.error(error);
           return of();
         })
       );
@@ -111,7 +129,9 @@ export class EnvFormService {
       if (!runtime) {
         return of([]);
       }
-      return this.hostService.getHostsByZone(runtime.alias, zone);
+      return this.store.select(
+        hostListSelectorFactory({runtimeAlias: runtime.alias, zone})
+      );
     }),
     tap(hosts => console.log('hosts: ', hosts.length))
   );
@@ -131,18 +151,22 @@ export class EnvFormService {
           );
         }
 
-        return this.hostService.getHost(runtime, zone, host).pipe(
-          map(host => {
-            if (!host) {
-              throw new Error('Invalid host');
-            }
-            return {
-              groupName,
-              hostUrl: host.url,
-              runtime: host.runtime,
-            };
-          })
-        );
+        return this.store
+          .select(
+            hostSelectorFactory({runtimeAlias: runtime, zone, name: host})
+          )
+          .pipe(
+            map(host => {
+              if (!host) {
+                throw new Error('Invalid host');
+              }
+              return {
+                groupName,
+                hostUrl: host.url,
+                runtime: host.runtime,
+              };
+            })
+          );
       })
     );
   }

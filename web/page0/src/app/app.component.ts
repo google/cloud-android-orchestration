@@ -1,5 +1,6 @@
 import {Component, Injectable} from '@angular/core';
 import {BUILD_VERSION} from '../version';
+import {RefreshService} from './refresh.service';
 
 @Injectable()
 @Component({
@@ -9,5 +10,7 @@ import {BUILD_VERSION} from '../version';
 })
 export class AppComponent {
   readonly version = BUILD_VERSION;
-  constructor() {}
+  constructor(private refreshService: RefreshService) {
+    this.refreshService.refresh();
+  }
 }

@@ -1,7 +1,8 @@
 import {Component} from '@angular/core';
-import {EnvService} from '../env.service';
-import {RuntimeViewStatus} from '../runtime-interface';
-import {RuntimeService} from '../runtime.service';
+import {envSelector, runtimesLoadStatusSelector} from 'src/app/store/selectors';
+import {Store} from 'src/app/store/store';
+import {RefreshService} from '../refresh.service';
+import {RuntimeViewStatus} from 'src/app/interface/runtime-interface';
 
 @Component({
   selector: 'app-active-env-pane',
@@ -9,16 +10,16 @@ import {RuntimeService} from '../runtime.service';
   styleUrls: ['./active-env-pane.component.scss'],
 })
 export class ActiveEnvPaneComponent {
-  envs$ = this.envService.getEnvs();
-  status$ = this.runtimeService.getStatus();
+  envs$ = this.store.select(envSelector);
+  status$ = this.store.select(runtimesLoadStatusSelector);
 
   constructor(
-    private envService: EnvService,
-    private runtimeService: RuntimeService
+    private refreshService: RefreshService,
+    private store: Store
   ) {}
 
   onClickRefresh() {
-    this.runtimeService.refreshRuntimes();
+    this.refreshService.refresh();
   }
 
   showProgressBar(status: RuntimeViewStatus | null) {

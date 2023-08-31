@@ -3,9 +3,11 @@ import {MatSnackBar} from '@angular/material/snack-bar';
 import {Router} from '@angular/router';
 import {BehaviorSubject, Subject} from 'rxjs';
 import {takeUntil} from 'rxjs/operators';
-import {Host} from '../host-interface';
+import {hostListSelectorFactory} from 'src/app/store/selectors';
+import {Store} from 'src/app/store/store';
+import {Host} from 'src/app/interface/host-interface';
 import {HostService} from '../host.service';
-import {Runtime} from '../runtime-interface';
+import {Runtime} from 'src/app/interface/runtime-interface';
 import {RuntimeService} from '../runtime.service';
 
 @Component({
@@ -14,7 +16,7 @@ import {RuntimeService} from '../runtime.service';
   styleUrls: ['./runtime-card.component.scss'],
 })
 export class RuntimeCardComponent {
-  @Input() runtime: Runtime | null = null;
+  @Input() runtime: Runtime | undefined = undefined;
 
   hosts$ = new BehaviorSubject<Host[]>([]);
 
@@ -24,7 +26,8 @@ export class RuntimeCardComponent {
     private router: Router,
     private runtimeService: RuntimeService,
     private hostService: HostService,
-    private snackBar: MatSnackBar
+    private snackBar: MatSnackBar,
+    private store: Store
   ) {}
 
   ngOnInit() {
@@ -32,8 +35,8 @@ export class RuntimeCardComponent {
       return;
     }
 
-    this.hostService
-      .getHosts(this.runtime.alias)
+    this.store
+      .select(hostListSelectorFactory({runtimeAlias: this.runtime.alias}))
       .pipe(takeUntil(this.ngUnsubscribe))
       .subscribe(hosts => this.hosts$.next(hosts));
   }

@@ -4,3 +4,8 @@ export const defaultRuntimeSettings = [
     url: 'http://localhost:8071/api',
   },
 ];
+
+export const placeholderRuntimeSetting = {
+  alias: 'example',
+  url: 'http://localhost:8071/api',
+};

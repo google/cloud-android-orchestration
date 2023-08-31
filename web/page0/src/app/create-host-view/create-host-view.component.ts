@@ -15,7 +15,12 @@ import {
   withLatestFrom,
 } from 'rxjs/operators';
 
-import {RuntimeService} from '../runtime.service';
+import {Store} from 'src/app/store/store';
+import {
+  runtimeSelectorFactory,
+  runtimesLoadStatusSelector,
+} from '../store/selectors';
+import {RuntimeViewStatus} from '../interface/runtime-interface';
 
 @Component({
   selector: 'app-create-host-view',
@@ -24,12 +29,12 @@ import {RuntimeService} from '../runtime.service';
 })
 export class CreateHostViewComponent {
   constructor(
-    private runtimeService: RuntimeService,
     private hostService: HostService,
     private formBuilder: FormBuilder,
     private router: Router,
     private snackBar: MatSnackBar,
-    private activatedRoute: ActivatedRoute
+    private activatedRoute: ActivatedRoute,
+    private store: Store
   ) {
     this.queryParams$.pipe(takeUntil(this.ngUnsubscribe)).subscribe(params => {
       console.log(params);
@@ -46,7 +51,21 @@ export class CreateHostViewComponent {
 
   runtime$ = this.queryParams$.pipe(
     map(params => (params['runtime'] as string) ?? ''),
-    switchMap(alias => this.runtimeService.getRuntimeByAlias(alias))
+    switchMap(alias =>
+      this.store.select(runtimesLoadStatusSelector).pipe(
+        filter(status => status === RuntimeViewStatus.done),
+        switchMap(() =>
+          this.store.select(runtimeSelectorFactory({alias})).pipe(
+            map(runtime => {
+              if (!runtime) {
+                throw new Error(`No runtime of alias ${alias}`);
+              }
+              return runtime;
+            })
+          )
+        )
+      )
+    )
   );
 
   previousUrl$ = this.queryParams$.pipe(

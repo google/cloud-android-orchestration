@@ -30,8 +30,8 @@ export interface ListHostsResponse {
   nextPageToken?: string;
 }
 
-export interface RuntimeInfo {
-  type: 'local' | 'on-premise' | 'cloud';
+export interface RuntimeConfig {
+  instanceManagerType: 'GCP' | 'local';
   // TODO: Add other information e.g. chipset, machine_type
 }
 

@@ -14,7 +14,7 @@ import {Group} from 'src/app/interface/host-orchestrator.dto';
 import {Runtime, RuntimeStatus} from 'src/app/interface/runtime-interface';
 import {Store} from './store/store';
 import {Environment, EnvStatus} from './interface/env-interface';
-import {cvdToDevice} from 'src/app/interface/utils';
+import {configToInfo, cvdToDevice} from 'src/app/interface/utils';
 
 @Injectable({
   providedIn: 'root',
@@ -90,7 +90,8 @@ export class FetchService {
   }
 
   fetchRuntime(url: string, alias: string): Observable<Runtime> {
-    return this.apiService.getRuntimeInfo(url).pipe(
+    return this.apiService.getRuntimeConfig(url).pipe(
+      map(configToInfo),
       switchMap(info => {
         // TODO: handle local workstation depending on type
         return this.apiService.listZones(url).pipe(

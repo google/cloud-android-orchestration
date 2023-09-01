@@ -197,8 +197,8 @@ def init():
         mem["zones"][zone] = DATA["zones"][zone]
 
 
-# GET /info
-@apis.route("/api/info", methods=["GET"])
+# GET /v1/config
+@apis.route("/api/v1/config", methods=["GET"])
 def info():
     return mem["info"]
 

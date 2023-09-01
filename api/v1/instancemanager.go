@@ -60,3 +60,8 @@ type ListHostsResponse struct {
 	// paging through out all the results.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 }
+
+// To be seperated in to new file if the config needs to contain intormation other than instance manager
+type Config struct {
+	InstanceManagerType string `json:"instance_manager_type"`
+}

@@ -1,5 +1,5 @@
 import {Injectable} from '@angular/core';
-import {forkJoin, Observable, of} from 'rxjs';
+import {forkJoin, merge, Observable, of} from 'rxjs';
 import {
   map,
   catchError,
@@ -7,6 +7,8 @@ import {
   switchMap,
   tap,
   retry,
+  mergeAll,
+  mergeMap,
 } from 'rxjs/operators';
 import {ApiService} from './api.service';
 import {Host, HostStatus} from 'src/app/interface/host-interface';
@@ -126,42 +128,47 @@ export class FetchService {
     );
   }
 
-  loadHosts(runtime: Runtime) {
+  loadHosts(runtime: Runtime): Observable<any> {
     if (runtime.status !== RuntimeStatus.valid || !runtime.zones) {
       return of([]);
     }
 
-    return forkJoin(
-      runtime.zones.map(zone =>
-        this.fetchHosts(runtime.url, zone, runtime.alias).pipe(
-          tap(hosts => {
-            hosts.forEach(host => {
-              this.store.dispatch({
-                type: 'host-load',
-                host,
-              });
-            });
-          }),
+    const dispatchHostsLoad = (hosts: Host[]) => {
+      hosts.forEach(host => {
+        this.store.dispatch({
+          type: 'host-load',
+          host,
+        });
+      });
+    };
 
-          switchMap(hosts => {
-            return forkJoin(
-              hosts.flatMap(host =>
-                this.fetchEnvs(host.runtime, host.url!).pipe(
-                  tap(envs => {
-                    envs.forEach(env => {
-                      this.store.dispatch({
-                        type: 'env-load',
-                        env,
-                      });
-                    });
-                  })
-                )
-              )
-            ).pipe(defaultIfEmpty([]));
-          })
-        )
+    const dispatchEnvsLoad = (envs: Environment[]) => {
+      envs.forEach(env => {
+        this.store.dispatch({
+          type: 'env-load',
+          env,
+        });
+      });
+    };
+
+    const hostList$ = merge(
+      runtime.zones.map(zone =>
+        this.fetchHosts(runtime.url, zone, runtime.alias)
       )
-    ).pipe(defaultIfEmpty([]));
+    ).pipe(mergeAll());
+
+    const envs$ = hostList$.pipe(
+      mergeMap(hosts => {
+        return merge(
+          hosts.flatMap(host => this.fetchEnvs(host.runtime, host.url!))
+        ).pipe(mergeAll());
+      })
+    );
+
+    return forkJoin([
+      hostList$.pipe(tap(dispatchHostsLoad)),
+      envs$.pipe(tap(dispatchEnvsLoad)),
+    ]).pipe(defaultIfEmpty([]));
   }
 
   constructor(

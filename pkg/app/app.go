@@ -58,6 +58,7 @@ type App struct {
 	connectorStaticFilesPath string
 	corsAllowedOrigins       []string
 	infraConfig              apiv1.InfraConfig
+	config                   *config.Config
 }
 
 func NewApp(
@@ -68,8 +69,9 @@ func NewApp(
 	dbs database.Service,
 	webStaticFilesPath string,
 	corsAllowedOrigins []string,
-	webRTCConfig config.WebRTCConfig) *App {
-	return &App{im, am, oc, es, dbs, webStaticFilesPath, corsAllowedOrigins, buildInfraCfg(webRTCConfig.STUNServers)}
+	webRTCConfig config.WebRTCConfig,
+	config *config.Config) *App {
+	return &App{im, am, oc, es, dbs, webStaticFilesPath, corsAllowedOrigins, buildInfraCfg(webRTCConfig.STUNServers), config}
 }
 
 func (c *App) AddCorsHeaderIfNeeded(w http.ResponseWriter, r *http.Request) {
@@ -118,6 +120,7 @@ func (c *App) Handler() http.Handler {
 	router.Handle("/oauth2callback", HTTPHandler(c.OAuth2Callback))
 	router.Handle("/deauth", c.Authenticate(c.DeAuthHandler)).Methods("GET")
 	router.Handle("/deauth", c.Authenticate(c.RescindAuthorizationHandler)).Methods("POST")
+	router.Handle("/v1/config", c.Authenticate(c.ConfigHandler)).Methods("GET")
 	router.Handle("/", c.Authenticate(indexHandler))
 
 	rootRouter := mux.NewRouter()
@@ -382,6 +385,15 @@ func (a *App) RescindAuthorizationHandler(w http.ResponseWriter, r *http.Request
 		return err
 	}
 	fmt.Fprintln(w, "Authorization rescinded")
+	return nil
+}
+
+func (a *App) ConfigHandler(w http.ResponseWriter, r *http.Request, user accounts.User) error {
+	res := apiv1.Config{
+		InstanceManagerType: string(a.config.InstanceManager.Type),
+	}
+
+	replyJSON(w, res, http.StatusOK)
 	return nil
 }
 

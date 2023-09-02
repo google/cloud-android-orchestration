@@ -18,7 +18,9 @@ export function handleUrl(url: string | null | undefined): string {
 export function adjustArrayLength<T>(arr: T[], length: number, placeholder: T) {
   const currentArrayLength = arr.length;
 
-  arr.slice(length);
+  for (let cnt = length; cnt < currentArrayLength; cnt++) {
+    arr.pop();
+  }
 
   for (let cnt = currentArrayLength; cnt < length; cnt++) {
     arr.push(placeholder);

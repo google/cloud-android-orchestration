@@ -11,22 +11,23 @@ export const placeholderRuntimeSetting = {
 };
 
 export const defaultEnvConfig: object = {
-  common: {
-    group_name: 'simulated_home',
-  },
+  // common: {
+  //   group_name: 'simulated_home',
+  // },
   instances: [
     {
       name: 'my_phone',
       disk: {
-        default_build: '@ab/git_main/cf_x86_64_phone-trunk_staging-userdebug',
+        default_build:
+          '@ab/aosp-main/aosp_cf_x86_64_phone-trunk_staging-userdebug',
       },
     },
-    {
-      name: 'my_watch',
-      disk: {
-        default_build: '@ab/git_main/cf_gwear_x86-trunk_staging-userdebug',
-      },
-    },
+    // {
+    //   name: 'my_watch',
+    //   disk: {
+    //     default_build: '@ab/git_main/cf_gwear_x86-trunk_staging-userdebug',
+    //   },
+    // },
   ],
 };
 

@@ -1,6 +1,6 @@
 import {Component, Input} from '@angular/core';
 import {FormGroup} from '@angular/forms';
-import {DeviceFormService} from '../device-form.service';
+import {EnvFormService} from '../env-form.service';
 
 @Component({
   selector: 'app-device-form',
@@ -11,13 +11,13 @@ export class DeviceFormComponent {
   @Input() form!: FormGroup;
   @Input() idx!: number;
 
-  constructor(private deviceFormService: DeviceFormService) {}
+  constructor(private envFormService: EnvFormService) {}
 
   onClickDeleteDevice() {
-    this.deviceFormService.deleteDevice(this.idx);
+    this.envFormService.deleteDevice(this.idx);
   }
 
   onClickDuplicateDevice() {
-    this.deviceFormService.duplicateDevice(this.idx);
+    this.envFormService.duplicateDevice(this.idx);
   }
 }

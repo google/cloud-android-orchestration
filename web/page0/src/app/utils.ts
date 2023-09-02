@@ -14,3 +14,15 @@ export function handleUrl(url: string | null | undefined): string {
 
   return url.slice(0, url.length - 1);
 }
+
+export function adjustArrayLength<T>(arr: T[], length: number, placeholder: T) {
+  const currentArrayLength = arr.length;
+
+  arr.slice(length);
+
+  for (let cnt = currentArrayLength; cnt < length; cnt++) {
+    arr.push(placeholder);
+  }
+
+  return arr;
+}

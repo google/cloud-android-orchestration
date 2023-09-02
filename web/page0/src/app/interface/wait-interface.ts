@@ -1,4 +1,4 @@
-import { DeviceSetting } from "./device-interface";
+import {DeviceSetting} from './device-interface';
 
 export type Wait = HostCreateWait | HostDeleteWait | EnvCreateWait;
 
@@ -26,7 +26,7 @@ export interface EnvCreateWait {
     hostUrl: string;
     groupName: string;
     runtimeAlias: string;
-    devices: DeviceSetting[]
+    devices: DeviceSetting[];
   };
 }
 

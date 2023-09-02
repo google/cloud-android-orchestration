@@ -34,8 +34,6 @@ export interface Group {
   cvds: CVD[];
 }
 
-export interface CreateGroupRequest {
-  group_name: string;
-  cvd: CVD;
-  instance_names: string[];
+export interface CreateCVDRequest {
+  env_config: object;
 }

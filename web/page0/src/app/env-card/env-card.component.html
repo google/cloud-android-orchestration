@@ -25,7 +25,7 @@
             Devices:
             <ul style="margin-top: 0px">
                 <li *ngFor="let device of env.devices">
-                    {{ device.deviceId }} ({{ device.target }}, {{ device.buildId }})
+                    {{ device.deviceId }} ({{ device.target }}, {{ device.branch_or_buildId }})
                 </li>
             </ul>
         </mat-card-content>

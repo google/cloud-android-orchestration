@@ -14,3 +14,16 @@ export interface Environment {
   devices: DeviceSetting[];
   status: EnvStatus;
 }
+
+export interface EnvConfig {
+  common: {
+    group_name: string;
+  };
+
+  instances: {
+    name: string;
+    disk: {
+      default_build: string;
+    };
+  }[];
+}

@@ -52,9 +52,9 @@ export class CreateEnvViewComponent {
   }
 
   onSubmit() {
-    const {runtime, host, canonicalConfig} = this.envForm.value;
+    const {runtime, zone, host, canonicalConfig} = this.envForm.value;
 
-    this.envService.createEnv(runtime, host, canonicalConfig).subscribe({
+    this.envService.createEnv(runtime, zone, host, canonicalConfig).subscribe({
       next: () => {
         this.snackBar.dismiss();
         this.router.navigate(['/']);

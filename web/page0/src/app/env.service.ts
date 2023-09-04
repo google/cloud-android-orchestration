@@ -1,5 +1,5 @@
 import {Injectable} from '@angular/core';
-import {throwError} from 'rxjs';
+import {throwError, timer} from 'rxjs';
 import {catchError, map, retry, switchMap, take, tap} from 'rxjs/operators';
 import {Store} from 'src/app/store/store';
 import {ApiService} from './api.service';
@@ -164,12 +164,17 @@ export class EnvService {
                     switchMap(hostInstance => {
                       const hostUrl = `${runtime.url}/v1/zones/${zone}/hosts/${hostInstance.name}`;
 
+                      const retryConfig = {
+                        count: 1000,
+                        delay: (err: unknown, retryCount: number) => {
+                          return timer(1000);
+                        },
+                      };
+
                       return this.apiService
                         .createGroup(hostUrl, jsonutils.parse(canonicalConfig))
                         .pipe(
-                          retry({
-                            delay: 1000,
-                          }),
+                          retry(retryConfig),
                           tap(operation => {
                             this.store.dispatch({
                               type: 'env-auto-host-create-complete',

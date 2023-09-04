@@ -1,109 +1,148 @@
 <div>
-    <form [formGroup]="envForm">
-        <section class="env-view">
+  <form [formGroup]="envForm">
+    <section class="env-view">
+      <div>
+        <h1>New Environment</h1>
+      </div>
+
+      <mat-divider></mat-divider>
+
+      <div class="host-setting">
+        <mat-form-field class="flex-field">
+          <mat-label>Runtime</mat-label>
+          <mat-select required formControlName="runtime">
+            <mat-option
+              *ngFor="let runtime of runtimes$ | async"
+              value="{{ runtime }}"
+              >{{ runtime }}</mat-option
+            >
+            <mat-option (click)="onClickRegisterRuntime()">
+              Register New
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <!-- TODO: fast create option  -->
+        <mat-form-field class="flex-field">
+          <mat-label>Zone</mat-label>
+          <mat-select required formControlName="zone">
+            <mat-option
+              *ngFor="let zone of zones$ | async"
+              value="{{ zone }}"
+              >{{ zone }}</mat-option
+            >
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field class="flex-field">
+          <mat-label>Host</mat-label>
+          <mat-select required formControlName="host">
+            <mat-option *ngFor="let host of hosts$ | async" value="{{ host }}"
+              >{{ host }}
+            </mat-option>
+            <mat-option (click)="onClickCreateHost()"> Create New </mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+
+      <div class="env-config-container">
+        <div class="env-config-setting">
+          <div class="env-view-header">
+            <h2>Configuration</h2>
+          </div>
+
+          <div>
+            <mat-form-field class="full-width-field">
+              <mat-label>Name</mat-label>
+              <input
+                type="text"
+                matInput
+                formControlName="groupName"
+                placeholder="Simulated home"
+              />
+            </mat-form-field>
+          </div>
+
+          <div class="env-view-header">
             <div>
-                <h1>New Environment</h1>
+              <h2>Devices</h2>
             </div>
+          </div>
 
-            <mat-divider></mat-divider>
-
-            <div class="host-setting">
-                <mat-form-field class="flex-field">
-                    <mat-label>Runtime</mat-label>
-                    <mat-select required formControlName="runtime">
-                        <mat-option *ngFor="let runtime of runtimes$ | async" value="{{ runtime }}">{{ runtime }}</mat-option>
-                        <mat-option (click)="onClickRegisterRuntime()">
-                            Register New
-                        </mat-option>
-                    </mat-select>
-                </mat-form-field>
-
-                <!-- TODO: fast create option  -->
-                <mat-form-field class="flex-field">
-                    <mat-label>Zone</mat-label>
-                    <mat-select required formControlName="zone">
-                        <mat-option *ngFor="let zone of zones$ | async" value="{{ zone }}">{{ zone }}</mat-option>
-                    </mat-select>
-                </mat-form-field>
-
-                <mat-form-field class="flex-field">
-                    <mat-label>Host</mat-label>
-                    <mat-select required formControlName="host">
-                        <mat-option *ngFor="let host of hosts$ | async" value="{{ host }}">{{ host }}
-                        </mat-option>
-                        <mat-option (click)="onClickCreateHost()"> Create New </mat-option>
-                    </mat-select>
-                </mat-form-field>
-            </div>
-
-            <div class="env-config-container">
-                <div class="env-config-setting">
-                    <div class="env-view-header">
-                        <h2>Configuration</h2>
-                    </div>
-
-                    <div>
-                        <mat-form-field class="full-width-field">
-                            <mat-label>Name</mat-label>
-                            <input type="text" matInput formControlName="groupName" placeholder="Simulated home" />
-                        </mat-form-field>
-                    </div>
-
-                    <div class="env-view-header">
-                        <div>
-                            <h2>Devices</h2>
-                        </div>
-                    </div>
-
-                    <ul>
-                        <li *ngFor="
+          <ul>
+            <li
+              *ngFor="
                 let form of envForm.controls.devices.controls;
                 let i = index
-              " [attr.data-index]="i">
-                            <app-device-form [form]="form" [idx]="i"></app-device-form>
-                        </li>
-                    </ul>
+              "
+              [attr.data-index]="i"
+            >
+              <app-device-form [form]="form" [idx]="i"></app-device-form>
+            </li>
+          </ul>
 
-                    <button mat-button (click)="onClickAddDevice()">
-                        <mat-icon>add</mat-icon>Add Device
-                    </button>
-                </div>
+          <button mat-button (click)="onClickAddDevice()">
+            <mat-icon>add</mat-icon>Add Device
+          </button>
+        </div>
 
-                <div class="env-config-setting" mode="side" position="end">
-                    <div class="env-view-header">
-                        <div>
-                            <h2>Canonical Config</h2>
-                        </div>
-                    </div>
+        <div class="env-config-setting" mode="side" position="end">
+          <div class="env-view-header">
+            <div>
+              <h2>Canonical Config</h2>
+            </div>
+          </div>
 
-                    <div>
-                        <mat-form-field class="full-width-field">
-                            <textarea matInput cdkTextareaAutosize id="canonical-config-field" [formControl]="envForm.controls.canonicalConfig" placeholder="Canonical config in JSON form"></textarea>
-                            <mat-error *ngIf="envForm.controls.canonicalConfig.invalid">Invalid canonical config:
-                                {{ envForm.controls.canonicalConfig.errors?.['message'] || ''
+          <div>
+            <mat-form-field class="full-width-field">
+              <textarea
+                matInput
+                cdkTextareaAutosize
+                id="canonical-config-field"
+                [formControl]="envForm.controls.canonicalConfig"
+                placeholder="Canonical config in JSON form"
+              ></textarea>
+              <mat-error *ngIf="envForm.controls.canonicalConfig.invalid"
+                >Invalid canonical config:
+                {{ envForm.controls.canonicalConfig.errors?.['message'] || ''
                 }}<br />
 
-                                Refer to
-                                <a href="https://android.googlesource.com/device/google/cuttlefish/+/8bbd3b9cd815f756f332791d45c4f492b663e493/host/commands/cvd/parser/README.md">
-                                    structure
-                                </a>
-                                and
-                                <a href="https://cs.android.com/android/platform/superproject/main/+/main:device/google/cuttlefish/host/cvd_test_configs/main_phone-main_watch.json;drc=b2e8f4f014abb7f9cb56c0ae199334aacb04542d">
-                                    example
-                                </a></mat-error>
-                        </mat-form-field>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <div class="footbar">
-            <button class="footbar-button" mat-button (click)="onSubmit()" color="primary">
-                Create
-            </button>
-            <button class="footbar-button" mat-button (click)="onCancel()">
-                Cancel
-            </button>
+                Refer to
+                <a
+                  href="https://android.googlesource.com/device/google/cuttlefish/+/8bbd3b9cd815f756f332791d45c4f492b663e493/host/commands/cvd/parser/README.md"
+                >
+                  structure
+                </a>
+                and
+                <a
+                  href="https://cs.android.com/android/platform/superproject/main/+/main:device/google/cuttlefish/host/cvd_test_configs/main_phone-main_watch.json;drc=b2e8f4f014abb7f9cb56c0ae199334aacb04542d"
+                >
+                  example
+                </a></mat-error
+              >
+            </mat-form-field>
+          </div>
         </div>
-    </form>
+      </div>
+    </section>
+
+    <div class="footbar">
+      <mat-progress-bar
+        *ngIf="showProgressBar(status$ | async)"
+        mode="indeterminate"
+      ></mat-progress-bar>
+
+      <button
+        class="footbar-button"
+        mat-button
+        (click)="onSubmit()"
+        color="primary"
+      >
+        Create
+      </button>
+      <button class="footbar-button" mat-button (click)="onCancel()">
+        Cancel
+      </button>
+    </div>
+  </form>
 </div>

@@ -18,8 +18,8 @@ export const cvdToDevice = (cvd: CVD): DeviceSetting => {
 };
 
 export const configToInfo = (config: RuntimeConfig): RuntimeInfo => {
-  const {instanceManagerType} = config;
-  if (instanceManagerType === 'GCP') {
+  const {instance_manager_type} = config;
+  if (instance_manager_type === 'GCP') {
     return {
       type: RuntimeType.cloud,
     };

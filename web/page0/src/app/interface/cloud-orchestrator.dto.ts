@@ -31,7 +31,7 @@ export interface ListHostsResponse {
 }
 
 export interface RuntimeConfig {
-  instanceManagerType: 'GCP' | 'local';
+  instance_manager_type: 'GCP' | 'local';
   // TODO: Add other information e.g. chipset, machine_type
 }
 

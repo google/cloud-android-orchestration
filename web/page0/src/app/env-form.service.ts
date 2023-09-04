@@ -206,6 +206,7 @@ export class EnvFormService {
           return this.store.select(state => {
             return state.hosts
               .filter(host => host.runtime === runtime && host.zone === zone)
+              .filter(host => !state.envs.find(env => env.hostUrl === host.url))
               .map(host => host.name);
           });
         })

@@ -3,7 +3,7 @@ import {FormArray, FormBuilder, FormControl, FormGroup} from '@angular/forms';
 import {of} from 'rxjs';
 import {startWith, switchMap, tap} from 'rxjs/operators';
 import {Store} from 'src/app/store/store';
-import {defaultEnvConfig} from './settings';
+import {defaultEnvConfig, defaultZone} from './settings';
 import {parseEnvConfig} from './interface/utils';
 import {DeviceSetting} from './interface/device-interface';
 import jsonutils from './json.utils';
@@ -185,6 +185,11 @@ export class EnvFormService {
             );
             return selectedRuntime?.zones || [];
           });
+        }),
+        tap(zones => {
+          if (zones.includes(defaultZone)) {
+            this.envForm!.controls.zone.setValue(defaultZone);
+          }
         })
       ) || of([])
     );

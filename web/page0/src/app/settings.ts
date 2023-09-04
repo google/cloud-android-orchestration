@@ -31,4 +31,11 @@ export const defaultEnvConfig: object = {
   ],
 };
 
-// TODO: default zone & host setting
+export const defaultZone = 'us-east1-b';
+
+export const defaultHostSetting = {
+  gcp: {
+    machine_type: 'n1-standard-4',
+    min_cpu_platform: 'Intel Skylake',
+  },
+};

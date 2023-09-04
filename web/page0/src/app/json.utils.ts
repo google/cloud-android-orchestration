@@ -21,13 +21,13 @@ function setValue(
   }
 }
 
-function parse(s: string | undefined | null) {
+function parse(s: string | undefined | null): any {
   if (!s) {
     return {};
   }
 
   try {
-    return JSON.parse(s);
+    return JSON.parse(s) as object;
   } catch {
     return {};
   }

@@ -6,6 +6,7 @@ import {ApiService} from './api.service';
 import {EnvStatus} from './interface/env-interface';
 import {Group} from './interface/host-orchestrator.dto';
 import {parseEnvConfig} from './interface/utils';
+import jsonutils from './json.utils';
 import {OperationService} from './operation.service';
 import {hostSelectorFactory} from './store/selectors';
 import {hasDuplicate} from './utils';
@@ -47,7 +48,7 @@ export class EnvService {
 
           const hostUrl = host.url!;
           return this.apiService
-            .createGroup(hostUrl, JSON.parse(canonicalConfig))
+            .createGroup(hostUrl, jsonutils.parse(canonicalConfig))
             .pipe(
               tap(operation => {
                 const waitUrl = `${hostUrl}/operations/${operation.name}`;

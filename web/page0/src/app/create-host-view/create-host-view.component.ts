@@ -12,7 +12,6 @@ import {
   switchMap,
   take,
   takeUntil,
-  tap,
   withLatestFrom,
 } from 'rxjs/operators';
 
@@ -37,9 +36,7 @@ export class CreateHostViewComponent {
     private activatedRoute: ActivatedRoute,
     private store: Store
   ) {
-    this.queryParams$.pipe(takeUntil(this.ngUnsubscribe)).subscribe(params => {
-      console.log(params);
-    });
+    this.queryParams$.pipe(takeUntil(this.ngUnsubscribe)).subscribe();
   }
 
   private ngUnsubscribe = new Subject<void>();
@@ -70,7 +67,6 @@ export class CreateHostViewComponent {
   );
 
   previousUrl$ = this.queryParams$.pipe(
-    tap(previousUrl => console.log('previousUrl: ', previousUrl)),
     map(params => (params['previousUrl'] as string) ?? 'list-runtime')
   );
 

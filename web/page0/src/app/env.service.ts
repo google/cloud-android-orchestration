@@ -1,6 +1,6 @@
 import {Injectable} from '@angular/core';
 import {throwError} from 'rxjs';
-import {catchError, first, switchMap, take, tap} from 'rxjs/operators';
+import {catchError, switchMap, take, tap} from 'rxjs/operators';
 import {Store} from 'src/app/store/store';
 import {ApiService} from './api.service';
 import {EnvStatus} from './interface/env-interface';

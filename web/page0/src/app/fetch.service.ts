@@ -35,9 +35,9 @@ export class FetchService {
                   build_source: {
                     android_ci_build_source: {
                       main_build: {
-                        branch: 'aosp-main',
-                        build_id: '10678986',
-                        target: 'aosp_cf_x86_64_phone-trunk_staging-userdebug',
+                        branch: '',
+                        build_id: '',
+                        target: '',
                       },
                     },
                   },

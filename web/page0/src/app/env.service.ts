@@ -74,7 +74,7 @@ export class EnvService {
                       env: {
                         runtimeAlias,
                         hostUrl,
-                        groupName, // TODO: The result should return real build id, target, branch
+                        groupName: groupName || 'unknown', // TODO: The result should return real build id, target, branch
                         devices: group.cvds.map(cvd => ({
                           deviceId: cvd.name,
                           branch_or_buildId: 'unknown',

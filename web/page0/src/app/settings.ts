@@ -1,3 +1,5 @@
+import {HostInstance} from './interface/cloud-orchestrator.dto';
+
 export const defaultRuntimeSettings = [
   {
     alias: 'default',
@@ -33,7 +35,7 @@ export const defaultEnvConfig: object = {
 
 export const defaultZone = 'us-east1-b';
 
-export const defaultHostSetting = {
+export const defaultHostSetting: HostInstance = {
   gcp: {
     machine_type: 'n1-standard-4',
     min_cpu_platform: 'Intel Skylake',

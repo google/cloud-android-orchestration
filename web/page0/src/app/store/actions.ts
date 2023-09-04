@@ -23,7 +23,9 @@ export type Action =
   | EnvLoadAction
   | EnvCreateStartAction
   | EnvCreateErrorAction
-  | EnvCreateCompleteAction;
+  | EnvCreateCompleteAction
+  | EnvAutoHostCreateStartAction
+  | EnvAutoHostCreateCompleteAction;
 
 export interface RefreshStartAction {
   type: 'refresh-start';
@@ -123,4 +125,15 @@ export interface EnvCreateCompleteAction {
 export interface EnvCreateErrorAction {
   type: 'env-create-error';
   waitUrl?: string;
+}
+
+export interface EnvAutoHostCreateStartAction {
+  type: 'env-auto-host-create-start';
+  wait: Wait;
+}
+
+export interface EnvAutoHostCreateCompleteAction {
+  type: 'env-auto-host-create-complete';
+  waitUrl: string;
+  host: Host;
 }

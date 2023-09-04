@@ -2,17 +2,20 @@ import {Component} from '@angular/core';
 import {MatSnackBar} from '@angular/material/snack-bar';
 import {Router} from '@angular/router';
 import {BehaviorSubject} from 'rxjs';
-import {map, tap} from 'rxjs/operators';
+import {map, startWith, tap} from 'rxjs/operators';
 import {EnvFormService} from '../env-form.service';
 import {EnvService} from '../env.service';
 import {validRuntimeListSelector} from '../store/selectors';
 import {Store} from '../store/store';
+import {auto_create_host} from '../utils';
 @Component({
   selector: 'app-create-env-view',
   templateUrl: './create-env-view.component.html',
   styleUrls: ['./create-env-view.component.scss'],
 })
 export class CreateEnvViewComponent {
+  auto_create_host_token = auto_create_host;
+
   envForm = this.envFormService.getEnvForm();
 
   constructor(
@@ -32,6 +35,17 @@ export class CreateEnvViewComponent {
   hosts$ = this.envFormService.getHosts$();
 
   status$ = new BehaviorSubject<string>('done');
+
+  hint$ = this.envForm.controls.host.valueChanges.pipe(
+    startWith(this.envForm.controls.host.value),
+    map(host => {
+      if (host === auto_create_host) {
+        return 'Auto Create may not be completed if you leave Page 0';
+      }
+
+      return '';
+    })
+  );
 
   showProgressBar(status: string | null) {
     return status === 'sending create request';

@@ -18,6 +18,8 @@ import {
   HostLoadAction,
   EnvLoadAction,
   EnvCreateCompleteAction,
+  EnvAutoHostCreateStartAction,
+  EnvAutoHostCreateCompleteAction,
 } from './actions';
 import {AppState, initialState} from './state';
 
@@ -136,6 +138,36 @@ const reducers: {[key: ActionType]: Reducer} = {
         }, {}),
     };
   },
+
+  'env-auto-host-create-start':
+    (action: EnvAutoHostCreateStartAction) => prevState => {
+      return {
+        ...prevState,
+        waits: {...prevState.waits, [action.wait.waitUrl]: action.wait},
+      };
+    },
+
+  'env-auto-host-create-complete':
+    (action: EnvAutoHostCreateCompleteAction) => prevState => {
+      const newHost = action.host;
+
+      const alreadyHasNewHost = !!prevState.hosts.find(
+        host => host.url === newHost.url
+      );
+
+      return {
+        ...prevState,
+        hosts: alreadyHasNewHost
+          ? prevState.hosts
+          : [...prevState.hosts, newHost],
+        waits: Object.keys(prevState.waits)
+          .filter(key => key !== action.waitUrl)
+          .reduce((obj: {[key: string]: Wait}, key) => {
+            obj[key] = prevState.waits[key];
+            return obj;
+          }, {}),
+      };
+    },
 
   'host-create-start': (action: HostCreateStartAction) => prevState => {
     return {

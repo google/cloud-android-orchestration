@@ -90,8 +90,8 @@ export class CreateHostViewComponent {
 
   hostForm = this.formBuilder.group({
     zone: ['ap-northeast2-a'],
-    machine_type: [defaultHostSetting.gcp.machine_type],
-    min_cpu_platform: [defaultHostSetting.gcp.min_cpu_platform],
+    machine_type: [defaultHostSetting?.gcp?.machine_type],
+    min_cpu_platform: [defaultHostSetting?.gcp?.min_cpu_platform],
   });
 
   // TODO: refactor with 'host status'

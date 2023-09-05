@@ -11,8 +11,9 @@ import {catchError} from 'rxjs/operators';
 import {MatSnackBar} from '@angular/material/snack-bar';
 
 const handleAuthError = (error: HttpErrorResponse, snackBar: MatSnackBar) => {
-  console.error(error);
-  snackBar.open('Request failed: check your credentials');
+  snackBar.open(
+    `Request failed: check your credentials (error message: ${error.message})`
+  );
 };
 
 @Injectable()

@@ -2,9 +2,10 @@ import {Component} from '@angular/core';
 import {MatSnackBar} from '@angular/material/snack-bar';
 import {Router} from '@angular/router';
 import {BehaviorSubject} from 'rxjs';
-import {map, startWith, tap} from 'rxjs/operators';
+import {map, startWith} from 'rxjs/operators';
 import {EnvFormService} from '../env-form.service';
 import {EnvService} from '../env.service';
+import {ResultType} from '../interface/result-interface';
 import {validRuntimeListSelector} from '../store/selectors';
 import {Store} from '../store/store';
 import {auto_create_host} from '../utils';
@@ -76,22 +77,24 @@ export class CreateEnvViewComponent {
     const {runtime, zone, host, canonicalConfig} = this.envForm.value;
 
     this.status$.next('sending create request');
-    this.envService
-      .createEnv(runtime, zone, host, canonicalConfig)
-      .pipe(tap(() => this.status$.next('done')))
-      .subscribe({
-        next: () => {
+    this.envService.createEnv(runtime, zone, host, canonicalConfig).subscribe({
+      next: result => {
+        if (result.type === ResultType.waitStarted) {
+          this.status$.next('done');
           this.snackBar.dismiss();
           this.router.navigate(['/']);
           this.envFormService.clearForm();
-        },
-        error: error => {
-          this.snackBar.open(error.message);
-        },
-      });
+        }
+      },
+      error: error => {
+        this.status$.next('error');
+        this.snackBar.open(error.message);
+      },
+    });
   }
 
   onCancel() {
+    this.status$.next('done');
     this.router.navigate(['/']);
     this.envFormService.clearForm();
   }

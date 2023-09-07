@@ -23,6 +23,7 @@ import {
 } from '../store/selectors';
 import {RuntimeViewStatus} from '../interface/runtime-interface';
 import {defaultHostSetting, defaultZone} from '../settings';
+import {ResultType} from '../interface/result-interface';
 
 @Component({
   selector: 'app-create-host-view',
@@ -108,27 +109,36 @@ export class CreateHostViewComponent {
     this.runtime$
       .pipe(
         take(1),
-        switchMap(runtime => {
-          this.status$.next('sending create request');
-          return this.hostService.createHost(
-            {
-              gcp: {
-                machine_type,
-                min_cpu_platform,
-              },
-            },
-            runtime,
-            zone
-          );
-        }),
         withLatestFrom(this.previousUrl$),
-        takeUntil(this.ngUnsubscribe)
+        takeUntil(this.ngUnsubscribe),
+        switchMap(([runtime, previousUrl]) => {
+          this.status$.next('sending create request');
+          return this.hostService
+            .createHost(
+              {
+                gcp: {
+                  machine_type,
+                  min_cpu_platform,
+                },
+              },
+              runtime,
+              zone
+            )
+            .pipe(
+              map(result => ({
+                result,
+                previousUrl,
+              }))
+            );
+        })
       )
       .subscribe({
-        next: ([_, previousUrl]) => {
-          this.status$.next('done');
-          this.router.navigate([previousUrl]);
-          this.snackBar.dismiss();
+        next: ({result, previousUrl}) => {
+          if (result.type === ResultType.waitStarted) {
+            this.status$.next('done');
+            this.router.navigate([previousUrl]);
+            this.snackBar.dismiss();
+          }
         },
         error: error => {
           this.snackBar.open(error.message, 'dismiss');

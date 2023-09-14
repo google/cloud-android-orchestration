@@ -206,24 +206,49 @@ func (c *command) Parent() *command {
 	return &command{p, c.verbose}
 }
 
-func ToPrintableStr(o *RemoteCVD) string {
-	res := fmt.Sprintf("%s (%s)", o.Name, o.Host)
-	res += "\n  " + "Status: " + o.Status
-	adbState := ""
-	if o.ConnStatus != nil {
-		if o.ConnStatus.ADB.Port > 0 {
-			adbState = fmt.Sprintf("127.0.0.1:%d", o.ConnStatus.ADB.Port)
-		} else {
-			adbState = o.ConnStatus.ADB.State
+func WriteListCVDsOutput(w io.Writer, hosts []*RemoteHost) {
+	for _, host := range hosts {
+		fmt.Fprintln(w, hostOutput(host))
+		if len(host.CVDs) == 0 {
+			fmt.Fprintln(w, " ~~Empty~~ ")
+			fmt.Fprintln(w, "")
+			continue
 		}
-	} else {
-		adbState = "not connected"
+		for _, cvd := range host.CVDs {
+			lines := cvdOutput(cvd)
+			for _, l := range lines {
+				fmt.Fprintln(w, "  "+l)
+			}
+			fmt.Fprintln(w)
+		}
 	}
-	res += "\n  " + "ADB: " + adbState
-	res += "\n  " + "Displays: " + fmt.Sprintf("%v", o.Displays)
-	res += "\n  " + "WebRTCStream: " + client.BuildWebRTCStreamURL(o.ServiceRootEndpoint, o.Host, o.Name)
-	res += "\n  " + "Logs: " + client.BuildCVDLogsURL(o.ServiceRootEndpoint, o.Host, o.Name)
-	return res
+}
+
+func hostOutput(h *RemoteHost) string {
+	return fmt.Sprintf("%s (%s)",
+		h.Name,
+		client.BuilHostIndexURL(h.ServiceRootEndpoint, h.Name))
+}
+
+func cvdOutput(c *RemoteCVD) []string {
+	return []string{
+		c.Name,
+		"Status: " + c.Status,
+		"ADB: " + adbStateStr(c),
+		"Displays: " + fmt.Sprintf("%v", c.Displays),
+		"Logs: " + client.BuildCVDLogsURL(c.ServiceRootEndpoint, c.Host, c.Name),
+	}
+}
+
+func adbStateStr(c *RemoteCVD) string {
+	if c.ConnStatus != nil {
+		if c.ConnStatus.ADB.Port > 0 {
+			return fmt.Sprintf("127.0.0.1:%d", c.ConnStatus.ADB.Port)
+		} else {
+			return c.ConnStatus.ADB.State
+		}
+	}
+	return "not connected"
 }
 
 type SelectionOption int32
@@ -635,9 +660,14 @@ func runCreateCVDCommand(c *cobra.Command, args []string, flags *CreateCVDFlags,
 			merr = multierror.Append(merr, fmt.Errorf("Failed to connect to device: %w", err))
 		}
 	}
-	for _, cvd := range cvds {
-		c.Println(ToPrintableStr(cvd))
+	hosts := []*RemoteHost{
+		{
+			ServiceRootEndpoint: service.RootURI(),
+			Name:                flags.CreateCVDOpts.Host,
+			CVDs:                cvds,
+		},
 	}
+	WriteListCVDsOutput(c.OutOrStdout(), hosts)
 	return merr
 }
 
@@ -646,16 +676,13 @@ func runListCVDsCommand(c *cobra.Command, flags *ListCVDsFlags, opts *subCommand
 	if err != nil {
 		return err
 	}
-	var cvds []*RemoteCVD
+	var hosts []*RemoteHost
 	if flags.Host != "" {
-		cvds, err = listHostCVDs(service, opts.InitialConfig.ConnectionControlDirExpanded(), flags.Host)
+		hosts, err = listCVDsSingleHost(service, opts.InitialConfig.ConnectionControlDirExpanded(), flags.Host)
 	} else {
-		cvds, err = listAllCVDs(service, opts.InitialConfig.ConnectionControlDirExpanded())
+		hosts, err = listCVDs(service, opts.InitialConfig.ConnectionControlDirExpanded())
 	}
-
-	for _, cvd := range cvds {
-		c.Println(ToPrintableStr(cvd))
-	}
+	WriteListCVDsOutput(c.OutOrStdout(), hosts)
 	return err
 }
 
@@ -774,16 +801,18 @@ func runConnectCommand(flags *ConnectFlags, c *command, args []string, opts *sub
 	}
 	// Find the user's cvds if they didn't specify any.
 	if len(cvds) == 0 {
-		var selectList []*RemoteCVD
+		var hosts []*RemoteHost
 		if flags.host == "" {
-			selectList, err = listAllCVDs(service, opts.InitialConfig.ConnectionControlDirExpanded())
+			hosts, err = listCVDs(service, opts.InitialConfig.ConnectionControlDirExpanded())
 		} else {
-			selectList, err = listHostCVDs(service, flags.host, opts.InitialConfig.ConnectionControlDirExpanded())
+			hosts, err = listCVDsSingleHost(
+				service, flags.host, opts.InitialConfig.ConnectionControlDirExpanded())
 		}
 		if err != nil {
 			return err
 		}
 		// Only those that are not connected yet
+		selectList := flattenCVDs(hosts)
 		selectList = filterSlice(selectList, func(cvd *RemoteCVD) bool { return cvd.ConnStatus == nil })
 		// Confirmation is only necessary when the user didn't specify devices.
 		if len(selectList) > 1 && !flags.skipConfirmation {

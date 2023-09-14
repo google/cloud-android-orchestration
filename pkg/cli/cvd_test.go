@@ -19,35 +19,8 @@ import (
 	"path"
 	"testing"
 
-	hoapi "github.com/google/android-cuttlefish/frontend/src/liboperator/api/v1"
 	"github.com/google/go-cmp/cmp"
 )
-
-func TestCVDOutput(t *testing.T) {
-	output := NewRemoteCVD("http://foo.com", "bar", &hoapi.CVD{
-		Name:     "cvd-1",
-		Status:   "Running",
-		Displays: []string{"720 x 1280 ( 320 )"},
-	})
-	output.ConnStatus = &ConnStatus{
-		ADB: ForwarderState{
-			Port: 12345,
-		},
-	}
-
-	got := ToPrintableStr(output)
-
-	expected := `cvd-1 (bar)
-  Status: Running
-  ADB: 127.0.0.1:12345
-  Displays: [720 x 1280 ( 320 )]
-  WebRTCStream: http://foo.com/hosts/bar/devices/cvd-1/files/client.html
-  Logs: http://foo.com/hosts/bar/cvds/cvd-1/logs/`
-
-	if diff := cmp.Diff(expected, got); diff != "" {
-		t.Errorf("mismatch (-want +got):\n%s", diff)
-	}
-}
 
 func TestGetAndroidEnvVarValuesMissingVariable(t *testing.T) {
 	// testing.T doesn't have an equivalent Unsetenv function.

@@ -40,6 +40,12 @@ type RemoteCVD struct {
 	ConnStatus *ConnStatus
 }
 
+type RemoteHost struct {
+	ServiceRootEndpoint string `json:"service_root_endpoint"`
+	Name                string `json:"host"`
+	CVDs                []*RemoteCVD
+}
+
 func NewRemoteCVD(url, host string, cvd *hoapi.CVD) *RemoteCVD {
 	return &RemoteCVD{
 		RemoteCVDLocator: RemoteCVDLocator{
@@ -219,7 +225,7 @@ type cvdListResult struct {
 	Error  error
 }
 
-func listAllCVDs(service client.Service, controlDir string) ([]*RemoteCVD, error) {
+func listCVDs(service client.Service, controlDir string) ([]*RemoteHost, error) {
 	hl, err := service.ListHosts()
 	if err != nil {
 		return nil, fmt.Errorf("Error listing hosts: %w", err)
@@ -238,25 +244,45 @@ func listAllCVDs(service client.Service, controlDir string) ([]*RemoteCVD, error
 			ch <- cvdListResult{Result: cvds, Error: err}
 		}(host, ch)
 	}
-	var cvds []*RemoteCVD
+	var result []*RemoteHost
 	for i, ch := range chans {
-		host := hosts[i]
-		result := <-ch
-		if result.Error != nil {
-			merr = multierror.Append(merr, fmt.Errorf("lists cvds for host %q failed: %w", host, err))
+		hostName := hosts[i]
+		listResult := <-ch
+		if listResult.Error != nil {
+			merr = multierror.Append(merr, fmt.Errorf("lists cvds for host %q failed: %w", hostName, err))
 		}
-		cvds = append(cvds, result.Result...)
+		host := &RemoteHost{
+			ServiceRootEndpoint: service.RootURI(),
+			Name:                hostName,
+			CVDs:                listResult.Result,
+		}
+		result = append(result, host)
 	}
-	return cvds, merr
+	return result, merr
 }
 
-func listHostCVDs(service client.Service, controlDir, host string) ([]*RemoteCVD, error) {
+func listCVDsSingleHost(service client.Service, controlDir, host string) ([]*RemoteHost, error) {
 	statuses, merr := listCVDConnectionsByHost(controlDir, host)
-	result, err := listHostCVDsInner(service, host, statuses)
+	cvds, err := listHostCVDsInner(service, host, statuses)
 	if err != nil {
 		merr = multierror.Append(merr, err)
 	}
+	result := []*RemoteHost{
+		{
+			ServiceRootEndpoint: service.RootURI(),
+			Name:                host,
+			CVDs:                cvds,
+		},
+	}
 	return result, merr
+}
+
+func flattenCVDs(hosts []*RemoteHost) []*RemoteCVD {
+	result := []*RemoteCVD{}
+	for _, h := range hosts {
+		result = append(result, h.CVDs...)
+	}
+	return result
 }
 
 // Calling listCVDConnectionsByHost is inefficient, this internal function avoids that for listAllCVDs.

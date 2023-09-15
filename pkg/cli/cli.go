@@ -83,7 +83,7 @@ const (
 const (
 	branchFlag                = "branch"
 	buildIDFlag               = "build_id"
-	targetFlag                = "target"
+	buildTargetFlag           = "build_target"
 	localImageFlag            = "local_image"
 	kernelBranchFlag          = "kernel_branch"
 	kernelBuildIDFlag         = "kernel_build_id"
@@ -436,7 +436,7 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 	// Main build flags.
 	create.Flags().StringVar(&createFlags.MainBuild.Branch, branchFlag, "aosp-main", "The branch name")
 	create.Flags().StringVar(&createFlags.MainBuild.BuildID, buildIDFlag, "", "Android build identifier")
-	create.Flags().StringVar(&createFlags.MainBuild.Target, targetFlag, "aosp_cf_x86_64_phone-trunk_staging-userdebug",
+	create.Flags().StringVar(&createFlags.MainBuild.Target, buildTargetFlag, "aosp_cf_x86_64_phone-trunk_staging-userdebug",
 		"Android build target")
 	create.MarkFlagsMutuallyExclusive(branchFlag, buildIDFlag)
 	// Kernel build flags
@@ -458,7 +458,7 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 	create.Flags().BoolVar(&createFlags.LocalImage, localImageFlag, false,
 		"Builds a CVD with image files built locally, the required files are https://cs.android.com/android/platform/superproject/+/master:device/google/cuttlefish/required_images and cvd-host-packages.tar.gz")
 	localImgMutuallyExFlags := []string{
-		branchFlag, buildIDFlag, targetFlag,
+		branchFlag, buildIDFlag, buildTargetFlag,
 		kernelBranchFlag, kernelBuildIDFlag, kernelBuildTargetFlag,
 		bootloaderBranchFlag, bootloaderBuildIDFlag, bootloaderBuildTargetFlag,
 		systemImgBranchFlag, systemImgBuildIDFlag, systemImgBuildTargetFlag,

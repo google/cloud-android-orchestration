@@ -232,7 +232,7 @@ func hostOutput(h *RemoteHost) string {
 
 func cvdOutput(c *RemoteCVD) []string {
 	return []string{
-		c.Name,
+		c.WebRTCDeviceID,
 		"Status: " + c.Status,
 		"ADB: " + adbStateStr(c),
 		"Displays: " + fmt.Sprintf("%v", c.Displays),
@@ -602,7 +602,7 @@ func disconnectDevicesByHost(host string, opts *subCommandOpts) error {
 	for cvd, status := range statuses {
 		if err := DisconnectCVD(controlDir, cvd, status); err != nil {
 			// Warn only, the host can still be deleted
-			return fmt.Errorf("Errors closing connection to %s: %w", cvd.Name, err)
+			return fmt.Errorf("Errors closing connection to %s: %w", cvd.WebRTCDeviceID, err)
 		}
 	}
 	return nil
@@ -653,9 +653,9 @@ func runCreateCVDCommand(c *cobra.Command, args []string, flags *CreateCVDFlags,
 	}
 	var merr error
 	for _, cvd := range cvds {
-		statePrinter.Print(fmt.Sprintf(connectCVDStateMsgFmt, cvd.Name))
-		cvd.ConnStatus, err = ConnectDevice(flags.CreateCVDOpts.Host, cvd.Name, "", &command{c, &flags.Verbose}, opts)
-		statePrinter.PrintDone(fmt.Sprintf(connectCVDStateMsgFmt, cvd.Name), err)
+		statePrinter.Print(fmt.Sprintf(connectCVDStateMsgFmt, cvd.WebRTCDeviceID))
+		cvd.ConnStatus, err = ConnectDevice(flags.CreateCVDOpts.Host, cvd.WebRTCDeviceID, "", &command{c, &flags.Verbose}, opts)
+		statePrinter.PrintDone(fmt.Sprintf(connectCVDStateMsgFmt, cvd.WebRTCDeviceID), err)
 		if err != nil {
 			merr = multierror.Append(merr, fmt.Errorf("Failed to connect to device: %w", err))
 		}
@@ -796,7 +796,7 @@ func runConnectCommand(flags *ConnectFlags, c *command, args []string, opts *sub
 		cvds = append(cvds, RemoteCVDLocator{
 			ServiceRootEndpoint: service.RootURI(),
 			Host:                flags.host,
-			Name:                d,
+			WebRTCDeviceID:      d,
 		})
 	}
 	// Find the user's cvds if they didn't specify any.
@@ -817,7 +817,7 @@ func runConnectCommand(flags *ConnectFlags, c *command, args []string, opts *sub
 		// Confirmation is only necessary when the user didn't specify devices.
 		if len(selectList) > 1 && !flags.skipConfirmation {
 			toStr := func(c *RemoteCVD) string {
-				return fmt.Sprintf("%s/%s", c.Host, c.Name)
+				return fmt.Sprintf("%s/%s", c.Host, c.WebRTCDeviceID)
 			}
 			selectList, err = PromptSelectionFromSlice(c, selectList, toStr, AllowAll)
 			if err != nil {
@@ -844,9 +844,9 @@ func runConnectCommand(flags *ConnectFlags, c *command, args []string, opts *sub
 		go func(connCh chan ConnStatus, errCh chan error, cvd RemoteCVDLocator) {
 			defer close(connCh)
 			defer close(errCh)
-			status, err := ConnectDevice(cvd.Host, cvd.Name, flags.ice_config, c, opts)
+			status, err := ConnectDevice(cvd.Host, cvd.WebRTCDeviceID, flags.ice_config, c, opts)
 			if err != nil {
-				errCh <- fmt.Errorf("Failed to connect to %q on %q: %w", cvd.Name, cvd.Host, err)
+				errCh <- fmt.Errorf("Failed to connect to %q on %q: %w", cvd.WebRTCDeviceID, cvd.Host, err)
 			} else {
 				connCh <- *status
 			}
@@ -880,7 +880,7 @@ func printConnection(c *command, cvd RemoteCVDLocator, status ConnStatus) {
 	if status.ADB.Port > 0 {
 		state = fmt.Sprintf("127.0.0.1:%d", status.ADB.Port)
 	}
-	c.Printf("%s/%s: %s\n", cvd.Host, cvd.Name, state)
+	c.Printf("%s/%s: %s\n", cvd.Host, cvd.WebRTCDeviceID, state)
 }
 
 func buildAgentCmdArgs(flags *ConnectFlags, device string) []string {
@@ -919,7 +919,7 @@ func runConnectionAgentCommand(flags *ConnectFlags, c *command, args []string, o
 	devSpec := RemoteCVDLocator{
 		ServiceRootEndpoint: service.RootURI(),
 		Host:                flags.host,
-		Name:                device,
+		WebRTCDeviceID:      device,
 	}
 
 	controlDir := opts.InitialConfig.ConnectionControlDirExpanded()
@@ -996,8 +996,8 @@ func runDisconnectCommand(flags *ConnectFlags, c *command, args []string, opts *
 			devices[a] = true
 		}
 		statuses = filterMap(statuses, func(cvd RemoteCVDLocator, s ConnStatus) bool {
-			if devices[cvd.Name] {
-				delete(devices, cvd.Name)
+			if devices[cvd.WebRTCDeviceID] {
+				delete(devices, cvd.WebRTCDeviceID)
 				return true
 			}
 			return false
@@ -1019,7 +1019,7 @@ func runDisconnectCommand(flags *ConnectFlags, c *command, args []string, opts *
 			multierror.Append(merr, err)
 			continue
 		}
-		c.Printf("%s/%s: disconnected\n", cvd.Host, cvd.Name)
+		c.Printf("%s/%s: disconnected\n", cvd.Host, cvd.WebRTCDeviceID)
 	}
 	return merr
 }
@@ -1027,7 +1027,7 @@ func runDisconnectCommand(flags *ConnectFlags, c *command, args []string, opts *
 func promptConnectionSelection(devices map[RemoteCVDLocator]ConnStatus, c *command) (map[RemoteCVDLocator]ConnStatus, error) {
 	c.PrintErrln("Multiple connections match:")
 	toStr := func(cvd RemoteCVDLocator, d ConnStatus) string {
-		return fmt.Sprintf("%s %s", cvd.Host, cvd.Name)
+		return fmt.Sprintf("%s %s", cvd.Host, cvd.WebRTCDeviceID)
 	}
 	return PromptSelectionFromMap(c, devices, toStr, AllowAll)
 }

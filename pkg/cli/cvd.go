@@ -31,6 +31,9 @@ type RemoteCVDLocator struct {
 	ServiceRootEndpoint string `json:"service_root_endpoint"`
 	Host                string `json:"host"`
 	Name                string `json:"name"`
+	// Instead of `Name`, `WebRTCDeviceID` is the identifier used for setting up the adb connections. It
+	// contains the group name and the device name, eg: "cvd-1_1".
+	WebRTCDeviceID string `json:"webrtc_device_id"`
 }
 
 type RemoteCVD struct {
@@ -52,6 +55,7 @@ func NewRemoteCVD(url, host string, cvd *hoapi.CVD) *RemoteCVD {
 			ServiceRootEndpoint: url,
 			Host:                host,
 			Name:                cvd.Name,
+			WebRTCDeviceID:      cvd.WebRTCDeviceID,
 		},
 		Status:   cvd.Status,
 		Displays: cvd.Displays,

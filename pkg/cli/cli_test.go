@@ -168,23 +168,23 @@ func TestCommandSucceeds(t *testing.T) {
 		{
 			Name:   "create",
 			Args:   []string{"create", "--build_id=123"},
-			ExpOut: cvdOutput(serviceURL, "foo", hoapi.CVD{Name: "cvd-1"}, 12345),
+			ExpOut: expectedOutput(serviceURL, "foo", hoapi.CVD{Name: "cvd-1"}, 12345),
 		},
 		{
 			Name:   "create with --host",
 			Args:   []string{"create", "--host=bar", "--build_id=123"},
-			ExpOut: cvdOutput(serviceURL, "bar", hoapi.CVD{Name: "cvd-1"}, 12345),
+			ExpOut: expectedOutput(serviceURL, "bar", hoapi.CVD{Name: "cvd-1"}, 12345),
 		},
 		{
 			Name: "list",
 			Args: []string{"list"},
-			ExpOut: cvdOutput(serviceURL, "foo", hoapi.CVD{Name: "cvd-1"}, 0) +
-				cvdOutput(serviceURL, "bar", hoapi.CVD{Name: "cvd-1"}, 0),
+			ExpOut: expectedOutput(serviceURL, "foo", hoapi.CVD{Name: "cvd-1"}, 0) +
+				expectedOutput(serviceURL, "bar", hoapi.CVD{Name: "cvd-1"}, 0),
 		},
 		{
 			Name:   "list with --host",
 			Args:   []string{"list", "--host=bar"},
-			ExpOut: cvdOutput(serviceURL, "bar", hoapi.CVD{Name: "cvd-1"}, 0),
+			ExpOut: expectedOutput(serviceURL, "bar", hoapi.CVD{Name: "cvd-1"}, 0),
 		},
 	}
 	for _, test := range tests {
@@ -265,16 +265,23 @@ func newTestIOStreams() (IOStreams, *bytes.Buffer, *bytes.Buffer) {
 	}, in, out
 }
 
-func cvdOutput(serviceURL, host string, cvd hoapi.CVD, port int) string {
+func expectedOutput(serviceURL, host string, cvd hoapi.CVD, port int) string {
 	out := &bytes.Buffer{}
-	cvdOut := NewRemoteCVD(fakeService{}.RootURI(), host, &cvd)
-	cvdOut.ConnStatus = &ConnStatus{
+	remoteCVD := NewRemoteCVD(fakeService{}.RootURI(), host, &cvd)
+	remoteCVD.ConnStatus = &ConnStatus{
 		ADB: ForwarderState{
 			State: "not connected",
 			Port:  port,
 		},
 	}
-	fmt.Fprintln(out, ToPrintableStr(cvdOut))
+	hosts := []*RemoteHost{
+		{
+			ServiceRootEndpoint: fakeService{}.RootURI(),
+			Name:                host,
+			CVDs:                []*RemoteCVD{remoteCVD},
+		},
+	}
+	WriteListCVDsOutput(out, hosts)
 	b, _ := ioutil.ReadAll(out)
 	return string(b)
 }

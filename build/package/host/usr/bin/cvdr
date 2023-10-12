@@ -1,6 +1,7 @@
 #!/bin/bash
 
-export CVDR_CONFIG_PATH=/etc/cvdr.toml
+export CVDR_SYSTEM_CONFIG_PATH=/etc/cvdr.toml
+export CVDR_USER_CONFIG_PATH=~/.config/cvdr/cvdr.toml
 
 cvdrbin="/usr/libexec/cvdr"
 

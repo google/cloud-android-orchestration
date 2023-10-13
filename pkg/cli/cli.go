@@ -511,7 +511,15 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 			return runPullCommand(c, args, opts.RootFlags, opts)
 		},
 	}
-	return []*cobra.Command{create, list, pull}
+	// Delete command
+	del := &cobra.Command{
+		Use:   "delete <foo> <bar> <baz>",
+		Short: "Delete hosts",
+		RunE: func(c *cobra.Command, args []string) error {
+			return runDeleteHostsCommand(c, args, opts.RootFlags, opts)
+		},
+	}
+	return []*cobra.Command{create, list, pull, del}
 }
 
 func connectionCommands(opts *subCommandOpts) []*cobra.Command {

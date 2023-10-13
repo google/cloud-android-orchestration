@@ -63,11 +63,9 @@ func NewGCEInstanceManager(cfg Config, service *compute.Service, nameGenerator N
 
 func (m *GCEInstanceManager) ListZones() (*apiv1.ListZonesResponse, error) {
 	res, err := m.Service.Zones.List(m.Config.GCP.ProjectID).Context(context.TODO()).Do()
-
 	if err != nil {
 		return nil, toAppError(err)
 	}
-
 	var items []*apiv1.Zone
 	for _, item := range res.Items {
 		items = append(items, &apiv1.Zone{Name: item.Name})
@@ -238,10 +236,14 @@ func (m *GCEInstanceManager) GetHostClient(zone string, host string) (HostClient
 }
 
 func (m *GCEInstanceManager) getHostInstance(zone string, host string) (*compute.Instance, error) {
-	return m.Service.Instances.
+	ins, err := m.Service.Instances.
 		Get(m.Config.GCP.ProjectID, zone, host).
 		Context(context.TODO()).
 		Do()
+	if err != nil {
+		return nil, toAppError(err)
+	}
+	return ins, nil
 }
 
 func validateRequest(r *apiv1.CreateHostRequest) error {
@@ -333,7 +335,7 @@ func (g *opResultGetter) buildCreateInstanceResult() (*apiv1.HostInstance, error
 		Context(context.TODO()).
 		Do()
 	if err != nil {
-		return nil, err
+		return nil, toAppError(err)
 	}
 	return BuildHostInstance(ins)
 }

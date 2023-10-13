@@ -15,6 +15,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -24,24 +25,33 @@ import (
 	"github.com/google/cloud-android-orchestration/pkg/client"
 )
 
-const configPathVar = "CVDR_CONFIG_PATH"
+const (
+	envVarSystemConfigPath = "CVDR_SYSTEM_CONFIG_PATH"
+	// User config values overrieds system config values.
+	envVarUserConfigPath = "CVDR_USER_CONFIG_PATH"
+)
 
-func readConfig(config *cli.Config) error {
-	configPath := os.Getenv(configPathVar)
-	if configPath == "" {
-		// No config file provided
-		return nil
+func loadInitialConfig() (*cli.Config, error) {
+	config := cli.BaseConfig()
+	if path, ok := os.LookupEnv(envVarSystemConfigPath); ok {
+		path = cli.ExpandPath(path)
+		if err := cli.LoadConfigFile(path, config); err != nil {
+			return nil, err
+		}
 	}
-	configFile, err := os.Open(configPath)
-	if err != nil {
-		return fmt.Errorf("Error opening config file: %w", err)
+	if path, ok := os.LookupEnv(envVarUserConfigPath); ok {
+		path = cli.ExpandPath(path)
+		if _, err := os.Stat(path); err == nil {
+			if err := cli.LoadConfigFile(path, config); err != nil {
+				return nil, err
+			}
+		} else if errors.Is(err, os.ErrNotExist) {
+			// TODO: Create a new one importing relevant acloud config parameters.
+		} else {
+			return nil, fmt.Errorf("Invalid user config file path: %w", err)
+		}
 	}
-	defer configFile.Close()
-
-	if err := cli.ParseConfigFile(config, configFile); err != nil {
-		return fmt.Errorf("Error parsing config file: %w", err)
-	}
-	return nil
+	return config, nil
 }
 
 type cmdRunner struct{}
@@ -67,9 +77,8 @@ func (_ *cmdRunner) StartBgCommand(args ...string) ([]byte, error) {
 }
 
 func main() {
-	config := cli.DefaultConfig()
-	// Overrides relevant defaults with values set in config file.
-	if err := readConfig(&config); err != nil {
+	config, err := loadInitialConfig()
+	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
 	}
@@ -77,7 +86,7 @@ func main() {
 		IOStreams:      cli.IOStreams{In: os.Stdin, Out: os.Stdout, ErrOut: os.Stderr},
 		Args:           os.Args[1:],
 		ServiceBuilder: client.NewService,
-		InitialConfig:  config,
+		InitialConfig:  *config,
 		CommandRunner:  &cmdRunner{},
 		ADBServerProxy: &cli.ADBServerProxyImpl{},
 	}

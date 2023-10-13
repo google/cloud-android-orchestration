@@ -14,7 +14,7 @@
       <button
         mat-icon-button
         aria-label="Status"
-        matTooltip="{{ setting.tooltip }}"
+        [matTooltip]="setting.tooltip"
       >
         <span class="google-symbols">
           {{ setting.icon }}
@@ -23,8 +23,7 @@
     </div>
 
     <mat-card-content class="env-card-first-content">
-      Runtime:
-      {{ env.runtimeAlias }}
+      Runtime: {{ env.runtimeAlias }}
     </mat-card-content>
 
     <mat-card-content> Host: {{ env.hostUrl }} </mat-card-content>
@@ -36,7 +35,6 @@
       <ul style="margin-top: 0px">
         <li *ngFor="let device of env.devices">
           {{ device.deviceId }}
-          <!-- ({{ device.target }}, {{ device.branch_or_buildId }}) -->
         </li>
       </ul>
     </mat-card-content>

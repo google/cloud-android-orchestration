@@ -13,7 +13,7 @@
           <mat-select required formControlName="runtime">
             <mat-option
               *ngFor="let runtime of runtimes$ | async"
-              value="{{ runtime }}"
+              [value]="runtime"
               >{{ runtime }}</mat-option
             >
             <mat-option (click)="onClickRegisterRuntime()">
@@ -28,7 +28,7 @@
           <mat-select required formControlName="zone">
             <mat-option
               *ngFor="let zone of zones$ | async"
-              value="{{ zone }}"
+              [value]="zone"
               >{{ zone }}</mat-option
             >
           </mat-select>
@@ -37,7 +37,7 @@
         <mat-form-field class="flex-field">
           <mat-label>Host</mat-label>
           <mat-select required formControlName="host">
-            <mat-option *ngFor="let host of hosts$ | async" value="{{ host }}"
+            <mat-option *ngFor="let host of hosts$ | async" [value]="host"
               >{{ host }}
             </mat-option>
             <mat-option (click)="onClickCreateHost()"> Create New </mat-option>

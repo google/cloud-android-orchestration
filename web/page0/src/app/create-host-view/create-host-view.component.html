@@ -12,13 +12,13 @@
             <div class="flex-container">
                 <mat-form-field class="flex-field">
                     <mat-label>Runtime</mat-label>
-                    <input required id="runtime" type="text" matInput value="{{ (runtime$ | async)?.alias }}" disabled />
+                    <input required id="runtime" type="text" matInput [value]="(runtime$ | async)?.alias" disabled />
                 </mat-form-field>
 
                 <mat-form-field class="flex-field">
                     <mat-label>Zone</mat-label>
                     <mat-select required formControlName="zone">
-                        <mat-option *ngFor="let zone of zones$ | async" value="{{ zone }}">{{ zone }}</mat-option>
+                        <mat-option *ngFor="let zone of zones$ | async" [value]="zone">{{ zone }}</mat-option>
                     </mat-select>
                 </mat-form-field>
             </div>

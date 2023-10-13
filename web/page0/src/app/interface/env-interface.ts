@@ -15,15 +15,20 @@ export interface Environment {
   status: EnvStatus;
 }
 
-export interface EnvConfig {
-  common: {
-    group_name: string;
-  };
+export interface CommonEnvConfig {
+  group_name: string;
+}
 
-  instances: {
-    name: string;
-    disk: {
-      default_build: string;
-    };
-  }[];
+export interface DiskConfig {
+  default_build: string;
+}
+
+export interface InstanceConfig {
+  name: string;
+  disk: DiskConfig;
+}
+
+export interface EnvConfig {
+  common: CommonEnvConfig;
+  instances: InstanceConfig[];
 }

@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -254,6 +255,7 @@ func adbStateStr(c *RemoteCVD) string {
 type SelectionOption int32
 
 const (
+	Single   SelectionOption = 0
 	AllowAll SelectionOption = 1 << iota
 )
 
@@ -583,13 +585,19 @@ func runDeleteHostsCommand(c *cobra.Command, args []string, flags *CVDRemoteFlag
 	if err != nil {
 		return err
 	}
+	hosts := args
+	if len(hosts) == 0 {
+		if hosts, err = promptHostNameSelection(&command{c, &flags.Verbose}, service, AllowAll); err != nil {
+			return err
+		}
+	}
 	// Close connections first to avoid spurious error messages later.
-	for _, host := range args {
+	for _, host := range hosts {
 		if err := disconnectDevicesByHost(host, opts); err != nil {
 			c.PrintErrf("Error disconecting devices for host %s: %v\n", host, err)
 		}
 	}
-	return service.DeleteHosts(args)
+	return service.DeleteHosts(hosts)
 }
 
 func disconnectDevicesByHost(host string, opts *subCommandOpts) error {
@@ -694,7 +702,7 @@ func runPullCommand(c *cobra.Command, args []string, flags *CVDRemoteFlags, opts
 	host := ""
 	switch l := len(args); l {
 	case 0:
-		sel, err := promptHostNameSelection(&command{c, &flags.Verbose}, service)
+		sel, err := promptSingleHostNameSelection(&command{c, &flags.Verbose}, service)
 		if err != nil {
 			return err
 		}
@@ -723,19 +731,27 @@ func runPullCommand(c *cobra.Command, args []string, flags *CVDRemoteFlags, opts
 }
 
 // Returns empty string if there was no host.
-func promptHostNameSelection(c *command, service client.Service) (string, error) {
-	names, err := hostnames(service)
-	if err != nil {
-		return "", fmt.Errorf("Failed to list hosts: %w", err)
-	}
-	if len(names) == 0 {
-		return "", nil
-	}
-	sel, err := PromptSelectionFromSliceString(c, names, 0)
+func promptSingleHostNameSelection(c *command, service client.Service) (string, error) {
+	sel, err := promptHostNameSelection(c, service, Single)
 	if err != nil {
 		return "", err
 	}
+	if len(sel) > 1 {
+		log.Fatalf("expected one item, got %+v", sel)
+	}
 	return sel[0], nil
+}
+
+// Returns empty list if there was no host.
+func promptHostNameSelection(c *command, service client.Service, selOpt SelectionOption) ([]string, error) {
+	names, err := hostnames(service)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to list hosts: %w", err)
+	}
+	if len(names) == 0 {
+		return []string{}, nil
+	}
+	return PromptSelectionFromSliceString(c, names, selOpt)
 }
 
 // Starts a connection agent process and waits for it to report the connection was

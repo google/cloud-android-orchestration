@@ -302,6 +302,8 @@ func (f *Forwarder) acceptLoop() {
 		return
 	}
 
+	f.logger.Printf("Listening on port %d", f.port)
+
 	defer f.listener.Close()
 	for {
 		conn, err := f.listener.Accept()
@@ -373,6 +375,7 @@ func NewConnController(
 	if err != nil {
 		return nil, err
 	}
+	logger.Printf("Connecting to %s in host %s", cvd.Name, cvd.Host)
 	f, err := NewForwarder(logger)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to instantiate ADB forwarder for %q: %w", cvd.WebRTCDeviceID, err)

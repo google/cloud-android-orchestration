@@ -1,6 +1,5 @@
 import {Component, Input} from '@angular/core';
 import {Environment, EnvStatus} from '../interface/env-interface';
-import {EnvService} from '../env.service';
 import {HostService} from '../host.service';
 import {MatSnackBar} from '@angular/material/snack-bar';
 

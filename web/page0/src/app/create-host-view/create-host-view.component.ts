@@ -22,6 +22,7 @@ import {
   runtimesLoadStatusSelector,
 } from '../store/selectors';
 import {RuntimeViewStatus} from '../interface/runtime-interface';
+import {defaultHostSetting, defaultZone} from '../settings';
 
 @Component({
   selector: 'app-create-host-view',
@@ -37,9 +38,7 @@ export class CreateHostViewComponent {
     private activatedRoute: ActivatedRoute,
     private store: Store
   ) {
-    this.queryParams$.pipe(takeUntil(this.ngUnsubscribe)).subscribe(params => {
-      console.log(params);
-    });
+    this.queryParams$.pipe(takeUntil(this.ngUnsubscribe)).subscribe();
   }
 
   private ngUnsubscribe = new Subject<void>();
@@ -70,11 +69,17 @@ export class CreateHostViewComponent {
   );
 
   previousUrl$ = this.queryParams$.pipe(
-    tap(previousUrl => console.log('previousUrl: ', previousUrl)),
     map(params => (params['previousUrl'] as string) ?? 'list-runtime')
   );
 
-  zones$ = this.runtime$.pipe(map(runtime => runtime.zones));
+  zones$ = this.runtime$.pipe(
+    map(runtime => runtime.zones),
+    tap(zones => {
+      if (zones?.includes(defaultZone)) {
+        this.hostForm!.controls.zone.setValue(defaultZone);
+      }
+    })
+  );
 
   ngOnDestroy() {
     this.ngUnsubscribe.next();
@@ -85,8 +90,8 @@ export class CreateHostViewComponent {
 
   hostForm = this.formBuilder.group({
     zone: ['ap-northeast2-a'],
-    machine_type: ['n1-standard-4'],
-    min_cpu_platform: ['Intel Skylake'],
+    machine_type: [defaultHostSetting.gcp.machine_type],
+    min_cpu_platform: [defaultHostSetting.gcp.min_cpu_platform],
   });
 
   // TODO: refactor with 'host status'

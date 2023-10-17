@@ -1,39 +1,29 @@
 import {Injectable} from '@angular/core';
-import {FormBuilder, FormControl, FormGroup, Validators} from '@angular/forms';
-import {of, Subject} from 'rxjs';
-import {
-  combineLatestWith,
-  catchError,
-  map,
-  scan,
-  shareReplay,
-  startWith,
-  switchMap,
-  tap,
-} from 'rxjs/operators';
+import {FormArray, FormBuilder, FormControl, FormGroup} from '@angular/forms';
+import {of} from 'rxjs';
+import {startWith, switchMap, tap} from 'rxjs/operators';
 import {Store} from 'src/app/store/store';
-import {
-  hostListSelectorFactory,
-  hostSelectorFactory,
-  runtimeSelectorFactory,
-  validRuntimeListSelector,
-} from 'src/app/store/selectors';
+import {defaultEnvConfig, defaultZone} from './settings';
+import {parseEnvConfig} from './interface/utils';
+import {DeviceSetting} from './interface/device-interface';
+import jsonutils from './json.utils';
+import {adjustArrayLength} from './utils';
 
-interface EnvFormInitAction {
-  type: 'init';
-}
-
-interface EnvFormClearAction {
-  type: 'clear';
-}
-
-type EnvFormAction = EnvFormInitAction | EnvFormClearAction;
+type DeviceForm = FormArray<
+  FormGroup<{
+    deviceId: FormControl<string | null>;
+    branch_or_buildId: FormControl<string | null>;
+    target: FormControl<string | null>;
+  }>
+>;
 
 type EnvForm = FormGroup<{
+  canonicalConfig: FormControl<string | null>;
   groupName: FormControl<string | null>;
   runtime: FormControl<string | null>;
   zone: FormControl<string | null>;
   host: FormControl<string | null>;
+  devices: DeviceForm;
 }>;
 
 @Injectable({
@@ -43,135 +33,216 @@ export class EnvFormService {
   constructor(
     private formBuilder: FormBuilder,
     private store: Store
-  ) {}
+  ) {
+    this.initialize();
+  }
 
-  private envFormAction$ = new Subject<EnvFormAction>();
+  private envForm: EnvForm | undefined;
 
-  private envForm$ = this.envFormAction$.pipe(
-    startWith({type: 'init'} as EnvFormInitAction),
-    scan((form: EnvForm, action: EnvFormAction) => {
-      if (action.type === 'init') {
-        return form;
-      }
+  private initialize() {
+    this.envForm = this.getInitEnvForm();
+    this.syncConfig();
+  }
 
-      if (action.type === 'clear') {
-        form.reset();
-        return form;
-      }
+  private syncConfig() {
+    const options = {emitEvent: false};
+    const controls = this.envForm!.controls;
 
-      return form;
-    }, this.getInitEnvForm())
-  );
+    controls.canonicalConfig.valueChanges
+      .pipe(
+        startWith(controls.canonicalConfig.value),
+        tap(config => {
+          try {
+            const {groupName, devices} = parseEnvConfig(config);
 
-  getInitEnvForm(): EnvForm {
+            controls.groupName.setValue(groupName, options);
+
+            const deviceControls = controls.devices;
+            const instanceNum = devices.length;
+            const deviceControlNum = deviceControls.length;
+
+            for (let cnt = deviceControlNum; cnt < instanceNum; cnt++) {
+              deviceControls.push(
+                this.toDeviceForm({
+                  deviceId: 'cvd',
+                  branch_or_buildId: '',
+                  target: '',
+                }),
+                options
+              );
+            }
+
+            for (let cnt = deviceControlNum - 1; cnt >= instanceNum; cnt--) {
+              deviceControls.removeAt(cnt, options);
+            }
+
+            devices.forEach((device, idx) => {
+              deviceControls.at(idx).setValue(device, options);
+            });
+
+            return;
+          } catch (error) {
+            controls.canonicalConfig.setErrors({invalid: true, message: error});
+            return;
+          }
+        })
+      )
+      .subscribe();
+
+    controls.groupName.valueChanges
+      .pipe(
+        startWith(controls.groupName.value),
+        tap(groupName => {
+          const config = controls.canonicalConfig;
+          try {
+            const object = jsonutils.parse(config.value);
+            jsonutils.setValue(object, ['common', 'group_name'], groupName);
+            config.setValue(jsonutils.stringify(object), options);
+          } catch (error) {
+            return;
+          }
+        })
+      )
+      .subscribe();
+
+    controls.devices.valueChanges
+      .pipe(
+        tap(devices => {
+          const config = controls.canonicalConfig;
+          try {
+            const object = jsonutils.parse(config.value);
+
+            jsonutils.setValue(object, ['instances'], [], {ifexists: 'skip'});
+            adjustArrayLength<object>(object['instances'], devices.length, {});
+
+            for (let i = 0; i < devices.length; i++) {
+              const device = devices[i];
+              const deviceId = device.deviceId || '';
+              const target = device.target || '';
+              const branch_or_buildId = device.branch_or_buildId || '';
+
+              jsonutils.setValue(
+                object,
+                ['instances', `${i}`, 'name'],
+                deviceId
+              );
+
+              jsonutils.setValue(
+                object,
+                ['instances', `${i}`, 'disk', 'default_build'],
+                `@ab/${branch_or_buildId}/${target}`
+              );
+            }
+
+            config.setValue(jsonutils.stringify(object), options);
+          } catch (error) {
+            return;
+          }
+        })
+      )
+      .subscribe();
+  }
+
+  private getInitEnvForm(): EnvForm {
+    const initCanonicalConfig = jsonutils.stringify(defaultEnvConfig);
+
     return this.formBuilder.group({
-      groupName: ['', Validators.required],
-      runtime: ['', Validators.required],
-      zone: ['', Validators.required],
-      host: ['', Validators.required],
+      canonicalConfig: [initCanonicalConfig],
+      groupName: [''],
+      runtime: [''],
+      zone: [''],
+      host: [''],
+      devices: this.getInitDeviceForm([]),
+    });
+  }
+
+  private getInitDeviceForm(deviceSettings: DeviceSetting[]): DeviceForm {
+    return this.formBuilder.array(
+      deviceSettings.map(setting => this.toDeviceForm(setting))
+    );
+  }
+
+  private toDeviceForm(setting: DeviceSetting) {
+    return this.formBuilder.group({
+      deviceId: [setting.deviceId],
+      branch_or_buildId: [setting.branch_or_buildId],
+      target: [setting.target],
     });
   }
 
   getEnvForm() {
-    return this.envForm$;
+    return this.envForm!;
   }
 
-  runtimes$ = this.store.select(validRuntimeListSelector);
-
-  private selectedRuntime$ = this.envForm$.pipe(
-    switchMap(form => {
-      return form.controls.runtime.valueChanges.pipe(
-        map(alias => alias ?? ''),
-        tap(alias => console.log(`selected runtime: ${alias}`)),
-        tap(() => {
-          form.controls.zone.setValue('');
+  getZones$() {
+    return (
+      this.envForm!.controls.runtime.valueChanges.pipe(
+        startWith(this.envForm!.value.runtime),
+        switchMap(selectedRuntimeAlias => {
+          return this.store.select(state => {
+            const selectedRuntime = state.runtimes.find(
+              runtime => runtime.alias === selectedRuntimeAlias
+            );
+            return selectedRuntime?.zones || [];
+          });
         }),
-        switchMap((alias: string) =>
-          this.store.select(runtimeSelectorFactory({alias})).pipe(
-            map(runtime => {
-              if (!runtime) {
-                throw new Error(`No runtime of alias ${alias}`);
-              }
-              return runtime;
-            })
-          )
-        ),
-        catchError((error: Error) => {
-          console.error(error);
-          return of();
+        tap(zones => {
+          if (zones.includes(defaultZone)) {
+            this.envForm!.controls.zone.setValue(defaultZone);
+          }
         })
-      );
-    }),
-    shareReplay(1)
-  );
-
-  zones$ = this.selectedRuntime$.pipe(
-    map(runtime => runtime?.zones || []),
-    tap(zones => console.log('zones: ', zones.length))
-  );
-
-  private selectedZone$ = this.envForm$.pipe(
-    switchMap(form =>
-      form.controls.zone.valueChanges.pipe(
-        map(zone => zone ?? ''),
-        tap(zone => console.log('selected zone: ', zone)),
-        tap(() => {
-          form.controls.host.setValue('');
-        })
-      )
-    ),
-    shareReplay(1)
-  );
-
-  hosts$ = this.selectedZone$.pipe(
-    combineLatestWith(this.selectedRuntime$),
-    switchMap(([zone, runtime]) => {
-      if (!runtime) {
-        return of([]);
-      }
-      return this.store.select(
-        hostListSelectorFactory({runtimeAlias: runtime.alias, zone})
-      );
-    }),
-    tap(hosts => console.log('hosts: ', hosts.length))
-  );
-
-  getSelectedRuntime() {
-    return this.envForm$.pipe(map(form => form.value.runtime));
+      ) || of([])
+    );
   }
 
-  getValue() {
-    return this.envForm$.pipe(
-      switchMap(form => {
-        const {runtime, zone, groupName, host} = form.value;
-        if (!runtime || !zone || !groupName || !host) {
-          console.error(form.value);
-          throw new Error(
-            'Group name, runtime, zone, host should be specified'
-          );
-        }
-
-        return this.store
-          .select(
-            hostSelectorFactory({runtimeAlias: runtime, zone, name: host})
-          )
-          .pipe(
-            map(host => {
-              if (!host) {
-                throw new Error('Invalid host');
-              }
-              return {
-                groupName,
-                hostUrl: host.url,
-                runtime: host.runtime,
-              };
-            })
-          );
-      })
+  getHosts$() {
+    return (
+      this.envForm!.valueChanges.pipe(
+        startWith({
+          runtime: this.envForm!.value.runtime,
+          zone: this.envForm!.value.zone,
+        }),
+        switchMap(({runtime, zone}) => {
+          return this.store.select(state => {
+            return state.hosts
+              .filter(host => host.runtime === runtime && host.zone === zone)
+              .filter(host => !state.envs.find(env => env.hostUrl === host.url))
+              .map(host => host.name);
+          });
+        })
+      ) || of([])
     );
   }
 
   clearForm() {
-    this.envFormAction$.next({type: 'clear'});
+    this.envForm!.reset();
+    this.initialize();
+  }
+
+  addDevice() {
+    this.envForm!.controls.devices.push(
+      this.formBuilder.group({
+        deviceId: [`cvd-${this.envForm!.controls.devices.length + 1}`],
+        branch_or_buildId: [''],
+        target: [''],
+      })
+    );
+  }
+
+  deleteDevice(targetIdx: number) {
+    this.envForm!.controls.devices.removeAt(targetIdx);
+  }
+
+  duplicateDevice(targetIdx: number) {
+    const {branch_or_buildId, target} =
+      this.envForm!.controls.devices.at(targetIdx).value;
+
+    this.envForm!.controls.devices.push(
+      this.toDeviceForm({
+        deviceId: `cvd-${this.envForm!.controls.devices.length + 1}`,
+        branch_or_buildId: branch_or_buildId ?? '',
+        target: target ?? '',
+      })
+    );
   }
 }

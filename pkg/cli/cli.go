@@ -594,7 +594,8 @@ func runDeleteHostsCommand(c *cobra.Command, args []string, flags *CVDRemoteFlag
 	// Close connections first to avoid spurious error messages later.
 	for _, host := range hosts {
 		if err := disconnectDevicesByHost(host, opts); err != nil {
-			c.PrintErrf("Error disconecting devices for host %s: %v\n", host, err)
+			// Warn only, the host can still be deleted
+			c.PrintErrf("Warning: Failed to disconnect devices for host %s: %v\n", host, err)
 		}
 	}
 	return service.DeleteHosts(hosts)
@@ -604,8 +605,7 @@ func disconnectDevicesByHost(host string, opts *subCommandOpts) error {
 	controlDir := opts.InitialConfig.ConnectionControlDirExpanded()
 	statuses, err := listCVDConnectionsByHost(controlDir, host)
 	if err != nil {
-		// Warn only, the host can still be deleted
-		return fmt.Errorf("Errors listing connections: %w", err)
+		return fmt.Errorf("Failed to list connections: %w", err)
 	}
 	for cvd, status := range statuses {
 		if err := DisconnectCVD(controlDir, cvd, status); err != nil {

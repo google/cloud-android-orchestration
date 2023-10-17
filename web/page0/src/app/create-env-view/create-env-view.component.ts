@@ -88,7 +88,7 @@ export class CreateEnvViewComponent {
       },
       error: error => {
         this.status$.next('error');
-        this.snackBar.open(error.message);
+        this.snackBar.open(error.message, 'Dismiss');
       },
     });
   }

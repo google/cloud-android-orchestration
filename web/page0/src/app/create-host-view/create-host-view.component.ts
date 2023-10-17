@@ -141,7 +141,7 @@ export class CreateHostViewComponent {
           }
         },
         error: error => {
-          this.snackBar.open(error.message, 'dismiss');
+          this.snackBar.open(error.message, 'Dismiss');
         },
       });
   }

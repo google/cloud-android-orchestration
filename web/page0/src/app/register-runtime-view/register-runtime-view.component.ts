@@ -93,7 +93,7 @@ export class RegisterRuntimeViewComponent {
           return runtime;
         }),
         catchError(error => {
-          this.snackBar.open(error.message);
+          this.snackBar.open(error.message, 'Dismiss');
           return of(undefined);
         }),
         switchMap(runtime => {

@@ -607,13 +607,13 @@ func disconnectDevicesByHost(host string, opts *subCommandOpts) error {
 	if err != nil {
 		return fmt.Errorf("Failed to list connections: %w", err)
 	}
+	var merr error
 	for cvd, status := range statuses {
 		if err := DisconnectCVD(controlDir, cvd, status); err != nil {
-			// Warn only, the host can still be deleted
-			return fmt.Errorf("Errors closing connection to %s: %w", cvd.WebRTCDeviceID, err)
+			merr = multierror.Append(merr, fmt.Errorf("Failed to disconnect from %s: %w", cvd.WebRTCDeviceID, err))
 		}
 	}
-	return nil
+	return merr
 }
 
 const (

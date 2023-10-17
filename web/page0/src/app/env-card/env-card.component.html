@@ -14,7 +14,7 @@
       <button
         mat-icon-button
         aria-label="Status"
-        matTooltip="{{ setting.tooltip }}"
+        [matTooltip]="setting.tooltip"
       >
         <span class="google-symbols">
           {{ setting.icon }}

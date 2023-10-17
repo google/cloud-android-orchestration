@@ -272,9 +272,9 @@ func PromptSelectionFromSlice[T any](c *command, choices []T, toStr func(T) stri
 		c.PrintErrf("%d) %s\n", i, toStr(v))
 	}
 	maxChoice := len(choices) - 1
-	if selOpt&AllowAll != 0 {
+	if len(choices) > 1 && selOpt&AllowAll != 0 {
 		c.PrintErrf("%d) All\n", len(choices))
-		maxChoice = len(choices)
+		maxChoice += 1
 	}
 	c.PrintErrf("Choose an option: ")
 	chosen := -1

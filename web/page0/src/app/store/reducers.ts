@@ -21,7 +21,7 @@ import {
   EnvAutoHostCreateStartAction,
   EnvAutoHostCreateCompleteAction,
 } from './actions';
-import {AppState, initialState} from './state';
+import {AppState, INITIAL_STATE} from './state';
 
 type ActionType = string;
 type Reducer = (action: any) => (prevState: AppState) => AppState;
@@ -29,7 +29,7 @@ type Reducer = (action: any) => (prevState: AppState) => AppState;
 const identityReducer = (action: Action) => (prevState: AppState) => prevState;
 
 const reducers: {[key: ActionType]: Reducer} = {
-  init: (action: InitAction) => (prevState: AppState) => initialState,
+  init: (action: InitAction) => (prevState: AppState) => INITIAL_STATE,
   'refresh-start': (action: RefreshStartAction) => prevState => ({
     ...prevState,
     runtimesLoadStatus: RuntimeViewStatus.refreshing,

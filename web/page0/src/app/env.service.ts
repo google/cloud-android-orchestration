@@ -11,9 +11,9 @@ import {Result, ResultType} from './interface/result-interface';
 import {groupToEnv, parseEnvConfig} from './interface/utils';
 import jsonutils from './json.utils';
 import {OperationService} from './operation.service';
-import {defaultHostSetting} from './settings';
+import {DEFAULT_HOST_SETTING} from './settings';
 import {hostSelectorFactory, runtimeSelectorFactory} from './store/selectors';
-import {auto_create_host, hasDuplicate} from './utils';
+import {AUTO_CREATE_HOST, hasDuplicate} from './utils';
 
 @Injectable({
   providedIn: 'root',
@@ -34,7 +34,7 @@ export class EnvService {
     try {
       this.validateInput(runtimeAlias, zone, hostName, canonicalConfig);
 
-      if (hostName === auto_create_host) {
+      if (hostName === AUTO_CREATE_HOST) {
         return this.createEnvInAutoHost(runtimeAlias!, zone!, canonicalConfig!);
       }
 
@@ -175,7 +175,7 @@ export class EnvService {
             runtime.url,
             zone,
             {
-              host_instance: defaultHostSetting,
+              host_instance: DEFAULT_HOST_SETTING,
             }
           );
 

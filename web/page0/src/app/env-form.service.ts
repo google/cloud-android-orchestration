@@ -3,7 +3,7 @@ import {FormArray, FormBuilder, FormControl, FormGroup} from '@angular/forms';
 import {of} from 'rxjs';
 import {startWith, switchMap, tap} from 'rxjs/operators';
 import {Store} from 'src/app/store/store';
-import {defaultEnvConfig, defaultZone} from './settings';
+import {DEFAULT_ENV_CONFIG, DEFAULT_ZONE} from './settings';
 import {parseEnvConfig} from './interface/utils';
 import {DeviceSetting} from './interface/device-interface';
 import jsonutils from './json.utils';
@@ -144,7 +144,7 @@ export class EnvFormService {
   }
 
   private getInitEnvForm(): EnvForm {
-    const initCanonicalConfig = jsonutils.stringify(defaultEnvConfig);
+    const initCanonicalConfig = jsonutils.stringify(DEFAULT_ENV_CONFIG);
 
     return this.formBuilder.group({
       canonicalConfig: [initCanonicalConfig],
@@ -187,8 +187,8 @@ export class EnvFormService {
           });
         }),
         tap(zones => {
-          if (zones.includes(defaultZone)) {
-            this.envForm!.controls.zone.setValue(defaultZone);
+          if (zones.includes(DEFAULT_ZONE)) {
+            this.envForm!.controls.zone.setValue(DEFAULT_ZONE);
           }
         })
       ) || of([])

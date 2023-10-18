@@ -1,6 +1,6 @@
 import {Injectable} from '@angular/core';
 import {Store} from 'src/app/store/store';
-import {defaultRuntimeSettings} from './settings';
+import {DEFAULT_RUNTIME_SETTINGS} from './settings';
 import {forkJoin, Observable, Subscription} from 'rxjs';
 import {defaultIfEmpty, map, switchMap, tap} from 'rxjs/operators';
 import {Runtime} from 'src/app/interface/runtime-interface';
@@ -25,7 +25,7 @@ export class RefreshService {
   private getInitRuntimeSettings() {
     const storedRuntimes = this.getStoredRuntimes();
     if (storedRuntimes.length === 0) {
-      return defaultRuntimeSettings;
+      return DEFAULT_RUNTIME_SETTINGS;
     }
 
     return storedRuntimes.map(runtime => ({

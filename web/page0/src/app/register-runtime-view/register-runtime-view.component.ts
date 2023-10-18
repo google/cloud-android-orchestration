@@ -23,7 +23,7 @@ import {
 } from 'rxjs/operators';
 import {handleUrl} from '../utils';
 import {Store} from 'src/app/store/store';
-import {placeholderRuntimeSetting} from '../settings';
+import {PLACEHOLDER_RUNTIME_SETTING} from '../settings';
 import {runtimesLoadStatusSelector} from 'src/app/store/selectors';
 import {FetchService} from '../fetch.service';
 
@@ -63,8 +63,8 @@ export class RegisterRuntimeViewComponent {
   status$ = this.store.select(runtimesLoadStatusSelector);
 
   runtimeForm = this.formBuilder.group({
-    url: [placeholderRuntimeSetting.url, Validators.required],
-    alias: [placeholderRuntimeSetting.alias, Validators.required],
+    url: [PLACEHOLDER_RUNTIME_SETTING.url, Validators.required],
+    alias: [PLACEHOLDER_RUNTIME_SETTING.alias, Validators.required],
   });
 
   showProgressBar(status: RuntimeViewStatus | null) {

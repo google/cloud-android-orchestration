@@ -22,7 +22,7 @@ import {
   runtimesLoadStatusSelector,
 } from '../store/selectors';
 import {RuntimeViewStatus} from '../interface/runtime-interface';
-import {defaultHostSetting, defaultZone} from '../settings';
+import {DEFAULT_HOST_SETTING, DEFAULT_ZONE} from '../settings';
 import {ResultType} from '../interface/result-interface';
 
 @Component({
@@ -76,8 +76,8 @@ export class CreateHostViewComponent {
   zones$ = this.runtime$.pipe(
     map(runtime => runtime.zones),
     tap(zones => {
-      if (zones?.includes(defaultZone)) {
-        this.hostForm!.controls.zone.setValue(defaultZone);
+      if (zones?.includes(DEFAULT_ZONE)) {
+        this.hostForm!.controls.zone.setValue(DEFAULT_ZONE);
       }
     })
   );
@@ -91,8 +91,8 @@ export class CreateHostViewComponent {
 
   hostForm = this.formBuilder.group({
     zone: ['ap-northeast2-a'],
-    machine_type: [defaultHostSetting?.gcp?.machine_type],
-    min_cpu_platform: [defaultHostSetting?.gcp?.min_cpu_platform],
+    machine_type: [DEFAULT_HOST_SETTING.gcp?.machine_type],
+    min_cpu_platform: [DEFAULT_HOST_SETTING.gcp?.min_cpu_platform],
   });
 
   // TODO: refactor with 'host status'

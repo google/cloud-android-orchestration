@@ -39,7 +39,7 @@
             <mat-option *ngFor="let host of hosts$ | async" [value]="host"
               >{{ host }}
             </mat-option>
-            <mat-option [value]="auto_create_host_token">
+            <mat-option [value]="autoCreateHostToken">
               Auto Create</mat-option
             >
             <mat-option (click)="onClickCreateHost()"> Create New </mat-option>

@@ -8,14 +8,14 @@ import {EnvService} from '../env.service';
 import {ResultType} from '../interface/result-interface';
 import {validRuntimeListSelector} from '../store/selectors';
 import {Store} from '../store/store';
-import {auto_create_host} from '../utils';
+import {AUTO_CREATE_HOST} from '../utils';
 @Component({
   selector: 'app-create-env-view',
   templateUrl: './create-env-view.component.html',
   styleUrls: ['./create-env-view.component.scss'],
 })
 export class CreateEnvViewComponent {
-  auto_create_host_token = auto_create_host;
+  autoCreateHostToken = AUTO_CREATE_HOST;
 
   envForm = this.envFormService.getEnvForm();
 
@@ -40,7 +40,7 @@ export class CreateEnvViewComponent {
   hint$ = this.envForm.controls.host.valueChanges.pipe(
     startWith(this.envForm.controls.host.value),
     map(host => {
-      if (host === auto_create_host) {
+      if (host === AUTO_CREATE_HOST) {
         return 'Auto Create may not be completed if you leave Page 0';
       }
 

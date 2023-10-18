@@ -4,7 +4,7 @@ import {RuntimeConfig} from './cloud-orchestrator.dto';
 import {EnvConfig, Environment, EnvStatus} from './env-interface';
 import {RuntimeInfo, RuntimeType} from './runtime-interface';
 
-export const cvdToDevice = (cvd: CVD): DeviceSetting => {
+export function cvdToDevice(cvd: CVD): DeviceSetting {
   const {name, build_source} = cvd;
 
   try {
@@ -26,11 +26,11 @@ export const cvdToDevice = (cvd: CVD): DeviceSetting => {
   }
 };
 
-export const groupToEnv = (
+export function groupToEnv(
   runtimeAlias: string,
   hostUrl: string,
   group: Group
-): Environment => {
+): Environment {
   return {
     runtimeAlias,
     hostUrl,
@@ -40,7 +40,7 @@ export const groupToEnv = (
   };
 };
 
-export const configToInfo = (config: RuntimeConfig): RuntimeInfo => {
+export function configToInfo(config: RuntimeConfig): RuntimeInfo {
   const {instance_manager_type} = config;
   if (instance_manager_type === 'GCP') {
     return {

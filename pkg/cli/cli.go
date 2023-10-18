@@ -324,6 +324,19 @@ func PromptSelectionFromMap[K comparable, T any](c *command, choices map[K]T, to
 	return choices, nil
 }
 
+func PromptYesOrNo(out *os.File, in *os.File, text string) (bool, error) {
+	fmt.Fprint(out, text+" (y/N): ")
+	var yN string
+	_, err := fmt.Fscanln(os.Stdin, &yN)
+	if err != nil {
+		return false, fmt.Errorf("failed to read (y/N) choice: %w", err)
+	}
+	if yN != "y" && yN != "N" {
+		return false, fmt.Errorf("entered invalid value: %q", yN)
+	}
+	return yN == "y", nil
+}
+
 func NewCVDRemoteCommand(o *CommandOptions) *CVDRemoteCommand {
 	flags := &CVDRemoteFlags{}
 	rootCmd := &cobra.Command{

@@ -23,6 +23,8 @@ import (
 
 	"github.com/google/cloud-android-orchestration/pkg/cli"
 	"github.com/google/cloud-android-orchestration/pkg/client"
+
+	"golang.org/x/term"
 )
 
 const (
@@ -41,17 +43,54 @@ func loadInitialConfig() (*cli.Config, error) {
 	}
 	if path, ok := os.LookupEnv(envVarUserConfigPath); ok {
 		path = cli.ExpandPath(path)
-		if _, err := os.Stat(path); err == nil {
+		_, statErr := os.Stat(path)
+		if errors.Is(statErr, os.ErrNotExist) {
+			imported, err := importAcloudConfig(path)
+			if err != nil {
+				return nil, err
+			}
+			if !imported {
+				f, err := os.Create(path)
+				if err != nil {
+					return nil, err
+				}
+				f.Close()
+			}
+			statErr = nil
+		}
+		if statErr == nil {
 			if err := cli.LoadConfigFile(path, config); err != nil {
 				return nil, err
 			}
-		} else if errors.Is(err, os.ErrNotExist) {
-			// TODO: Create a new one importing relevant acloud config parameters.
 		} else {
-			return nil, fmt.Errorf("Invalid user config file path: %w", err)
+			return nil, fmt.Errorf("invalid user config file path: %w", statErr)
 		}
 	}
 	return config, nil
+}
+
+func importAcloudConfig(dst string) (bool, error) {
+	// Do not prompt acloud importing if not in a terminal.
+	if !term.IsTerminal(int(os.Stdout.Fd())) {
+		return false, nil
+	}
+	// Create a new user configuration file importing existing acloud configuration.
+	acPath := cli.ExpandPath("~/.config/acloud/acloud.config")
+	if _, err := os.Stat(acPath); err == nil {
+		const p = "No user configuration found, would you like to generate it by importing" +
+			"your acloud configuration?"
+		yes, err := cli.PromptYesOrNo(os.Stdout, os.Stdin, p)
+		if err != nil {
+			return false, err
+		}
+		if yes {
+			if err := cli.ImportAcloudConfig(acPath, dst); err != nil {
+				return false, fmt.Errorf("failed importing acloud config file: %w", err)
+			}
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 type cmdRunner struct{}

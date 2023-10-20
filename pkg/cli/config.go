@@ -15,6 +15,7 @@
 package cli
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -43,33 +44,33 @@ type Config struct {
 }
 
 func (c *Config) ConnectionControlDirExpanded() string {
-	return expandPath(c.ConnectionControlDir)
+	return ExpandPath(c.ConnectionControlDir)
 }
 
 func (c *Config) LogFilesDeleteThreshold() time.Duration {
 	return time.Duration(c.KeepLogFilesDays*24) * time.Hour
 }
 
-func DefaultConfig() Config {
-	return Config{
+func BaseConfig() *Config {
+	return &Config{
 		ConnectionControlDir: "~/.cvdr/connections",
 		KeepLogFilesDays:     30, // A default is needed to not keep forever
 	}
 }
 
-func ParseConfigFile(config *Config, confFile io.Reader) error {
-	decoder := toml.NewDecoder(confFile)
+func LoadConfigFile(path string, c *Config) error {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("Error reading config file: %w", err)
+	}
+	decoder := toml.NewDecoder(bytes.NewReader(b))
 	// Fail if there is some unknown configuration. This is better than silently
 	// ignoring a (perhaps mispelled) config entry.
 	decoder.Strict(true)
-	err := decoder.Decode(config)
-	if err != nil {
-		return err
-	}
-	return nil
+	return decoder.Decode(c)
 }
 
-func expandPath(path string) string {
+func ExpandPath(path string) string {
 	if !strings.Contains(path, "~") {
 		return path
 	}
@@ -78,4 +79,18 @@ func expandPath(path string) string {
 		panic(fmt.Sprintf("Unable to expand path %q: %v", path, err))
 	}
 	return strings.ReplaceAll(path, "~", home)
+}
+
+// Build a final configuration instance from different sources. Each config parameter will take
+// the value from the last source where it's set.
+func buildConfig(sources []io.Reader) (*Config, error) {
+	c := BaseConfig()
+	for _, s := range sources {
+		decoder := toml.NewDecoder(s)
+		decoder.Strict(true)
+		if err := decoder.Decode(c); err != nil {
+			return nil, err
+		}
+	}
+	return c, nil
 }

@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -254,6 +255,7 @@ func adbStateStr(c *RemoteCVD) string {
 type SelectionOption int32
 
 const (
+	Single   SelectionOption = 0
 	AllowAll SelectionOption = 1 << iota
 )
 
@@ -270,9 +272,9 @@ func PromptSelectionFromSlice[T any](c *command, choices []T, toStr func(T) stri
 		c.PrintErrf("%d) %s\n", i, toStr(v))
 	}
 	maxChoice := len(choices) - 1
-	if selOpt&AllowAll != 0 {
+	if len(choices) > 1 && selOpt&AllowAll != 0 {
 		c.PrintErrf("%d) All\n", len(choices))
-		maxChoice = len(choices)
+		maxChoice += 1
 	}
 	c.PrintErrf("Choose an option: ")
 	chosen := -1
@@ -583,29 +585,35 @@ func runDeleteHostsCommand(c *cobra.Command, args []string, flags *CVDRemoteFlag
 	if err != nil {
 		return err
 	}
-	// Close connections first to avoid spurious error messages later.
-	for _, host := range args {
-		if err := disconnectDevicesByHost(host, opts); err != nil {
-			c.PrintErrf("Error disconecting devices for host %s: %v\n", host, err)
+	hosts := args
+	if len(hosts) == 0 {
+		if hosts, err = promptHostNameSelection(&command{c, &flags.Verbose}, service, AllowAll); err != nil {
+			return err
 		}
 	}
-	return service.DeleteHosts(args)
+	// Close connections first to avoid spurious error messages later.
+	for _, host := range hosts {
+		if err := disconnectDevicesByHost(host, opts); err != nil {
+			// Warn only, the host can still be deleted
+			c.PrintErrf("Warning: Failed to disconnect devices for host %s: %v\n", host, err)
+		}
+	}
+	return service.DeleteHosts(hosts)
 }
 
 func disconnectDevicesByHost(host string, opts *subCommandOpts) error {
 	controlDir := opts.InitialConfig.ConnectionControlDirExpanded()
 	statuses, err := listCVDConnectionsByHost(controlDir, host)
 	if err != nil {
-		// Warn only, the host can still be deleted
-		return fmt.Errorf("Errors listing connections: %w", err)
+		return fmt.Errorf("Failed to list connections: %w", err)
 	}
+	var merr error
 	for cvd, status := range statuses {
 		if err := DisconnectCVD(controlDir, cvd, status); err != nil {
-			// Warn only, the host can still be deleted
-			return fmt.Errorf("Errors closing connection to %s: %w", cvd.WebRTCDeviceID, err)
+			merr = multierror.Append(merr, fmt.Errorf("Failed to disconnect from %s: %w", cvd.WebRTCDeviceID, err))
 		}
 	}
-	return nil
+	return merr
 }
 
 const (
@@ -694,7 +702,7 @@ func runPullCommand(c *cobra.Command, args []string, flags *CVDRemoteFlags, opts
 	host := ""
 	switch l := len(args); l {
 	case 0:
-		sel, err := promptHostNameSelection(&command{c, &flags.Verbose}, service)
+		sel, err := promptSingleHostNameSelection(&command{c, &flags.Verbose}, service)
 		if err != nil {
 			return err
 		}
@@ -723,19 +731,27 @@ func runPullCommand(c *cobra.Command, args []string, flags *CVDRemoteFlags, opts
 }
 
 // Returns empty string if there was no host.
-func promptHostNameSelection(c *command, service client.Service) (string, error) {
-	names, err := hostnames(service)
-	if err != nil {
-		return "", fmt.Errorf("Failed to list hosts: %w", err)
-	}
-	if len(names) == 0 {
-		return "", nil
-	}
-	sel, err := PromptSelectionFromSliceString(c, names, 0)
+func promptSingleHostNameSelection(c *command, service client.Service) (string, error) {
+	sel, err := promptHostNameSelection(c, service, Single)
 	if err != nil {
 		return "", err
 	}
+	if len(sel) > 1 {
+		log.Fatalf("expected one item, got %+v", sel)
+	}
 	return sel[0], nil
+}
+
+// Returns empty list if there was no host.
+func promptHostNameSelection(c *command, service client.Service, selOpt SelectionOption) ([]string, error) {
+	names, err := hostnames(service)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to list hosts: %w", err)
+	}
+	if len(names) == 0 {
+		return []string{}, nil
+	}
+	return PromptSelectionFromSliceString(c, names, selOpt)
 }
 
 // Starts a connection agent process and waits for it to report the connection was

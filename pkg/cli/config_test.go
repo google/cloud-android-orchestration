@@ -15,30 +15,28 @@
 package cli
 
 import (
+	"os"
+	"path"
 	"reflect"
-	"strings"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 )
 
-const (
-	validConfig = `
+func TestLoadConfigFile(t *testing.T) {
+	const config = `
 ServiceURL = "service_url"
-Zone = "zone"
 HTTPProxy = "http_proxy"
-KeepLogFilesDays = 30
 [Host.GCP]
-MachineType = "machine_type"
 MinCPUPlatform = "cpu_platform"
 `
-	invalidConfig = "foo_bar_baz = \"unknown field\""
-)
-
-func TestParseConfigFile(t *testing.T) {
+	fname := tempFile(t, config)
+	c := BaseConfig()
 	// This test is little more than a change detector, however it's still
 	// useful to detect config parsing errors early, such as those introduced by
 	// a rename of the config properties.
-	config := DefaultConfig()
-	err := ParseConfigFile(&config, strings.NewReader(validConfig))
+	err := LoadConfigFile(fname, c)
+
 	if err != nil {
 		t.Errorf("Failed to parse config: %v", err)
 	}
@@ -48,9 +46,19 @@ func TestParseConfigFile(t *testing.T) {
 	// were parsed. The parsing library doesn't need to be tested here.
 }
 
-func TestParseAllConfig(t *testing.T) {
-	config := DefaultConfig()
-	err := ParseConfigFile(&config, strings.NewReader(validConfig))
+func TestLoadFullConfig(t *testing.T) {
+	const fullConfig = `
+ServiceURL = "service_url"
+Zone = "zone"
+HTTPProxy = "http_proxy"
+[Host.GCP]
+MachineType = "machine_type"
+MinCPUPlatform = "cpu_platform"
+`
+	fname := tempFile(t, fullConfig)
+	c := BaseConfig()
+
+	err := LoadConfigFile(fname, c)
 	if err != nil {
 		t.SkipNow()
 	}
@@ -58,16 +66,58 @@ func TestParseAllConfig(t *testing.T) {
 	// added to cli.Config, just add it to the valid config above with a non zero
 	// value to make it pass and ensure these tests apply to that field in the
 	// future.
-	if has, f := HasZeroes(config); has {
+	if has, f := HasZeroes(*c); has {
 		t.Errorf("The Config's %s field was not parsed", f)
 	}
 }
 
-func TestParseInvalidConfig(t *testing.T) {
-	config := DefaultConfig()
-	err := ParseConfigFile(&config, strings.NewReader(invalidConfig))
+func TestLoadConfigFileInvalidConfig(t *testing.T) {
+	const config = "foo_bar_baz  \"unknown field\""
+	fname := tempFile(t, config)
+	c := BaseConfig()
+
+	err := LoadConfigFile(fname, c)
+
 	if err == nil {
 		t.Errorf("Expected unknown config property to produce an error")
+	}
+}
+
+func TestLoadConfigFileTwice(t *testing.T) {
+	const system = `
+ServiceURL = "service-foo"
+Zone = "zone-foo"
+KeepLogFilesDays = 30
+[Host.GCP]
+MinCPUPlatform = "min-cpu-platform-foo"
+`
+	const user = `
+Zone = "zone-bar"
+KeepLogFilesDays = 0
+[Host.GCP]
+MachineType = "machine-type-bar"
+`
+	scf := tempFile(t, system)
+	ucf := tempFile(t, user)
+	expected := &Config{
+		ServiceURL:           "service-foo",
+		Zone:                 "zone-bar",
+		KeepLogFilesDays:     0,
+		ConnectionControlDir: "~/.cvdr/connections",
+		Host: HostConfig{
+			GCP: GCPHostConfig{
+				MachineType:    "machine-type-bar",
+				MinCPUPlatform: "min-cpu-platform-foo",
+			},
+		},
+	}
+	c := BaseConfig()
+
+	_ = LoadConfigFile(scf, c)
+	_ = LoadConfigFile(ucf, c)
+
+	if diff := cmp.Diff(expected, c); diff != "" {
+		t.Errorf("config mismatch (-want +got):\n%s", diff)
 	}
 }
 
@@ -88,4 +138,14 @@ func HasZeroes(o any) (bool, string) {
 		}
 	}
 	return false, ""
+}
+
+func tempFile(t *testing.T, content string) string {
+	dir := t.TempDir()
+	fname := path.Join(dir, "cvdr.config")
+	err := os.WriteFile(fname, []byte(content), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return fname
 }

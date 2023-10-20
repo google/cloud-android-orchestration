@@ -1,6 +1,6 @@
 import {Injectable} from '@angular/core';
 import {Observable, Subject} from 'rxjs';
-import {map, scan, shareReplay, startWith, tap} from 'rxjs/operators';
+import {map, scan, shareReplay, startWith} from 'rxjs/operators';
 import {Action, InitAction} from './actions';
 import {match} from './reducers';
 import {AppState, initialState} from './state';
@@ -15,7 +15,6 @@ export class Store {
 
   // should be updated by all reducers
   private state$ = this.action$.pipe(
-    tap(action => console.log('action ', action.type)),
     startWith({type: 'init'} as InitAction),
     map(action => {
       return match(action);

@@ -10,7 +10,7 @@
             <span class="google-symbols"> library_add </span>
         </button>
 
-        <button *ngIf="runtimeCard.status == 'error'" mat-icon-button aria-label="Status" class="error-status">
+        <button *ngIf="runtimeCard.status === 'error'" mat-icon-button aria-label="Status" class="error-status">
             <span class="google-symbols"> error </span>
         </button>
     </div>
@@ -22,7 +22,7 @@
     </div>
 
     <mat-card-content *ngIf="runtimeCard.status === 'valid'">
-        Zones & Hosts:
+        Zones &amp; Hosts:
         <ul>
             <li class="host-item" *ngFor="let host of runtimeCard.hosts">
                 <div class="host-header">

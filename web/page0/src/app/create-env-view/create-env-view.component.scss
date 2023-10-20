@@ -51,3 +51,16 @@ li {
 }
 
 .google-symbols {}
+
+.env-config-container {
+    display: flex;
+}
+
+.env-config-setting {
+    flex: 1;
+    padding-right: 30px;
+}
+
+#canonical-config-field {
+    min-height: 600px;
+}

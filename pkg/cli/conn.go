@@ -197,9 +197,8 @@ func StateAsStr(state int) string {
 		return "stopped"
 	case FwdFailed:
 		return "failed"
-	default:
-		panic(fmt.Sprintf("No known string representation for state: %d", state))
 	}
+	return "unknown"
 }
 
 func (f *Forwarder) OnDataChannel(dc *webrtc.DataChannel) {
@@ -303,6 +302,8 @@ func (f *Forwarder) acceptLoop() {
 		return
 	}
 
+	f.logger.Printf("Listening on port %d", f.port)
+
 	defer f.listener.Close()
 	for {
 		conn, err := f.listener.Accept()
@@ -374,6 +375,7 @@ func NewConnController(
 	if err != nil {
 		return nil, err
 	}
+	logger.Printf("Connecting to %s in host %s", cvd.Name, cvd.Host)
 	f, err := NewForwarder(logger)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to instantiate ADB forwarder for %q: %w", cvd.WebRTCDeviceID, err)
@@ -395,7 +397,7 @@ func NewConnController(
 	tc.webrtcConn = conn
 	// TODO(jemoreira): close everything except the relevant data channels.
 
-	// Wait for the ADB forwarder to be setup before connecting the ADB server.
+	// Wait for the ADB forwarder to be set up before connecting the ADB server.
 	<-f.readyCh
 
 	// Create the control socket as late as possible to reduce the chances of it
@@ -449,7 +451,8 @@ func (tc *ConnController) Status() ConnStatus {
 
 func (tc *ConnController) Run() {
 	if tc.control == nil {
-		panic("The control socket has not been setup yet")
+		// It's ok to abort here: the control socket doesn't exist yet.
+		tc.logger.Fatalf("The control socket has not been setup yet")
 	}
 	for {
 		conn, err := tc.control.Accept()
@@ -488,7 +491,8 @@ func (tc *ConnController) handleControlCommand(conn net.Conn) {
 		}
 		msg, err := json.Marshal(reply)
 		if err != nil {
-			panic(fmt.Sprintf("Couldn't marshal status map: %v", err))
+			tc.logger.Println(fmt.Sprintf("Couldn't marshal status map: %v", err))
+			return
 		}
 		_, err = conn.Write(msg)
 		if err != nil {

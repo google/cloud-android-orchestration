@@ -7,10 +7,7 @@ import {
   Operation,
   RuntimeConfig,
 } from 'src/app/interface/cloud-orchestrator.dto';
-import {
-  ListCVDsResponse,
-  CreateGroupRequest,
-} from 'src/app/interface/host-orchestrator.dto';
+import {ListCVDsResponse} from 'src/app/interface/host-orchestrator.dto';
 
 @Injectable({
   providedIn: 'root',
@@ -54,23 +51,9 @@ export class ApiService {
     return this.httpClient.get<string[]>(`${hostUrl}/groups`);
   }
 
-  createGroup(hostUrl: string, createGroupRequest: CreateGroupRequest) {
+  createGroup(hostUrl: string, config: object) {
     return this.httpClient.post<Operation>(`${hostUrl}/cvds`, {
-      // TODO: use data from createGroupRequest for cvd
-      group_name: createGroupRequest.group_name,
-      cvd: {
-        name: '',
-        build_source: {
-          android_ci_build_source: {
-            branch: 'aosp-main',
-            build_id: '10678986',
-            target: 'aosp_cf_x86_64_phone-trunk_staging-userdebug',
-          },
-        },
-        status: '',
-        displays: [],
-      },
-      instance_names: createGroupRequest.instance_names,
+      env_config: config,
     });
   }
 

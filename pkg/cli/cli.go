@@ -720,7 +720,7 @@ func runPullCommand(c *cobra.Command, args []string, flags *CVDRemoteFlags, opts
 	if err != nil {
 		return err
 	}
-	if err := service.DownloadRuntimeArtifacts(host, f); err != nil {
+	if err := service.HostService(host).DownloadRuntimeArtifacts(f); err != nil {
 		return err
 	}
 	if err := f.Close(); err != nil {

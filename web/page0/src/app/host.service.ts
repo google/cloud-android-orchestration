@@ -32,42 +32,41 @@ export class HostService {
       .wait<HostInstance>(request, waitUrlSynthesizer)
       .pipe(
         map(result => {
-          console.log(result);
-          if (result.type === ResultType.waitStarted) {
-            this.store.dispatch({
-              type: 'host-create-start',
-              wait: {
-                waitUrl: result.waitUrl,
-                metadata: {
-                  type: 'host-create',
-                  zone,
-                  runtimeAlias: runtime.alias,
+          switch (result.type) {
+            case ResultType.waitStarted:
+              this.store.dispatch({
+                type: 'host-create-start',
+                wait: {
+                  waitUrl: result.waitUrl,
+                  metadata: {
+                    type: 'host-create',
+                    zone,
+                    runtimeAlias: runtime.alias,
+                  },
                 },
-              },
-            });
+              });
+              break;
+            case ResultType.done:
+              const hostName = result.data.name!;
+              this.store.dispatch({
+                type: 'host-create-complete',
+                waitUrl: result.waitUrl,
+                host: {
+                  name: hostName,
+                  zone,
+                  url: `${runtime.url}/v1/zones/${zone}/hosts/${hostName}`,
+                  runtime: runtime.alias,
+                  status: HostStatus.running,
+                },
+              });
 
-            return result;
-          }
-
-          if (result.type === ResultType.done) {
-            const hostName = result.data.name!;
-            this.store.dispatch({
-              type: 'host-create-complete',
-              waitUrl: result.waitUrl,
-              host: {
-                name: hostName,
-                zone,
-                url: `${runtime.url}/v1/zones/${zone}/hosts/${hostName}`,
-                runtime: runtime.alias,
-                status: HostStatus.running,
-              },
-            });
-
-            return {
-              type: ResultType.done as ResultType.done,
-              waitUrl: result.waitUrl,
-              data: true,
-            };
+              return {
+                type: ResultType.done as ResultType.done,
+                waitUrl: result.waitUrl,
+                data: true,
+              };
+            default:
+              break;
           }
 
           return result;

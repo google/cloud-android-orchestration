@@ -1,4 +1,5 @@
 import {Injectable} from '@angular/core';
+import {ActionType} from 'src/app/store/actions';
 import {Store} from 'src/app/store/store';
 import {ApiService} from './api.service';
 import {
@@ -35,7 +36,7 @@ export class HostService {
           switch (result.type) {
             case ResultType.waitStarted:
               this.store.dispatch({
-                type: 'host-create-start',
+                type: ActionType.HostCreateStart,
                 wait: {
                   waitUrl: result.waitUrl,
                   metadata: {
@@ -49,7 +50,7 @@ export class HostService {
             case ResultType.done:
               const hostName = result.data.name!;
               this.store.dispatch({
-                type: 'host-create-complete',
+                type: ActionType.HostCreateComplete,
                 waitUrl: result.waitUrl,
                 host: {
                   name: hostName,
@@ -73,7 +74,7 @@ export class HostService {
         }),
         catchError(error => {
           this.store.dispatch({
-            type: 'host-create-error',
+            type: ActionType.HostCreateError,
           });
 
           return throwError(() => error);
@@ -83,7 +84,7 @@ export class HostService {
 
   deleteHost(hostUrl: string) {
     this.store.dispatch({
-      type: 'host-delete-start',
+      type: ActionType.HostDeleteStart,
       wait: {
         waitUrl: hostUrl,
         metadata: {
@@ -96,13 +97,13 @@ export class HostService {
     return this.apiService.deleteHost(hostUrl).pipe(
       tap(() => {
         this.store.dispatch({
-          type: 'host-delete-complete',
+          type: ActionType.HostDeleteComplete,
           waitUrl: hostUrl,
         });
       }),
       catchError(error => {
         this.store.dispatch({
-          type: 'host-delete-error',
+          type: ActionType.HostDeleteError,
           waitUrl: hostUrl,
         });
 

@@ -1,6 +1,7 @@
 import {Injectable} from '@angular/core';
 import {Observable, of, throwError, timer} from 'rxjs';
 import {catchError, map, retry, switchMap, take} from 'rxjs/operators';
+import {ActionType} from 'src/app/store/actions';
 import {Store} from 'src/app/store/store';
 import {ApiService} from './api.service';
 import {HostInstance, Operation} from './interface/cloud-orchestrator.dto';
@@ -103,7 +104,7 @@ export class EnvService {
             map(result => {
               if (result.type === ResultType.waitStarted) {
                 this.store.dispatch({
-                  type: 'env-create-start',
+                  type: ActionType.EnvCreateStart,
                   wait: {
                     waitUrl: result.waitUrl,
                     metadata: {
@@ -126,7 +127,7 @@ export class EnvService {
                 });
 
                 this.store.dispatch({
-                  type: 'env-create-complete',
+                  type: ActionType.EnvCreateComplete,
                   waitUrl: result.waitUrl,
                   env,
                 });
@@ -145,7 +146,7 @@ export class EnvService {
 
         catchError(error => {
           this.store.dispatch({
-            type: 'env-create-error',
+            type: ActionType.EnvCreateError,
           });
           return throwError(() => error);
         })
@@ -188,7 +189,7 @@ export class EnvService {
               switchMap((result: Result<HostInstance>) => {
                 if (result.type === ResultType.waitStarted) {
                   this.store.dispatch({
-                    type: 'env-auto-host-create-start',
+                    type: ActionType.EnvAutoHostCreateStart,
                     wait: {
                       waitUrl: result.waitUrl,
                       metadata: {
@@ -230,7 +231,7 @@ export class EnvService {
                       map((result: Result<Group>) => {
                         if (result.type === ResultType.waitStarted) {
                           this.store.dispatch({
-                            type: 'env-auto-host-create-complete',
+                            type: ActionType.EnvAutoHostCreateComplete,
                             waitUrl: hostCreateWaitUrl,
                             host: {
                               name: hostInstance.name!,
@@ -242,7 +243,7 @@ export class EnvService {
                           });
 
                           this.store.dispatch({
-                            type: 'env-create-start',
+                            type: ActionType.EnvCreateStart,
                             wait: {
                               waitUrl: result.waitUrl,
                               metadata: {
@@ -264,7 +265,7 @@ export class EnvService {
                           });
 
                           this.store.dispatch({
-                            type: 'env-create-complete',
+                            type: ActionType.EnvCreateComplete,
                             waitUrl: result.waitUrl,
                             env,
                           });
@@ -280,7 +281,7 @@ export class EnvService {
                       }),
                       catchError(error => {
                         this.store.dispatch({
-                          type: 'env-create-error',
+                          type: ActionType.EnvCreateError,
                         });
                         return throwError(() => error);
                       })
@@ -294,7 +295,7 @@ export class EnvService {
 
         catchError(error => {
           this.store.dispatch({
-            type: 'host-create-error',
+            type: ActionType.HostCreateError,
           });
 
           return throwError(() => error);

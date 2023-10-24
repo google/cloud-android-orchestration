@@ -3,6 +3,32 @@ import {Runtime} from 'src/app/interface/runtime-interface';
 import {Host} from 'src/app/interface/host-interface';
 import {Wait} from 'src/app/interface/wait-interface';
 
+export enum ActionType {
+  Init = 'init',
+  RefreshStart = 'refresh-start',
+  RefreshComplete = 'refresh-complete',
+  RuntimeRegisterComplete = 'runtime-register-complete',
+  RuntimeUnregister = 'runtime-unregister',
+  RuntimeInitialize = 'runtime-initialize',
+  RuntimeLoad = 'runtime-load',
+  RuntimeLoadComplete = 'runtime-load-complete',
+  RuntimeRegisterError = 'runtime-register-error',
+  RuntimeRegisterStart = 'runtime-register-start',
+  HostCreateStart = 'host-create-start',
+  HostCreateComplete = 'host-create-complete',
+  HostCreateError = 'host-create-error',
+  HostDeleteStart = 'host-delete-start',
+  HostDeleteComplete = 'host-delete-complete',
+  HostDeleteError = 'host-delete-error',
+  HostLoad = 'host-load',
+  EnvLoad = 'env-load',
+  EnvCreateStart = 'env-create-start',
+  EnvCreateError = 'env-create-error',
+  EnvCreateComplete = 'env-create-complete',
+  EnvAutoHostCreateStart = 'env-auto-host-create-start',
+  EnvAutoHostCreateComplete = 'env-auto-host-create-complete',
+}
+
 export type Action =
   | InitAction
   | RefreshStartAction
@@ -11,6 +37,7 @@ export type Action =
   | RuntimeUnregisterAction
   | RuntimeInitializeAction
   | RuntimeLoadAction
+  | RuntimeLoadCompleteAction
   | RuntimeRegisterErrorAction
   | RuntimeRegisterStartAction
   | HostCreateStartAction
@@ -28,112 +55,112 @@ export type Action =
   | EnvAutoHostCreateCompleteAction;
 
 export interface RefreshStartAction {
-  type: 'refresh-start';
+  type: ActionType.RefreshStart;
 }
 
 export interface RefreshCompleteAction {
-  type: 'refresh-complete';
+  type: ActionType.RefreshComplete;
 }
 
 export interface InitAction {
-  type: 'init';
+  type: ActionType.Init;
 }
 
 export interface RuntimeRegisterStartAction {
-  type: 'runtime-register-start';
+  type: ActionType.RuntimeRegisterStart;
 }
 
 export interface RuntimeRegisterCompleteAction {
-  type: 'runtime-register-complete';
+  type: ActionType.RuntimeRegisterComplete;
   runtime: Runtime;
 }
 
 export interface RuntimeRegisterErrorAction {
-  type: 'runtime-register-error';
+  type: ActionType.RuntimeRegisterError;
 }
 
 export interface RuntimeUnregisterAction {
-  type: 'runtime-unregister';
+  type: ActionType.RuntimeUnregister;
   alias: string;
 }
 
 export interface RuntimeInitializeAction {
-  type: 'runtime-init';
+  type: ActionType.RuntimeInitialize;
 }
 
 export interface RuntimeLoadAction {
-  type: 'runtime-load';
+  type: ActionType.RuntimeLoad;
   runtime: Runtime;
 }
 
 export interface HostLoadAction {
-  type: 'host-load';
+  type: ActionType.HostLoad;
   host: Host;
 }
 
 export interface EnvLoadAction {
-  type: 'env-load';
+  type: ActionType.EnvLoad;
   env: Environment;
 }
 
 export interface RuntimeLoadCompleteAction {
-  type: 'runtime-load-complete';
+  type: ActionType.RuntimeLoadComplete;
 }
 
 export interface HostCreateStartAction {
-  type: 'host-create-start';
+  type: ActionType.HostCreateStart;
   wait: Wait;
 }
 
 export interface HostCreateCompleteAction {
-  type: 'host-create-complete';
+  type: ActionType.HostCreateComplete;
   waitUrl: string;
   host: Host;
 }
 
 export interface HostCreateErrorAction {
-  type: 'host-create-error';
+  type: ActionType.HostCreateError;
   waitUrl?: string;
 }
 
 export interface HostDeleteStartAction {
-  type: 'host-delete-start';
+  type: ActionType.HostDeleteStart;
   wait: Wait;
 }
 
 export interface HostDeleteCompleteAction {
-  type: 'host-delete-complete';
+  type: ActionType.HostDeleteComplete;
   waitUrl: string;
 }
 
 export interface HostDeleteErrorAction {
-  type: 'host-delete-error';
+  type: ActionType.HostDeleteError;
   waitUrl: string;
 }
 
 export interface EnvCreateStartAction {
-  type: 'env-create-start';
+  type: ActionType.EnvCreateStart;
   wait: Wait;
 }
 
 export interface EnvCreateCompleteAction {
-  type: 'env-create-complete';
+  type: ActionType.EnvCreateComplete;
   waitUrl: string;
   env: Environment;
 }
 
 export interface EnvCreateErrorAction {
-  type: 'env-create-error';
+  type: ActionType.EnvCreateError;
   waitUrl?: string;
 }
 
 export interface EnvAutoHostCreateStartAction {
-  type: 'env-auto-host-create-start';
+  type: ActionType.EnvAutoHostCreateStart;
   wait: Wait;
 }
 
 export interface EnvAutoHostCreateCompleteAction {
-  type: 'env-auto-host-create-complete';
+  type: ActionType.EnvAutoHostCreateComplete;
   waitUrl: string;
   host: Host;
 }

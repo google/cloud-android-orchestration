@@ -3,20 +3,23 @@ import {EnvStatus} from 'src/app/interface/env-interface';
 import {Runtime, RuntimeStatus} from '../interface/runtime-interface';
 import {HostStatus} from '../interface/host-interface';
 import {
+  isEnvAutoHostCreateWait,
   isEnvCreateWait,
   isHostCreateWait,
   isHostDeleteWait,
 } from '../interface/wait-interface';
 import {RuntimeCard} from '../interface/component-interface';
 
-export const runtimeListSelector = (state: AppState) => state.runtimes;
+export function runtimeListSelector(state: AppState) {
+  return state.runtimes;
+}
 
-export const validRuntimeListSelector = (state: AppState) =>
-  state.runtimes.filter(runtime => runtime.status === RuntimeStatus.valid);
+export function validRuntimeListSelector(state: AppState) {
+  return state.runtimes.filter(runtime => runtime.status === RuntimeStatus.valid);
+}
 
-export const runtimeCardSelectorFactory =
-  (alias: string | undefined) =>
-  (state: AppState): RuntimeCard | undefined => {
+export function runtimeCardSelectorFactory(alias: string | undefined) {
+  return (state: AppState): RuntimeCard | undefined => {
     if (!alias) {
       return undefined;
     }
@@ -28,6 +31,10 @@ export const runtimeCardSelectorFactory =
 
     const hostCreateRequests = Object.values(state.waits)
       .filter(isHostCreateWait)
+      .filter(wait => wait.metadata.runtimeAlias === alias);
+
+    const autoHostCreateRequests = Object.values(state.waits)
+      .filter(isEnvAutoHostCreateWait)
       .filter(wait => wait.metadata.runtimeAlias === alias);
 
     const hostDeleteRequests = Object.values(state.waits).filter(
@@ -60,7 +67,7 @@ export const runtimeCardSelectorFactory =
             status: HostStatus.stopping,
           };
         }),
-        ...hostCreateRequests.map(wait => ({
+        ...[...hostCreateRequests, ...autoHostCreateRequests].map(wait => ({
           name: 'New host',
           zone: wait.metadata.zone,
           runtime: alias,
@@ -71,12 +78,13 @@ export const runtimeCardSelectorFactory =
       status: runtime.status,
     };
   };
+}
 
-export const hostSelectorFactory = (params: {
+export function hostSelectorFactory (params: {
   runtimeAlias: string;
   zone: string;
   name: string;
-}) => {
+}) {
   return (state: AppState) => {
     const {runtimeAlias, zone, name} = params;
 
@@ -94,12 +102,12 @@ export const hostSelectorFactory = (params: {
 
     return host;
   };
-};
+}
 
-export const hostListSelectorFactory = (params: {
+export function hostListSelectorFactory(params: {
   runtimeAlias: string;
   zone?: string;
-}) => {
+}) {
   const {runtimeAlias, zone} = params;
 
   return (state: AppState) => {
@@ -115,30 +123,48 @@ export const hostListSelectorFactory = (params: {
       return true;
     });
   };
-};
+}
 
-export const envCardListSelector = (state: AppState) => {
+export function envCardListSelector(state: AppState) {
   return allEnvListSelector(state);
-};
+}
 
-const allEnvListSelector = (state: AppState) => {
+function allEnvListSelector(state: AppState) {
   const envCreateRequests = Object.values(state.waits).filter(isEnvCreateWait);
+
+  const envAutoHostCreateRequests = Object.values(state.waits).filter(
+    isEnvAutoHostCreateWait
+  );
 
   const hostDeleteRequests = Object.values(state.waits).filter(
     isHostDeleteWait
   );
 
-  const startingEnvs = envCreateRequests.map(req => {
-    const {groupName, hostUrl, runtimeAlias, devices} = req.metadata;
+  const startingEnvs = [
+    ...envCreateRequests.map(req => {
+      const {groupName, hostUrl, runtimeAlias, devices} = req.metadata;
 
-    return {
-      groupName,
-      hostUrl,
-      devices,
-      runtimeAlias,
-      status: EnvStatus.starting,
-    };
-  });
+      return {
+        groupName,
+        hostUrl,
+        devices,
+        runtimeAlias,
+        status: EnvStatus.starting,
+      };
+    }),
+
+    ...envAutoHostCreateRequests.map(req => {
+      const {groupName, runtimeAlias, devices} = req.metadata;
+
+      return {
+        groupName,
+        hostUrl: 'unknown',
+        devices,
+        runtimeAlias,
+        status: EnvStatus.starting,
+      };
+    }),
+  ];
 
   return [
     ...startingEnvs.filter(
@@ -162,16 +188,16 @@ const allEnvListSelector = (state: AppState) => {
       return env;
     }),
   ];
-};
+}
 
-export const runtimesLoadStatusSelector = (state: AppState) => {
+export function runtimesLoadStatusSelector(state: AppState) {
   return state.runtimesLoadStatus;
-};
+}
 
-export const runtimeSelectorFactory = (params: {
+export function runtimeSelectorFactory(params: {
   alias: string;
-}): ((state: AppState) => Runtime | undefined) => {
+}): ((state: AppState) => Runtime | undefined) {
   return (state: AppState) => {
     return state.runtimes.find(runtime => runtime.alias === params.alias);
   };
-};
+}

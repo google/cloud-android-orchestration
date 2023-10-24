@@ -1,16 +1,18 @@
-export const defaultRuntimeSettings = [
+import {HostInstance} from './interface/cloud-orchestrator.dto';
+
+export const DEFAULT_RUNTIME_SETTINGS = [
   {
     alias: 'default',
     url: 'http://localhost:8071/api',
   },
 ];
 
-export const placeholderRuntimeSetting = {
+export const PLACEHOLDER_RUNTIME_SETTING = {
   alias: 'example',
   url: 'http://localhost:8071/api',
 };
 
-export const defaultEnvConfig: object = {
+export const DEFAULT_ENV_CONFIG: object = {
   // common: {
   //   group_name: 'simulated_home',
   // },
@@ -31,9 +33,9 @@ export const defaultEnvConfig: object = {
   ],
 };
 
-export const defaultZone = 'us-east1-b';
+export const DEFAULT_ZONE = 'us-east1-b';
 
-export const defaultHostSetting = {
+export const DEFAULT_HOST_SETTING: HostInstance = {
   gcp: {
     machine_type: 'n1-standard-4',
     min_cpu_platform: 'Intel Skylake',

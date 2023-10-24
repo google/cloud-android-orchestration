@@ -59,7 +59,7 @@ export class EnvCardComponent {
       error: error => {
         this.snackBar.open(
           `Failed to delete host ${this.env.hostUrl} (error: ${error.message})`,
-          'dismiss'
+          'Dismiss'
         );
       },
     });

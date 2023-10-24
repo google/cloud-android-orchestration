@@ -11,7 +11,7 @@ export interface AppState {
   waits: {[key: string]: Wait};
 }
 
-export const initialState: AppState = {
+export const INITIAL_STATE: AppState = {
   runtimes: [],
   hosts: [],
   envs: [],

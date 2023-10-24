@@ -42,13 +42,13 @@ export class RuntimeCardComponent {
 
   onClickDeleteHost(host: Host) {
     if (host.status !== HostStatus.running || !host.url) {
-      this.snackBar.open('Cannot delete non-running host', 'dismiss');
+      this.snackBar.open('Cannot delete non-running host', 'Dismiss');
       return;
     }
 
     this.snackBar.open(
       `Start to delete host ${host.name} (url: ${host.url})`,
-      'dismiss'
+      'Dismiss'
     );
 
     this.hostService.deleteHost(host.url!).subscribe({
@@ -58,7 +58,7 @@ export class RuntimeCardComponent {
       error: error => {
         this.snackBar.open(
           `Failed to delete host ${host.url} (error: ${error.message})`,
-          'dismiss'
+          'Dismiss'
         );
       },
     });

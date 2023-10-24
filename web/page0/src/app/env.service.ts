@@ -7,6 +7,7 @@ import {ApiService} from './api.service';
 import {HostInstance, Operation} from './interface/cloud-orchestrator.dto';
 import {Environment} from './interface/env-interface';
 import {HostStatus} from './interface/host-interface';
+import {DeviceSetting} from './interface/device-interface';
 import {Group} from './interface/host-orchestrator.dto';
 import {Result, ResultType} from './interface/result-interface';
 import {groupToEnv, parseEnvConfig} from './interface/utils';
@@ -69,6 +70,53 @@ export class EnvService {
     }
   }
 
+  private handleCreateEnvStatus(
+    hostUrl: string,
+    runtimeAlias: string,
+    groupName:string,
+    devices: DeviceSetting[],
+    result: Result<Group>
+  ) {
+    switch (result.type) {
+      case ResultType.waitStarted:
+        this.store.dispatch({
+          type: ActionType.EnvCreateStart,
+          wait: {
+            waitUrl: result.waitUrl,
+            metadata: {
+              type: 'env-create',
+              hostUrl,
+              runtimeAlias,
+              groupName,
+              devices,
+            },
+          },
+        });
+        break;
+      case ResultType.done:
+        const env = groupToEnv(runtimeAlias, hostUrl, {
+          ...result.data,
+          name: groupName,
+        });
+
+        this.store.dispatch({
+          type: ActionType.EnvCreateComplete,
+          waitUrl: result.waitUrl,
+          env,
+        });
+
+        return {
+          type: ResultType.done as ResultType.done,
+          data: env,
+          waitUrl: result.waitUrl,
+        };
+      default:
+        break;
+    }
+
+    return result;
+  }
+
   private createEnvInSelectedHost(
     runtimeAlias: string,
     zone: string,
@@ -102,44 +150,8 @@ export class EnvService {
 
           return this.waitService.wait<Group>(request, waitUrlSynthesizer).pipe(
             map(result => {
-              if (result.type === ResultType.waitStarted) {
-                this.store.dispatch({
-                  type: ActionType.EnvCreateStart,
-                  wait: {
-                    waitUrl: result.waitUrl,
-                    metadata: {
-                      type: 'env-create',
-                      hostUrl,
-                      runtimeAlias,
-                      groupName,
-                      devices,
-                    },
-                  },
-                });
-
-                return result;
-              }
-
-              if (result.type === ResultType.done) {
-                const env = groupToEnv(runtimeAlias, hostUrl, {
-                  ...result.data,
-                  name: groupName,
-                });
-
-                this.store.dispatch({
-                  type: ActionType.EnvCreateComplete,
-                  waitUrl: result.waitUrl,
-                  env,
-                });
-
-                return {
-                  type: ResultType.done as ResultType.done,
-                  data: env,
-                  waitUrl: result.waitUrl,
-                };
-              }
-
-              return result;
+              return this.handleCreateEnvStatus(
+                hostUrl, runtimeAlias, groupName, devices, result);
             })
           );
         }),
@@ -241,43 +253,10 @@ export class EnvService {
                               status: HostStatus.running,
                             },
                           });
-
-                          this.store.dispatch({
-                            type: ActionType.EnvCreateStart,
-                            wait: {
-                              waitUrl: result.waitUrl,
-                              metadata: {
-                                type: 'env-create',
-                                hostUrl,
-                                runtimeAlias: runtime.alias,
-                                groupName,
-                                devices,
-                              },
-                            },
-                          });
-                          return result;
                         }
 
-                        if (result.type === ResultType.done) {
-                          const env = groupToEnv(runtime.alias, hostUrl, {
-                            ...result.data,
-                            name: groupName,
-                          });
-
-                          this.store.dispatch({
-                            type: ActionType.EnvCreateComplete,
-                            waitUrl: result.waitUrl,
-                            env,
-                          });
-
-                          return {
-                            type: result.type,
-                            waitUrl: result.waitUrl,
-                            data: env,
-                          };
-                        }
-
-                        return result;
+                        return this.handleCreateEnvStatus(
+                          hostUrl, runtimeAlias, groupName, devices, result);
                       }),
                       catchError(error => {
                         this.store.dispatch({

@@ -7,9 +7,10 @@ import {ApiService} from './api.service';
 import {HostInstance, Operation} from './interface/cloud-orchestrator.dto';
 import {Environment} from './interface/env-interface';
 import {HostStatus} from './interface/host-interface';
+import {Runtime} from 'src/app/interface/runtime-interface';
 import {DeviceSetting} from './interface/device-interface';
 import {Group} from './interface/host-orchestrator.dto';
-import {Result, ResultType} from './interface/result-interface';
+import {DoneResult, Result, ResultType} from './interface/result-interface';
 import {groupToEnv, parseEnvConfig} from './interface/utils';
 import jsonutils from './json.utils';
 import {OperationService} from './operation.service';
@@ -165,6 +166,64 @@ export class EnvService {
       );
   }
 
+  private createGroupAfterHostCreateCompleted(
+    zone: string,
+    runtime: Runtime,
+    runtimeAlias: string,
+    groupName: string,
+    canonicalConfig: string,
+    devices: DeviceSetting[],
+    result: DoneResult<HostInstance>
+  ) {
+    const hostInstance = result.data;
+    const hostUrl = `${runtime.url}/v1/zones/${zone}/hosts/${hostInstance.name}`;
+    const hostCreateWaitUrl = result.waitUrl;
+
+    const groupCreateRetryConfig = {
+      count: 1000,
+      delay: (err: unknown, retryCount: number) => {
+        return timer(1000);
+      },
+    };
+
+    const groupCreateRequest = this.apiService
+    .createGroup(hostUrl, jsonutils.parse(canonicalConfig))
+    .pipe(retry(groupCreateRetryConfig));
+
+    const waitUrlSynthesizer = (op: Operation) => {
+      return `${hostUrl}/operations/${op.name}`;
+    };
+
+    return this.waitService
+    .wait<Group>(groupCreateRequest, waitUrlSynthesizer)
+    .pipe(
+      map((result: Result<Group>) => {
+        if (result.type === ResultType.waitStarted) {
+          this.store.dispatch({
+            type: ActionType.EnvAutoHostCreateComplete,
+            waitUrl: hostCreateWaitUrl,
+            host: {
+              name: hostInstance.name!,
+              zone,
+              url: hostUrl,
+              runtime: runtime.alias,
+              status: HostStatus.running,
+            },
+          });
+        }
+
+        return this.handleCreateEnvStatus(
+          hostUrl, runtimeAlias, groupName, devices, result);
+      }),
+      catchError(error => {
+        this.store.dispatch({
+          type: ActionType.EnvCreateError,
+        });
+        return throwError(() => error);
+      })
+    );
+}
+
   private createEnvInAutoHost(
     runtimeAlias: string,
     zone: string,
@@ -199,72 +258,28 @@ export class EnvService {
             .wait<HostInstance>(hostCreateRequest, waitUrlSynthesizer)
             .pipe(
               switchMap((result: Result<HostInstance>) => {
-                if (result.type === ResultType.waitStarted) {
-                  this.store.dispatch({
-                    type: ActionType.EnvAutoHostCreateStart,
-                    wait: {
-                      waitUrl: result.waitUrl,
-                      metadata: {
-                        type: 'env-auto-host-create',
-                        zone,
-                        runtimeAlias: runtime.alias,
-                        groupName,
-                        devices,
+                switch (result.type) {
+                  case ResultType.waitStarted:
+                    this.store.dispatch({
+                      type: ActionType.EnvAutoHostCreateStart,
+                      wait: {
+                        waitUrl: result.waitUrl,
+                        metadata: {
+                          type: 'env-auto-host-create',
+                          zone,
+                          runtimeAlias: runtime.alias,
+                          groupName,
+                          devices,
+                        },
                       },
-                    },
-                  });
-
-                  return of(result);
-                }
-
-                if (result.type === ResultType.done) {
-                  const hostInstance = result.data;
-                  const hostUrl = `${runtime.url}/v1/zones/${zone}/hosts/${hostInstance.name}`;
-                  const hostCreateWaitUrl = result.waitUrl;
-
-                  const groupCreateRetryConfig = {
-                    count: 1000,
-                    delay: (err: unknown, retryCount: number) => {
-                      return timer(1000);
-                    },
-                  };
-
-                  const groupCreateRequest = this.apiService
-                    .createGroup(hostUrl, jsonutils.parse(canonicalConfig))
-                    .pipe(retry(groupCreateRetryConfig));
-
-                  const waitUrlSynthesizer = (op: Operation) => {
-                    return `${hostUrl}/operations/${op.name}`;
-                  };
-
-                  return this.waitService
-                    .wait<Group>(groupCreateRequest, waitUrlSynthesizer)
-                    .pipe(
-                      map((result: Result<Group>) => {
-                        if (result.type === ResultType.waitStarted) {
-                          this.store.dispatch({
-                            type: ActionType.EnvAutoHostCreateComplete,
-                            waitUrl: hostCreateWaitUrl,
-                            host: {
-                              name: hostInstance.name!,
-                              zone,
-                              url: hostUrl,
-                              runtime: runtime.alias,
-                              status: HostStatus.running,
-                            },
-                          });
-                        }
-
-                        return this.handleCreateEnvStatus(
-                          hostUrl, runtimeAlias, groupName, devices, result);
-                      }),
-                      catchError(error => {
-                        this.store.dispatch({
-                          type: ActionType.EnvCreateError,
-                        });
-                        return throwError(() => error);
-                      })
-                    );
+                    });
+                    break;
+                  case ResultType.done:
+                    return this.createGroupAfterHostCreateCompleted(
+                      zone, runtime, runtimeAlias,
+                      groupName, canonicalConfig, devices, result);
+                  default:
+                    break;
                 }
 
                 return of(result);

@@ -96,6 +96,7 @@ const (
 	systemImgBuildIDFlag      = "system_build_id"
 	systemImgBuildTargetFlag  = "system_build_target"
 	numInstancesFlag          = "num_instances"
+	autoConnectFlag           = "auto_connect"
 )
 
 const (
@@ -483,6 +484,8 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 	}
 	create.Flags().IntVar(&createFlags.NumInstances, numInstancesFlag, 1,
 		"Creates multiple instances with the same artifacts. Only relevant if given a single build source")
+	create.Flags().BoolVar(&createFlags.AutoConnect, autoConnectFlag, true,
+		"Automatically connect through ADB after device is created.")
 	// Host flags
 	createHostFlags := []struct {
 		ValueRef *string
@@ -673,12 +676,14 @@ func runCreateCVDCommand(c *cobra.Command, args []string, flags *CreateCVDFlags,
 		return err
 	}
 	var merr error
-	for _, cvd := range cvds {
-		statePrinter.Print(fmt.Sprintf(connectCVDStateMsgFmt, cvd.WebRTCDeviceID))
-		cvd.ConnStatus, err = ConnectDevice(flags.CreateCVDOpts.Host, cvd.WebRTCDeviceID, "", &command{c, &flags.Verbose}, opts)
-		statePrinter.PrintDone(fmt.Sprintf(connectCVDStateMsgFmt, cvd.WebRTCDeviceID), err)
-		if err != nil {
-			merr = multierror.Append(merr, fmt.Errorf("Failed to connect to device: %w", err))
+	if flags.CreateCVDOpts.AutoConnect {
+		for _, cvd := range cvds {
+			statePrinter.Print(fmt.Sprintf(connectCVDStateMsgFmt, cvd.WebRTCDeviceID))
+			cvd.ConnStatus, err = ConnectDevice(flags.CreateCVDOpts.Host, cvd.WebRTCDeviceID, "", &command{c, &flags.Verbose}, opts)
+			statePrinter.PrintDone(fmt.Sprintf(connectCVDStateMsgFmt, cvd.WebRTCDeviceID), err)
+			if err != nil {
+				merr = multierror.Append(merr, fmt.Errorf("Failed to connect to device: %w", err))
+			}
 		}
 	}
 	hosts := []*RemoteHost{

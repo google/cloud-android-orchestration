@@ -150,7 +150,7 @@ func (c *cvdCreator) createCVDFromLocalBuild() ([]*hoapi.CVD, error) {
 		},
 		AdditionalInstancesNum: c.opts.AdditionalInstancesNum(),
 	}
-	res, err := c.service.HostService(c.opts.Host).CreateCVD(&req)
+	res, err := c.service.HostService(c.opts.Host).CreateCVD(&req, client.InjectedCredentials)
 	if err != nil {
 		return nil, err
 	}
@@ -175,7 +175,7 @@ func (c *cvdCreator) createWithCanonicalConfig() ([]*hoapi.CVD, error) {
 		EnvConfig: c.opts.EnvConfig,
 	}
 	c.statePrinter.Print(stateMsgFetchAndStart)
-	res, err := c.service.HostService(c.opts.Host).CreateCVD(createReq)
+	res, err := c.service.HostService(c.opts.Host).CreateCVD(createReq, client.InjectedCredentials)
 	c.statePrinter.PrintDone(stateMsgFetchAndStart, err)
 	if err != nil {
 		return nil, err
@@ -199,7 +199,7 @@ func (c *cvdCreator) createWithOpts() ([]*hoapi.CVD, error) {
 		AndroidCIBundle: &hoapi.AndroidCIBundle{Build: mainBuild, Type: hoapi.MainBundleType},
 	}
 	c.statePrinter.Print(stateMsgFetchMainBundle)
-	fetchMainBuildRes, err := c.service.HostService(c.opts.Host).FetchArtifacts(fetchReq)
+	fetchMainBuildRes, err := c.service.HostService(c.opts.Host).FetchArtifacts(fetchReq, client.InjectedCredentials)
 	c.statePrinter.PrintDone(stateMsgFetchMainBundle, err)
 	if err != nil {
 		return nil, err
@@ -218,7 +218,7 @@ func (c *cvdCreator) createWithOpts() ([]*hoapi.CVD, error) {
 		AdditionalInstancesNum: c.opts.AdditionalInstancesNum(),
 	}
 	c.statePrinter.Print(stateMsgStartCVD)
-	res, err := c.service.HostService(c.opts.Host).CreateCVD(createReq)
+	res, err := c.service.HostService(c.opts.Host).CreateCVD(createReq, client.InjectedCredentials)
 	c.statePrinter.PrintDone(stateMsgStartCVD, err)
 	if err != nil {
 		return nil, err

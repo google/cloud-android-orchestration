@@ -74,6 +74,8 @@ type CreateCVDOpts struct {
 	// Structure: https://android.googlesource.com/device/google/cuttlefish/+/8bbd3b9cd815f756f332791d45c4f492b663e493/host/commands/cvd/parser/README.md
 	// Example: https://cs.android.com/android/platform/superproject/main/+/main:device/google/cuttlefish/host/cvd_test_configs/main_phone-main_watch.json;drc=b2e8f4f014abb7f9cb56c0ae199334aacb04542d
 	EnvConfig map[string]interface{}
+	// If true, perform the ADB connection automatically.
+	AutoConnect bool
 }
 
 func (o *CreateCVDOpts) AdditionalInstancesNum() uint32 {

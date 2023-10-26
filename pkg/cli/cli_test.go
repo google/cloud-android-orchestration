@@ -126,11 +126,11 @@ func (fakeHostService) ConnectWebRTC(device string, observer wclient.Observer, l
 	return nil, nil
 }
 
-func (fakeHostService) FetchArtifacts(req *hoapi.FetchArtifactsRequest) (*hoapi.FetchArtifactsResponse, error) {
+func (fakeHostService) FetchArtifacts(req *hoapi.FetchArtifactsRequest, creds string) (*hoapi.FetchArtifactsResponse, error) {
 	return &hoapi.FetchArtifactsResponse{AndroidCIBundle: &hoapi.AndroidCIBundle{}}, nil
 }
 
-func (fakeHostService) CreateCVD(req *hoapi.CreateCVDRequest) (*hoapi.CreateCVDResponse, error) {
+func (fakeHostService) CreateCVD(req *hoapi.CreateCVDRequest, creds string) (*hoapi.CreateCVDResponse, error) {
 	return &hoapi.CreateCVDResponse{CVDs: []*hoapi.CVD{{Name: "cvd-1"}}}, nil
 }
 

@@ -12,7 +12,8 @@ import {MatSnackBar} from '@angular/material/snack-bar';
 
 const handleAuthError = (error: HttpErrorResponse, snackBar: MatSnackBar) => {
   snackBar.open(
-    `Request failed: check your credentials (error message: ${error.message})`
+    `Request failed: check your credentials (error message: ${error.message})`,
+    'Dismiss'
   );
 };
 

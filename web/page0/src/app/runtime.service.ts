@@ -5,6 +5,7 @@ import {
   runtimeListSelector,
   runtimesLoadStatusSelector,
 } from 'src/app/store/selectors';
+import {ActionType} from 'src/app/store/actions';
 import {Store} from 'src/app/store/store';
 import {FetchService} from './fetch.service';
 import {Runtime, RuntimeViewStatus} from 'src/app/interface/runtime-interface';
@@ -35,7 +36,7 @@ export class RuntimeService {
   registerRuntime(alias: string, url: string) {
     return of(null).pipe(
       withLatestFrom(this.runtimes$),
-      tap(() => this.store.dispatch({type: 'runtime-register-start'})),
+      tap(() => this.store.dispatch({type: ActionType.RuntimeRegisterStart})),
       map(([_, runtimes]) => {
         if (runtimes.some(runtime => runtime.alias === alias)) {
           throw Error(`Cannot have runtime of duplicated alias: ${alias}`);
@@ -49,13 +50,13 @@ export class RuntimeService {
       }),
       tap(runtime =>
         this.store.dispatch({
-          type: 'runtime-register-complete',
+          type: ActionType.RuntimeRegisterComplete,
           runtime,
         })
       ),
       catchError(error => {
         this.store.dispatch({
-          type: 'runtime-register-error',
+          type: ActionType.RuntimeRegisterError,
         });
 
         throw error;
@@ -65,7 +66,7 @@ export class RuntimeService {
 
   unregisterRuntime(alias: string) {
     this.store.dispatch({
-      type: 'runtime-unregister',
+      type: ActionType.RuntimeUnregister,
       alias,
     });
   }

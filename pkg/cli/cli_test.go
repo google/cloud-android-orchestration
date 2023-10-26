@@ -103,45 +103,51 @@ func (fakeService) DeleteHosts(name []string) error {
 	return nil
 }
 
-func (fakeService) GetInfraConfig(host string) (*apiv1.InfraConfig, error) {
-	return nil, nil
-}
-
-func (fakeService) ConnectWebRTC(host, device string, observer wclient.Observer, logger io.Writer, opts client.ConnectWebRTCOpts) (*wclient.Connection, error) {
-	return nil, nil
-}
-
-func (fakeService) FetchArtifacts(host string, req *hoapi.FetchArtifactsRequest) (*hoapi.FetchArtifactsResponse, error) {
-	return &hoapi.FetchArtifactsResponse{AndroidCIBundle: &hoapi.AndroidCIBundle{}}, nil
-}
-
-func (fakeService) CreateCVD(host string, req *hoapi.CreateCVDRequest) (*hoapi.CreateCVDResponse, error) {
-	if host == "" {
-		panic("empty host")
-	}
-	return &hoapi.CreateCVDResponse{CVDs: []*hoapi.CVD{{Name: "cvd-1"}}}, nil
-}
-
-func (fakeService) ListCVDs(host string) ([]*hoapi.CVD, error) {
-	return []*hoapi.CVD{{Name: "cvd-1"}}, nil
-}
-
-func (fakeService) CreateUpload(host string) (string, error) {
-	return "", nil
-}
-
-func (fakeService) UploadFiles(host, uploadDir string, filenames []string) error {
-	return nil
-}
-
-func (fakeService) DownloadRuntimeArtifacts(host string, dst io.Writer) error {
-	return nil
-}
-
 const serviceURL = "http://waldo.com"
 
 func (fakeService) RootURI() string {
 	return serviceURL + "/v1"
+}
+
+func (fakeService) HostService(host string) client.HostOrchestratorService {
+	if host == "" {
+		panic("empty host")
+	}
+	return &fakeHostService{}
+}
+
+type fakeHostService struct{}
+
+func (fakeHostService) GetInfraConfig() (*apiv1.InfraConfig, error) {
+	return nil, nil
+}
+
+func (fakeHostService) ConnectWebRTC(device string, observer wclient.Observer, logger io.Writer, opts client.ConnectWebRTCOpts) (*wclient.Connection, error) {
+	return nil, nil
+}
+
+func (fakeHostService) FetchArtifacts(req *hoapi.FetchArtifactsRequest) (*hoapi.FetchArtifactsResponse, error) {
+	return &hoapi.FetchArtifactsResponse{AndroidCIBundle: &hoapi.AndroidCIBundle{}}, nil
+}
+
+func (fakeHostService) CreateCVD(req *hoapi.CreateCVDRequest) (*hoapi.CreateCVDResponse, error) {
+	return &hoapi.CreateCVDResponse{CVDs: []*hoapi.CVD{{Name: "cvd-1"}}}, nil
+}
+
+func (fakeHostService) ListCVDs() ([]*hoapi.CVD, error) {
+	return []*hoapi.CVD{{Name: "cvd-1"}}, nil
+}
+
+func (fakeHostService) CreateUploadDir() (string, error) {
+	return "", nil
+}
+
+func (fakeHostService) UploadFiles(uploadDir string, filenames []string) error {
+	return nil
+}
+
+func (fakeHostService) DownloadRuntimeArtifacts(dst io.Writer) error {
+	return nil
 }
 
 func TestCommandSucceeds(t *testing.T) {

@@ -19,6 +19,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -93,4 +95,68 @@ func buildConfig(sources []io.Reader) (*Config, error) {
 		}
 	}
 	return c, nil
+}
+
+type AcloudConfig struct {
+	Zone        string
+	MachineType string
+}
+
+func ImportAcloudConfig(src, dst string) error {
+	b, err := os.ReadFile(src)
+	if err != nil {
+		return fmt.Errorf("error reading %q: %w", src, err)
+	}
+	ac, err := extractAcloudConfig(string(b))
+	if err != nil {
+		return fmt.Errorf("failed extracing acloud config: %w", err)
+	}
+	c := map[string]any{
+		"Zone": ac.Zone,
+		"Host": map[string]any{
+			"GCP": map[string]any{
+				"MachineType": ac.MachineType,
+			},
+		},
+	}
+	dstDir := filepath.Dir(dst)
+	if err := os.MkdirAll(filepath.Dir(dst), 0750); err != nil {
+		return fmt.Errorf("failed creating dir %q: %w", dstDir, err)
+	}
+	f, err := os.Create(dst)
+	if err != nil {
+		return fmt.Errorf("failed creating file %q: %w", dst, err)
+	}
+	defer f.Close()
+	encoder := toml.NewEncoder(f).Indentation("")
+	if err = encoder.Encode(c); err != nil {
+		return fmt.Errorf("failed encoding: %w", err)
+	}
+	return nil
+}
+
+// Extract relevant acloud config values.
+// Acloud config is written in Proto Text Format https://protobuf.dev/reference/protobuf/textformat-spec/
+func extractAcloudConfig(input string) (AcloudConfig, error) {
+	extract := func(field, input string) (string, error) {
+		re := regexp.MustCompile(`(^|\n)\s*` + field + `\s*:\s*\"([a-zA-Z0-9_-]+)\"`)
+		matches := re.FindStringSubmatch(input)
+		if len(matches) != 3 {
+			return "", fmt.Errorf("value for field: %q not found", field)
+		}
+		return matches[2], nil
+	}
+	zone, err := extract("zone", input)
+	if err != nil {
+		return AcloudConfig{}, err
+	}
+	machineType, err := extract("machine_type", input)
+	if err != nil {
+		return AcloudConfig{}, err
+	}
+	result := AcloudConfig{
+		Zone:        zone,
+		MachineType: machineType,
+	}
+	return result, nil
 }

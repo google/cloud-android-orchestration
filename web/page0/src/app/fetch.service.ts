@@ -14,6 +14,7 @@ import {ApiService} from './api.service';
 import {Host, HostStatus} from 'src/app/interface/host-interface';
 import {Group} from 'src/app/interface/host-orchestrator.dto';
 import {Runtime, RuntimeStatus} from 'src/app/interface/runtime-interface';
+import {ActionType} from 'src/app/store/actions';
 import {Store} from './store/store';
 import {Environment, EnvStatus} from './interface/env-interface';
 import {configToInfo, cvdToDevice} from 'src/app/interface/utils';
@@ -136,7 +137,7 @@ export class FetchService {
     const dispatchHostsLoad = (hosts: Host[]) => {
       hosts.forEach(host => {
         this.store.dispatch({
-          type: 'host-load',
+          type: ActionType.HostLoad,
           host,
         });
       });
@@ -145,7 +146,7 @@ export class FetchService {
     const dispatchEnvsLoad = (envs: Environment[]) => {
       envs.forEach(env => {
         this.store.dispatch({
-          type: 'env-load',
+          type: ActionType.EnvLoad,
           env,
         });
       });

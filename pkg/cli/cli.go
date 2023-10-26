@@ -96,6 +96,7 @@ const (
 	systemImgBuildIDFlag      = "system_build_id"
 	systemImgBuildTargetFlag  = "system_build_target"
 	numInstancesFlag          = "num_instances"
+	autoConnectFlag           = "auto_connect"
 )
 
 const (
@@ -324,6 +325,19 @@ func PromptSelectionFromMap[K comparable, T any](c *command, choices map[K]T, to
 	return choices, nil
 }
 
+func PromptYesOrNo(out *os.File, in *os.File, text string) (bool, error) {
+	fmt.Fprint(out, text+" (y/N): ")
+	var yN string
+	_, err := fmt.Fscanln(os.Stdin, &yN)
+	if err != nil {
+		return false, fmt.Errorf("failed to read (y/N) choice: %w", err)
+	}
+	if yN != "y" && yN != "N" {
+		return false, fmt.Errorf("entered invalid value: %q", yN)
+	}
+	return yN == "y", nil
+}
+
 func NewCVDRemoteCommand(o *CommandOptions) *CVDRemoteCommand {
 	flags := &CVDRemoteFlags{}
 	rootCmd := &cobra.Command{
@@ -470,6 +484,8 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 	}
 	create.Flags().IntVar(&createFlags.NumInstances, numInstancesFlag, 1,
 		"Creates multiple instances with the same artifacts. Only relevant if given a single build source")
+	create.Flags().BoolVar(&createFlags.AutoConnect, autoConnectFlag, true,
+		"Automatically connect through ADB after device is created.")
 	// Host flags
 	createHostFlags := []struct {
 		ValueRef *string
@@ -660,12 +676,14 @@ func runCreateCVDCommand(c *cobra.Command, args []string, flags *CreateCVDFlags,
 		return err
 	}
 	var merr error
-	for _, cvd := range cvds {
-		statePrinter.Print(fmt.Sprintf(connectCVDStateMsgFmt, cvd.WebRTCDeviceID))
-		cvd.ConnStatus, err = ConnectDevice(flags.CreateCVDOpts.Host, cvd.WebRTCDeviceID, "", &command{c, &flags.Verbose}, opts)
-		statePrinter.PrintDone(fmt.Sprintf(connectCVDStateMsgFmt, cvd.WebRTCDeviceID), err)
-		if err != nil {
-			merr = multierror.Append(merr, fmt.Errorf("Failed to connect to device: %w", err))
+	if flags.CreateCVDOpts.AutoConnect {
+		for _, cvd := range cvds {
+			statePrinter.Print(fmt.Sprintf(connectCVDStateMsgFmt, cvd.WebRTCDeviceID))
+			cvd.ConnStatus, err = ConnectDevice(flags.CreateCVDOpts.Host, cvd.WebRTCDeviceID, "", &command{c, &flags.Verbose}, opts)
+			statePrinter.PrintDone(fmt.Sprintf(connectCVDStateMsgFmt, cvd.WebRTCDeviceID), err)
+			if err != nil {
+				merr = multierror.Append(merr, fmt.Errorf("Failed to connect to device: %w", err))
+			}
 		}
 	}
 	hosts := []*RemoteHost{
@@ -720,7 +738,7 @@ func runPullCommand(c *cobra.Command, args []string, flags *CVDRemoteFlags, opts
 	if err != nil {
 		return err
 	}
-	if err := service.DownloadRuntimeArtifacts(host, f); err != nil {
+	if err := service.HostService(host).DownloadRuntimeArtifacts(f); err != nil {
 		return err
 	}
 	if err := f.Close(); err != nil {

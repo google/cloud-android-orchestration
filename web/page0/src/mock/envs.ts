@@ -1,3 +1,3 @@
 import {Environment} from 'src/app/interface/env-interface';
 
-export const mockEnvList: Environment[] = [];
+export const MOCK_ENV_LIST: Environment[] = [];

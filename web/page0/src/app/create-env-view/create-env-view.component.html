@@ -22,7 +22,6 @@
           </mat-select>
         </mat-form-field>
 
-        <!-- TODO: fast create option  -->
         <mat-form-field class="flex-field">
           <mat-label>Zone</mat-label>
           <mat-select required formControlName="zone">
@@ -40,8 +39,12 @@
             <mat-option *ngFor="let host of hosts$ | async" [value]="host"
               >{{ host }}
             </mat-option>
+            <mat-option [value]="autoCreateHostToken">
+              Auto Create</mat-option
+            >
             <mat-option (click)="onClickCreateHost()"> Create New </mat-option>
           </mat-select>
+          <mat-hint>{{ hint$ | async }}</mat-hint>
         </mat-form-field>
       </div>
 
@@ -58,7 +61,7 @@
                 type="text"
                 matInput
                 formControlName="groupName"
-                placeholder="Simulated home"
+                placeholder="simulated_home"
               />
             </mat-form-field>
           </div>

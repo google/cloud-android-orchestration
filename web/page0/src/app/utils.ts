@@ -28,3 +28,5 @@ export function adjustArrayLength<T>(arr: T[], length: number, placeholder: T) {
 
   return arr;
 }
+
+export const AUTO_CREATE_HOST = 'auto_create_host';

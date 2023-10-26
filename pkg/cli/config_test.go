@@ -121,6 +121,89 @@ MachineType = "machine-type-bar"
 	}
 }
 
+func TestImportAcloudConfig(t *testing.T) {
+	tests := []struct {
+		content string
+	}{
+		{
+			content: `project: "foo" # project zero
+# Zone comment
+zone: "foo-central1-c" # zone: "invalid"
+# machine_type: "comment"
+machine_type: "foo-standard-4"
+network: "default"
+
+# Cuttlefish host image
+# stable_host_image_family: "acloud-release"
+stable_host_image_name: "cuttlefish-google-vsoc-0-9-27-160g"
+machine_type: "foo-standard-4"
+`,
+		},
+		{
+			content: `zone: "foo-central1-c" # zone: "invalid"
+machine_type: "foo-standard-4"
+`,
+		},
+		{
+			content: `#
+zone	:		"foo-central1-c"
+machine_type:"foo-standard-4"
+`,
+		},
+		{
+			content: `#
+	zone	:		"foo-central1-c"
+machine_type: "foo-standard-4"
+`,
+		},
+	}
+	expected := &Config{
+		Zone: "foo-central1-c",
+		Host: HostConfig{
+			GCP: GCPHostConfig{
+				MachineType: "foo-standard-4",
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		source := tempFile(t, tc.content)
+		dstDir := t.TempDir()
+		dst := path.Join(dstDir, "config")
+
+		err := ImportAcloudConfig(source, dst)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+		c := &Config{}
+		if err := LoadConfigFile(dst, c); err != nil {
+			t.Fatal(err)
+		}
+		if diff := cmp.Diff(expected, c); diff != "" {
+			t.Errorf("config mismatch (-want +got):\n%s", diff)
+		}
+	}
+
+}
+
+func TestImportAcloudConfigInvalidConfig(t *testing.T) {
+	const acloudConfig = `project: "foo" # project zero
+#zone: "foo-central1-c" # zone: "invalid"
+# machine_type: "comment"
+machine_type: "foo-standard-4"
+`
+	source := tempFile(t, acloudConfig)
+	dstDir := t.TempDir()
+	dst := path.Join(dstDir, "config")
+
+	err := ImportAcloudConfig(source, dst)
+
+	if err == nil {
+		t.Errorf("expected error")
+	}
+}
+
 // Returns true if the argument or any field at any nest level is zero-valued.
 // It also returns the name of the first zero-valued field it finds.
 func HasZeroes(o any) (bool, string) {

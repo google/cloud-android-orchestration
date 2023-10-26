@@ -18,8 +18,10 @@ import {
   HostLoadAction,
   EnvLoadAction,
   EnvCreateCompleteAction,
+  EnvAutoHostCreateStartAction,
+  EnvAutoHostCreateCompleteAction,
 } from './actions';
-import {AppState, initialState} from './state';
+import {AppState, INITIAL_STATE} from './state';
 
 type ActionType = string;
 type Reducer = (action: any) => (prevState: AppState) => AppState;
@@ -27,7 +29,7 @@ type Reducer = (action: any) => (prevState: AppState) => AppState;
 const identityReducer = (action: Action) => (prevState: AppState) => prevState;
 
 const reducers: {[key: ActionType]: Reducer} = {
-  init: (action: InitAction) => (prevState: AppState) => initialState,
+  init: (action: InitAction) => (prevState: AppState) => INITIAL_STATE,
   'refresh-start': (action: RefreshStartAction) => prevState => ({
     ...prevState,
     runtimesLoadStatus: RuntimeViewStatus.refreshing,
@@ -136,6 +138,36 @@ const reducers: {[key: ActionType]: Reducer} = {
         }, {}),
     };
   },
+
+  'env-auto-host-create-start':
+    (action: EnvAutoHostCreateStartAction) => prevState => {
+      return {
+        ...prevState,
+        waits: {...prevState.waits, [action.wait.waitUrl]: action.wait},
+      };
+    },
+
+  'env-auto-host-create-complete':
+    (action: EnvAutoHostCreateCompleteAction) => prevState => {
+      const newHost = action.host;
+
+      const alreadyHasNewHost = !!prevState.hosts.find(
+        host => host.url === newHost.url
+      );
+
+      return {
+        ...prevState,
+        hosts: alreadyHasNewHost
+          ? prevState.hosts
+          : [...prevState.hosts, newHost],
+        waits: Object.keys(prevState.waits)
+          .filter(key => key !== action.waitUrl)
+          .reduce((obj: {[key: string]: Wait}, key) => {
+            obj[key] = prevState.waits[key];
+            return obj;
+          }, {}),
+      };
+    },
 
   'host-create-start': (action: HostCreateStartAction) => prevState => {
     return {

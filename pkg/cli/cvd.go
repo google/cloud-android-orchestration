@@ -74,6 +74,8 @@ type CreateCVDOpts struct {
 	// Structure: https://android.googlesource.com/device/google/cuttlefish/+/8bbd3b9cd815f756f332791d45c4f492b663e493/host/commands/cvd/parser/README.md
 	// Example: https://cs.android.com/android/platform/superproject/main/+/main:device/google/cuttlefish/host/cvd_test_configs/main_phone-main_watch.json;drc=b2e8f4f014abb7f9cb56c0ae199334aacb04542d
 	EnvConfig map[string]interface{}
+	// If true, perform the ADB connection automatically.
+	AutoConnect bool
 }
 
 func (o *CreateCVDOpts) AdditionalInstancesNum() uint32 {
@@ -131,11 +133,11 @@ func (c *cvdCreator) createCVDFromLocalBuild() ([]*hoapi.CVD, error) {
 		return nil, fmt.Errorf("Invalid cvd host package: %w", err)
 	}
 	names = append(names, filepath.Join(vars.HostOut, CVDHostPackageName))
-	uploadDir, err := c.service.CreateUpload(c.opts.Host)
+	uploadDir, err := c.service.HostService(c.opts.Host).CreateUploadDir()
 	if err != nil {
 		return nil, err
 	}
-	if err := c.service.UploadFiles(c.opts.Host, uploadDir, names); err != nil {
+	if err := c.service.HostService(c.opts.Host).UploadFiles(uploadDir, names); err != nil {
 		return nil, err
 	}
 	req := hoapi.CreateCVDRequest{
@@ -148,7 +150,7 @@ func (c *cvdCreator) createCVDFromLocalBuild() ([]*hoapi.CVD, error) {
 		},
 		AdditionalInstancesNum: c.opts.AdditionalInstancesNum(),
 	}
-	res, err := c.service.CreateCVD(c.opts.Host, &req)
+	res, err := c.service.HostService(c.opts.Host).CreateCVD(&req)
 	if err != nil {
 		return nil, err
 	}
@@ -173,7 +175,7 @@ func (c *cvdCreator) createWithCanonicalConfig() ([]*hoapi.CVD, error) {
 		EnvConfig: c.opts.EnvConfig,
 	}
 	c.statePrinter.Print(stateMsgFetchAndStart)
-	res, err := c.service.CreateCVD(c.opts.Host, createReq)
+	res, err := c.service.HostService(c.opts.Host).CreateCVD(createReq)
 	c.statePrinter.PrintDone(stateMsgFetchAndStart, err)
 	if err != nil {
 		return nil, err
@@ -197,7 +199,7 @@ func (c *cvdCreator) createWithOpts() ([]*hoapi.CVD, error) {
 		AndroidCIBundle: &hoapi.AndroidCIBundle{Build: mainBuild, Type: hoapi.MainBundleType},
 	}
 	c.statePrinter.Print(stateMsgFetchMainBundle)
-	fetchMainBuildRes, err := c.service.FetchArtifacts(c.opts.Host, fetchReq)
+	fetchMainBuildRes, err := c.service.HostService(c.opts.Host).FetchArtifacts(fetchReq)
 	c.statePrinter.PrintDone(stateMsgFetchMainBundle, err)
 	if err != nil {
 		return nil, err
@@ -216,7 +218,7 @@ func (c *cvdCreator) createWithOpts() ([]*hoapi.CVD, error) {
 		AdditionalInstancesNum: c.opts.AdditionalInstancesNum(),
 	}
 	c.statePrinter.Print(stateMsgStartCVD)
-	res, err := c.service.CreateCVD(c.opts.Host, createReq)
+	res, err := c.service.HostService(c.opts.Host).CreateCVD(createReq)
 	c.statePrinter.PrintDone(stateMsgStartCVD, err)
 	if err != nil {
 		return nil, err
@@ -291,7 +293,7 @@ func flattenCVDs(hosts []*RemoteHost) []*RemoteCVD {
 
 // Calling listCVDConnectionsByHost is inefficient, this internal function avoids that for listAllCVDs.
 func listHostCVDsInner(service client.Service, host string, statuses map[RemoteCVDLocator]ConnStatus) ([]*RemoteCVD, error) {
-	cvds, err := service.ListCVDs(host)
+	cvds, err := service.HostService(host).ListCVDs()
 	if err != nil {
 		return nil, err
 	}

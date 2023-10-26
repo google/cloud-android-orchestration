@@ -1,6 +1,10 @@
 import {DeviceSetting} from './device-interface';
 
-export type Wait = HostCreateWait | HostDeleteWait | EnvCreateWait;
+export type Wait =
+  | HostCreateWait
+  | HostDeleteWait
+  | EnvCreateWait
+  | EnvAutoHostCreateWait;
 
 export interface HostCreateWait {
   waitUrl: string;
@@ -30,6 +34,17 @@ export interface EnvCreateWait {
   };
 }
 
+export interface EnvAutoHostCreateWait {
+  waitUrl: string;
+  metadata: {
+    type: 'env-auto-host-create';
+    zone: string;
+    groupName: string;
+    runtimeAlias: string;
+    devices: DeviceSetting[];
+  };
+}
+
 export function isHostCreateWait(wait: Wait): wait is HostCreateWait {
   return (wait as HostCreateWait).metadata.type === 'host-create';
 }
@@ -40,4 +55,12 @@ export function isHostDeleteWait(wait: Wait): wait is HostDeleteWait {
 
 export function isEnvCreateWait(wait: Wait): wait is EnvCreateWait {
   return (wait as EnvCreateWait).metadata.type === 'env-create';
+}
+
+export function isEnvAutoHostCreateWait(
+  wait: Wait
+): wait is EnvAutoHostCreateWait {
+  return (
+    (wait as EnvAutoHostCreateWait).metadata.type === 'env-auto-host-create'
+  );
 }

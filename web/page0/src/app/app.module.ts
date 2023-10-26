@@ -38,7 +38,7 @@ import {MatProgressBarModule} from '@angular/material/progress-bar';
 import {MatSnackBarModule} from '@angular/material/snack-bar';
 import {DeviceFormComponent} from './device-form/device-form.component';
 import {SafeUrlPipe} from './safe-url.pipe';
-import {httpInterceptorProviders} from '../http_interceptors';
+import {HTTP_INTERCEPTOR_PROVIDERS} from '../http_interceptors';
 
 @NgModule({
   declarations: [
@@ -86,7 +86,7 @@ import {httpInterceptorProviders} from '../http_interceptors';
     ]),
   ],
   providers: [
-    httpInterceptorProviders,
+    HTTP_INTERCEPTOR_PROVIDERS,
     {
       provide: MAT_FORM_FIELD_DEFAULT_OPTIONS,
       useValue: {appearance: 'outline'},

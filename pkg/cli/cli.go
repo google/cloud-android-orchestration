@@ -326,16 +326,18 @@ func PromptSelectionFromMap[K comparable, T any](c *command, choices map[K]T, to
 }
 
 func PromptYesOrNo(out *os.File, in *os.File, text string) (bool, error) {
-	fmt.Fprint(out, text+" (y/N): ")
-	var yN string
-	_, err := fmt.Fscanln(os.Stdin, &yN)
-	if err != nil {
-		return false, fmt.Errorf("failed to read (y/N) choice: %w", err)
+	fmt.Fprint(out, text+" (Y/n): ")
+	yn := "Y"
+	_, err := fmt.Fscanln(os.Stdin, &yn)
+	// Using the error text for comparison as there's no specific error type to compare against.
+	if err != nil && err.Error() != "unexpected newline" {
+		return false, fmt.Errorf("failed to read (Y/n) choice: %w", err)
 	}
-	if yN != "y" && yN != "N" {
-		return false, fmt.Errorf("entered invalid value: %q", yN)
+	ynLo := strings.ToLower(yn)
+	if ynLo != "y" && ynLo != "yes" && ynLo != "n" && ynLo != "no" {
+		return false, fmt.Errorf("entered invalid value: %q", yn)
 	}
-	return yN == "y", nil
+	return ynLo[0] == 'y', nil
 }
 
 func NewCVDRemoteCommand(o *CommandOptions) *CVDRemoteCommand {

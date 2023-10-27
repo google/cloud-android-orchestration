@@ -1,44 +1,44 @@
 // Should be aligned with api/v1/instancemanager.go
 
-export interface CreateHostRequest {
+export declare interface CreateHostRequest {
   host_instance: HostInstance;
 }
 
-export interface HostInstance {
+export declare interface HostInstance {
   name?: string;
   boot_disk_size_gb?: number;
   gcp?: GCPInstance;
 }
-export interface GCPInstance {
+export declare interface GCPInstance {
   machine_type: string;
   min_cpu_platform: string;
 }
 
-export interface Operation {
+export declare interface Operation {
   name: string;
   metadata?: any;
   done: boolean;
 }
 
-export interface OperationResult {
+export declare interface OperationResult {
   error?: object;
   response?: string;
 }
 
-export interface ListHostsResponse {
+export declare interface ListHostsResponse {
   items?: HostInstance[];
   nextPageToken?: string;
 }
 
-export interface RuntimeConfig {
+export declare interface RuntimeConfig {
   instance_manager_type: 'GCP' | 'local';
   // TODO: Add other information e.g. chipset, machine_type
 }
 
-export interface Zone {
+export declare interface Zone {
   name: string;
 }
 
-export interface ListZonesResponse {
+export declare interface ListZonesResponse {
   items?: Zone[];
 }

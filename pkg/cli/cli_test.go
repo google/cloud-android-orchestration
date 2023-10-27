@@ -146,6 +146,10 @@ func (fakeHostService) UploadFiles(uploadDir string, filenames []string) error {
 	return nil
 }
 
+func (fakeHostService) UploadFilesWithOptions(uploadDir string, filenames []string, options client.UploadOptions) error {
+	return nil
+}
+
 func (fakeHostService) DownloadRuntimeArtifacts(dst io.Writer) error {
 	return nil
 }

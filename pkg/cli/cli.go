@@ -1093,14 +1093,13 @@ func buildServiceBuilder(builder client.ServiceBuilder) serviceBuilder {
 			dumpOut = c.ErrOrStderr()
 		}
 		opts := &client.ServiceOptions{
-			RootEndpoint:           buildServiceRootEndpoint(flags.ServiceURL, flags.Zone),
-			ProxyURL:               proxyURL,
-			DumpOut:                dumpOut,
-			ErrOut:                 c.ErrOrStderr(),
-			RetryAttempts:          3,
-			RetryDelay:             5 * time.Second,
-			ChunkSizeBytes:         chunkSizeBytes,
-			ChunkUploadBackOffOpts: client.DefaultChunkUploadBackOffOpts(),
+			RootEndpoint:   buildServiceRootEndpoint(flags.ServiceURL, flags.Zone),
+			ProxyURL:       proxyURL,
+			DumpOut:        dumpOut,
+			ErrOut:         c.ErrOrStderr(),
+			RetryAttempts:  3,
+			RetryDelay:     5 * time.Second,
+			ChunkSizeBytes: chunkSizeBytes,
 		}
 		return builder(opts)
 	}

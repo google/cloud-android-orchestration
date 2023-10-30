@@ -7,23 +7,18 @@ import {RuntimeInfo, RuntimeType} from './runtime-interface';
 export function cvdToDevice(cvd: CVD): DeviceSetting {
   const {name, build_source} = cvd;
 
-  try {
-    const {android_ci_build_source} = build_source;
-    const {main_build} = android_ci_build_source;
-    const {branch, build_id, target} = main_build;
+  const android_ci_build_source = build_source.android_ci_build_source;
+  const main_build =
+    android_ci_build_source ? android_ci_build_source.main_build : null;
+  const branch = main_build ? main_build.branch : null;
+  const build_id = main_build ? main_build.build_id : null;
+  const target = main_build ? main_build.target : null;
 
-    return {
-      deviceId: name || 'unknown',
-      branch_or_buildId: build_id || branch || 'unknown',
-      target: target || 'unknown',
-    };
-  } catch {
-    return {
-      deviceId: name || 'unknown',
-      branch_or_buildId: 'unknown',
-      target: 'unknown',
-    };
-  }
+  return {
+    deviceId: name || 'unknown',
+    branch_or_buildId: build_id || branch || 'unknown',
+    target: target || 'unknown',
+  };
 };
 
 export function groupToEnv(

@@ -1,10 +1,10 @@
-interface AndroidCIBuild {
+export declare interface AndroidCIBuild {
   branch: string;
   build_id: string;
   target: string;
 }
 
-interface AndroidCIBuildSource {
+export declare interface AndroidCIBuildSource {
   main_build: AndroidCIBuild;
   // kernel_build?: AndroidCIBuild;
   // bootloader_build?: AndroidCIBuild;
@@ -12,7 +12,7 @@ interface AndroidCIBuildSource {
   // credentials?: string;
 }
 
-export interface CVD {
+export declare interface CVD {
   name: string;
   build_source: BuildSource;
   status: string;
@@ -20,20 +20,20 @@ export interface CVD {
   group_name?: string; // TODO: Not in current host orchestrator
 }
 
-export interface BuildSource {
+export declare interface BuildSource {
   android_ci_build_source: AndroidCIBuildSource;
   // TODO: user build
 }
 
-export interface ListCVDsResponse {
+export declare interface ListCVDsResponse {
   cvds: CVD[];
 }
 
-export interface Group {
+export declare interface Group {
   name: string;
   cvds: CVD[];
 }
 
-export interface CreateCVDRequest {
+export declare interface CreateCVDRequest {
   env_config: object;
 }

@@ -641,14 +641,15 @@ const (
 
 func runCreateCVDCommand(c *cobra.Command, args []string, flags *CreateCVDFlags, opts *subCommandOpts) error {
 	if len(args) > 0 {
-		// Load and parse the passed environment configuration.
-		data, err := os.ReadFile(args[0])
+		// Load and parse the passed environment specification.
+		filename := args[0]
+		data, err := os.ReadFile(filename)
 		if err != nil {
-			return fmt.Errorf("Invalid configuration file: %w", err)
+			return fmt.Errorf("Invalid environment specification file %q: %w", filename, err)
 		}
 		envConfig := make(map[string]interface{})
 		if err := json.Unmarshal(data, &envConfig); err != nil {
-			return fmt.Errorf("Invalid configuration file content: %w", err)
+			return fmt.Errorf("Invalid environment specification: %w", err)
 		}
 		flags.CreateCVDOpts.EnvConfig = envConfig
 	}

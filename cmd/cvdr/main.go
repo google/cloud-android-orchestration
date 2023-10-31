@@ -77,7 +77,7 @@ func importAcloudConfig(dst string) (bool, error) {
 	// Create a new user configuration file importing existing acloud configuration.
 	acPath := cli.ExpandPath("~/.config/acloud/acloud.config")
 	if _, err := os.Stat(acPath); err == nil {
-		const p = "No user configuration found, would you like to generate it by importing" +
+		const p = "No user configuration found, would you like to generate it by importing " +
 			"your acloud configuration?"
 		yes, err := cli.PromptYesOrNo(os.Stdout, os.Stdin, p)
 		if err != nil {

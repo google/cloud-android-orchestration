@@ -1,15 +1,8 @@
 import {HostInstance} from './interface/cloud-orchestrator.dto';
 
-export const DEFAULT_RUNTIME_SETTINGS = [
-  {
-    alias: 'default',
-    url: 'http://localhost:8071/api',
-  },
-];
-
 export const PLACEHOLDER_RUNTIME_SETTING = {
-  alias: 'example',
-  url: 'http://localhost:8071/api',
+  alias: 'cloud-android-orchestrator-dev',
+  url: 'https://cloud-android-orchestrator-dev.googleplex.com/',
 };
 
 export const DEFAULT_ENV_CONFIG: object = {

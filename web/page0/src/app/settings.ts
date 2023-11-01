@@ -1,15 +1,10 @@
 import {HostInstance} from './interface/cloud-orchestrator.dto';
 
-export const DEFAULT_RUNTIME_SETTINGS = [
-  {
-    alias: 'default',
-    url: 'http://localhost:8071/api',
-  },
-];
+export const DEFAULT_RUNTIME_SETTINGS = [];
 
 export const PLACEHOLDER_RUNTIME_SETTING = {
-  alias: 'example',
-  url: 'http://localhost:8071/api',
+  alias: 'example-runtime-setting',
+  url: 'https://example-runtime-setting.com/',
 };
 
 export const DEFAULT_ENV_CONFIG: object = {

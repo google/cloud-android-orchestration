@@ -57,14 +57,14 @@ export class RefreshService {
       this.prevSubscription.unsubscribe();
     }
 
+    this.store.dispatch({
+      type: ActionType.RefreshStart,
+    });
+
     const subscription = forkJoin(
       settings.map(({url, alias}) => this.refreshRuntime(url, alias))
     )
-      .pipe(tap(() => {
-        this.store.dispatch({
-          type: ActionType.RefreshStart,
-        });
-      }), defaultIfEmpty([]))
+      .pipe(defaultIfEmpty([]))
       .subscribe({
         complete: () => {
           this.store.dispatch({type: ActionType.RefreshComplete});

@@ -1,5 +1,5 @@
 import {Injectable} from '@angular/core';
-import {Observable, Subject} from 'rxjs';
+import {Observable, ReplaySubject} from 'rxjs';
 import {map, scan, shareReplay, startWith} from 'rxjs/operators';
 import {Action, InitAction} from './actions';
 import {match} from './reducers';
@@ -11,7 +11,7 @@ import {AppState, INITIAL_STATE} from './state';
 export class Store {
   constructor() {}
 
-  action$ = new Subject<Action>();
+  action$ = new ReplaySubject<Action>();
 
   // should be updated by all reducers
   private state$ = this.action$.pipe(

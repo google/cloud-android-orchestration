@@ -89,15 +89,15 @@ func createAndEncodeATestLogEventInternal(commandLine string) ([]byte, error) {
 	return proto.Marshal(logEvent)
 }
 
-type ClearcutServer int
+type ClearcutServerEnvironment int
 
 const (
-	Local ClearcutServer = iota + 1
+	Local ClearcutServerEnvironment = iota + 1
 	Staging
 	Prod
 )
 
-func clearcutServerURL(server ClearcutServer) string {
+func clearcutServerURL(server ClearcutServerEnvironment) string {
 	switch server {
 	case Local:
 		return "http://localhost:27910/log"
@@ -106,7 +106,7 @@ func clearcutServerURL(server ClearcutServer) string {
 	case Prod:
 		return "https://play.googleapis.com:443/log"
 	default:
-		log.Println("Invalid Clearcut server configuration")
+		panic("Invalid Clearcut server configuration")
 		return ""
 	}
 }
@@ -135,7 +135,6 @@ func postRequest(output []byte) error {
 }
 
 func SendLaunchCommand(commandLine string) error {
-	log.Printf("Command Line: %v", commandLine)
 	encoded, err := createAndEncodeATestLogEventInternal(commandLine)
 	if err != nil {
 		return err

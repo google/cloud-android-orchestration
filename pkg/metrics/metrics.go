@@ -22,7 +22,6 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"os"
 	"runtime"
 	"time"
 
@@ -43,12 +42,11 @@ var (
 )
 
 func currentTimeMillis() int64 {
-	return time.Now().UnixNano() / int64(time.Millisecond)
+	return time.Now().UnixMilli()
 }
 
 func encodeLogRequest(extension []byte) ([]byte, error) {
 	currentTimeMs := currentTimeMillis()
-	log.Printf("current time = %v", currentTimeMs)
 
 	clientInfo := &ClientInfo{
 		ClientType: proto.Int32(ClientTypeValue),
@@ -73,19 +71,10 @@ func encodeLogRequest(extension []byte) ([]byte, error) {
 func createAndEncodeATestLogEventInternal(commandLine string) ([]byte, error) {
 	userKey := uuid.New().String()
 	runID := uuid.New().String()
-	log.Printf("userKey = %v", userKey)
-	log.Printf("runID = %v", runID)
-
-	cwd, err := os.Getwd()
-	if err != nil {
-		return nil, err
-	}
-	log.Printf("cwd = %v", cwd)
 
 	atestStartEvent := &AtestLogEventInternal_AtestStartEvent{
 		CommandLine:    proto.String(commandLine),
 		TestReferences: TestReferences,
-		Cwd:            proto.String(cwd),
 		Os:             proto.String(runtime.GOOS),
 	}
 

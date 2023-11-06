@@ -20,6 +20,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 
 	"github.com/google/cloud-android-orchestration/pkg/cli"
 	"github.com/google/cloud-android-orchestration/pkg/client"
@@ -50,9 +51,14 @@ func loadInitialConfig() (*cli.Config, error) {
 				return nil, err
 			}
 			if !imported {
+				// Create empty user configuration file.
+				dir := filepath.Dir(path)
+				if err := os.MkdirAll(dir, 0750); err != nil {
+					return nil, fmt.Errorf("failed creating user config directory: %w", err)
+				}
 				f, err := os.Create(path)
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("failed creating user config file: %w", err)
 				}
 				f.Close()
 			}

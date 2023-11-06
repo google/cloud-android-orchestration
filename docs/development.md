@@ -50,7 +50,7 @@ instructions may become obsolete without notice.
 2. Build the host orchestrator binary:
     ```
     cd frontend/src/host_orchestrator
-    go build ./...
+    go build ./
     ```
 
 3. Run the host orchestrator:

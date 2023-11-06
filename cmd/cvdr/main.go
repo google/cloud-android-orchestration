@@ -52,9 +52,14 @@ func loadInitialConfig() (*cli.Config, error) {
 				return nil, err
 			}
 			if !imported {
+				// Create empty user configuration file.
+				dir := filepath.Dir(path)
+				if err := os.MkdirAll(dir, 0750); err != nil {
+					return nil, fmt.Errorf("failed creating user config directory: %w", err)
+				}
 				f, err := os.Create(path)
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("failed creating user config file: %w", err)
 				}
 				f.Close()
 			}
@@ -125,7 +130,7 @@ func main() {
 	}
 	commandLine := strings.Join(os.Args, " ")
 	if err := metrics.SendLaunchCommand(commandLine); err != nil {
-		fmt.Fprintln(os.Stderr,commandLine)
+		fmt.Fprintln(os.Stderr, commandLine)
 	}
 
 	opts := &cli.CommandOptions{

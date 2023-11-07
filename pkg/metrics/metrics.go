@@ -123,14 +123,13 @@ func postRequest(output []byte) error {
 	if resp.StatusCode != http.StatusOK {
 		body, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
+			log.Printf("HTTP error code: %d", resp.StatusCode)
+			log.Printf("HTTP response body: %s", string(body))
 			return err
 		}
-		log.Printf("HTTP error code: %d", resp.StatusCode)
-		log.Printf("HTTP response body: %s", string(body))
+
 		return errors.New("metrics message failed with status code " + resp.Status)
 	}
-
-	log.Println("Metrics posted to Clearcut")
 	return nil
 }
 

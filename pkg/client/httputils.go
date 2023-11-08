@@ -218,6 +218,9 @@ func (u *FilesUploader) Upload(files []string) error {
 		return err
 	}
 	ctx, cancel := context.WithCancel(context.Background())
+	// ensure cancel is called even in the case of an error
+	defer cancel()
+
 	jobsChan := make(chan uploadChunkJob)
 	resultsChan := u.startWorkers(ctx, jobsChan)
 	go func() {
@@ -232,11 +235,16 @@ func (u *FilesUploader) Upload(files []string) error {
 			if returnErr == nil {
 				returnErr = err
 				cancel()
-				// Do not return from here and let the cancellation logic to propagate, resultsChan
-				// will be closed eventually.
 			}
 		}
 	}
+
+	// Ensure all results are received to prevent goroutine leaks.
+	defer func() {
+		for range resultsChan {
+			// Drain the channel.
+		}
+	}()
 	return returnErr
 }
 

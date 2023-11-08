@@ -59,7 +59,7 @@ func NewGoogleOAuth2Helper(redirectURL string, sm secrets.SecretManager) *Helper
 
 func RevokeGoogleOAuth2Token(tk *oauth2.Token) error {
 	if tk == nil {
-		return fmt.Errorf("Nil Token")
+		return fmt.Errorf("nil Token")
 	}
 	_, err := http.DefaultClient.PostForm(
 		"https://oauth2.googleapis.com/revoke",

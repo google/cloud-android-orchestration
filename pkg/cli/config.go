@@ -63,7 +63,7 @@ func BaseConfig() *Config {
 func LoadConfigFile(path string, c *Config) error {
 	b, err := os.ReadFile(path)
 	if err != nil {
-		return fmt.Errorf("Error reading config file: %w", err)
+		return fmt.Errorf("error reading config file: %w", err)
 	}
 	decoder := toml.NewDecoder(bytes.NewReader(b))
 	// Fail if there is some unknown configuration. This is better than silently

@@ -65,7 +65,7 @@ func (c *NetHostClient) Get(path, query string, out *HostResponse) (int, error) 
 	url.RawQuery = query
 	res, err := c.client.Get(url.String())
 	if err != nil {
-		return -1, fmt.Errorf("Failed to connect to device host: %w", err)
+		return -1, fmt.Errorf("failed to connect to device host: %w", err)
 	}
 	defer res.Body.Close()
 	if out != nil {
@@ -77,14 +77,14 @@ func (c *NetHostClient) Get(path, query string, out *HostResponse) (int, error) 
 func (c *NetHostClient) Post(path, query string, bodyJSON any, out *HostResponse) (int, error) {
 	bodyStr, err := json.Marshal(bodyJSON)
 	if err != nil {
-		return -1, fmt.Errorf("Failed to parse JSON request: %w", err)
+		return -1, fmt.Errorf("failed to parse JSON request: %w", err)
 	}
 	url := *c.url // Shallow copy
 	url.Path = path
 	url.RawQuery = query
 	res, err := c.client.Post(url.String(), "application/json", bytes.NewBuffer(bodyStr))
 	if err != nil {
-		return -1, fmt.Errorf("Failed to connecto to device host: %w", err)
+		return -1, fmt.Errorf("failed to connecto to device host: %w", err)
 	}
 	defer res.Body.Close()
 	if out != nil {
@@ -111,7 +111,7 @@ func parseReply(res *http.Response, resObj any, resErr *apiv1.Error) error {
 		err = dec.Decode(resObj)
 	}
 	if err != nil {
-		return fmt.Errorf("Failed to parse device response: %w", err)
+		return fmt.Errorf("failed to parse device response: %w", err)
 	}
 	return nil
 }

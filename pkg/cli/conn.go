@@ -56,11 +56,11 @@ func ControlSocketName(_ RemoteCVDLocator, cs ConnStatus) string {
 
 func EnsureConnDirsExist(controlDir string) error {
 	if err := os.MkdirAll(controlDir, 0755); err != nil {
-		return fmt.Errorf("Failed to create directory %s: %w", controlDir, err)
+		return fmt.Errorf("failed to create directory %s: %w", controlDir, err)
 	}
 	logsDir := logsDir(controlDir)
 	if err := os.MkdirAll(logsDir, 0755); err != nil {
-		return fmt.Errorf("Failed to create logs directory: %w", err)
+		return fmt.Errorf("failed to create logs directory: %w", err)
 	}
 	return nil
 }
@@ -68,11 +68,11 @@ func EnsureConnDirsExist(controlDir string) error {
 func DisconnectCVD(controlDir string, cvd RemoteCVDLocator, status ConnStatus) error {
 	conn, err := net.Dial("unixpacket", fmt.Sprintf("%s/%s", controlDir, ControlSocketName(cvd, status)))
 	if err != nil {
-		return fmt.Errorf("Failed to connect to %s/%s's agent: %w", cvd.Host, cvd.WebRTCDeviceID, err)
+		return fmt.Errorf("failed to connect to %s/%s's agent: %w", cvd.Host, cvd.WebRTCDeviceID, err)
 	}
 	_, err = conn.Write([]byte(stopCmd))
 	if err != nil {
-		return fmt.Errorf("Failed to send stop command to %s/%s: %w", cvd.Host, cvd.WebRTCDeviceID, err)
+		return fmt.Errorf("failed to send stop command to %s/%s: %w", cvd.Host, cvd.WebRTCDeviceID, err)
 	}
 	return nil
 }
@@ -84,7 +84,7 @@ func listCVDConnections(controlDir string) (map[RemoteCVDLocator]ConnStatus, err
 	statuses := make(map[RemoteCVDLocator]ConnStatus)
 	entries, err := os.ReadDir(controlDir)
 	if err != nil {
-		return statuses, fmt.Errorf("Error reading %s: %w", controlDir, err)
+		return statuses, fmt.Errorf("error reading %s: %w", controlDir, err)
 	}
 	for _, file := range entries {
 		if file.Type()&fs.ModeSocket == 0 {
@@ -94,7 +94,7 @@ func listCVDConnections(controlDir string) (map[RemoteCVDLocator]ConnStatus, err
 		path := fmt.Sprintf("%s/%s", controlDir, file.Name())
 		conn, err := net.Dial("unixpacket", path)
 		if err != nil {
-			merr = multierror.Append(merr, fmt.Errorf("Unable to contact connection agent: %w", err))
+			merr = multierror.Append(merr, fmt.Errorf("unable to contact connection agent: %w", err))
 			continue
 		}
 		res, err := sendStatusCmd(conn)
@@ -140,7 +140,7 @@ func FindOrConnect(controlDir string, cvd RemoteCVDLocator, service client.Servi
 	controller, tErr := NewConnController(controlDir, service, cvd, localICEConfig)
 	if tErr != nil {
 		// This error is fatal, ingore any previous ones to avoid unnecessary noise.
-		return findOrConnRet{}, fmt.Errorf("Failed to create connection controller: %w", tErr)
+		return findOrConnRet{}, fmt.Errorf("failed to create connection controller: %w", tErr)
 	}
 
 	return findOrConnRet{controller.Status(), controller, err}, nil
@@ -163,7 +163,7 @@ func NewForwarder(logger *log.Logger) (*Forwarder, error) {
 	// Bind the local socket before attempting to connect over WebRTC
 	sock, err := bindTCPSocket()
 	if err != nil {
-		return nil, fmt.Errorf("Failed to bind to local: %w", err)
+		return nil, fmt.Errorf("failed to bind to local: %w", err)
 	}
 	port := sock.Addr().(*net.TCPAddr).Port
 
@@ -247,7 +247,7 @@ func (f *Forwarder) StopForwarding(state int) {
 
 func (f *Forwarder) Send(data []byte) error {
 	if f.conn == nil {
-		return fmt.Errorf("No connection yet on port %d", f.port)
+		return fmt.Errorf("no connection yet on port %d", f.port)
 	}
 	// Once f.conn is not nil it's safe to use. The worst that can happen is that
 	// we write to a closed connection which simply returns an error.
@@ -378,7 +378,7 @@ func NewConnController(
 	logger.Printf("Connecting to %s in host %s", cvd.Name, cvd.Host)
 	f, err := NewForwarder(logger)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to instantiate ADB forwarder for %q: %w", cvd.WebRTCDeviceID, err)
+		return nil, fmt.Errorf("failed to instantiate ADB forwarder for %q: %w", cvd.WebRTCDeviceID, err)
 	}
 
 	tc := &ConnController{
@@ -392,7 +392,7 @@ func NewConnController(
 	}
 	conn, err := service.HostService(cvd.Host).ConnectWebRTC(cvd.WebRTCDeviceID, tc, logger.Writer(), opts)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to connect to %q: %w", cvd.WebRTCDeviceID, err)
+		return nil, fmt.Errorf("failed to connect to %q: %w", cvd.WebRTCDeviceID, err)
 	}
 	tc.webrtcConn = conn
 	// TODO(jemoreira): close everything except the relevant data channels.
@@ -406,7 +406,7 @@ func NewConnController(
 	if err != nil {
 		f.StopForwarding(FwdFailed)
 		tc.webrtcConn.Close()
-		return nil, fmt.Errorf("Control socket creation failed for %q: %w", cvd.WebRTCDeviceID, err)
+		return nil, fmt.Errorf("control socket creation failed for %q: %w", cvd.WebRTCDeviceID, err)
 	}
 	tc.control = control
 
@@ -512,15 +512,15 @@ func sendStatusCmd(conn net.Conn) (StatusCmdRes, error) {
 	// messages are delivered in full or not at all.
 	_, err := conn.Write([]byte(statusCmd))
 	if err != nil {
-		return msg, fmt.Errorf("Failed to send status command: %w", err)
+		return msg, fmt.Errorf("failed to send status command: %w", err)
 	}
 	buff := make([]byte, 512)
 	n, err := conn.Read(buff)
 	if err != nil {
-		return msg, fmt.Errorf("Failed to read status command response: %w", err)
+		return msg, fmt.Errorf("failed to read status command response: %w", err)
 	}
 	if err := json.Unmarshal(buff[:n], &msg); err != nil {
-		return msg, fmt.Errorf("Failed to parse status command response: %w", err)
+		return msg, fmt.Errorf("failed to parse status command response: %w", err)
 	}
 	return msg, nil
 }
@@ -528,7 +528,7 @@ func sendStatusCmd(conn net.Conn) (StatusCmdRes, error) {
 func bindTCPSocket() (net.Listener, error) {
 	listener, err := net.Listen("tcp", "127.0.0.1:")
 	if err != nil {
-		return nil, fmt.Errorf("Error listening on local TCP port: %w", err)
+		return nil, fmt.Errorf("error listening on local TCP port: %w", err)
 	}
 	return listener, nil
 }
@@ -539,7 +539,7 @@ func createControlSocket(dir, name string) (*net.UnixListener, error) {
 	// Use of "unixpacket" network is required to have message boundaries.
 	control, err := net.ListenUnix("unixpacket", &net.UnixAddr{Name: path, Net: "unixpacket"})
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create control socket: %w", err)
+		return nil, fmt.Errorf("failed to create control socket: %w", err)
 	}
 
 	control.SetUnlinkOnClose(true)
@@ -557,7 +557,7 @@ func createLogger(controlDir string, dev RemoteCVDLocator) (*log.Logger, error) 
 	path := fmt.Sprintf("%s/%d_%s_%s.log", logsDir, time.Now().Unix(), dev.Host, dev.WebRTCDeviceID)
 	logsFile, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0660)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create log file: %w", err)
+		return nil, fmt.Errorf("failed to create log file: %w", err)
 	}
 	return log.New(logsFile, "", log.LstdFlags), nil
 }
@@ -570,7 +570,7 @@ func maybeCleanOldLogs(controlDir string, inactiveTime time.Duration) (int, erro
 	logsDir := logsDir(controlDir)
 	entries, err := os.ReadDir(logsDir)
 	if err != nil {
-		return 0, fmt.Errorf("Failed to read logs dir: %w", err)
+		return 0, fmt.Errorf("failed to read logs dir: %w", err)
 	}
 	var merr error
 	now := time.Now()

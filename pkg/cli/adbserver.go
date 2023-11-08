@@ -44,14 +44,14 @@ func (*ADBServerProxyImpl) sendMsg(msg string) error {
 	msg = fmt.Sprintf("%.4x%s", len(msg), msg)
 	conn, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", ADBServerPort))
 	if err != nil {
-		return fmt.Errorf("Unable to contact ADB server: %w", err)
+		return fmt.Errorf("unable to contact ADB server: %w", err)
 	}
 	defer conn.Close()
 	written := 0
 	for written < len(msg) {
 		n, err := conn.Write([]byte(msg[written:]))
 		if err != nil {
-			return fmt.Errorf("Error sending message to ADB server: %w", err)
+			return fmt.Errorf("error sending message to ADB server: %w", err)
 		}
 		written += n
 	}

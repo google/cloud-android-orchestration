@@ -38,7 +38,7 @@ MinCPUPlatform = "cpu_platform"
 	err := LoadConfigFile(fname, c)
 
 	if err != nil {
-		t.Errorf("Failed to parse config: %v", err)
+		t.Errorf("failed to parse config: %v", err)
 	}
 	// It's not necessary to check the value of each property because a successful
 	// parsing of the valid config above and a failed parsing of the config with
@@ -67,7 +67,7 @@ MinCPUPlatform = "cpu_platform"
 	// value to make it pass and ensure these tests apply to that field in the
 	// future.
 	if has, f := HasZeroes(*c); has {
-		t.Errorf("The Config's %s field was not parsed", f)
+		t.Errorf("the Config's %s field was not parsed", f)
 	}
 }
 
@@ -79,7 +79,7 @@ func TestLoadConfigFileInvalidConfig(t *testing.T) {
 	err := LoadConfigFile(fname, c)
 
 	if err == nil {
-		t.Errorf("Expected unknown config property to produce an error")
+		t.Errorf("expected unknown config property to produce an error")
 	}
 }
 

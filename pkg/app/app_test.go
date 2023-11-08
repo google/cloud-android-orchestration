@@ -292,11 +292,11 @@ func TestHostForwarderInvalidRequests(t *testing.T) {
 	for _, c := range cases {
 		u, err := url.Parse(c)
 		if err != nil {
-			t.Errorf("Failed to parse test url: %v", err)
+			t.Errorf("failed to parse test url: %v", err)
 		}
 		_, err = HostOrchestratorPath(u.Path, host)
 		if err == nil {
-			t.Errorf("Expected OrchestratorPath to fail")
+			t.Errorf("expected OrchestratorPath to fail")
 		}
 	}
 }
@@ -386,7 +386,7 @@ func TestHostForwarderDoesNotInjectCredentials(t *testing.T) {
 			t.Error(err)
 		}
 		if string(body) != string(msg) {
-			t.Errorf("Original message was modified by the controller: %q, expected: %q", string(body), string(msg))
+			t.Errorf("original message was modified by the controller: %q, expected: %q", string(body), string(msg))
 		}
 		w.Write([]byte("ok"))
 	}))

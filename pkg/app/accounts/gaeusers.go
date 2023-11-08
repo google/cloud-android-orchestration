@@ -49,14 +49,14 @@ func (g *GAEUsersAccountManager) OnOAuth2Exchange(w http.ResponseWriter, r *http
 	}
 	email, ok := idToken["email"]
 	if !ok {
-		return nil, fmt.Errorf("No email in id token")
+		return nil, fmt.Errorf("no email in id token")
 	}
 	tkEmail, ok := email.(string)
 	if !ok {
-		return nil, fmt.Errorf("Malformed email in id token")
+		return nil, fmt.Errorf("malformed email in id token")
 	}
 	if rEmail != tkEmail {
-		return nil, fmt.Errorf("Logged in user doesn't match oauth2 user")
+		return nil, fmt.Errorf("logged in user doesn't match oauth2 user")
 	}
 	return userFromEmail(rEmail), nil
 }

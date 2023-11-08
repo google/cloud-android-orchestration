@@ -281,10 +281,10 @@ func PromptSelectionFromSlice[T any](c *command, choices []T, toStr func(T) stri
 	chosen := -1
 	_, err := fmt.Fscanln(c.InOrStdin(), &chosen)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to read choice: %w", err)
+		return nil, fmt.Errorf("failed to read choice: %w", err)
 	}
 	if chosen < 0 || chosen > maxChoice {
-		return nil, fmt.Errorf("Choice out of range: %d", chosen)
+		return nil, fmt.Errorf("choice out of range: %d", chosen)
 	}
 	if chosen < len(choices) {
 		return []T{choices[chosen]}, nil
@@ -313,10 +313,10 @@ func PromptSelectionFromMap[K comparable, T any](c *command, choices map[K]T, to
 	chosen := -1
 	_, err := fmt.Fscanln(c.InOrStdin(), &chosen)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to read choice: %w", err)
+		return nil, fmt.Errorf("failed to read choice: %w", err)
 	}
 	if chosen < 0 || chosen > maxChoice {
-		return nil, fmt.Errorf("Choice out of range: %d", chosen)
+		return nil, fmt.Errorf("choice out of range: %d", chosen)
 	}
 	if chosen < len(choices) {
 		key := keys[chosen]
@@ -573,11 +573,11 @@ func connectionCommands(opts *subCommandOpts) []*cobra.Command {
 func runCreateHostCommand(c *cobra.Command, flags *CreateHostFlags, opts *subCommandOpts) error {
 	service, err := opts.ServiceBuilder(flags.CVDRemoteFlags, c)
 	if err != nil {
-		return fmt.Errorf("Failed to build service instance: %w", err)
+		return fmt.Errorf("failed to build service instance: %w", err)
 	}
 	ins, err := createHost(service, *flags.CreateHostOpts)
 	if err != nil {
-		return fmt.Errorf("Failed to create host: %w", err)
+		return fmt.Errorf("failed to create host: %w", err)
 	}
 	c.Printf("%s\n", ins.Name)
 	return nil
@@ -590,7 +590,7 @@ func runListHostCommand(c *cobra.Command, flags *CVDRemoteFlags, opts *subComman
 	}
 	hosts, err := apiClient.ListHosts()
 	if err != nil {
-		return fmt.Errorf("Error listing hosts: %w", err)
+		return fmt.Errorf("error listing hosts: %w", err)
 	}
 	for _, ins := range hosts.Items {
 		c.Printf("%s\n", ins.Name)
@@ -623,12 +623,12 @@ func disconnectDevicesByHost(host string, opts *subCommandOpts) error {
 	controlDir := opts.InitialConfig.ConnectionControlDirExpanded()
 	statuses, err := listCVDConnectionsByHost(controlDir, host)
 	if err != nil {
-		return fmt.Errorf("Failed to list connections: %w", err)
+		return fmt.Errorf("failed to list connections: %w", err)
 	}
 	var merr error
 	for cvd, status := range statuses {
 		if err := DisconnectCVD(controlDir, cvd, status); err != nil {
-			merr = multierror.Append(merr, fmt.Errorf("Failed to disconnect from %s: %w", cvd.WebRTCDeviceID, err))
+			merr = multierror.Append(merr, fmt.Errorf("failed to disconnect from %s: %w", cvd.WebRTCDeviceID, err))
 		}
 	}
 	return merr
@@ -645,28 +645,28 @@ func runCreateCVDCommand(c *cobra.Command, args []string, flags *CreateCVDFlags,
 		filename := args[0]
 		data, err := os.ReadFile(filename)
 		if err != nil {
-			return fmt.Errorf("Invalid environment specification file %q: %w", filename, err)
+			return fmt.Errorf("invalid environment specification file %q: %w", filename, err)
 		}
 		envConfig := make(map[string]interface{})
 		if err := json.Unmarshal(data, &envConfig); err != nil {
-			return fmt.Errorf("Invalid environment specification: %w", err)
+			return fmt.Errorf("invalid environment specification: %w", err)
 		}
 		flags.CreateCVDOpts.EnvConfig = envConfig
 	}
 	if flags.NumInstances <= 0 {
-		return fmt.Errorf("Invalid --num_instances flag value: %d", flags.NumInstances)
+		return fmt.Errorf("invalid --num_instances flag value: %d", flags.NumInstances)
 	}
 	statePrinter := newStatePrinter(c.ErrOrStderr(), flags.Verbose)
 	service, err := opts.ServiceBuilder(flags.CVDRemoteFlags, c)
 	if err != nil {
-		return fmt.Errorf("Failed to build service instance: %w", err)
+		return fmt.Errorf("failed to build service instance: %w", err)
 	}
 	if flags.CreateCVDOpts.Host == "" {
 		statePrinter.Print(createHostStateMsg)
 		ins, err := createHost(service, *flags.CreateHostOpts)
 		statePrinter.PrintDone(createHostStateMsg, err)
 		if err != nil {
-			return fmt.Errorf("Failed to create host: %w", err)
+			return fmt.Errorf("failed to create host: %w", err)
 		}
 		flags.CreateCVDOpts.Host = ins.Name
 	}
@@ -685,7 +685,7 @@ func runCreateCVDCommand(c *cobra.Command, args []string, flags *CreateCVDFlags,
 			cvd.ConnStatus, err = ConnectDevice(flags.CreateCVDOpts.Host, cvd.WebRTCDeviceID, "", &command{c, &flags.Verbose}, opts)
 			statePrinter.PrintDone(fmt.Sprintf(connectCVDStateMsgFmt, cvd.WebRTCDeviceID), err)
 			if err != nil {
-				merr = multierror.Append(merr, fmt.Errorf("Failed to connect to device: %w", err))
+				merr = multierror.Append(merr, fmt.Errorf("failed to connect to device: %w", err))
 			}
 		}
 	}
@@ -735,7 +735,7 @@ func runPullCommand(c *cobra.Command, args []string, flags *CVDRemoteFlags, opts
 	case 1:
 		host = args[0]
 	default /* len(args) > 1 */ :
-		return errors.New("Invalid number of args")
+		return errors.New("invalid number of args")
 	}
 	f, err := os.CreateTemp("", "cvdrPull")
 	if err != nil {
@@ -767,7 +767,7 @@ func promptSingleHostNameSelection(c *command, service client.Service) (string, 
 func promptHostNameSelection(c *command, service client.Service, selOpt SelectionOption) ([]string, error) {
 	names, err := hostnames(service)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to list hosts: %w", err)
+		return nil, fmt.Errorf("failed to list hosts: %w", err)
 	}
 	if len(names) == 0 {
 		return []string{}, nil
@@ -798,7 +798,7 @@ func ConnectDevice(host, device, ice_config string, c *command, opts *subCommand
 
 	output, err := opts.CommandRunner.StartBgCommand(cmdArgs...)
 	if err != nil {
-		return nil, fmt.Errorf("Unable to start connection agent: %w", err)
+		return nil, fmt.Errorf("unable to start connection agent: %w", err)
 	}
 
 	if len(output) == 0 {
@@ -806,12 +806,12 @@ func ConnectDevice(host, device, ice_config string, c *command, opts *subCommand
 		// No need to print error: the agent took care of that.
 		// This is not equivalent to reading more than zero bytes from stderr since the agent
 		// could write messages and warnings there without failing.
-		return nil, fmt.Errorf("No response from agent")
+		return nil, fmt.Errorf("no response from agent")
 	}
 
 	var status ConnStatus
 	if err := json.Unmarshal(output, &status); err != nil {
-		return nil, fmt.Errorf("Failed to decode agent output(%s): %w", string(output), err)
+		return nil, fmt.Errorf("failed to decode agent output(%s): %w", string(output), err)
 	}
 
 	return &status, nil
@@ -822,7 +822,7 @@ func runConnectCommand(flags *ConnectFlags, c *command, args []string, opts *sub
 		return err
 	}
 	if len(args) > 0 && flags.host == "" {
-		return fmt.Errorf("Missing host for devices: %v", args)
+		return fmt.Errorf("missing host for devices: %v", args)
 	}
 	service, err := opts.ServiceBuilder(flags.CVDRemoteFlags, c.Command)
 	if err != nil {
@@ -883,7 +883,7 @@ func runConnectCommand(flags *ConnectFlags, c *command, args []string, opts *sub
 			defer close(errCh)
 			status, err := ConnectDevice(cvd.Host, cvd.WebRTCDeviceID, flags.ice_config, c, opts)
 			if err != nil {
-				errCh <- fmt.Errorf("Failed to connect to %q on %q: %w", cvd.WebRTCDeviceID, cvd.Host, err)
+				errCh <- fmt.Errorf("failed to connect to %q on %q: %w", cvd.WebRTCDeviceID, cvd.Host, err)
 			} else {
 				connCh <- *status
 			}
@@ -907,7 +907,7 @@ func verifyICEConfigFlag(v string) (*wclient.ICEConfig, error) {
 	}
 	c, err := loadICEConfigFromFile(v)
 	if err != nil {
-		return nil, fmt.Errorf("Invalid --%s flag value: %w", iceConfigFlag, err)
+		return nil, fmt.Errorf("invalid --%s flag value: %w", iceConfigFlag, err)
 	}
 	return c, nil
 }
@@ -942,10 +942,10 @@ func runConnectionAgentCommand(flags *ConnectFlags, c *command, args []string, o
 		return err
 	}
 	if len(args) > 1 {
-		return fmt.Errorf("Connection agent only supports a single device, received: %v", args)
+		return fmt.Errorf("connection agent only supports a single device, received: %v", args)
 	}
 	if len(args) == 0 {
-		return fmt.Errorf("Missing device")
+		return fmt.Errorf("missing device")
 	}
 	device := args[0]
 	service, err := opts.ServiceBuilder(flags.CVDRemoteFlags, c.Command)
@@ -1013,7 +1013,7 @@ func runConnectionAgentCommand(flags *ConnectFlags, c *command, args []string, o
 
 func runDisconnectCommand(flags *ConnectFlags, c *command, args []string, opts *subCommandOpts) error {
 	if len(args) > 0 && flags.host == "" {
-		return fmt.Errorf("Missing host for devices: %v", args)
+		return fmt.Errorf("missing host for devices: %v", args)
 	}
 	controlDir := opts.InitialConfig.ConnectionControlDirExpanded()
 	var statuses map[RemoteCVDLocator]ConnStatus
@@ -1024,7 +1024,7 @@ func runDisconnectCommand(flags *ConnectFlags, c *command, args []string, opts *
 		statuses, merr = listCVDConnections(controlDir)
 	}
 	if len(statuses) == 0 {
-		return fmt.Errorf("No connections found")
+		return fmt.Errorf("no connections found")
 	}
 	// Restrict the list of connections to those specified as arguments
 	if len(args) > 0 {
@@ -1040,7 +1040,7 @@ func runDisconnectCommand(flags *ConnectFlags, c *command, args []string, opts *
 			return false
 		})
 		for device := range devices {
-			merr = multierror.Append(merr, fmt.Errorf("Connection not found for %q\n", device))
+			merr = multierror.Append(merr, fmt.Errorf("connection not found for %q", device))
 		}
 	}
 	if len(statuses) > 1 && !flags.skipConfirmation {
@@ -1114,7 +1114,7 @@ func buildServiceBuilder(builder client.ServiceBuilder) serviceBuilder {
 }
 
 func notImplementedCommand(c *cobra.Command, _ []string) error {
-	return fmt.Errorf("Command not implemented")
+	return fmt.Errorf("command not implemented")
 }
 
 func buildServiceRootEndpoint(serviceURL, zone string) string {

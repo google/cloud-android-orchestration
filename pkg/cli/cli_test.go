@@ -250,15 +250,15 @@ func TestBuildAgentCmdline(t *testing.T) {
 	subCmd, args, err := cmd.command.Traverse(args)
 	// This at least ensures no required flags were left blank.
 	if err != nil {
-		t.Errorf("Failed to parse args: %v", err)
+		t.Errorf("failed to parse args: %v", err)
 	}
 	// Just a sanity check that all flags were parsed and only the device was
 	// left as possitional argument.
 	if reflect.DeepEqual(args, []string{device}) {
-		t.Errorf("Expected resulting args to just have [%q], but found %v", device, args)
+		t.Errorf("expected resulting args to just have [%q], but found %v", device, args)
 	}
 	if subCmd.Name() != ConnectionAgentCommandName {
-		t.Errorf("Expected it to parse %q command, found: %q", ConnectionAgentCommandName, subCmd.Name())
+		t.Errorf("expected it to parse %q command, found: %q", ConnectionAgentCommandName, subCmd.Name())
 	}
 	// TODO(jemoreira): Compare the parsed flags with used flags
 }

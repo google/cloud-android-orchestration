@@ -89,7 +89,7 @@ func createCVD(service client.Service, createOpts CreateCVDOpts, statePrinter *s
 	creator := newCVDCreator(service, createOpts, statePrinter)
 	cvds, err := creator.Create()
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create cvd: %w", err)
+		return nil, fmt.Errorf("failed to create cvd: %w", err)
 	}
 	result := []*RemoteCVD{}
 	for _, cvd := range cvds {
@@ -123,14 +123,14 @@ func (c *cvdCreator) Create() ([]*hoapi.CVD, error) {
 func (c *cvdCreator) createCVDFromLocalBuild() ([]*hoapi.CVD, error) {
 	vars, err := GetAndroidEnvVarValues()
 	if err != nil {
-		return nil, fmt.Errorf("Error retrieving Android Build environment variables: %w", err)
+		return nil, fmt.Errorf("error retrieving Android Build environment variables: %w", err)
 	}
 	names, err := ListLocalImageRequiredFiles(vars)
 	if err != nil {
-		return nil, fmt.Errorf("Error building list of required image files: %w", err)
+		return nil, fmt.Errorf("error building list of required image files: %w", err)
 	}
 	if err := verifyCVDHostPackageTar(vars.HostOut); err != nil {
-		return nil, fmt.Errorf("Invalid cvd host package: %w", err)
+		return nil, fmt.Errorf("invalid cvd host package: %w", err)
 	}
 	names = append(names, filepath.Join(vars.HostOut, CVDHostPackageName))
 	uploadDir, err := c.service.HostService(c.opts.Host).CreateUploadDir()
@@ -234,7 +234,7 @@ type cvdListResult struct {
 func listCVDs(service client.Service, controlDir string) ([]*RemoteHost, error) {
 	hl, err := service.ListHosts()
 	if err != nil {
-		return nil, fmt.Errorf("Error listing hosts: %w", err)
+		return nil, fmt.Errorf("error listing hosts: %w", err)
 	}
 	var hosts []string
 	for _, host := range hl.Items {
@@ -350,12 +350,12 @@ func ListLocalImageRequiredFiles(vars AndroidEnvVars) ([]string, error) {
 	reqImgsFilename := vars.BuildTop + "/" + RequiredImagesFilename
 	f, err := os.Open(reqImgsFilename)
 	if err != nil {
-		return nil, fmt.Errorf("Error opening the required images list file: %w", err)
+		return nil, fmt.Errorf("error opening the required images list file: %w", err)
 	}
 	defer f.Close()
 	content, err := os.ReadFile(reqImgsFilename)
 	if err != nil {
-		return nil, fmt.Errorf("Error reading the required images list file: %w", err)
+		return nil, fmt.Errorf("error reading the required images list file: %w", err)
 	}
 	contentStr := strings.TrimRight(string(content), "\n")
 	lines := strings.Split(contentStr, "\n")
@@ -369,14 +369,14 @@ func ListLocalImageRequiredFiles(vars AndroidEnvVars) ([]string, error) {
 func verifyCVDHostPackageTar(dir string) error {
 	tarInfo, err := os.Stat(filepath.Join(dir, CVDHostPackageName))
 	if errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("%q not found. Please run `m hosttar`.", CVDHostPackageName)
+		return fmt.Errorf("%q not found. Please run `m hosttar`", CVDHostPackageName)
 	}
 	dirInfo, err := os.Stat(filepath.Join(dir, CVDHostPackageDirName))
 	if err != nil {
-		return fmt.Errorf("Failed getting cvd host package directory info: %w", err)
+		return fmt.Errorf("failed getting cvd host package directory info: %w", err)
 	}
 	if tarInfo.ModTime().Before(dirInfo.ModTime()) {
-		return fmt.Errorf("%q out of date. Please run `m hosttar`.", CVDHostPackageName)
+		return fmt.Errorf("%q out of date. Please run `m hosttar`", CVDHostPackageName)
 	}
 	return nil
 }

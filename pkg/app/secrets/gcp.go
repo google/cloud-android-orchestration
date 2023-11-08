@@ -42,19 +42,19 @@ func NewGCPSecretManager(config *GCPSMConfig) (*GCPSecretManager, error) {
 	ctx := context.TODO()
 	client, err := secretmanager.NewClient(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create secret manager client: %w", err)
+		return nil, fmt.Errorf("failed to create secret manager client: %w", err)
 	}
 	defer client.Close()
 
 	accessRequest := &secretmanagerpb.AccessSecretVersionRequest{Name: config.OAuth2ClientResourceID}
 	result, err := client.AccessSecretVersion(ctx, accessRequest)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to access secret: %w", err)
+		return nil, fmt.Errorf("failed to access secret: %w", err)
 	}
 	sm := &GCPSecretManager{}
 	err = json.Unmarshal(result.Payload.Data, &sm.secrets)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to decode secrets: %w", err)
+		return nil, fmt.Errorf("failed to decode secrets: %w", err)
 	}
 	return sm, nil
 }

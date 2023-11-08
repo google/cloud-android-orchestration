@@ -265,15 +265,15 @@ func (c *App) OAuth2Callback(w http.ResponseWriter, r *http.Request) error {
 	}
 	tk, err := c.oauth2Helper.Exchange(oauth2.NoContext, authCode)
 	if err != nil {
-		return fmt.Errorf("Error exchanging token: %w", err)
+		return fmt.Errorf("error exchanging token: %w", err)
 	}
 	idToken, err := extractIDToken(tk)
 	if err != nil {
-		return fmt.Errorf("Error extracting id token: %w", err)
+		return fmt.Errorf("error extracting id token: %w", err)
 	}
 	tokenClaims, ok := idToken.Claims.(jwt.MapClaims)
 	if !ok {
-		return fmt.Errorf("Id token in unexpected format")
+		return fmt.Errorf("id token in unexpected format")
 	}
 	user, err := c.accountManager.OnOAuth2Exchange(w, r, appOAuth2.IDTokenClaims(tokenClaims))
 	if err != nil {
@@ -294,19 +294,19 @@ func (c *App) parseAuthorizationResponse(r *http.Request) (string, error) {
 
 	// Discard an authorization error first.
 	if errMsg, ok := query["error"]; ok {
-		return "", fmt.Errorf("Authentication error: %v", errMsg)
+		return "", fmt.Errorf("authentication error: %v", errMsg)
 	}
 
 	// Validate oauth2 state.
 	stateSlice, ok := query["state"]
 	if !ok {
-		return "", fmt.Errorf("No OAuth2 State present")
+		return "", fmt.Errorf("no OAuth2 State present")
 	}
 	state := stateSlice[0]
 
 	session, err := c.fetchSession(r)
 	if err != nil {
-		return "", fmt.Errorf("Error fetching session from db: %w", err)
+		return "", fmt.Errorf("error fetching session from db: %w", err)
 	}
 
 	if state != session.OAuth2State {
@@ -320,7 +320,7 @@ func (c *App) parseAuthorizationResponse(r *http.Request) (string, error) {
 	// Extract the authorization code.
 	code, ok := query["code"]
 	if !ok {
-		return "", fmt.Errorf("Authorization response does not include an authorization code")
+		return "", fmt.Errorf("authorization response does not include an authorization code")
 	}
 	return code[0], nil
 }
@@ -416,7 +416,7 @@ func (a *App) setOrUpdateSession(w http.ResponseWriter, s *session.Session) erro
 func (a *App) fetchSession(r *http.Request) (*session.Session, error) {
 	sessionCookie, err := r.Cookie(sessionIdCookie)
 	if err != nil {
-		return nil, fmt.Errorf("Error reading cookie from request: %w", err)
+		return nil, fmt.Errorf("error reading cookie from request: %w", err)
 	}
 	sessionKey := sessionCookie.Value
 	s, err := a.databaseService.FetchSession(sessionKey)
@@ -429,14 +429,14 @@ func (a *App) fetchSession(r *http.Request) (*session.Session, error) {
 func (c *App) storeUserCredentials(user accounts.User, tk *oauth2.Token) error {
 	creds, err := json.Marshal(tk)
 	if err != nil {
-		return fmt.Errorf("Failed to serialize credentials: %w", err)
+		return fmt.Errorf("failed to serialize credentials: %w", err)
 	}
 	encryptedCreds, err := c.encryptionService.Encrypt(creds)
 	if err != nil {
-		return fmt.Errorf("Failed to encrypt credentials: %w", err)
+		return fmt.Errorf("failed to encrypt credentials: %w", err)
 	}
 	if err := c.databaseService.StoreBuildAPICredentials(user.Username(), encryptedCreds); err != nil {
-		return fmt.Errorf("Failed to store credentials: %w", err)
+		return fmt.Errorf("failed to store credentials: %w", err)
 	}
 	return nil
 }
@@ -444,7 +444,7 @@ func (c *App) storeUserCredentials(user accounts.User, tk *oauth2.Token) error {
 func (c *App) fetchUserCredentials(user accounts.User) (*oauth2.Token, error) {
 	encryptedCreds, err := c.databaseService.FetchBuildAPICredentials(user.Username())
 	if err != nil {
-		return nil, fmt.Errorf("Error getting user credentials: %w", err)
+		return nil, fmt.Errorf("error getting user credentials: %w", err)
 	}
 	if encryptedCreds == nil {
 		return nil, nil
@@ -464,14 +464,14 @@ func (c *App) fetchUserCredentials(user accounts.User) (*oauth2.Token, error) {
 		if err := c.databaseService.DeleteBuildAPICredentials(user.Username()); err != nil {
 			log.Println("Error deleting user credentials: ", err)
 		}
-		return nil, fmt.Errorf("Error deserializing token: %w", err)
+		return nil, fmt.Errorf("error deserializing token: %w", err)
 	}
 	if !tk.Valid() {
 		// Refresh the token and store it in the db.
 		tks := c.oauth2Helper.TokenSource(context.TODO(), tk)
 		tk, err = tks.Token()
 		if err != nil {
-			return nil, fmt.Errorf("Error refreshing token: %w", err)
+			return nil, fmt.Errorf("error refreshing token: %w", err)
 		}
 		if err := c.storeUserCredentials(user, tk); err != nil {
 			// This won't stop the current operation, but will force a refresh in future requests.
@@ -529,7 +529,7 @@ func (a *App) findInterceptFile(hostPath string) (string, bool) {
 func HostOrchestratorPath(path, host string) (string, error) {
 	split := strings.SplitN(path, "hosts/"+host, 2)
 	if len(split) != 2 {
-		return "", fmt.Errorf("URL path doesn't have host component: %s", path)
+		return "", fmt.Errorf("url path doesn't have host component: %s", path)
 	}
 	return split[1], nil
 }
@@ -578,11 +578,11 @@ func indexHandler(w http.ResponseWriter, r *http.Request, user accounts.User) er
 func extractIDToken(tk *oauth2.Token) (*jwt.Token, error) {
 	val := tk.Extra("id_token")
 	if val == nil {
-		return nil, fmt.Errorf("No id token in oauth2 server response")
+		return nil, fmt.Errorf("no id token in oauth2 server response")
 	}
 	tokenString, ok := val.(string)
 	if !ok {
-		return nil, fmt.Errorf("Unexpected id token in oauth2 response")
+		return nil, fmt.Errorf("unexpected id token in oauth2 response")
 	}
 	// No need to verify the JWT here since it came directly from the oauth2 provider.
 	noVerify := func(tk *jwt.Token) (interface{}, error) { return nil, nil }
@@ -606,7 +606,7 @@ func intFormValue(r *http.Request, name string, def int) (int, error) {
 	}
 	i, e := strconv.Atoi(str)
 	if e != nil {
-		return 0, fmt.Errorf("Invalid %s value: %s", name, str)
+		return 0, fmt.Errorf("invalid %s value: %s", name, str)
 	}
 	return i, nil
 }

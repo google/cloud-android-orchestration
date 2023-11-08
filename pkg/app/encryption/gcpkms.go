@@ -40,7 +40,7 @@ func (s *GCPKMSEncryptionService) Encrypt(plaintext []byte) ([]byte, error) {
 	ctx := context.TODO()
 	client, err := kms.NewKeyManagementClient(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to instantiate KMS client: %w", err)
+		return nil, fmt.Errorf("failed to instantiate KMS client: %w", err)
 	}
 	defer client.Close()
 	req := &kmspb.EncryptRequest{
@@ -49,7 +49,7 @@ func (s *GCPKMSEncryptionService) Encrypt(plaintext []byte) ([]byte, error) {
 	}
 	result, err := client.Encrypt(ctx, req)
 	if err != nil {
-		return nil, fmt.Errorf("Failed encryption request: %w", err)
+		return nil, fmt.Errorf("failed encryption request: %w", err)
 	}
 	return result.Ciphertext, nil
 }
@@ -58,7 +58,7 @@ func (s *GCPKMSEncryptionService) Decrypt(ciphertext []byte) ([]byte, error) {
 	ctx := context.TODO()
 	client, err := kms.NewKeyManagementClient(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to instantiate KMS client: %w", err)
+		return nil, fmt.Errorf("failed to instantiate KMS client: %w", err)
 	}
 	defer client.Close()
 	req := &kmspb.DecryptRequest{
@@ -67,7 +67,7 @@ func (s *GCPKMSEncryptionService) Decrypt(ciphertext []byte) ([]byte, error) {
 	}
 	result, err := client.Decrypt(ctx, req)
 	if err != nil {
-		return nil, fmt.Errorf("Failed encryption request: %w", err)
+		return nil, fmt.Errorf("failed encryption request: %w", err)
 	}
 	return result.Plaintext, nil
 }

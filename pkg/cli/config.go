@@ -17,7 +17,6 @@ package cli
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -81,20 +80,6 @@ func ExpandPath(path string) string {
 		panic(fmt.Sprintf("Unable to expand path %q: %v", path, err))
 	}
 	return strings.ReplaceAll(path, "~", home)
-}
-
-// Build a final configuration instance from different sources. Each config parameter will take
-// the value from the last source where it's set.
-func buildConfig(sources []io.Reader) (*Config, error) {
-	c := BaseConfig()
-	for _, s := range sources {
-		decoder := toml.NewDecoder(s)
-		decoder.Strict(true)
-		if err := decoder.Decode(c); err != nil {
-			return nil, err
-		}
-	}
-	return c, nil
 }
 
 type AcloudConfig struct {

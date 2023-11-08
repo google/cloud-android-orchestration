@@ -103,7 +103,7 @@ func importAcloudConfig(dst string) (bool, error) {
 
 type cmdRunner struct{}
 
-func (_ *cmdRunner) StartBgCommand(args ...string) ([]byte, error) {
+func (*cmdRunner) StartBgCommand(args ...string) ([]byte, error) {
 	cmd := exec.Command(os.Args[0], args...)
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin

@@ -66,7 +66,7 @@ func LoadConfigFile(path string, c *Config) error {
 	}
 	decoder := toml.NewDecoder(bytes.NewReader(b))
 	// Fail if there is some unknown configuration. This is better than silently
-	// ignoring a (perhaps mispelled) config entry.
+	// ignoring a (perhaps misspelled) config entry.
 	decoder.Strict(true)
 	return decoder.Decode(c)
 }

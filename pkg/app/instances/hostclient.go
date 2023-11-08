@@ -45,7 +45,7 @@ func NewNetHostClient(url *url.URL, allowSelfSigned bool) *NetHostClient {
 		defaultTransport := http.DefaultTransport.(*http.Transport)
 		transport := &http.Transport{
 			Proxy: defaultTransport.Proxy,
-			// Reusing the same dial context allows reusing connections accross transport objects.
+			// Reusing the same dial context allows reusing connections across transport objects.
 			DialContext:           defaultTransport.DialContext,
 			ForceAttemptHTTP2:     defaultTransport.ForceAttemptHTTP2,
 			MaxIdleConns:          defaultTransport.MaxIdleConns,

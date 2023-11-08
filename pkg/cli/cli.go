@@ -876,8 +876,8 @@ func runConnectCommand(flags *ConnectFlags, c *command, args []string, opts *sub
 		// until the message is received by the other side. This ensures the select
 		// operation on the receiving side will not unblock accidentally with the
 		// closing of the other channel.
-		connChs[i] = make(chan ConnStatus, 0)
-		errChs[i] = make(chan error, 0)
+		connChs[i] = make(chan ConnStatus)
+		errChs[i] = make(chan error)
 		go func(connCh chan ConnStatus, errCh chan error, cvd RemoteCVDLocator) {
 			defer close(connCh)
 			defer close(errCh)
@@ -1080,7 +1080,7 @@ func filterSlice[T any](s []T, pred func(T) bool) []T {
 }
 
 func filterMap[K comparable, T any](m map[K]T, pred func(K, T) bool) map[K]T {
-	var r map[K]T
+	r := make(map[K]T)
 	for k, t := range m {
 		if pred(k, t) {
 			r[k] = t
@@ -1111,10 +1111,6 @@ func buildServiceBuilder(builder client.ServiceBuilder) serviceBuilder {
 		}
 		return builder(opts)
 	}
-}
-
-func notImplementedCommand(c *cobra.Command, _ []string) error {
-	return fmt.Errorf("command not implemented")
 }
 
 func buildServiceRootEndpoint(serviceURL, zone string) string {

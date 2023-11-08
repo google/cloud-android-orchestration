@@ -491,7 +491,7 @@ func (tc *ConnController) handleControlCommand(conn net.Conn) {
 		}
 		msg, err := json.Marshal(reply)
 		if err != nil {
-			tc.logger.Println(fmt.Sprintf("Couldn't marshal status map: %v", err))
+			tc.logger.Printf("Couldn't marshal status map: %v", err)
 			return
 		}
 		_, err = conn.Write(msg)

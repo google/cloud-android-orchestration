@@ -72,7 +72,7 @@ func TestRequiredFlags(t *testing.T) {
 
 type fakeCommandRunner struct{}
 
-func (_ *fakeCommandRunner) StartBgCommand(...string) ([]byte, error) {
+func (*fakeCommandRunner) StartBgCommand(...string) ([]byte, error) {
 	// The only command started for now is the connection agent.
 	return json.Marshal(&ConnStatus{ADB: ForwarderState{Port: 12345}})
 }

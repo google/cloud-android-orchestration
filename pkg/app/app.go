@@ -263,7 +263,7 @@ func (c *App) OAuth2Callback(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	tk, err := c.oauth2Helper.Exchange(oauth2.NoContext, authCode)
+	tk, err := c.oauth2Helper.Exchange(context.Background(), authCode)
 	if err != nil {
 		return fmt.Errorf("error exchanging token: %w", err)
 	}
@@ -594,23 +594,6 @@ func extractIDToken(tk *oauth2.Token) (*jwt.Token, error) {
 	return idTk, nil
 }
 
-// Get an int form value from the request. A form value can be in the query
-// string or in the request body in either URL or Multipart encoding. If there
-// is no form parameter with the given name the default value is returned. If a
-// parameter with that name exists but the value can't be converted to an int an
-// error is returned.
-func intFormValue(r *http.Request, name string, def int) (int, error) {
-	str := r.FormValue(name)
-	if str == "" {
-		return def, nil
-	}
-	i, e := strconv.Atoi(str)
-	if e != nil {
-		return 0, fmt.Errorf("invalid %s value: %s", name, str)
-	}
-	return i, nil
-}
-
 // Send a JSON http response to the client
 func replyJSON(w http.ResponseWriter, obj any, statusCode int) error {
 	if statusCode != http.StatusOK {
@@ -627,10 +610,6 @@ func getZone(r *http.Request) string {
 
 func getHost(r *http.Request) string {
 	return mux.Vars(r)["host"]
-}
-
-func notAllowedHttpHandler(w http.ResponseWriter, r *http.Request) error {
-	return apperr.NewMethodNotAllowedError("Operation is disabled", nil)
 }
 
 func buildInfraCfg(servers []string) apiv1.InfraConfig {

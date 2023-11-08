@@ -71,6 +71,9 @@ func TestListLocalImageRequiredFiles(t *testing.T) {
 	}
 
 	got, err := ListLocalImageRequiredFiles(vars)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	expected := []string{
 		"/out/host/linux-x86/foo",

@@ -27,7 +27,7 @@ export class AuthInterceptor implements HttpInterceptor {
   ): Observable<HttpEvent<unknown>> {
     return next.handle(request).pipe(
       catchError((error: HttpErrorResponse) => {
-        // If credentails got expired, OPTIONS request fails before the actual request
+        // If credentials got expired, OPTIONS request fails before the actual request
         // Thus, error status becomes 0 for CORS failure
         if (error.status === 0) {
           handleAuthError(error, this.snackBar);

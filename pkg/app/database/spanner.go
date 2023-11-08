@@ -141,7 +141,7 @@ func (dbs *SpannerDBService) FetchSession(key string) (*session.Session, error) 
 			// Not found is not an error
 			return nil, nil
 		}
-		return nil, fmt.Errorf("failed to retrive session: %w", err)
+		return nil, fmt.Errorf("failed to retrieve session: %w", err)
 	}
 	session := &session.Session{
 		Key:         key,

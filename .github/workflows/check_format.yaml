@@ -5,13 +5,16 @@ on: [pull_request, push]
 jobs:
   check-format:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: ['1.19.0']
     steps:
     - name: Checkout repository
       uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675 # aka v2
     - name: Install dependencies
       uses: actions/setup-go@v3
       with:
-        go-version: '1.19.0'
+        go-version: ${{ matrix.go-version }}
     - run: go version
     - name: Check format
       run: if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then exit 1; fi

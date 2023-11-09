@@ -3,7 +3,7 @@ name: Build Debian packages
 on: [pull_request, push]
 
 jobs:
-  build-test:
+  build-test-debian-package:
     runs-on: ubuntu-latest
     strategy:
       matrix:

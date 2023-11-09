@@ -5,14 +5,16 @@ on: [pull_request, push]
 jobs:
   build-test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: ['1.19.0'] # Add more versions as needed
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675 # aka v2
-      - name: Install dependencies
-        uses: actions/setup-go@v3
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Setup Go Environment
+        uses: ./.github/actions/setup-go
         with:
-          go-version: '1.19.0'
-      - run: go version
+          go-version: ${{ matrix.go-version }}
       - name: Build
         run: go build ./...
       - name: Test
@@ -20,33 +22,38 @@ jobs:
 
   build-debian-packages:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: ['1.19.0'] # Ensure these versions are compatible with your Debian image
     container:
-      image: debian@sha256:6a8bad8d20e1ca5ecbb7a314e51df6fca73fcce19af2778550671bdd1cbe7b43 # aka stable-20211011
+      image: debian:stable-20211011
     steps:
-      - name: setup apt
-        run: apt update -y && apt upgrade -y
-      - name: Checkout repository
-        uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675 # aka v2
-      - name: Install dependencies
-        uses: actions/setup-go@v3
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Setup Go Environment
+        uses: ./.github/actions/setup-go
         with:
-          go-version: '1.19.0'
-      - name: install debuild dependencies
+          go-version: ${{ matrix.go-version }}
+      - name: Setup APT
+        run: apt update -y && apt upgrade -y
+      - name: Install Build Dependencies
         run: apt install -y git devscripts config-package-dev debhelper-compat golang
-      - name: Build Debian packages
+      - name: Build Debian Packages
         run: cd build/package && dpkg-buildpackage -i -uc -us -b
-      - name: Install cvdremote debian package
+      - name: Install cvdremote Debian Package
         run: dpkg -i build/cvdremote_*_*64.deb || apt-get install -f -y
 
   check-format:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: ['1.19.0']
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675 # aka v2
-      - name: Install dependencies
-        uses: actions/setup-go@v3
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Setup Go Environment
+        uses: ./.github/actions/setup-go
         with:
-          go-version: '1.19.0'
-      - run: go version
-      - name: Check format
-        run: if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then exit 1; fi
+          go-version: ${{ matrix.go-version }}
+      - name: Check Format
+        run: if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then echo "Go files must be formatted with gofmt"; exit 1; fi

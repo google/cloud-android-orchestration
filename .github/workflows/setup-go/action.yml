@@ -1,0 +1,17 @@
+name: 'Setup Go Environment'
+description: 'Checkout and setup Go environment with matrix strategy support'
+inputs:
+  go-version:
+    description: 'Go version to setup'
+    required: true
+    default: '1.19.0'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: ${{ inputs.go-version }}
+    - run: go version
+      shell: bash

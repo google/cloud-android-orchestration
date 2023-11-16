@@ -16,6 +16,7 @@ package secrets
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 )
 
@@ -34,7 +35,7 @@ type FromFileSecretManager struct {
 func NewFromFileSecretManager(path string) (*FromFileSecretManager, error) {
 	r, err := os.Open(path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to open secrets file: %w", err)
 	}
 	dec := json.NewDecoder(r)
 	var sm FromFileSecretManager

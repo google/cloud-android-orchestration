@@ -81,6 +81,8 @@ func LoadSecretManager(config *config.Config) secrets.SecretManager {
 		if err != nil {
 			log.Fatal(err)
 		}
+	case secrets.EmptySMType:
+		return secrets.NewEmptySecretManager()
 	default:
 		log.Fatal("Unknown Secret Manager type: ", config.SecretManager.Type)
 	}

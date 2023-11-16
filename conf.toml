@@ -12,7 +12,7 @@ Provider = "Google"
 RedirectURL = "http://localhost:8080/oauth2callback"
 
 [SecretManager]
-Type = "unix"
+Type = ""
 
 [SecretManager.GCP]
 OAuth2ClientResourceID = ""

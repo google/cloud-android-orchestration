@@ -107,7 +107,6 @@ func clearcutServerURL(server ClearcutServerEnvironment) string {
 		return "https://play.googleapis.com:443/log"
 	default:
 		panic("Invalid Clearcut server configuration")
-		return ""
 	}
 }
 

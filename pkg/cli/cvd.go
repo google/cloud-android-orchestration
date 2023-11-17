@@ -62,6 +62,11 @@ func NewRemoteCVD(url, host string, cvd *hoapi.CVD) *RemoteCVD {
 	}
 }
 
+const (
+	NoneCredentialsSource     = "none"
+	InjectedCredentialsSource = "injected"
+)
+
 type CreateCVDOpts struct {
 	Host            string
 	MainBuild       hoapi.AndroidCIBuild
@@ -75,7 +80,8 @@ type CreateCVDOpts struct {
 	// Example: https://cs.android.com/android/platform/superproject/main/+/main:device/google/cuttlefish/host/cvd_test_configs/main_phone-main_watch.json;drc=b2e8f4f014abb7f9cb56c0ae199334aacb04542d
 	EnvConfig map[string]interface{}
 	// If true, perform the ADB connection automatically.
-	AutoConnect bool
+	AutoConnect               bool
+	BuildAPICredentialsSource string
 }
 
 func (o *CreateCVDOpts) AdditionalInstancesNum() uint32 {
@@ -86,7 +92,10 @@ func (o *CreateCVDOpts) AdditionalInstancesNum() uint32 {
 }
 
 func createCVD(service client.Service, createOpts CreateCVDOpts, statePrinter *statePrinter) ([]*RemoteCVD, error) {
-	creator := newCVDCreator(service, createOpts, statePrinter)
+	creator, err := newCVDCreator(service, createOpts, statePrinter)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create cvd: %w", err)
+	}
 	cvds, err := creator.Create()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create cvd: %w", err)
@@ -98,18 +107,26 @@ func createCVD(service client.Service, createOpts CreateCVDOpts, statePrinter *s
 	return result, nil
 }
 
+type CredentialsFactory func() string
+
 type cvdCreator struct {
-	service      client.Service
-	opts         CreateCVDOpts
-	statePrinter *statePrinter
+	service            client.Service
+	opts               CreateCVDOpts
+	statePrinter       *statePrinter
+	credentialsFactory CredentialsFactory
 }
 
-func newCVDCreator(service client.Service, opts CreateCVDOpts, statePrinter *statePrinter) *cvdCreator {
-	return &cvdCreator{
-		service:      service,
-		opts:         opts,
-		statePrinter: statePrinter,
+func newCVDCreator(service client.Service, opts CreateCVDOpts, statePrinter *statePrinter) (*cvdCreator, error) {
+	cf, err := credentialsFactoryFromSource(opts.BuildAPICredentialsSource)
+	if err != nil {
+		return nil, err
 	}
+	return &cvdCreator{
+		service:            service,
+		opts:               opts,
+		statePrinter:       statePrinter,
+		credentialsFactory: cf,
+	}, nil
 }
 
 func (c *cvdCreator) Create() ([]*hoapi.CVD, error) {
@@ -150,7 +167,7 @@ func (c *cvdCreator) createCVDFromLocalBuild() ([]*hoapi.CVD, error) {
 		},
 		AdditionalInstancesNum: c.opts.AdditionalInstancesNum(),
 	}
-	res, err := c.service.HostService(c.opts.Host).CreateCVD(&req, client.InjectedCredentials)
+	res, err := c.service.HostService(c.opts.Host).CreateCVD(&req, c.credentialsFactory())
 	if err != nil {
 		return nil, err
 	}
@@ -175,7 +192,7 @@ func (c *cvdCreator) createWithCanonicalConfig() ([]*hoapi.CVD, error) {
 		EnvConfig: c.opts.EnvConfig,
 	}
 	c.statePrinter.Print(stateMsgFetchAndStart)
-	res, err := c.service.HostService(c.opts.Host).CreateCVD(createReq, client.InjectedCredentials)
+	res, err := c.service.HostService(c.opts.Host).CreateCVD(createReq, c.credentialsFactory())
 	c.statePrinter.PrintDone(stateMsgFetchAndStart, err)
 	if err != nil {
 		return nil, err
@@ -199,7 +216,7 @@ func (c *cvdCreator) createWithOpts() ([]*hoapi.CVD, error) {
 		AndroidCIBundle: &hoapi.AndroidCIBundle{Build: mainBuild, Type: hoapi.MainBundleType},
 	}
 	c.statePrinter.Print(stateMsgFetchMainBundle)
-	fetchMainBuildRes, err := c.service.HostService(c.opts.Host).FetchArtifacts(fetchReq, client.InjectedCredentials)
+	fetchMainBuildRes, err := c.service.HostService(c.opts.Host).FetchArtifacts(fetchReq, c.credentialsFactory())
 	c.statePrinter.PrintDone(stateMsgFetchMainBundle, err)
 	if err != nil {
 		return nil, err
@@ -218,12 +235,23 @@ func (c *cvdCreator) createWithOpts() ([]*hoapi.CVD, error) {
 		AdditionalInstancesNum: c.opts.AdditionalInstancesNum(),
 	}
 	c.statePrinter.Print(stateMsgStartCVD)
-	res, err := c.service.HostService(c.opts.Host).CreateCVD(createReq, client.InjectedCredentials)
+	res, err := c.service.HostService(c.opts.Host).CreateCVD(createReq, c.credentialsFactory())
 	c.statePrinter.PrintDone(stateMsgStartCVD, err)
 	if err != nil {
 		return nil, err
 	}
 	return res.CVDs, nil
+}
+
+func credentialsFactoryFromSource(source string) (CredentialsFactory, error) {
+	switch source {
+	case NoneCredentialsSource:
+		return func() string { return "" }, nil
+	case InjectedCredentialsSource:
+		return func() string { return client.InjectedCredentials }, nil
+	default:
+		return nil, fmt.Errorf("unknown credentials source: %s", source)
+	}
 }
 
 type cvdListResult struct {

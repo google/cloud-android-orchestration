@@ -36,12 +36,13 @@ type HostConfig struct {
 }
 
 type Config struct {
-	ServiceURL           string
-	Zone                 string
-	HTTPProxy            string
-	ConnectionControlDir string
-	KeepLogFilesDays     int
-	Host                 HostConfig
+	ServiceURL                string
+	Zone                      string
+	HTTPProxy                 string
+	ConnectionControlDir      string
+	KeepLogFilesDays          int
+	BuildAPICredentialsSource string
+	Host                      HostConfig
 }
 
 func (c *Config) ConnectionControlDirExpanded() string {
@@ -54,8 +55,9 @@ func (c *Config) LogFilesDeleteThreshold() time.Duration {
 
 func BaseConfig() *Config {
 	return &Config{
-		ConnectionControlDir: "~/.cvdr/connections",
-		KeepLogFilesDays:     30, // A default is needed to not keep forever
+		ConnectionControlDir:      "~/.cvdr/connections",
+		KeepLogFilesDays:          30,                    // A default is needed to not keep forever
+		BuildAPICredentialsSource: NoneCredentialsSource, // Default needed because empty string is invalid
 	}
 }
 

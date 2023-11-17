@@ -25,6 +25,12 @@
 # files forever.
 # KeepLogFilesDays = 30
 
+# Source for the Build API credentials to be used on cvd create operations.
+# Possible values are:
+#  - "none": Don't use Build API credentials.
+#  - "injected": Use credentials stored in the server.
+# BuildAPICredentialsSource = "injected"
+
 # The host.GCP section provides default configuration values for hosts created
 # using the GCP Cloud Provider. Other providers will have their own
 # host.<Provider> sections when added.

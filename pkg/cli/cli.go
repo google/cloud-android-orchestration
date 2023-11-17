@@ -97,6 +97,7 @@ const (
 	systemImgBuildTargetFlag  = "system_build_target"
 	numInstancesFlag          = "num_instances"
 	autoConnectFlag           = "auto_connect"
+	credentialsSourceFlag     = "credentials_source"
 )
 
 const (
@@ -488,6 +489,8 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 		"Creates multiple instances with the same artifacts. Only relevant if given a single build source")
 	create.Flags().BoolVar(&createFlags.AutoConnect, autoConnectFlag, true,
 		"Automatically connect through ADB after device is created.")
+	create.Flags().StringVar(&createFlags.BuildAPICredentialsSource, credentialsSourceFlag, opts.InitialConfig.BuildAPICredentialsSource,
+		"Source for the Build API OAuth2 credentials")
 	// Host flags
 	createHostFlags := []struct {
 		ValueRef *string

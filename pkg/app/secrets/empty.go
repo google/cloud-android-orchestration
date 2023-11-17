@@ -17,7 +17,7 @@ package secrets
 const EmptySMType = ""
 
 // A secret manager that always returns empty string.
-type EmptySecretManager struct {}
+type EmptySecretManager struct{}
 
 func NewEmptySecretManager() *EmptySecretManager {
 	return &EmptySecretManager{}
@@ -30,4 +30,3 @@ func (sm *EmptySecretManager) OAuth2ClientID() string {
 func (sm *EmptySecretManager) OAuth2ClientSecret() string {
 	return ""
 }
-

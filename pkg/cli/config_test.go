@@ -100,10 +100,11 @@ MachineType = "machine-type-bar"
 	scf := tempFile(t, system)
 	ucf := tempFile(t, user)
 	expected := &Config{
-		ServiceURL:           "service-foo",
-		Zone:                 "zone-bar",
-		KeepLogFilesDays:     0,
-		ConnectionControlDir: "~/.cvdr/connections",
+		ServiceURL:                "service-foo",
+		Zone:                      "zone-bar",
+		KeepLogFilesDays:          0,
+		ConnectionControlDir:      "~/.cvdr/connections",
+		BuildAPICredentialsSource: NoneCredentialsSource,
 		Host: HostConfig{
 			GCP: GCPHostConfig{
 				MachineType:    "machine-type-bar",

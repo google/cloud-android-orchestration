@@ -78,18 +78,18 @@ func loadInitialConfig() (*cli.Config, error) {
 }
 
 func importAcloudConfig(dst string) (bool, error) {
-	// Do not prompt acloud importing if not in a terminal.
-	if !term.IsTerminal(int(os.Stdout.Fd())) {
-		return false, nil
-	}
 	// Create a new user configuration file importing existing acloud configuration.
 	acPath := cli.ExpandPath("~/.config/acloud/acloud.config")
 	if _, err := os.Stat(acPath); err == nil {
-		const p = "No user configuration found, would you like to generate it by importing " +
-			"your acloud configuration?"
-		yes, err := cli.PromptYesOrNo(os.Stdout, os.Stdin, p)
-		if err != nil {
-			return false, err
+		yes := true
+		// Prompt only on terminal.
+		if term.IsTerminal(int(os.Stdout.Fd())) {
+			const p = "No user configuration found, would you like to generate it by importing " +
+				"your acloud configuration?"
+			yes, err = cli.PromptYesOrNo(os.Stdout, os.Stdin, p)
+			if err != nil {
+				return false, err
+			}
 		}
 		if yes {
 			if err := cli.ImportAcloudConfig(acPath, dst); err != nil {

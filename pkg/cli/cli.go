@@ -28,6 +28,7 @@ import (
 	client "github.com/google/cloud-android-orchestration/pkg/client"
 	wclient "github.com/google/cloud-android-orchestration/pkg/webrtcclient"
 
+	"github.com/PaesslerAG/jsonpath"
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -386,6 +387,15 @@ func NewCVDRemoteCommand(o *CommandOptions) *CVDRemoteCommand {
 		rootCmd.AddCommand(cmd)
 	}
 	rootCmd.AddCommand(hostCommand(subCmdOpts))
+	getConfigCommand := &cobra.Command{
+		Use:    "get_config",
+		Short:  "Get a specific configuration value.",
+		Hidden: true,
+		RunE: func(c *cobra.Command, args []string) error {
+			return runGetConfigCommand(c, args, o.InitialConfig)
+		},
+	}
+	rootCmd.AddCommand(getConfigCommand)
 	return &CVDRemoteCommand{rootCmd, o}
 }
 
@@ -1062,6 +1072,29 @@ func runDisconnectCommand(flags *ConnectFlags, c *command, args []string, opts *
 		c.Printf("%s/%s: disconnected\n", cvd.Host, cvd.WebRTCDeviceID)
 	}
 	return merr
+}
+
+func runGetConfigCommand(c *cobra.Command, args []string, cfg Config) error {
+	if len(args) == 0 {
+		return errors.New("missing config property name")
+	}
+	if len(args) > 1 {
+		return errors.New("use one config property at a time")
+	}
+	b, err := json.Marshal(cfg)
+	if err != nil {
+		return err
+	}
+	m := interface{}(nil)
+	if err := json.Unmarshal(b, &m); err != nil {
+		return err
+	}
+	v, err := jsonpath.Get("$."+args[0], m)
+	if err != nil {
+		return fmt.Errorf("invalid config property name: %w", err)
+	}
+	c.Println(v)
+	return nil
 }
 
 func promptConnectionSelection(devices map[RemoteCVDLocator]ConnStatus, c *command) (map[RemoteCVDLocator]ConnStatus, error) {

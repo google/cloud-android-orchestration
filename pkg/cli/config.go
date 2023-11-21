@@ -27,22 +27,22 @@ import (
 )
 
 type GCPHostConfig struct {
-	MachineType    string
-	MinCPUPlatform string
+	MachineType    string `json:"machine_type,omitempty"`
+	MinCPUPlatform string `json:"min_cpu_platform,omitempty"`
 }
 
 type HostConfig struct {
-	GCP GCPHostConfig
+	GCP GCPHostConfig `json:"gcp,omitempty"`
 }
 
 type Config struct {
-	ServiceURL                string
-	Zone                      string
-	HTTPProxy                 string
-	ConnectionControlDir      string
-	KeepLogFilesDays          int
-	BuildAPICredentialsSource string
-	Host                      HostConfig
+	ServiceURL                string     `json:"service_url,omitempty"`
+	Zone                      string     `json:"zone,omitempty"`
+	HTTPProxy                 string     `json:"http_proxy,omitempty"`
+	ConnectionControlDir      string     `json:"connection_control_dir,omitempty"`
+	KeepLogFilesDays          int        `json:"keep_log_files_days,omitempty"`
+	BuildAPICredentialsSource string     `json:"build_api_credentials_source,omitempty"`
+	Host                      HostConfig `json:"host,omitempty"`
 }
 
 func (c *Config) ConnectionControlDirExpanded() string {

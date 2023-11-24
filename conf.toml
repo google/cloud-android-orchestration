@@ -43,7 +43,7 @@ HostImageFamily = ""
 HostOrchestratorPort = 1080
 
 [InstanceManager.UNIX]
-HostOrchestratorPort = 2080
+HostOrchestratorPort = 1080
 
 [WebRTC]
 STUNServers = ["stun:stun.l.google.com:19302"]

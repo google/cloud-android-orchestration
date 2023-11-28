@@ -15,6 +15,7 @@
 package accounts
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -39,7 +40,7 @@ func (g *GAEUsersAccountManager) UserFromRequest(r *http.Request) (User, error) 
 	if err != nil {
 		return nil, err
 	}
-	return userFromEmail(email), nil
+	return userFromEmail(email)
 }
 
 func (g *GAEUsersAccountManager) OnOAuth2Exchange(w http.ResponseWriter, r *http.Request, idToken appOAuth2.IDTokenClaims) (User, error) {
@@ -58,7 +59,7 @@ func (g *GAEUsersAccountManager) OnOAuth2Exchange(w http.ResponseWriter, r *http
 	if rEmail != tkEmail {
 		return nil, fmt.Errorf("logged in user doesn't match oauth2 user")
 	}
-	return userFromEmail(rEmail), nil
+	return userFromEmail(rEmail)
 }
 
 type GAEUser struct {
@@ -74,10 +75,10 @@ func emailFromRequest(r *http.Request) (string, error) {
 	return r.Header.Get(emailHeaderKey), nil
 }
 
-func userFromEmail(email string) *GAEUser {
+func userFromEmail(email string) (*GAEUser, error) {
 	if email == "" {
-		return nil
+		return nil, errors.New("empty email")
 	}
 	username := strings.SplitN(email, "@", 2)[0]
-	return &GAEUser{username}
+	return &GAEUser{username}, nil
 }

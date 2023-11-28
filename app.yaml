@@ -15,3 +15,8 @@
 runtime: go119
 
 main: ./cmd/cloud_orchestrator
+
+handlers:
+- url: /.*
+  script: _go_app
+  login: required

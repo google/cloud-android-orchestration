@@ -856,7 +856,7 @@ func runConnectCommand(flags *ConnectFlags, c *command, args []string, opts *sub
 			hosts, err = listCVDs(service, opts.InitialConfig.ConnectionControlDirExpanded())
 		} else {
 			hosts, err = listCVDsSingleHost(
-				service, flags.host, opts.InitialConfig.ConnectionControlDirExpanded())
+				service, opts.InitialConfig.ConnectionControlDirExpanded(), flags.host)
 		}
 		if err != nil {
 			return err

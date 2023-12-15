@@ -21,12 +21,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 
 	"github.com/google/cloud-android-orchestration/pkg/cli"
 	"github.com/google/cloud-android-orchestration/pkg/client"
-	"github.com/google/cloud-android-orchestration/pkg/metrics"
-
 	"golang.org/x/term"
 )
 
@@ -128,10 +125,6 @@ func main() {
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
-	}
-	commandLine := strings.Join(os.Args, " ")
-	if err := metrics.SendLaunchCommand(commandLine); err != nil {
-		fmt.Fprintln(os.Stderr, commandLine)
 	}
 
 	opts := &cli.CommandOptions{

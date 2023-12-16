@@ -9,7 +9,7 @@ require (
 	github.com/PaesslerAG/jsonpath v0.1.1
 	github.com/cenkalti/backoff/v4 v4.2.0
 	github.com/golang-jwt/jwt v3.2.2+incompatible
-	github.com/google/android-cuttlefish/frontend/src/liboperator v0.0.0-20231023232215-f630228016e1
+	github.com/google/android-cuttlefish/frontend/src/liboperator v0.0.0-20231215232042-8c95f6b070a9
 	github.com/google/go-cmp v0.5.9
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0

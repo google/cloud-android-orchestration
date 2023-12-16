@@ -236,7 +236,7 @@ func hostOutput(h *RemoteHost) string {
 
 func cvdOutput(c *RemoteCVD) []string {
 	return []string{
-		c.WebRTCDeviceID,
+		c.ID,
 		"Status: " + c.Status,
 		"ADB: " + adbStateStr(c),
 		"Displays: " + fmt.Sprintf("%v", c.Displays),

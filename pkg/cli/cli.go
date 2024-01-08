@@ -156,6 +156,11 @@ type ListCVDsFlags struct {
 	Host string
 }
 
+type DeleteCVDFlags struct {
+	*CVDRemoteFlags
+	Host string
+}
+
 type subCommandOpts struct {
 	ServiceBuilder serviceBuilder
 	RootFlags      *CVDRemoteFlags
@@ -544,7 +549,18 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 			return runPullCommand(c, args, opts.RootFlags, opts)
 		},
 	}
-	return []*cobra.Command{create, list, pull}
+	// Delete command
+	delFlags := &DeleteCVDFlags{CVDRemoteFlags: opts.RootFlags}
+	del := &cobra.Command{
+		Use:   "delete [--host=HOST] [id]",
+		Short: "Deletes cvd instance",
+		RunE: func(c *cobra.Command, args []string) error {
+			return runDeleteCVDCommand(c, args, delFlags, opts)
+		},
+	}
+	del.Flags().StringVar(&delFlags.Host, hostFlag, "", "Specifies the host")
+	del.MarkFlagRequired(hostFlag)
+	return []*cobra.Command{create, list, pull, del}
 }
 
 func connectionCommands(opts *subCommandOpts) []*cobra.Command {
@@ -762,6 +778,20 @@ func runPullCommand(c *cobra.Command, args []string, flags *CVDRemoteFlags, opts
 	}
 	c.Println("See logs: " + f.Name())
 	return nil
+}
+
+func runDeleteCVDCommand(c *cobra.Command, args []string, flags *DeleteCVDFlags, opts *subCommandOpts) error {
+	service, err := opts.ServiceBuilder(flags.CVDRemoteFlags, c)
+	if err != nil {
+		return err
+	}
+	if len(args) == 0 {
+		return errors.New("missing id")
+	}
+	if len(args) > 1 {
+		return errors.New("deleting multiple instances is not supported yet")
+	}
+	return service.HostService(flags.Host).DeleteCVD(args[0])
 }
 
 // Returns empty string if there was no host.

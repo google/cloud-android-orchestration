@@ -134,6 +134,10 @@ func (fakeHostService) CreateCVD(req *hoapi.CreateCVDRequest, creds string) (*ho
 	return &hoapi.CreateCVDResponse{CVDs: []*hoapi.CVD{{Name: "cvd-1"}}}, nil
 }
 
+func (fakeHostService) DeleteCVD(id string) error {
+	return nil
+}
+
 func (fakeHostService) ListCVDs() ([]*hoapi.CVD, error) {
 	return []*hoapi.CVD{{Name: "cvd-1"}}, nil
 }

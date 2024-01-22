@@ -1,0 +1,50 @@
+# Copyright 2024 Google Inc. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Template to generate the service `conf.toml` file
+#
+# export PROJECT_ID="foo"
+# envsubst < conf.toml.tmpl > conf.toml
+
+WebStaticFilesPath = "web"
+
+[AccountManager]
+Type = "GCP"
+
+# TODO: This could be emtpy for gae vanilla aosp.
+[AccountManager.OAuth2]
+Provider = "Google"
+RedirectURL = "http://foo.bar/oauth2callback"
+
+[SecretManager]
+Type = ""
+
+[EncryptionService]
+Type = "Fake"
+
+[DatabaseService]
+Type = "InMemory"
+
+[InstanceManager]
+Type = "GCP"
+HostOrchestratorProtocol = "https"
+AllowSelfSignedHostSSLCertificate = true
+
+[InstanceManager.GCP]
+ProjectID = "${PROJECT_ID}"
+HostImageFamily = "projects/${PROJECT_ID}/global/images/family/cf-debian11-amd64-qa"
+HostOrchestratorPort = 2443
+
+[WebRTC]
+STUNServers = ["stun:stun.l.google.com:19302"]

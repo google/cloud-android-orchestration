@@ -62,9 +62,9 @@ gcloud services enable vpcaccess.googleapis.com
 
 app_region=$(gcloud app describe --format="value(locationId)")
 
-serverless_vpc_region="${app_region}1"
+serverless_vpc_region="${app_region}"
 connector=$(gcloud compute networks vpc-access connectors list --filter="name:co-vpc-connector" \
-  --region=${serverless_vpc_region} 2> /dev/null)
+  --region=${serverless_vpc_region})
 if [ -z "${connector}" ]; then
   gcloud compute networks vpc-access connectors create co-vpc-connector \
     --region=${serverless_vpc_region} \

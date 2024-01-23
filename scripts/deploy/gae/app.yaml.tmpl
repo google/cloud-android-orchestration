@@ -16,8 +16,10 @@
 #
 # export PROJECT_ID="foo"
 # export SERVERLESS_VPC_REGION="us-central1"
+# export SERVICE="default"
 # envsubst < app.yaml.tmpl > app.yaml
 
+service: ${SERVICE}
 runtime: go119
 main: ./cmd/cloud_orchestrator
 vpc_access_connector:

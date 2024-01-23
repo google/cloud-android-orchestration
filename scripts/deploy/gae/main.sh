@@ -17,12 +17,13 @@
 set -e
 
 usage() {
-  echo "usage: $0 -p project-name"
+  echo "usage: $0 -p project-name [-s service-name]"
 }
 
 project=
+service="default"
 
-while getopts ":hp:" opt; do
+while getopts ":hp:s:" opt; do
   case "${opt}" in
     h)
       usage
@@ -30,6 +31,9 @@ while getopts ":hp:" opt; do
       ;;
     p)
       project="${OPTARG}"
+      ;;
+    s)
+      service="${OPTARG}"
       ;;
     \?)
       echo "Invalid option: ${OPTARG}" >&2
@@ -74,7 +78,14 @@ script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
 # Generates app.yaml
 export PROJECT_ID="${project}"
 export SERVERLESS_VPC_REGION="${serverless_vpc_region}"
-envsubst '$PROJECT_ID $SERVERLESS_VPC_REGION' < ${script_dir}/app.yaml.tmpl > app.yaml
+export SERVICE="${service}"
+
+readonly VARS='\
+  $PROJECT_ID\
+  $SERVERLESS_VPC_REGION\
+  $SERVICE'
+
+envsubst "$VARS" < ${script_dir}/app.yaml.tmpl > app.yaml
 
 # Generates conf.toml
 export PROJECT_ID="${project}"

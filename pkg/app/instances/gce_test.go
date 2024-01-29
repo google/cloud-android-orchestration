@@ -146,6 +146,9 @@ func TestCreateHostRequestBody(t *testing.T) {
 		&TestUser{})
 
 	expected := `{
+  "advancedMachineFeatures": {
+    "enableNestedVirtualization": true
+  },
   "disks": [
     {
       "boot": true,

@@ -111,6 +111,9 @@ func (m *GCEInstanceManager) CreateHost(zone string, req *apiv1.CreateHostReques
 		// Read more: https://cloud.google.com/compute/docs/reference/rest/v1/instances/insert#request-body
 		MachineType:    fmt.Sprintf("zones/%s/machineTypes/%s", zone, req.HostInstance.GCP.MachineType),
 		MinCpuPlatform: req.HostInstance.GCP.MinCPUPlatform,
+		AdvancedMachineFeatures: &compute.AdvancedMachineFeatures{
+			EnableNestedVirtualization: true,
+		},
 		Disks: []*compute.AttachedDisk{
 			{
 				InitializeParams: &compute.AttachedDiskInitializeParams{

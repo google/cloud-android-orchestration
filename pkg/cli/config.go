@@ -35,14 +35,23 @@ type HostConfig struct {
 	GCP GCPHostConfig `json:"gcp,omitempty"`
 }
 
+type AuthnConfig struct {
+	OIDCToken *OIDCTokenConfig `json:"oidc_token,omitempty"`
+}
+
+type OIDCTokenConfig struct {
+	TokenFile string `json:"token_file,omitempty"`
+}
+
 type Config struct {
-	ServiceURL                string     `json:"service_url,omitempty"`
-	Zone                      string     `json:"zone,omitempty"`
-	HTTPProxy                 string     `json:"http_proxy,omitempty"`
-	ConnectionControlDir      string     `json:"connection_control_dir,omitempty"`
-	KeepLogFilesDays          int        `json:"keep_log_files_days,omitempty"`
-	BuildAPICredentialsSource string     `json:"build_api_credentials_source,omitempty"`
-	Host                      HostConfig `json:"host,omitempty"`
+	ServiceURL                string       `json:"service_url,omitempty"`
+	Zone                      string       `json:"zone,omitempty"`
+	HTTPProxy                 string       `json:"http_proxy,omitempty"`
+	ConnectionControlDir      string       `json:"connection_control_dir,omitempty"`
+	KeepLogFilesDays          int          `json:"keep_log_files_days,omitempty"`
+	BuildAPICredentialsSource string       `json:"build_api_credentials_source,omitempty"`
+	Host                      HostConfig   `json:"host,omitempty"`
+	Authn                     *AuthnConfig `json:"authn,omitempty"`
 }
 
 func (c *Config) ConnectionControlDirExpanded() string {

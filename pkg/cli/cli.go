@@ -372,7 +372,7 @@ func NewCVDRemoteCommand(o *CommandOptions) *CVDRemoteCommand {
 	rootCmd.SetHelpCommand(&cobra.Command{Hidden: true})
 	rootCmd.PersistentFlags().BoolVarP(&flags.Verbose, verboseFlag, "v", false, "Be verbose.")
 	subCmdOpts := &subCommandOpts{
-		ServiceBuilder: buildServiceBuilder(o.ServiceBuilder),
+		ServiceBuilder: buildServiceBuilder(o.ServiceBuilder, o.InitialConfig.Authn),
 		RootFlags:      flags,
 		InitialConfig:  o.InitialConfig,
 		CommandRunner:  o.CommandRunner,
@@ -1159,7 +1159,7 @@ type serviceBuilder func(flags *CVDRemoteFlags, c *cobra.Command) (client.Servic
 
 const chunkSizeBytes = 16 * 1024 * 1024
 
-func buildServiceBuilder(builder client.ServiceBuilder) serviceBuilder {
+func buildServiceBuilder(builder client.ServiceBuilder, authnConfig *AuthnConfig) serviceBuilder {
 	return func(flags *CVDRemoteFlags, c *cobra.Command) (client.Service, error) {
 		proxyURL := flags.HTTPProxy
 		var dumpOut io.Writer = io.Discard
@@ -1174,6 +1174,17 @@ func buildServiceBuilder(builder client.ServiceBuilder) serviceBuilder {
 			RetryAttempts:  3,
 			RetryDelay:     5 * time.Second,
 			ChunkSizeBytes: chunkSizeBytes,
+		}
+		if authnConfig != nil && authnConfig.OIDCToken != nil {
+			token, err := os.ReadFile(authnConfig.OIDCToken.TokenFile)
+			if err != nil {
+				return nil, fmt.Errorf("failed loading oidc token: %w", err)
+			}
+			opts.Authn = &client.AuthnOpts{
+				OIDCToken: &client.OIDCToken{
+					Value: string(token),
+				},
+			}
 		}
 		return builder(opts)
 	}

@@ -54,6 +54,8 @@ HTTPProxy = "http_proxy"
 [Host.GCP]
 MachineType = "machine_type"
 MinCPUPlatform = "cpu_platform"
+[Authn.OIDCToken]
+TokenFile = "/path/to/token"
 `
 	fname := tempFile(t, fullConfig)
 	c := BaseConfig()

@@ -58,9 +58,16 @@ if [ $? -ne 0 ]; then
   gcloud app create
 fi
 
-gcloud services enable vpcaccess.googleapis.com
-
 app_region=$(gcloud app describe --format="value(locationId)")
+# Note: Two locations, which are called europe-west and us-central in App Engine commands and in the Google Cloud
+# console, are called europe-west1 and us-central1, respectively, elsewhere in Google documentation.
+# https://cloud.google.com/appengine/docs/standard/locations
+if [ "${app_region}" = "europe-west" ] || [ "${app_region}" = "us-central" ]; then
+  app_region="${app_region}1"
+fi
+echo "App Region: ${app_region}"
+
+gcloud services enable vpcaccess.googleapis.com
 
 serverless_vpc_region="${app_region}"
 connector=$(gcloud compute networks vpc-access connectors list --filter="name:co-vpc-connector" \

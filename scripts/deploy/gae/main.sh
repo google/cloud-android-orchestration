@@ -101,3 +101,8 @@ sudo apt-get install google-cloud-sdk-app-engine-go
 
 # Deploy
 gcloud app deploy
+
+# Enable IAP
+# To grant access to the application, click "Add Principal" and select the "IAP-secured Web App User" role.
+gcloud services enable appengine.googleapis.com
+gcloud iap web enable --resource-type=app-engine

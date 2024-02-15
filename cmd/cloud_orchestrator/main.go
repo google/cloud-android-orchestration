@@ -60,6 +60,8 @@ func LoadInstanceManager(config *config.Config) instances.Manager {
 		im = instances.NewGCEInstanceManager(config.InstanceManager, service, nameGenerator)
 	case instances.UnixIMType:
 		im = instances.NewLocalInstanceManager(config.InstanceManager)
+	case instances.DockerIMType:
+		im = instances.NewDockerInstanceManager(config.InstanceManager)
 	default:
 		log.Fatal("Unknown Instance Manager type: ", config.InstanceManager.Type)
 	}

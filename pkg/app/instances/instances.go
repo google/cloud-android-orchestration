@@ -70,4 +70,5 @@ type Config struct {
 	AllowSelfSignedHostSSLCertificate bool
 	GCP                               *GCPIMConfig
 	UNIX                              *UNIXIMConfig
+	Docker                            *DockerIMConfig
 }

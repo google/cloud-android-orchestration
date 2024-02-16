@@ -1,7 +1,7 @@
 # refer to https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners#codeowners-syntax
 
 # overall code owners for cvdr and cloud orchestrator
-* @jemoreira @ser-io @natsu @rmuthiah @adelva1984 @Databean
+* @jemoreira @ser-io @jmacnak @rmuthiah @adelva1984 @Databean
 
 # Page0 is owned by jeongik@'s team
 /web/page0/ @ikicha

@@ -39,25 +39,44 @@ func NewDockerInstanceManager(cfg Config) *DockerInstanceManager {
 }
 
 func (m *DockerInstanceManager) ListZones() (*apiv1.ListZonesResponse, error) {
-	return nil, fmt.Errorf("%T#ListZones is not implemented", *m)
+	return &apiv1.ListZonesResponse{
+		Items: []*apiv1.Zone{{
+			Name: "local",
+		}},
+	}, nil
 }
 
-func (m *DockerInstanceManager) CreateHost(_ string, _ *apiv1.CreateHostRequest, _ accounts.User) (*apiv1.Operation, error) {
+func (m *DockerInstanceManager) CreateHost(zone string, _ *apiv1.CreateHostRequest, _ accounts.User) (*apiv1.Operation, error) {
+	if zone != "local" {
+		return nil, fmt.Errorf("Invalid zone. It should be 'local'.")
+	}
 	return nil, fmt.Errorf("%T#CreateHost is not implemented", *m)
 }
 
-func (m *DockerInstanceManager) ListHosts(zone string, user accounts.User, req *ListHostsRequest) (*apiv1.ListHostsResponse, error) {
+func (m *DockerInstanceManager) ListHosts(zone string, _ accounts.User, _ *ListHostsRequest) (*apiv1.ListHostsResponse, error) {
+	if zone != "local" {
+		return nil, fmt.Errorf("Invalid zone. It should be 'local'.")
+	}
 	return nil, fmt.Errorf("%T#ListHosts is not implemented", *m)
 }
 
-func (m *DockerInstanceManager) DeleteHost(zone string, user accounts.User, name string) (*apiv1.Operation, error) {
+func (m *DockerInstanceManager) DeleteHost(zone string, _ accounts.User, _ string) (*apiv1.Operation, error) {
+	if zone != "local" {
+		return nil, fmt.Errorf("Invalid zone. It should be 'local'.")
+	}
 	return nil, fmt.Errorf("%T#DeleteHost is not implemented", *m)
 }
 
-func (m *DockerInstanceManager) WaitOperation(zone string, user accounts.User, name string) (any, error) {
+func (m *DockerInstanceManager) WaitOperation(zone string, _ accounts.User, _ string) (any, error) {
+	if zone != "local" {
+		return nil, fmt.Errorf("Invalid zone. It should be 'local'.")
+	}
 	return nil, fmt.Errorf("%T#WaitOperation is not implemented", *m)
 }
 
-func (m *DockerInstanceManager) GetHostClient(zone string, host string) (HostClient, error) {
+func (m *DockerInstanceManager) GetHostClient(zone string, _ string) (HostClient, error) {
+	if zone != "local" {
+		return nil, fmt.Errorf("Invalid zone. It should be 'local'.")
+	}
 	return nil, fmt.Errorf("%T#GetHostClient is not implemented", *m)
 }

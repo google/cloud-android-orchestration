@@ -25,15 +25,14 @@
 set -e
 
 usage() {
-  echo "usage: $0 -s head-commit-sha -t /path/to/github_auth_token.txt -b bucket-name -p project-name"
+  echo "usage: $0 -s head-commit-sha -t /path/to/github_auth_token.txt -p project-id"
 }
 
 commit_sha=
 github_auth_token_filename=
-gce_bucket=
-image_dest_project=
+project_id=
 
-while getopts "hs:t:p:b:" opt; do
+while getopts "hs:t:p:" opt; do
   case "${opt}" in
     h)
       usage
@@ -45,11 +44,8 @@ while getopts "hs:t:p:b:" opt; do
     t)
       github_auth_token_filename="${OPTARG}"
       ;;
-    b)
-      gce_bucket="${OPTARG}"
-      ;;
     p)
-      image_dest_project="${OPTARG}"
+      project_id="${OPTARG}"
       ;;
     \?)
       usage; exit 1
@@ -79,6 +75,8 @@ while [[ -z "${artifact}" ]]; do
   fi
 done
 
+bucket_name="${project_id}-cf-host-image-upload"
+
 updated_at=$(echo "${artifact}" | jq -r ".updated_at")
 date_suffix=$(date -u -d ${updated_at} +"%Y%m%d")
 name=cf-debian11-amd64-${date_suffix}-${commit_sha:0:7}
@@ -86,7 +84,7 @@ name=cf-debian11-amd64-${date_suffix}-${commit_sha:0:7}
 function cleanup {
   rm "image.zip" 2> /dev/null
   rm "image.tar.gz" 2> /dev/null
-  gcloud storage rm gs://${gce_bucket}/${name}.tar.gz 2> /dev/null
+  gcloud storage rm --recursive gs://${bucket_name}
 }
 
 trap cleanup EXIT
@@ -102,10 +100,11 @@ curl -L \
 
 unzip image.zip
 
-gcloud storage cp image.tar.gz  gs://${gce_bucket}/${name}.tar.gz
+gcloud storage buckets create gs://${bucket_name} --location="us-east1" --project="${project_id}"
+gcloud storage cp image.tar.gz  gs://${bucket_name}/${name}.tar.gz
 
 echo "Creating image ..."
 gcloud compute images create ${name} \
-  --source-uri gs://${gce_bucket}/${name}.tar.gz \
-  --project ${image_dest_project} \
+  --source-uri gs://${bucket_name}/${name}.tar.gz \
+  --project ${project_id} \
   --family "cf-debian11-amd64"

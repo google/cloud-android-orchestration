@@ -29,6 +29,7 @@ import (
 	appOAuth2 "github.com/google/cloud-android-orchestration/pkg/app/oauth2"
 	"github.com/google/cloud-android-orchestration/pkg/app/secrets"
 
+	dockerclient "github.com/docker/docker/client"
 	"github.com/google/uuid"
 	"google.golang.org/api/compute/v1"
 )
@@ -61,7 +62,11 @@ func LoadInstanceManager(config *config.Config) instances.Manager {
 	case instances.UnixIMType:
 		im = instances.NewLocalInstanceManager(config.InstanceManager)
 	case instances.DockerIMType:
-		im = instances.NewDockerInstanceManager(config.InstanceManager)
+		dockerClient, err := dockerclient.NewClientWithOpts(dockerclient.FromEnv)
+		if err != nil {
+			log.Fatal("Failed to get docker client: ", err)
+		}
+		im = instances.NewDockerInstanceManager(config.InstanceManager, *dockerClient)
 	default:
 		log.Fatal("Unknown Instance Manager type: ", config.InstanceManager.Type)
 	}

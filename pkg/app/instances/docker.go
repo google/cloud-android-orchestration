@@ -19,9 +19,9 @@ import (
 	"fmt"
 	"net/url"
 
-	dockertypes "github.com/docker/docker/api/types"
-	dockercontainer "github.com/docker/docker/api/types/container"
-	dockerclient "github.com/docker/docker/client"
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/client"
 
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
 	"github.com/google/cloud-android-orchestration/pkg/app/accounts"
@@ -30,19 +30,20 @@ import (
 const DockerIMType IMType = "docker"
 
 type DockerIMConfig struct {
+	DockerImageName      string
 	HostOrchestratorPort int
 }
 
 // Docker implementation of the instance manager.
 type DockerInstanceManager struct {
 	Config Config
-	Client dockerclient.Client
+	Client client.Client
 }
 
-func NewDockerInstanceManager(cfg Config, dockerClient dockerclient.Client) *DockerInstanceManager {
+func NewDockerInstanceManager(cfg Config, cli client.Client) *DockerInstanceManager {
 	return &DockerInstanceManager{
 		Config: cfg,
-		Client: dockerClient,
+		Client: cli,
 	}
 }
 
@@ -58,27 +59,24 @@ func (m *DockerInstanceManager) CreateHost(zone string, _ *apiv1.CreateHostReque
 	if zone != "local" {
 		return nil, fmt.Errorf("Invalid zone. It should be 'local'.")
 	}
-
 	ctx := context.TODO()
-	config := &dockercontainer.Config{
+	config := &container.Config{
 		AttachStdin: true,
-		Image:       "cuttlefish:latest",
+		Image:       m.Config.Docker.DockerImageName,
 		Tty:         true,
 	}
-	hostConfig := &dockercontainer.HostConfig{
+	hostConfig := &container.HostConfig{
 		Privileged:      true,
 		PublishAllPorts: true,
 	}
 	createRes, err := m.Client.ContainerCreate(ctx, config, hostConfig, nil, nil, "")
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create docker container: %s", err)
+		return nil, fmt.Errorf("Failed to create docker container: %w", err)
 	}
-
-	err = m.Client.ContainerStart(ctx, createRes.ID, dockertypes.ContainerStartOptions{})
+	err = m.Client.ContainerStart(ctx, createRes.ID, types.ContainerStartOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("Failed to start docker container: %s", err)
+		return nil, fmt.Errorf("Failed to start docker container: %w", err)
 	}
-
 	return &apiv1.Operation{
 		Name: createRes.ID,
 		Done: true,
@@ -89,20 +87,17 @@ func (m *DockerInstanceManager) ListHosts(zone string, _ accounts.User, _ *ListH
 	if zone != "local" {
 		return nil, fmt.Errorf("Invalid zone. It should be 'local'.")
 	}
-
 	ctx := context.TODO()
-	listRes, err := m.Client.ContainerList(ctx, dockertypes.ContainerListOptions{})
+	listRes, err := m.Client.ContainerList(ctx, types.ContainerListOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("Failed to list docker containers: %s", err)
+		return nil, fmt.Errorf("Failed to list docker containers: %w", err)
 	}
-
 	var items []*apiv1.HostInstance
 	for _, container := range listRes {
 		items = append(items, &apiv1.HostInstance{
 			Name: container.ID,
 		})
 	}
-
 	return &apiv1.ListHostsResponse{
 		Items: items,
 	}, nil
@@ -112,18 +107,15 @@ func (m *DockerInstanceManager) DeleteHost(zone string, _ accounts.User, host st
 	if zone != "local" {
 		return nil, fmt.Errorf("Invalid zone. It should be 'local'.")
 	}
-
 	ctx := context.TODO()
-	err := m.Client.ContainerStop(ctx, host, dockercontainer.StopOptions{})
+	err := m.Client.ContainerStop(ctx, host, container.StopOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("Failed to stop docker container: %s", err)
+		return nil, fmt.Errorf("Failed to stop docker container: %w", err)
 	}
-
-	err = m.Client.ContainerRemove(ctx, host, dockertypes.ContainerRemoveOptions{})
+	err = m.Client.ContainerRemove(ctx, host, types.ContainerRemoveOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("Failed to remove docker container: %s", err)
+		return nil, fmt.Errorf("Failed to remove docker container: %w", err)
 	}
-
 	return &apiv1.Operation{
 		Name: host,
 		Done: true,
@@ -143,12 +135,11 @@ func (m *DockerInstanceManager) GetHostAddr() (string, error) {
 
 func (m *DockerInstanceManager) GetHostPort(host string) (int, error) {
 	ctx := context.TODO()
-	listRes, err := m.Client.ContainerList(ctx, dockertypes.ContainerListOptions{})
+	listRes, err := m.Client.ContainerList(ctx, types.ContainerListOptions{})
 	if err != nil {
-		return -1, fmt.Errorf("Failed to list docker containers: %s", err)
+		return -1, fmt.Errorf("Failed to list docker containers: %w", err)
 	}
-
-	var hostContainer *dockertypes.Container
+	var hostContainer *types.Container
 	for _, container := range listRes {
 		if container.ID == host {
 			hostContainer = &container
@@ -158,7 +149,6 @@ func (m *DockerInstanceManager) GetHostPort(host string) (int, error) {
 	if hostContainer == nil {
 		return -1, fmt.Errorf("Failed to find host: %s", host)
 	}
-
 	var exposedHostOrchestratorPort int
 	exposedHostOrchestratorPort = -1
 	for _, port := range hostContainer.Ports {
@@ -189,7 +179,6 @@ func (m *DockerInstanceManager) GetHostClient(zone string, host string) (HostCli
 	if zone != "local" {
 		return nil, fmt.Errorf("Invalid zone. It should be 'local'.")
 	}
-
 	url, err := m.GetHostURL(host)
 	if err != nil {
 		return nil, err

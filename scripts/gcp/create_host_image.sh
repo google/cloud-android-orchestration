@@ -100,6 +100,8 @@ curl -L \
 
 unzip image.zip
 
+gcloud services enable compute.googleapis.com --project="${project_id}"
+
 gcloud storage buckets create gs://${bucket_name} --location="us-east1" --project="${project_id}"
 gcloud storage cp image.tar.gz  gs://${bucket_name}/${name}.tar.gz
 

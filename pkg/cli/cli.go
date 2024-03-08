@@ -1176,13 +1176,14 @@ func buildServiceBuilder(builder client.ServiceBuilder, authnConfig *AuthnConfig
 			ChunkSizeBytes: chunkSizeBytes,
 		}
 		if authnConfig != nil && authnConfig.OIDCToken != nil {
-			token, err := os.ReadFile(authnConfig.OIDCToken.TokenFile)
+			content, err := os.ReadFile(authnConfig.OIDCToken.TokenFile)
 			if err != nil {
 				return nil, fmt.Errorf("failed loading oidc token: %w", err)
 			}
+			value := strings.TrimSuffix(string(content), "\n")
 			opts.Authn = &client.AuthnOpts{
 				OIDCToken: &client.OIDCToken{
-					Value: string(token),
+					Value: value,
 				},
 			}
 		}

@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Deploy the Cloud Orchestration app.
+
 set -e
 
 usage() {
@@ -48,15 +50,7 @@ while getopts ":hp:s:" opt; do
   esac
 done
 
-network="default"
-
 gcloud config set project $project
-
-# Creates the App Engine if does not exist yet.
-gcloud app describe 1> /dev/null 2> /dev/null
-if [ $? -ne 0 ]; then
-  gcloud app create
-fi
 
 app_region=$(gcloud app describe --format="value(locationId)")
 # Note: Two locations, which are called europe-west and us-central in App Engine commands and in the Google Cloud
@@ -65,19 +59,7 @@ app_region=$(gcloud app describe --format="value(locationId)")
 if [ "${app_region}" = "europe-west" ] || [ "${app_region}" = "us-central" ]; then
   app_region="${app_region}1"
 fi
-echo "App Region: ${app_region}"
-
-gcloud services enable vpcaccess.googleapis.com
-
 serverless_vpc_region="${app_region}"
-connector=$(gcloud compute networks vpc-access connectors list --filter="name:co-vpc-connector" \
-  --region=${serverless_vpc_region})
-if [ -z "${connector}" ]; then
-  gcloud compute networks vpc-access connectors create co-vpc-connector \
-    --region=${serverless_vpc_region} \
-    --network=${network} \
-    --range=10.8.0.0/28
-fi
 
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
 
@@ -102,7 +84,3 @@ sudo apt-get install google-cloud-sdk-app-engine-go
 # Deploy
 gcloud app deploy
 
-# Enable IAP
-# To grant access to the application, click "Add Principal" and select the "IAP-secured Web App User" role.
-gcloud services enable appengine.googleapis.com
-gcloud iap web enable --resource-type=app-engine

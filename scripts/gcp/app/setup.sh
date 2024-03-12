@@ -63,6 +63,12 @@ if [ "${app_region}" = "europe-west" ] || [ "${app_region}" = "us-central" ]; th
 fi
 echo "App Region: ${app_region}"
 
+# Grant GAE service account admin role.
+gae_service_account_name="$project@appspot.gserviceaccount.com"
+gcloud projects add-iam-policy-binding $project \
+  --member="serviceAccount:$gae_service_account_name" \
+  --role="roles/compute.admin"
+
 gcloud services enable vpcaccess.googleapis.com
 
 serverless_vpc_region="${app_region}"

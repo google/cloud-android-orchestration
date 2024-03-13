@@ -106,6 +106,12 @@ func (c *App) Handler() http.Handler {
 	router.Handle("/v1/zones/{zone}/operations/{operation}/:wait", c.Authenticate(c.waitOperation)).Methods("POST")
 	router.Handle("/v1/zones/{zone}/hosts/{host}", c.Authenticate(c.deleteHost)).Methods("DELETE")
 
+	// Infra route
+	router.HandleFunc("/v1/zones/{zone}/hosts/{host}/infra_config", func(w http.ResponseWriter, r *http.Request) {
+		// TODO(b/220891296): Make this configurable
+		replyJSON(w, c.InfraConfig(), http.StatusOK)
+	}).Methods("GET")
+
 	// Host Orchestrator Proxy Routes
 	router.Handle("/v1/zones/{zone}/hosts/{host}/{hostPath:.*}", c.Authenticate(c.ForwardToHost))
 
@@ -143,12 +149,6 @@ const (
 
 func (a *App) ForwardToHost(w http.ResponseWriter, r *http.Request, user accounts.User) error {
 	hostPath := "/" + mux.Vars(r)["hostPath"]
-
-	// Intercept /infra_config
-	if hostPath == "/infra_config" && r.Method == "GET" {
-		replyJSON(w, a.InfraConfig(), http.StatusOK)
-		return nil
-	}
 
 	if interceptFile, found := a.findInterceptFile(hostPath); found {
 		http.ServeFile(w, r, interceptFile)

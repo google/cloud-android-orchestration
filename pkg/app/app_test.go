@@ -24,7 +24,6 @@ import (
 	"net/http/httptest"
 	"net/http/httputil"
 	"net/url"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -225,24 +224,21 @@ func TestInfraConfigRequest(t *testing.T) {
 
 	res, _ := http.Get(ts.URL + "/v1/zones/foo/hosts/bar/infra_config")
 
-	expectedStatus := http.StatusOK
-	if res.StatusCode != expectedStatus {
-		t.Errorf("unexpected status code <<%d>>, want: %d", res.StatusCode, expectedStatus)
+	if diff := cmp.Diff(http.StatusOK, res.StatusCode); diff != "" {
+		t.Errorf("status mismatch (-expected +got):\n%s", diff)
 	}
-
 	rBody, err := io.ReadAll(res.Body)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var actualInfraConfig apiv1.InfraConfig
-	err = json.Unmarshal(rBody, &actualInfraConfig)
+	var got apiv1.InfraConfig
+	err = json.Unmarshal(rBody, &got)
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	expectedInfraConfig := buildInfraCfg([]string{"foo.com:12345"})
-	if !reflect.DeepEqual(expectedInfraConfig, actualInfraConfig) {
-		t.Errorf("Unexpeced infra config. Expected:%#v, Actual:%#v", actualInfraConfig, expectedInfraConfig)
+	expected := buildInfraCfg([]string{"foo.com:12345"})
+	if diff := cmp.Diff(expected, got); diff != "" {
+		t.Errorf("status mismatch (-expected +got):\n%s", diff)
 	}
 }
 

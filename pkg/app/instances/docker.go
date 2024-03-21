@@ -43,6 +43,9 @@ type DockerInstanceManager struct {
 	Client client.Client
 }
 
+const CreateHostOPType string = "createhost"
+const DeleteHostOPType string = "deletehost"
+
 func NewDockerInstanceManager(cfg Config, cli client.Client) *DockerInstanceManager {
 	return &DockerInstanceManager{
 		Config: cfg,
@@ -81,7 +84,7 @@ func (m *DockerInstanceManager) CreateHost(zone string, _ *apiv1.CreateHostReque
 		return nil, fmt.Errorf("Failed to start docker container: %w", err)
 	}
 	return &apiv1.Operation{
-		Name: "createhost_" + createRes.ID,
+		Name: EncodeOperationName(CreateHostOPType, createRes.ID),
 		Done: true,
 	}, nil
 }
@@ -120,24 +123,43 @@ func (m *DockerInstanceManager) DeleteHost(zone string, _ accounts.User, host st
 		return nil, fmt.Errorf("Failed to remove docker container: %w", err)
 	}
 	return &apiv1.Operation{
-		Name: "deletehost_" + host,
+		Name: EncodeOperationName(DeleteHostOPType, host),
 		Done: true,
 	}, nil
 }
 
+func EncodeOperationName(opType string, host string) string {
+	return opType + "_" + host
+}
+
+func DecodeOperationName(name string) (string, string, error) {
+	words := strings.SplitN(name, "_", 2)
+	if len(words) == 2 {
+		return words[0], words[1], nil
+	} else {
+		return "", "", errors.NewBadRequestError(fmt.Sprintf("cannot parse operation from %q", name), nil)
+	}
+}
+
 func (m *DockerInstanceManager) waitCreateHostOperation(host string) (*apiv1.HostInstance, error) {
-	ctx := context.TODO()
+	ctx, cancel := context.WithTimeout(context.TODO(), 3*time.Minute)
+	defer cancel()
 	for {
-		res, err := m.Client.ContainerInspect(ctx, host)
-		if err != nil {
-			return nil, fmt.Errorf("Failed to inspect docker container: %w", err)
+		select {
+		case <-ctx.Done():
+			return nil, errors.NewServiceUnavailableError("Wait for operation timed out", nil)
+		default:
+			res, err := m.Client.ContainerInspect(ctx, host)
+			if err != nil {
+				return nil, fmt.Errorf("Failed to inspect docker container: %w", err)
+			}
+			if res.State.Running {
+				return &apiv1.HostInstance{
+					Name: host,
+				}, nil
+			}
+			time.Sleep(time.Second)
 		}
-		if res.State.Running {
-			return &apiv1.HostInstance{
-				Name: host,
-			}, nil
-		}
-		time.Sleep(time.Second)
 	}
 }
 
@@ -161,14 +183,17 @@ func (m *DockerInstanceManager) WaitOperation(zone string, _ accounts.User, name
 	if zone != "local" {
 		return nil, errors.NewBadRequestError("Invalid zone. It should be 'local'.", nil)
 	}
-	words := strings.SplitN(name, "_", 2)
-	switch words[0] {
-	case "createhost":
-		return m.waitCreateHostOperation(words[1])
-	case "deletehost":
-		return m.waitDeleteHostOperation(words[1])
+	opType, host, err := DecodeOperationName(name)
+	if err != nil {
+		return nil, err
+	}
+	switch opType {
+	case CreateHostOPType:
+		return m.waitCreateHostOperation(host)
+	case DeleteHostOPType:
+		return m.waitDeleteHostOperation(host)
 	default:
-		return nil, errors.NewBadRequestError(fmt.Sprintf("operation %q not found.", name), nil)
+		return nil, errors.NewBadRequestError(fmt.Sprintf("operation type %s not found.", opType), nil)
 	}
 }
 

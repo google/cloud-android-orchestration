@@ -22,14 +22,13 @@ import (
 
 type User interface {
 	Username() string
+
+	Email() string
 }
 
 type Manager interface {
 	// Gets the user from the http request, typically from a cookie or another header.
 	UserFromRequest(r *http.Request) (User, error)
-	// Gives the account manager the chance to extract login information from the token (id token
-	// for example), validate it, add cookies to the request, etc.
-	OnOAuth2Exchange(w http.ResponseWriter, r *http.Request, idToken appOAuth2.IDTokenClaims) (User, error)
 }
 
 type AMType string

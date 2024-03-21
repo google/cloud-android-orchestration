@@ -49,9 +49,9 @@ const fakeUsername = "johndoe"
 
 type TestUser struct{}
 
-func (i *TestUser) Username() string {
-	return fakeUsername
-}
+func (i *TestUser) Username() string { return fakeUsername }
+
+func (i *TestUser) Email() string { return "" }
 
 func TestCreateHostInvalidRequests(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -16,11 +16,8 @@ package accounts
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"strings"
-
-	appOAuth2 "github.com/google/cloud-android-orchestration/pkg/app/oauth2"
 )
 
 const (
@@ -40,34 +37,11 @@ func (g *GAEUsersAccountManager) UserFromRequest(r *http.Request) (User, error) 
 	if err != nil {
 		return nil, err
 	}
-	return userFromEmail(email)
-}
-
-func (g *GAEUsersAccountManager) OnOAuth2Exchange(w http.ResponseWriter, r *http.Request, idToken appOAuth2.IDTokenClaims) (User, error) {
-	rEmail, err := emailFromRequest(r)
+	username, err := usernameFromEmail(email)
 	if err != nil {
 		return nil, err
 	}
-	email, ok := idToken["email"]
-	if !ok {
-		return nil, fmt.Errorf("no email in id token")
-	}
-	tkEmail, ok := email.(string)
-	if !ok {
-		return nil, fmt.Errorf("malformed email in id token")
-	}
-	if rEmail != tkEmail {
-		return nil, fmt.Errorf("logged in user doesn't match oauth2 user")
-	}
-	return userFromEmail(rEmail)
-}
-
-type GAEUser struct {
-	username string
-}
-
-func (u *GAEUser) Username() string {
-	return u.username
+	return &GAEUser{username: username, email: email}, nil
 }
 
 func emailFromRequest(r *http.Request) (string, error) {
@@ -75,10 +49,18 @@ func emailFromRequest(r *http.Request) (string, error) {
 	return r.Header.Get(emailHeaderKey), nil
 }
 
-func userFromEmail(email string) (*GAEUser, error) {
+func usernameFromEmail(email string) (string, error) {
 	if email == "" {
-		return nil, errors.New("empty email")
+		return "", errors.New("empty email")
 	}
-	username := strings.SplitN(email, "@", 2)[0]
-	return &GAEUser{username}, nil
+	return strings.SplitN(email, "@", 2)[0], nil
 }
+
+type GAEUser struct {
+	username string
+	email    string
+}
+
+func (u *GAEUser) Username() string { return u.username }
+
+func (u *GAEUser) Email() string { return u.email }

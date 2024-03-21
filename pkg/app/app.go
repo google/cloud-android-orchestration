@@ -275,9 +275,16 @@ func (c *App) OAuth2Callback(w http.ResponseWriter, r *http.Request) error {
 	if !ok {
 		return fmt.Errorf("id token in unexpected format")
 	}
-	user, err := c.accountManager.OnOAuth2Exchange(w, r, appOAuth2.IDTokenClaims(tokenClaims))
+	tkEmail, err := appOAuth2.IDTokenClaims(tokenClaims).Email()
+	if err != nil {
+		return fmt.Errorf("invalid token: %w", err)
+	}
+	user, err := c.accountManager.UserFromRequest(r)
 	if err != nil {
 		return err
+	}
+	if user.Email() != tkEmail {
+		return fmt.Errorf("logged in user (%q) doesn't match oauth2 user (%q)", user.Email(), tkEmail)
 	}
 	if err := c.storeUserCredentials(user, tk); err != nil {
 		return err

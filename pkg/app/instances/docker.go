@@ -18,6 +18,8 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"strings"
+	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -78,8 +80,8 @@ func (m *DockerInstanceManager) CreateHost(zone string, _ *apiv1.CreateHostReque
 		return nil, fmt.Errorf("Failed to start docker container: %w", err)
 	}
 	return &apiv1.Operation{
-		Name: createRes.ID,
-		Done: true,
+		Name: "createhost_" + createRes.ID,
+		Done: false,
 	}, nil
 }
 
@@ -117,16 +119,56 @@ func (m *DockerInstanceManager) DeleteHost(zone string, _ accounts.User, host st
 		return nil, fmt.Errorf("Failed to remove docker container: %w", err)
 	}
 	return &apiv1.Operation{
-		Name: host,
-		Done: true,
+		Name: "deletehost_" + host,
+		Done: false,
 	}, nil
 }
 
-func (m *DockerInstanceManager) WaitOperation(zone string, _ accounts.User, _ string) (any, error) {
+func (m *DockerInstanceManager) WaitCreateHostOperation(host string) (any, error) {
+	ctx := context.TODO()
+	for {
+		res, err := m.Client.ContainerInspect(ctx, host)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to inspect docker container: %w", err)
+		}
+		if res.State.Running {
+			return &apiv1.HostInstance{
+				Name: host,
+			}, nil
+		}
+		time.Sleep(time.Second)
+	}
+}
+
+func (m *DockerInstanceManager) WaitDeleteHostOperation(host string) (any, error) {
+	ctx, cancel := context.WithTimeout(context.TODO(), 3*time.Minute)
+	defer cancel()
+	resCh, errCh := m.Client.ContainerWait(ctx, host, "")
+	select {
+	case <-ctx.Done():
+		return nil, fmt.Errorf("Timeout while waiting for deleting host")
+	case err := <-errCh:
+		return nil, fmt.Errorf("Error is thrown while waiting for deleting host: %w", err)
+	case <-resCh:
+		return &apiv1.HostInstance{
+			Name: host,
+		}, nil
+	}
+}
+
+func (m *DockerInstanceManager) WaitOperation(zone string, _ accounts.User, name string) (any, error) {
 	if zone != "local" {
 		return nil, fmt.Errorf("Invalid zone. It should be 'local'.")
 	}
-	return nil, fmt.Errorf("%T#WaitOperation is not implemented", *m)
+	words := strings.SplitN(name, "_", 2)
+	switch words[0] {
+	case "createhost":
+		return m.WaitCreateHostOperation(words[1])
+	case "deletehost":
+		return m.WaitDeleteHostOperation(words[1])
+	default:
+		return nil, fmt.Errorf("%T#WaitOperation for %s is not implemented", *m, words[0])
+	}
 }
 
 func (m *DockerInstanceManager) GetHostAddr() (string, error) {

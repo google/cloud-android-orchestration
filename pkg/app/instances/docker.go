@@ -27,6 +27,7 @@ import (
 
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
 	"github.com/google/cloud-android-orchestration/pkg/app/accounts"
+	"github.com/google/cloud-android-orchestration/pkg/app/errors"
 )
 
 const DockerIMType IMType = "docker"
@@ -59,7 +60,7 @@ func (m *DockerInstanceManager) ListZones() (*apiv1.ListZonesResponse, error) {
 
 func (m *DockerInstanceManager) CreateHost(zone string, _ *apiv1.CreateHostRequest, _ accounts.User) (*apiv1.Operation, error) {
 	if zone != "local" {
-		return nil, fmt.Errorf("Invalid zone. It should be 'local'.")
+		return nil, errors.NewBadRequestError("Invalid zone. It should be 'local'.", nil)
 	}
 	ctx := context.TODO()
 	config := &container.Config{
@@ -81,13 +82,13 @@ func (m *DockerInstanceManager) CreateHost(zone string, _ *apiv1.CreateHostReque
 	}
 	return &apiv1.Operation{
 		Name: "createhost_" + createRes.ID,
-		Done: false,
+		Done: true,
 	}, nil
 }
 
 func (m *DockerInstanceManager) ListHosts(zone string, _ accounts.User, _ *ListHostsRequest) (*apiv1.ListHostsResponse, error) {
 	if zone != "local" {
-		return nil, fmt.Errorf("Invalid zone. It should be 'local'.")
+		return nil, errors.NewBadRequestError("Invalid zone. It should be 'local'.", nil)
 	}
 	ctx := context.TODO()
 	listRes, err := m.Client.ContainerList(ctx, types.ContainerListOptions{})
@@ -107,7 +108,7 @@ func (m *DockerInstanceManager) ListHosts(zone string, _ accounts.User, _ *ListH
 
 func (m *DockerInstanceManager) DeleteHost(zone string, _ accounts.User, host string) (*apiv1.Operation, error) {
 	if zone != "local" {
-		return nil, fmt.Errorf("Invalid zone. It should be 'local'.")
+		return nil, errors.NewBadRequestError("Invalid zone. It should be 'local'.", nil)
 	}
 	ctx := context.TODO()
 	err := m.Client.ContainerStop(ctx, host, container.StopOptions{})
@@ -120,11 +121,11 @@ func (m *DockerInstanceManager) DeleteHost(zone string, _ accounts.User, host st
 	}
 	return &apiv1.Operation{
 		Name: "deletehost_" + host,
-		Done: false,
+		Done: true,
 	}, nil
 }
 
-func (m *DockerInstanceManager) WaitCreateHostOperation(host string) (any, error) {
+func (m *DockerInstanceManager) waitCreateHostOperation(host string) (*apiv1.HostInstance, error) {
 	ctx := context.TODO()
 	for {
 		res, err := m.Client.ContainerInspect(ctx, host)
@@ -140,13 +141,13 @@ func (m *DockerInstanceManager) WaitCreateHostOperation(host string) (any, error
 	}
 }
 
-func (m *DockerInstanceManager) WaitDeleteHostOperation(host string) (any, error) {
+func (m *DockerInstanceManager) waitDeleteHostOperation(host string) (*apiv1.HostInstance, error) {
 	ctx, cancel := context.WithTimeout(context.TODO(), 3*time.Minute)
 	defer cancel()
 	resCh, errCh := m.Client.ContainerWait(ctx, host, "")
 	select {
 	case <-ctx.Done():
-		return nil, fmt.Errorf("Timeout while waiting for deleting host")
+		return nil, errors.NewServiceUnavailableError("Wait for operation timed out", nil)
 	case err := <-errCh:
 		return nil, fmt.Errorf("Error is thrown while waiting for deleting host: %w", err)
 	case <-resCh:
@@ -158,16 +159,16 @@ func (m *DockerInstanceManager) WaitDeleteHostOperation(host string) (any, error
 
 func (m *DockerInstanceManager) WaitOperation(zone string, _ accounts.User, name string) (any, error) {
 	if zone != "local" {
-		return nil, fmt.Errorf("Invalid zone. It should be 'local'.")
+		return nil, errors.NewBadRequestError("Invalid zone. It should be 'local'.", nil)
 	}
 	words := strings.SplitN(name, "_", 2)
 	switch words[0] {
 	case "createhost":
-		return m.WaitCreateHostOperation(words[1])
+		return m.waitCreateHostOperation(words[1])
 	case "deletehost":
-		return m.WaitDeleteHostOperation(words[1])
+		return m.waitDeleteHostOperation(words[1])
 	default:
-		return nil, fmt.Errorf("%T#WaitOperation for %s is not implemented", *m, words[0])
+		return nil, errors.NewBadRequestError(fmt.Sprintf("operation %q not found.", name), nil)
 	}
 }
 
@@ -219,7 +220,7 @@ func (m *DockerInstanceManager) GetHostURL(host string) (*url.URL, error) {
 
 func (m *DockerInstanceManager) GetHostClient(zone string, host string) (HostClient, error) {
 	if zone != "local" {
-		return nil, fmt.Errorf("Invalid zone. It should be 'local'.")
+		return nil, errors.NewBadRequestError("Invalid zone. It should be 'local'.", nil)
 	}
 	url, err := m.GetHostURL(host)
 	if err != nil {

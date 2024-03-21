@@ -68,6 +68,10 @@ func NewUnauthenticatedError(msg string, e error) error {
 	return &AppError{Msg: msg, StatusCode: http.StatusUnauthorized, Err: e}
 }
 
+func NewForbiddenError(msg string, e error) error {
+	return &AppError{Msg: msg, StatusCode: http.StatusForbidden, Err: e}
+}
+
 func NewServiceUnavailableError(msg string, e error) error {
 	return &AppError{Msg: msg, StatusCode: http.StatusServiceUnavailable, Err: e}
 }

@@ -31,7 +31,7 @@ func TestDecodeOperationSucceeds(t *testing.T) {
 	if err != nil {
 		t.Errorf("got error while decoding operation name: %+v", err)
 	}
-	if diff := cmp.Diff("foo", gotOpType); diff != "" {
+	if diff := cmp.Diff(OPType("foo"), gotOpType); diff != "" {
 		t.Errorf("decoded operation type mismatch (-want +got):\n%s", diff)
 	}
 	if diff := cmp.Diff("bar", gotHost); diff != "" {

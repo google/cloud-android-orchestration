@@ -43,8 +43,12 @@ type DockerInstanceManager struct {
 	Client client.Client
 }
 
-const CreateHostOPType string = "createhost"
-const DeleteHostOPType string = "deletehost"
+type OPType string
+
+const (
+	CreateHostOPType OPType = "createhost"
+	DeleteHostOPType OPType = "deletehost"
+)
 
 func NewDockerInstanceManager(cfg Config, cli client.Client) *DockerInstanceManager {
 	return &DockerInstanceManager{
@@ -128,14 +132,14 @@ func (m *DockerInstanceManager) DeleteHost(zone string, _ accounts.User, host st
 	}, nil
 }
 
-func EncodeOperationName(opType string, host string) string {
-	return opType + "_" + host
+func EncodeOperationName(opType OPType, host string) string {
+	return string(opType) + "_" + host
 }
 
-func DecodeOperationName(name string) (string, string, error) {
+func DecodeOperationName(name string) (OPType, string, error) {
 	words := strings.SplitN(name, "_", 2)
 	if len(words) == 2 {
-		return words[0], words[1], nil
+		return OPType(words[0]), words[1], nil
 	} else {
 		return "", "", errors.NewBadRequestError(fmt.Sprintf("cannot parse operation from %q", name), nil)
 	}

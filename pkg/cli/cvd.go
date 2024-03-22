@@ -71,6 +71,12 @@ const (
 	InjectedCredentialsSource = "injected"
 )
 
+type CreateCVDLocalOpts struct {
+	LocalBootloaderSrc string
+	LocalCVDHostPkgSrc string
+	LocalImagesSrcs    []string
+}
+
 type CreateCVDOpts struct {
 	Host            string
 	MainBuild       hoapi.AndroidCIBuild
@@ -86,6 +92,7 @@ type CreateCVDOpts struct {
 	// If true, perform the ADB connection automatically.
 	AutoConnect               bool
 	BuildAPICredentialsSource string
+	CreateCVDLocalOpts
 }
 
 func (o *CreateCVDOpts) AdditionalInstancesNum() uint32 {
@@ -136,9 +143,11 @@ func newCVDCreator(service client.Service, opts CreateCVDOpts, statePrinter *sta
 func (c *cvdCreator) Create() ([]*hoapi.CVD, error) {
 	if c.opts.LocalImage {
 		return c.createCVDFromLocalBuild()
-	} else {
-		return c.createCVDFromAndroidCI()
 	}
+	if !c.opts.CreateCVDLocalOpts.empty() {
+		return c.createCVDFromLocalSrcs()
+	}
+	return c.createCVDFromAndroidCI()
 }
 
 func (c *cvdCreator) createCVDFromLocalBuild() ([]*hoapi.CVD, error) {
@@ -241,6 +250,34 @@ func (c *cvdCreator) createWithOpts() ([]*hoapi.CVD, error) {
 	c.statePrinter.Print(stateMsgStartCVD)
 	res, err := c.service.HostService(c.opts.Host).CreateCVD(createReq, c.credentialsFactory())
 	c.statePrinter.PrintDone(stateMsgStartCVD, err)
+	if err != nil {
+		return nil, err
+	}
+	return res.CVDs, nil
+}
+
+func (c *cvdCreator) createCVDFromLocalSrcs() ([]*hoapi.CVD, error) {
+	if err := c.opts.CreateCVDLocalOpts.validate(); err != nil {
+		return nil, fmt.Errorf("invalid local source: %w", err)
+	}
+	uploadDir, err := c.service.HostService(c.opts.Host).CreateUploadDir()
+	if err != nil {
+		return nil, err
+	}
+	if err := c.service.HostService(c.opts.Host).UploadFiles(uploadDir, c.opts.CreateCVDLocalOpts.srcs()); err != nil {
+		return nil, err
+	}
+	req := hoapi.CreateCVDRequest{
+		CVD: &hoapi.CVD{
+			BuildSource: &hoapi.BuildSource{
+				UserBuildSource: &hoapi.UserBuildSource{
+					ArtifactsDir: uploadDir,
+				},
+			},
+		},
+		AdditionalInstancesNum: c.opts.AdditionalInstancesNum(),
+	}
+	res, err := c.service.HostService(c.opts.Host).CreateCVD(&req, c.credentialsFactory())
 	if err != nil {
 		return nil, err
 	}
@@ -411,4 +448,28 @@ func verifyCVDHostPackageTar(dir string) error {
 		return fmt.Errorf("%q out of date. Please run `m hosttar`", CVDHostPackageName)
 	}
 	return nil
+}
+
+func (o *CreateCVDLocalOpts) validate() error {
+	if o.LocalBootloaderSrc == "" {
+		return errors.New("missing bootloader source")
+	}
+	if o.LocalCVDHostPkgSrc == "" {
+		return errors.New("missing cvd host package source")
+	}
+	return nil
+}
+
+func (o *CreateCVDLocalOpts) srcs() []string {
+	result := []string{o.LocalBootloaderSrc, o.LocalCVDHostPkgSrc}
+	for _, v := range o.LocalImagesSrcs {
+		result = append(result, v)
+	}
+	return result
+}
+
+func (o *CreateCVDLocalOpts) empty() bool {
+	return o.LocalBootloaderSrc == "" &&
+		o.LocalCVDHostPkgSrc == "" &&
+		len(o.LocalImagesSrcs) == 0
 }

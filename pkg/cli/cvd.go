@@ -143,17 +143,30 @@ func (c *cvdCreator) Create() ([]*hoapi.CVD, error) {
 
 func (c *cvdCreator) createCVDFromLocalBuild() ([]*hoapi.CVD, error) {
 	vars, err := GetAndroidEnvVarValues()
-	if err != nil {
-		return nil, fmt.Errorf("error retrieving Android Build environment variables: %w", err)
+	var names []string
+	if err == nil {
+		images, err := ListLocalImageRequiredFiles(vars)
+		if err != nil {
+			return nil, fmt.Errorf("error building list of required image files: %w", err)
+		}
+		names = images
+		if err := verifyCVDHostPackageTar(vars.HostOut); err != nil {
+			return nil, fmt.Errorf("invalid cvd host package: %w", err)
+		}
+		names = append(names, filepath.Join(vars.HostOut, CVDHostPackageName))
+	} else {
+		currentDir, err := os.Getwd()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get current directory: %w", err)
+		}
+		files, err := os.ReadDir(currentDir)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read current directory: %w", err)
+		}
+		for _, file := range files {
+			names = append(names, currentDir+"/"+file.Name())
+		}
 	}
-	names, err := ListLocalImageRequiredFiles(vars)
-	if err != nil {
-		return nil, fmt.Errorf("error building list of required image files: %w", err)
-	}
-	if err := verifyCVDHostPackageTar(vars.HostOut); err != nil {
-		return nil, fmt.Errorf("invalid cvd host package: %w", err)
-	}
-	names = append(names, filepath.Join(vars.HostOut, CVDHostPackageName))
 	uploadDir, err := c.service.HostService(c.opts.Host).CreateUploadDir()
 	if err != nil {
 		return nil, err

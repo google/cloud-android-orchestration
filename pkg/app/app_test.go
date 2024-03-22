@@ -238,7 +238,7 @@ func TestInfraConfigRequest(t *testing.T) {
 	}
 	expected := buildInfraCfg([]string{"foo.com:12345"})
 	if diff := cmp.Diff(expected, got); diff != "" {
-		t.Errorf("status mismatch (-expected +got):\n%s", diff)
+		t.Errorf("infra config mismatch (-expected +got):\n%s", diff)
 	}
 }
 

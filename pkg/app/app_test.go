@@ -51,6 +51,8 @@ type testUser struct{}
 
 func (i *testUser) Username() string { return testUsername }
 
+func (i *testUser) Email() string { return "" }
+
 type testAccountManager struct{}
 
 func (m *testAccountManager) UserFromRequest(r *http.Request) (accounts.User, error) {

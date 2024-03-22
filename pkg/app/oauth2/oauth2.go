@@ -15,6 +15,7 @@
 package oauth2
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -69,3 +70,15 @@ func RevokeGoogleOAuth2Token(tk *oauth2.Token) error {
 
 // ID tokens (from OpenID connect) are presented in JWT format, with the relevant fields in the Claims section.
 type IDTokenClaims map[string]interface{}
+
+func (c IDTokenClaims) Email() (string, error) {
+	v, ok := c["email"]
+	if !ok {
+		return "", errors.New("no email in id token")
+	}
+	vstr, ok := v.(string)
+	if !ok {
+		return "", errors.New("malformed email in id token")
+	}
+	return vstr, nil
+}

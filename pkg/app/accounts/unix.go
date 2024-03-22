@@ -18,8 +18,6 @@ import (
 	"net/http"
 	"os"
 
-	appOAuth2 "github.com/google/cloud-android-orchestration/pkg/app/oauth2"
-
 	"golang.org/x/oauth2"
 )
 
@@ -40,10 +38,6 @@ func (m *UnixAccountManager) UserFromRequest(r *http.Request) (User, error) {
 	return &UnixUser{}, nil
 }
 
-func (m *UnixAccountManager) OnOAuth2Exchange(w http.ResponseWriter, r *http.Request, tk appOAuth2.IDTokenClaims) (User, error) {
-	return &UnixUser{}, nil
-}
-
 type UnixUser struct {
 	username string
 }
@@ -54,3 +48,5 @@ func (i *UnixUser) Username() string {
 	}
 	return i.username
 }
+
+func (i *UnixUser) Email() string { return "" }

@@ -18,7 +18,6 @@ import (
 	"net/http"
 
 	apperr "github.com/google/cloud-android-orchestration/pkg/app/errors"
-	appOAuth2 "github.com/google/cloud-android-orchestration/pkg/app/oauth2"
 )
 
 const HTTPBasicAMType AMType = "http-basic"
@@ -36,32 +35,13 @@ func (m *HTTPBasicAccountManager) UserFromRequest(r *http.Request) (User, error)
 	return userFromRequest(r)
 }
 
-func (m *HTTPBasicAccountManager) OnOAuth2Exchange(w http.ResponseWriter, r *http.Request, tk appOAuth2.IDTokenClaims) (User, error) {
-	rUser, err := userFromRequest(r)
-	if err != nil {
-		return nil, err
-	}
-	user, ok := tk["user"]
-	if !ok {
-		return nil, apperr.NewForbiddenError("no user in id token", nil)
-	}
-	tkUser, ok := user.(string)
-	if !ok {
-		return nil, apperr.NewForbiddenError("malformed user in id token", nil)
-	}
-	if rUser.Username() != tkUser {
-		return nil, apperr.NewForbiddenError("logged in user doesn't match oauth2 user", nil)
-	}
-	return rUser, nil
-}
-
 type HTTPBasicUser struct {
 	username string
 }
 
-func (u *HTTPBasicUser) Username() string {
-	return u.username
-}
+func (u *HTTPBasicUser) Username() string { return u.username }
+
+func (u *HTTPBasicUser) Email() string { return "" }
 
 func userFromRequest(r *http.Request) (*HTTPBasicUser, error) {
 	username, _, ok := r.BasicAuth()

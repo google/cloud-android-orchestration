@@ -16,6 +16,13 @@ type HostInstance struct {
 	BootDiskSizeGB int64 `json:"boot_disk_size_gb,omitempty"`
 	// GCP specific properties.
 	GCP *GCPInstance `json:"gcp,omitempty"`
+	// Docker specific properties.
+	Docker *DockerInstance `json:"docker,omitempty"`
+}
+
+type DockerInstance struct {
+	// Specifies the docker image name.
+	ImageName string `json:"image_name"`
 }
 
 type GCPInstance struct {

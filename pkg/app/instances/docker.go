@@ -121,6 +121,9 @@ func (m *DockerInstanceManager) ListHosts(zone string, user accounts.User, _ *Li
 	for _, container := range listRes {
 		items = append(items, &apiv1.HostInstance{
 			Name: container.ID,
+			Docker: &apiv1.DockerInstance{
+				ImageName: container.Image,
+			},
 		})
 	}
 	return &apiv1.ListHostsResponse{

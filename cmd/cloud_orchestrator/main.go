@@ -41,6 +41,7 @@ func LoadConfiguration() *config.Config {
 	}
 	log.Println("Main Configuration:")
 	log.Println("  Instance Manager Type: " + config.InstanceManager.Type)
+	log.Println("  Account Manager Type: " + config.AccountManager.Type)
 	if config.InstanceManager.Type == instances.GCEIMType {
 		log.Println("  GCP Project: " + config.InstanceManager.GCP.ProjectID)
 	}
@@ -114,6 +115,8 @@ func LoadAccountManager(config *config.Config) accounts.Manager {
 		am = accounts.NewGAEUsersAccountManager()
 	case accounts.UnixAMType:
 		am = accounts.NewUnixAccountManager()
+	case accounts.HTTPBasicAMType:
+		am = accounts.NewHTTPBasicAccountManager()
 	default:
 		log.Fatal("Unknown Account Manager type: ", config.AccountManager.Type)
 	}

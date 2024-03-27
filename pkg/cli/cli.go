@@ -99,6 +99,9 @@ const (
 	numInstancesFlag          = "num_instances"
 	autoConnectFlag           = "auto_connect"
 	credentialsSourceFlag     = "credentials_source"
+	localBootloaderSrcFlag    = "local_bootloader_src"
+	localCVDHostPkgSrcFlag    = "local_cvd_host_pkg_src"
+	localImagesSrcsFlag       = "local_images_srcs"
 )
 
 const (
@@ -488,17 +491,17 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 	create.Flags().StringVar(&createFlags.SystemImgBuild.BuildID, systemImgBuildIDFlag, "", "System image build identifier")
 	create.Flags().StringVar(&createFlags.SystemImgBuild.Target, systemImgBuildTargetFlag, "", "System image build target")
 	create.MarkFlagsMutuallyExclusive(systemImgBranchFlag, systemImgBuildIDFlag)
-	// Local image
-	create.Flags().BoolVar(&createFlags.LocalImage, localImageFlag, false,
-		"Builds a CVD with image files built locally, the required files are https://cs.android.com/android/platform/superproject/+/master:device/google/cuttlefish/required_images and cvd-host-packages.tar.gz")
-	localImgMutuallyExFlags := []string{
+	remoteBuildFlags := []string{
 		branchFlag, buildIDFlag, buildTargetFlag,
 		kernelBranchFlag, kernelBuildIDFlag, kernelBuildTargetFlag,
 		bootloaderBranchFlag, bootloaderBuildIDFlag, bootloaderBuildTargetFlag,
 		systemImgBranchFlag, systemImgBuildIDFlag, systemImgBuildTargetFlag,
 	}
-	for _, f := range localImgMutuallyExFlags {
-		create.MarkFlagsMutuallyExclusive(f, localImageFlag)
+	// Local image
+	create.Flags().BoolVar(&createFlags.LocalImage, localImageFlag, false,
+		"Create instance from a local build, the required files are https://cs.android.com/android/platform/superproject/+/master:device/google/cuttlefish/required_images and cvd-host-packages.tar.gz")
+	for _, remote := range remoteBuildFlags {
+		create.MarkFlagsMutuallyExclusive(localImageFlag, remote)
 	}
 	create.Flags().IntVar(&createFlags.NumInstances, numInstancesFlag, 1,
 		"Creates multiple instances with the same artifacts. Only relevant if given a single build source")
@@ -506,6 +509,17 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 		"Automatically connect through ADB after device is created.")
 	create.Flags().StringVar(&createFlags.BuildAPICredentialsSource, credentialsSourceFlag, opts.InitialConfig.BuildAPICredentialsSource,
 		"Source for the Build API OAuth2 credentials")
+	// Local artifact sources
+	create.Flags().StringVar(&createFlags.LocalBootloaderSrc, localBootloaderSrcFlag, "", "Local bootloader source")
+	create.Flags().StringVar(&createFlags.LocalCVDHostPkgSrc, localCVDHostPkgSrcFlag, "", "Local cvd host package source")
+	create.Flags().StringSliceVar(&createFlags.LocalImagesSrcs, localImagesSrcsFlag, []string{}, "Comma-separated list of local images sources")
+	localSrcsFlag := []string{localBootloaderSrcFlag, localCVDHostPkgSrcFlag, localImagesSrcsFlag}
+	for _, local := range localSrcsFlag {
+		create.MarkFlagsMutuallyExclusive(local, localImageFlag)
+		for _, remote := range remoteBuildFlags {
+			create.MarkFlagsMutuallyExclusive(local, remote)
+		}
+	}
 	// Host flags
 	createHostFlags := []struct {
 		ValueRef *string

@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -154,6 +155,9 @@ func (c *cvdCreator) createCVDFromLocalBuild() ([]*hoapi.CVD, error) {
 	vars, err := GetAndroidEnvVarValues()
 	if err != nil {
 		return nil, fmt.Errorf("error retrieving Android Build environment variables: %w", err)
+	}
+	if err = vars.regenerateHostOut(); err != nil {
+		return nil, fmt.Errorf("error regenerating Android Host Out: %w", err)
 	}
 	names, err := ListLocalImageRequiredFiles(vars)
 	if err != nil {
@@ -395,6 +399,14 @@ const (
 	AndroidProductOutVarName = "ANDROID_PRODUCT_OUT"
 )
 
+const (
+	SoongUiBinPath           = "out/soong_ui"
+	DumpvarModeFlag          = "--dumpvar-mode"
+	AndroidTargetArchVarName = "TARGET_ARCH"
+)
+
+const AndroidHostOutArm64Path = "out/host/linux_musl-arm64"
+
 type AndroidEnvVars struct {
 	BuildTop   string
 	ProductOut string
@@ -413,6 +425,20 @@ func GetAndroidEnvVarValues() (AndroidEnvVars, error) {
 		HostOut:    os.Getenv(AndroidHostOutVarName),
 		ProductOut: os.Getenv(AndroidProductOutVarName),
 	}, nil
+}
+
+func (v *AndroidEnvVars) regenerateHostOut() error {
+	cmdOut, err := exec.Command(v.BuildTop+"/"+SoongUiBinPath, DumpvarModeFlag, AndroidTargetArchVarName).Output()
+	if err != nil {
+		return fmt.Errorf("error while getting target arch: %w", err)
+	}
+	targetArch := strings.TrimSpace(string(cmdOut))
+	if targetArch == "arm64" {
+		v.HostOut = v.BuildTop + "/" + AndroidHostOutArm64Path
+	} else if targetArch != "x86_64" {
+		return fmt.Errorf("unknown target architecture: %q", targetArch)
+	}
+	return nil
 }
 
 func ListLocalImageRequiredFiles(vars AndroidEnvVars) ([]string, error) {

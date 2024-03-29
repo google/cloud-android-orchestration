@@ -17,45 +17,16 @@ package cli
 import (
 	"os"
 	"path"
+	"path/filepath"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 )
 
-func TestGetAndroidEnvVarValuesMissingVariable(t *testing.T) {
-	// testing.T doesn't have an equivalent Unsetenv function.
-	os.Unsetenv(AndroidBuildTopVarName)
-	os.Unsetenv(AndroidHostOutVarName)
-	os.Unsetenv(AndroidProductOutVarName)
-
-	_, err := GetAndroidEnvVarValues()
-
-	if _, ok := err.(MissingEnvVarErr); !ok {
-		t.Errorf("expected %+v, got %+v", MissingEnvVarErr(""), err)
-	}
-}
-
-func TestGetAndroidEnvVarValues(t *testing.T) {
-	t.Setenv(AndroidBuildTopVarName, "foo")
-	t.Setenv(AndroidHostOutVarName, "bar")
-	t.Setenv(AndroidProductOutVarName, "baz")
-
-	got, _ := GetAndroidEnvVarValues()
-
-	expected := AndroidEnvVars{
-		BuildTop:   "foo",
-		HostOut:    "bar",
-		ProductOut: "baz",
-	}
-	if diff := cmp.Diff(expected, got); diff != "" {
-		t.Errorf("mismatch (-want +got):\n%s", diff)
-	}
-}
-
 func TestListLocalImageRequiredFiles(t *testing.T) {
 	tmpDir := t.TempDir()
-	reqImgsFileDir := tmpDir + "/" + path.Dir(RequiredImagesFilename)
-	imagesFile := tmpDir + "/" + RequiredImagesFilename
+	reqImgsFileDir := filepath.Join(tmpDir, path.Dir(RequiredImagesFilename))
+	imagesFile := filepath.Join(tmpDir, RequiredImagesFilename)
 	err := os.MkdirAll(reqImgsFileDir, 0750)
 	if err != nil && !os.IsExist(err) {
 		t.Fatal(err)
@@ -64,17 +35,12 @@ func TestListLocalImageRequiredFiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	vars := AndroidEnvVars{
-		BuildTop:   tmpDir,
-		HostOut:    "/product/vsoc_x86_64",
-		ProductOut: "/out/host/linux-x86",
-	}
 
-	got, err := ListLocalImageRequiredFiles(vars)
+	got, err := ListLocalImageRequiredFiles(tmpDir, "/out/host/linux-x86")
+
 	if err != nil {
 		t.Fatal(err)
 	}
-
 	expected := []string{
 		"/out/host/linux-x86/foo",
 		"/out/host/linux-x86/bar",
@@ -83,7 +49,6 @@ func TestListLocalImageRequiredFiles(t *testing.T) {
 	if diff := cmp.Diff(expected, got); diff != "" {
 		t.Errorf("mismatch (-want +got):\n%s", diff)
 	}
-
 }
 
 func TestAdditionalInstancesNum(t *testing.T) {

@@ -176,7 +176,7 @@ func (c *cvdCreator) createCVDFromLocalBuild() ([]*hoapi.CVD, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := uploadFiles(hostSrv, uploadDir, names); err != nil {
+	if err := uploadFiles(hostSrv, uploadDir, names, c.statePrinter); err != nil {
 		return nil, err
 	}
 	req := hoapi.CreateCVDRequest{
@@ -274,7 +274,7 @@ func (c *cvdCreator) createCVDFromLocalSrcs() ([]*hoapi.CVD, error) {
 		return nil, err
 	}
 	hostSrv := c.service.HostService(c.opts.Host)
-	if err := uploadFiles(hostSrv, uploadDir, c.opts.CreateCVDLocalOpts.srcs()); err != nil {
+	if err := uploadFiles(hostSrv, uploadDir, c.opts.CreateCVDLocalOpts.srcs(), c.statePrinter); err != nil {
 		return nil, err
 	}
 	req := hoapi.CreateCVDRequest{
@@ -455,8 +455,7 @@ func (o *CreateCVDLocalOpts) srcs() []string {
 }
 
 func (o *CreateCVDLocalOpts) empty() bool {
-	return o.LocalBootloaderSrc == "" &&
-		o.LocalCVDHostPkgSrc == "" &&
+	return o.LocalBootloaderSrc == "" && o.LocalCVDHostPkgSrc == "" &&
 		len(o.LocalImagesSrcs) == 0
 }
 
@@ -473,10 +472,14 @@ func envVar(name string) (string, error) {
 	return os.Getenv(name), nil
 }
 
-func uploadFiles(srv client.HostOrchestratorService, uploadDir string, names []string) error {
+func uploadFiles(srv client.HostOrchestratorService, uploadDir string, names []string, statePrinter *statePrinter) error {
 	extractOps := []string{}
 	for _, name := range names {
-		if err := srv.UploadFile(uploadDir, name); err != nil {
+		state := fmt.Sprintf("Uploading %q", filepath.Base(name))
+		statePrinter.Print(state)
+		err := srv.UploadFile(uploadDir, name)
+		statePrinter.PrintDone(state, err)
+		if err != nil {
 			return err
 		}
 		if strings.HasSuffix(name, ".tar.gz") || strings.HasSuffix(name, ".zip") {

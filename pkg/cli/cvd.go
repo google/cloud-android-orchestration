@@ -171,11 +171,12 @@ func (c *cvdCreator) createCVDFromLocalBuild() ([]*hoapi.CVD, error) {
 		return nil, err
 	}
 	names = append(names, filepath.Join(hostOut, CVDHostPackageName))
-	uploadDir, err := c.service.HostService(c.opts.Host).CreateUploadDir()
+	hostSrv := c.service.HostService(c.opts.Host)
+	uploadDir, err := hostSrv.CreateUploadDir()
 	if err != nil {
 		return nil, err
 	}
-	if err := c.service.HostService(c.opts.Host).UploadFiles(uploadDir, names); err != nil {
+	if err := uploadFiles(hostSrv, uploadDir, names); err != nil {
 		return nil, err
 	}
 	req := hoapi.CreateCVDRequest{
@@ -188,7 +189,7 @@ func (c *cvdCreator) createCVDFromLocalBuild() ([]*hoapi.CVD, error) {
 		},
 		AdditionalInstancesNum: c.opts.AdditionalInstancesNum(),
 	}
-	res, err := c.service.HostService(c.opts.Host).CreateCVD(&req, c.credentialsFactory())
+	res, err := hostSrv.CreateCVD(&req, c.credentialsFactory())
 	if err != nil {
 		return nil, err
 	}
@@ -272,7 +273,8 @@ func (c *cvdCreator) createCVDFromLocalSrcs() ([]*hoapi.CVD, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := c.service.HostService(c.opts.Host).UploadFiles(uploadDir, c.opts.CreateCVDLocalOpts.srcs()); err != nil {
+	hostSrv := c.service.HostService(c.opts.Host)
+	if err := uploadFiles(hostSrv, uploadDir, c.opts.CreateCVDLocalOpts.srcs()); err != nil {
 		return nil, err
 	}
 	req := hoapi.CreateCVDRequest{
@@ -285,7 +287,7 @@ func (c *cvdCreator) createCVDFromLocalSrcs() ([]*hoapi.CVD, error) {
 		},
 		AdditionalInstancesNum: c.opts.AdditionalInstancesNum(),
 	}
-	res, err := c.service.HostService(c.opts.Host).CreateCVD(&req, c.credentialsFactory())
+	res, err := hostSrv.CreateCVD(&req, c.credentialsFactory())
 	if err != nil {
 		return nil, err
 	}
@@ -469,4 +471,26 @@ func envVar(name string) (string, error) {
 		return "", MissingEnvVarErr(name)
 	}
 	return os.Getenv(name), nil
+}
+
+func uploadFiles(srv client.HostOrchestratorService, uploadDir string, names []string) error {
+	extractOps := []string{}
+	for _, name := range names {
+		if err := srv.UploadFile(uploadDir, name); err != nil {
+			return err
+		}
+		if strings.HasSuffix(name, ".tar.gz") || strings.HasSuffix(name, ".zip") {
+			op, err := srv.ExtractFile(uploadDir, filepath.Base(name))
+			if err != nil {
+				return fmt.Errorf("failed uploading files: %w", err)
+			}
+			extractOps = append(extractOps, op.Name)
+		}
+	}
+	for _, name := range extractOps {
+		if err := srv.WaitForOperation(name, nil); err != nil {
+			return fmt.Errorf("failed uploading files: %w", err)
+		}
+	}
+	return nil
 }

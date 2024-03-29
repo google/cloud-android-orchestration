@@ -146,17 +146,21 @@ func (fakeHostService) CreateUploadDir() (string, error) {
 	return "", nil
 }
 
-func (fakeHostService) UploadFiles(uploadDir string, filenames []string) error {
+func (fakeHostService) UploadFile(uploadDir string, name string) error {
 	return nil
 }
 
-func (fakeHostService) UploadFilesWithOptions(uploadDir string, filenames []string, options client.UploadOptions) error {
+func (fakeHostService) UploadFileWithOptions(uploadDir string, name string, options client.UploadOptions) error {
 	return nil
 }
+
+func (fakeHostService) ExtractFile(string, string) (*hoapi.Operation, error) { return nil, nil }
 
 func (fakeHostService) DownloadRuntimeArtifacts(dst io.Writer) error {
 	return nil
 }
+
+func (fakeHostService) WaitForOperation(string, any) error { return nil }
 
 func TestCommandSucceeds(t *testing.T) {
 	tests := []struct {

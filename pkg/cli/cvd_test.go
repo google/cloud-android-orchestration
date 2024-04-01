@@ -71,3 +71,27 @@ func TestAdditionalInstancesNum(t *testing.T) {
 		}
 	}
 }
+
+func TestGetHostOutRelativePathSucceeds(t *testing.T) {
+	targetArch := "x86_64"
+
+	got, err := GetHostOutRelativePath(targetArch)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := "out/host/linux-x86"
+	if diff := cmp.Diff(expected, got); diff != "" {
+		t.Errorf("mismatch (-want +got):\n%s", diff)
+	}
+}
+
+func TestGetHostOutRelativePathFailsUnknownTargetArch(t *testing.T) {
+	targetArch := "unknown"
+
+	_, err := GetHostOutRelativePath(targetArch)
+
+	if err == nil {
+		t.Errorf("expected error")
+	}
+}

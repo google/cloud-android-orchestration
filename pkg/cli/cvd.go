@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -163,10 +164,15 @@ func (c *cvdCreator) createCVDFromLocalBuild() ([]*hoapi.CVD, error) {
 	if err != nil {
 		return nil, err
 	}
-	hostOut, err := envVar(AndroidHostOutVarName)
+	targetArch, err := getTargetArch(buildTop)
 	if err != nil {
 		return nil, err
 	}
+	hostOutRelativePath, err := GetHostOutRelativePath(targetArch)
+	if err != nil {
+		return nil, err
+	}
+	hostOut := filepath.Join(buildTop, hostOutRelativePath)
 	if err := verifyCVDHostPackageTar(hostOut); err != nil {
 		return nil, err
 	}
@@ -395,7 +401,6 @@ const (
 
 const (
 	AndroidBuildTopVarName   = "ANDROID_BUILD_TOP"
-	AndroidHostOutVarName    = "ANDROID_HOST_OUT"
 	AndroidProductOutVarName = "ANDROID_PRODUCT_OUT"
 )
 
@@ -419,6 +424,29 @@ func ListLocalImageRequiredFiles(buildTop, productOut string) ([]string, error) 
 		result = append(result, filepath.Join(productOut, line))
 	}
 	return result, nil
+}
+
+func getTargetArch(buildTop string) (string, error) {
+	// `$ANDROID_BUILD_TOP/out/soong_ui` can bring values of build variables, set by `lunch` command.
+	// https://cs.android.com/android/platform/superproject/main/+/main:build/soong/cmd/soong_ui/main.go;l=298
+	bin := filepath.Join(buildTop, "out/soong_ui")
+	cmdOut, err := exec.Command(bin, "--dumpvar-mode", "TARGET_ARCH").Output()
+	if err != nil {
+		return "", fmt.Errorf("error while getting target arch: %w", err)
+	}
+	return strings.TrimSpace(string(cmdOut)), nil
+}
+
+func GetHostOutRelativePath(targetArch string) (string, error) {
+	m := map[string]string{
+		"x86_64": "out/host/linux-x86",
+		"arm64":  "out/host/linux_musl-arm64",
+	}
+	relativePath, ok := m[targetArch]
+	if !ok {
+		return "", fmt.Errorf("Unexpected target architecture: %q", targetArch)
+	}
+	return relativePath, nil
 }
 
 func verifyCVDHostPackageTar(dir string) error {

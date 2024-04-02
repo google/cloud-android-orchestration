@@ -75,6 +75,7 @@ type CreateCVDLocalOpts struct {
 	LocalBootloaderSrc string
 	LocalCVDHostPkgSrc string
 	LocalImagesSrcs    []string
+	LocalImagesZipSrc  string
 }
 
 type CreateCVDOpts struct {
@@ -437,7 +438,7 @@ func verifyCVDHostPackageTar(dir string) error {
 }
 
 func (o *CreateCVDLocalOpts) validate() error {
-	if o.LocalBootloaderSrc == "" {
+	if o.LocalBootloaderSrc == "" && o.LocalImagesZipSrc == "" {
 		return errors.New("missing bootloader source")
 	}
 	if o.LocalCVDHostPkgSrc == "" {
@@ -447,7 +448,16 @@ func (o *CreateCVDLocalOpts) validate() error {
 }
 
 func (o *CreateCVDLocalOpts) srcs() []string {
-	result := []string{o.LocalBootloaderSrc, o.LocalCVDHostPkgSrc}
+	result := []string{}
+	if o.LocalBootloaderSrc != "" {
+		result = append(result, o.LocalBootloaderSrc)
+	}
+	if o.LocalCVDHostPkgSrc != "" {
+		result = append(result, o.LocalCVDHostPkgSrc)
+	}
+	if o.LocalImagesZipSrc != "" {
+		result = append(result, o.LocalImagesZipSrc)
+	}
 	for _, v := range o.LocalImagesSrcs {
 		result = append(result, v)
 	}

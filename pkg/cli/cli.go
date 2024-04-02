@@ -102,6 +102,7 @@ const (
 	localBootloaderSrcFlag    = "local_bootloader_src"
 	localCVDHostPkgSrcFlag    = "local_cvd_host_pkg_src"
 	localImagesSrcsFlag       = "local_images_srcs"
+	localImagesZipSrcFlag     = "local_images_zip_src"
 )
 
 const (
@@ -513,7 +514,11 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 	create.Flags().StringVar(&createFlags.LocalBootloaderSrc, localBootloaderSrcFlag, "", "Local bootloader source")
 	create.Flags().StringVar(&createFlags.LocalCVDHostPkgSrc, localCVDHostPkgSrcFlag, "", "Local cvd host package source")
 	create.Flags().StringSliceVar(&createFlags.LocalImagesSrcs, localImagesSrcsFlag, []string{}, "Comma-separated list of local images sources")
-	localSrcsFlag := []string{localBootloaderSrcFlag, localCVDHostPkgSrcFlag, localImagesSrcsFlag}
+	create.Flags().StringVar(&createFlags.LocalImagesZipSrc, localImagesZipSrcFlag, "",
+		"Local *-img-*.zip source containing the images and bootloader files")
+	create.MarkFlagsMutuallyExclusive(localImagesZipSrcFlag, localBootloaderSrcFlag)
+	create.MarkFlagsMutuallyExclusive(localImagesZipSrcFlag, localImagesSrcsFlag)
+	localSrcsFlag := []string{localBootloaderSrcFlag, localCVDHostPkgSrcFlag, localImagesSrcsFlag, localImagesZipSrcFlag}
 	for _, local := range localSrcsFlag {
 		create.MarkFlagsMutuallyExclusive(local, localImageFlag)
 		for _, remote := range remoteBuildFlags {

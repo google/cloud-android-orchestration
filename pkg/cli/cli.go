@@ -22,6 +22,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/user"
 	"strings"
 	"time"
 
@@ -1194,16 +1195,33 @@ func buildServiceBuilder(builder client.ServiceBuilder, authnConfig *AuthnConfig
 			RetryDelay:     5 * time.Second,
 			ChunkSizeBytes: chunkSizeBytes,
 		}
-		if authnConfig != nil && authnConfig.OIDCToken != nil {
-			content, err := os.ReadFile(authnConfig.OIDCToken.TokenFile)
-			if err != nil {
-				return nil, fmt.Errorf("failed loading oidc token: %w", err)
+		if authnConfig != nil {
+			if authnConfig.OIDCToken != nil && authnConfig.HTTPBasicAuthn != nil {
+				return nil, fmt.Errorf("should only set one authentication option")
 			}
-			value := strings.TrimSuffix(string(content), "\n")
-			opts.Authn = &client.AuthnOpts{
-				OIDCToken: &client.OIDCToken{
+			opts.Authn = &client.AuthnOpts{}
+			if authnConfig.OIDCToken != nil {
+				content, err := os.ReadFile(authnConfig.OIDCToken.TokenFile)
+				if err != nil {
+					return nil, fmt.Errorf("failed loading oidc token: %w", err)
+				}
+				value := strings.TrimSuffix(string(content), "\n")
+				opts.Authn.OIDCToken = &client.OIDCToken{
 					Value: value,
-				},
+				}
+			} else if authnConfig.HTTPBasicAuthn != nil {
+				switch authnConfig.HTTPBasicAuthn.UsernameSrc {
+				case UnixUsernameSrc:
+					user, err := user.Current()
+					if err != nil {
+						return nil, fmt.Errorf("unable to get unix username for http basic authn: %w", err)
+					}
+					opts.Authn.HTTPBasic = &client.HTTPBasic{
+						Username: user.Username,
+					}
+				default:
+					return nil, fmt.Errorf("invalid http basic authn UsernameSrc type: %s", authnConfig.HTTPBasicAuthn.UsernameSrc)
+				}
 			}
 		}
 		return builder(opts)

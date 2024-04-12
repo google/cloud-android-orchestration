@@ -36,11 +36,20 @@ type HostConfig struct {
 }
 
 type AuthnConfig struct {
-	OIDCToken *OIDCTokenConfig `json:"oidc_token,omitempty"`
+	OIDCToken      *OIDCTokenConfig      `json:"oidc_token,omitempty"`
+	HTTPBasicAuthn *HTTPBasicAuthnConfig `json:"http_basic_authn,omitempty"`
 }
 
 type OIDCTokenConfig struct {
 	TokenFile string `json:"token_file,omitempty"`
+}
+
+type UsernameSrcType string
+
+const UnixUsernameSrc UsernameSrcType = "unix"
+
+type HTTPBasicAuthnConfig struct {
+	UsernameSrc UsernameSrcType `json:"username_src,omitempty"`
 }
 
 type Config struct {

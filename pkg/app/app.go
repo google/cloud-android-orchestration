@@ -501,6 +501,9 @@ func (a *App) Authenticate(fn AuthHTTPHandler) HTTPHandler {
 			return err
 		}
 		if user == nil {
+			if a.config.AccountManager.Type == accounts.HTTPBasicAMType {
+				w.Header().Set("WWW-Authenticate", "Basic")
+			}
 			return apperr.NewUnauthenticatedError("Authentication required", nil)
 		}
 		return fn(w, r, user)

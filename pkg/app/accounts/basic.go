@@ -16,8 +16,6 @@ package accounts
 
 import (
 	"net/http"
-
-	apperr "github.com/google/cloud-android-orchestration/pkg/app/errors"
 )
 
 const HTTPBasicAMType AMType = "http-basic"
@@ -32,7 +30,11 @@ func NewHTTPBasicAccountManager() *HTTPBasicAccountManager {
 }
 
 func (m *HTTPBasicAccountManager) UserFromRequest(r *http.Request) (User, error) {
-	return userFromRequest(r)
+	username, _, ok := r.BasicAuth()
+	if !ok {
+		return nil, nil
+	}
+	return &HTTPBasicUser{username}, nil
 }
 
 type HTTPBasicUser struct {
@@ -42,11 +44,3 @@ type HTTPBasicUser struct {
 func (u *HTTPBasicUser) Username() string { return u.username }
 
 func (u *HTTPBasicUser) Email() string { return "" }
-
-func userFromRequest(r *http.Request) (*HTTPBasicUser, error) {
-	username, _, ok := r.BasicAuth()
-	if !ok {
-		return nil, apperr.NewBadRequestError("No username in request", nil)
-	}
-	return &HTTPBasicUser{username}, nil
-}

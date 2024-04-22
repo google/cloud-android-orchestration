@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -32,6 +33,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
+	"golang.org/x/net/proxy"
 )
 
 // Groups streams for standard IO.
@@ -108,7 +110,8 @@ const (
 const (
 	ConnectCommandName         = "connect"
 	DisconnectCommandName      = "disconnect"
-	ConnectionAgentCommandName = "agent"
+	ConnectionWebrtcAgentCommandName = "webrtc_agent"
+	ConnectionBaseAgentCommandName = "base_agent"
 )
 
 const (
@@ -605,17 +608,26 @@ func connectionCommands(opts *subCommandOpts) []*cobra.Command {
 	disconnect.Flags().StringVar(&connFlags.host, hostFlag, "", "Specifies the host")
 	disconnect.Flags().BoolVarP(&connFlags.skipConfirmation, "yes", "y", false,
 		"Don't ask for confirmation for closing multiple connections.")
-	agent := &cobra.Command{
+	webrtcAgent := &cobra.Command{
 		Hidden: true,
-		Use:    ConnectionAgentCommandName,
+		Use:    ConnectionWebrtcAgentCommandName,
 		RunE: func(c *cobra.Command, args []string) error {
-			return runConnectionAgentCommand(connFlags, &command{c, &connFlags.Verbose}, args, opts)
+			return runConnectionWebrtcAgentCommand(connFlags, &command{c, &connFlags.Verbose}, args, opts)
 		},
 	}
-	agent.Flags().StringVar(&connFlags.host, hostFlag, "", "Specifies the host")
-	agent.Flags().StringVar(&connFlags.ice_config, iceConfigFlag, "", iceConfigFlagDesc)
-	agent.MarkPersistentFlagRequired(hostFlag)
-	return []*cobra.Command{connect, disconnect, agent}
+	webrtcAgent.Flags().StringVar(&connFlags.host, hostFlag, "", "Specifies the host")
+	webrtcAgent.Flags().StringVar(&connFlags.ice_config, iceConfigFlag, "", iceConfigFlagDesc)
+	webrtcAgent.MarkPersistentFlagRequired(hostFlag)
+	baseAgent := &cobra.Command{
+		Hidden: true,
+		Use:    ConnectionBaseAgentCommandName,
+		RunE: func(c *cobra.Command, args []string) error {
+			return runConnectionBaseAgentCommand(connFlags, &command{c, &connFlags.Verbose}, args, opts)
+		},
+	}
+	baseAgent.Flags().StringVar(&connFlags.host, hostFlag, "", "Specifies the host")
+	baseAgent.MarkPersistentFlagRequired(hostFlag)
+	return []*cobra.Command{connect, disconnect, webrtcAgent, baseAgent}
 }
 
 func runCreateHostCommand(c *cobra.Command, flags *CreateHostFlags, opts *subCommandOpts) error {
@@ -856,7 +868,7 @@ func ConnectDevice(host, device, ice_config string, c *command, opts *subCommand
 		host:           host,
 		ice_config:     ice_config,
 	}
-	cmdArgs := buildAgentCmdArgs(flags, device)
+	cmdArgs := buildAgentCmdArgs(flags, device, false)
 
 	output, err := opts.CommandRunner.StartBgCommand(cmdArgs...)
 	if err != nil {
@@ -880,8 +892,10 @@ func ConnectDevice(host, device, ice_config string, c *command, opts *subCommand
 }
 
 func runConnectCommand(flags *ConnectFlags, c *command, args []string, opts *subCommandOpts) error {
-	if _, err := verifyICEConfigFlag(flags.ice_config); err != nil {
-		return err
+	if flags.ice_config != "" {
+		if _, err := verifyICEConfigFlag(flags.ice_config); err != nil {
+			return err
+		}
 	}
 	if len(args) > 0 && flags.host == "" {
 		return fmt.Errorf("missing host for devices: %v", args)
@@ -982,12 +996,49 @@ func printConnection(c *command, cvd RemoteCVDLocator, status ConnStatus) {
 	c.Printf("%s/%s: %s\n", cvd.Host, cvd.WebRTCDeviceID, state)
 }
 
-func buildAgentCmdArgs(flags *ConnectFlags, device string) []string {
-	args := []string{
-		ConnectionAgentCommandName,
-		device,
+func buildAgentCmdArgs(flags *ConnectFlags, device string, useWebrtc bool) []string {
+	cmdName := ConnectionBaseAgentCommandName
+	if useWebrtc {
+		cmdName = ConnectionWebrtcAgentCommandName
 	}
+	args := []string{cmdName, device}
 	return append(args, flags.AsArgs()...)
+}
+
+func runConnectionBaseAgentCommand(flags *ConnectFlags, c *command, args []string, opts *subCommandOpts) error {
+	if len(args) > 1 {
+		return fmt.Errorf("connection agent only supports a single device, received: %v", args)
+	}
+	if len(args) == 0 {
+		return fmt.Errorf("missing device")
+	}
+
+	proxyDialer, err := proxy.SOCKS5("tcp", "localhost:1337", nil, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create proxy dialer: %w", err)
+	}
+
+	remoteConn, err := proxyDialer.Dial("tcp", "172.17.0.2:6520")
+	if err != nil {
+		return fmt.Errorf("failed to dial remote port: %w", err)
+	}
+	defer remoteConn.Close()
+
+	localListener, err := net.Listen("unix", "/usr/local/google/home/seungjaeyoo/Desktop/hello.sock")
+	if err != nil {
+		return fmt.Errorf("failed to create unix socket: %w", err)
+	}
+	defer localListener.Close()
+
+	localConn, _ := localListener.Accept()
+
+
+
+	go io.Copy(remoteConn, localConn)
+	io.Copy(localConn, remoteConn)
+
+
+	return nil
 }
 
 // Handler for the agent command. This is not meant to be called by the user
@@ -998,7 +1049,7 @@ func buildAgentCmdArgs(flags *ConnectFlags, device string) []string {
 // established, the process closes all its standard IO channels and continues
 // execution in the background. Any errors detected when the process is in
 // background are written to the log file instead.
-func runConnectionAgentCommand(flags *ConnectFlags, c *command, args []string, opts *subCommandOpts) error {
+func runConnectionWebrtcAgentCommand(flags *ConnectFlags, c *command, args []string, opts *subCommandOpts) error {
 	localICEConfig, err := verifyICEConfigFlag(flags.ice_config)
 	if err != nil {
 		return err

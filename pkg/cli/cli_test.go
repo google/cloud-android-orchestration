@@ -253,7 +253,7 @@ func TestBuildAgentCmdline(t *testing.T) {
 		skipConfirmation: false,
 	}
 	device := "device"
-	args := buildAgentCmdArgs(&flags, device)
+	args := buildAgentCmdArgs(&flags, device, true)
 	var options CommandOptions
 	cmd := NewCVDRemoteCommand(&options)
 	subCmd, args, err := cmd.command.Traverse(args)
@@ -266,8 +266,8 @@ func TestBuildAgentCmdline(t *testing.T) {
 	if reflect.DeepEqual(args, []string{device}) {
 		t.Errorf("expected resulting args to just have [%q], but found %v", device, args)
 	}
-	if subCmd.Name() != ConnectionAgentCommandName {
-		t.Errorf("expected it to parse %q command, found: %q", ConnectionAgentCommandName, subCmd.Name())
+	if subCmd.Name() != ConnectionWebrtcAgentCommandName {
+		t.Errorf("expected it to parse %q command, found: %q", ConnectionWebrtcAgentCommandName, subCmd.Name())
 	}
 	// TODO(jemoreira): Compare the parsed flags with used flags
 }

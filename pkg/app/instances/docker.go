@@ -223,15 +223,11 @@ func (m *DockerInstanceManager) WaitOperation(zone string, _ accounts.User, name
 	}
 }
 
-func (m *DockerInstanceManager) GetHostAddr() (string, error) {
-	return "127.0.0.1", nil
-}
-
-func (m *DockerInstanceManager) GetHostPort(host string) (int, error) {
+func (m *DockerInstanceManager) getHostAddr(host string) (string, error) {
 	ctx := context.TODO()
 	listRes, err := m.Client.ContainerList(ctx, types.ContainerListOptions{})
 	if err != nil {
-		return -1, fmt.Errorf("Failed to list docker containers: %w", err)
+		return "", fmt.Errorf("Failed to list docker containers: %w", err)
 	}
 	var hostContainer *types.Container
 	for _, container := range listRes {
@@ -241,28 +237,25 @@ func (m *DockerInstanceManager) GetHostPort(host string) (int, error) {
 		}
 	}
 	if hostContainer == nil {
-		return -1, fmt.Errorf("Failed to find host: %s", host)
+		return "", fmt.Errorf("Failed to find host: %s", host)
 	}
-	var exposedHostOrchestratorPort int
-	exposedHostOrchestratorPort = -1
-	for _, port := range hostContainer.Ports {
-		if int(port.PrivatePort) == m.Config.Docker.HostOrchestratorPort {
-			exposedHostOrchestratorPort = int(port.PublicPort)
-			break
-		}
+	bridgeNetwork := hostContainer.NetworkSettings.Networks["bridge"]
+	if bridgeNetwork == nil {
+		return "", fmt.Errorf("Failed to find network information of docker instance")
 	}
-	if exposedHostOrchestratorPort == -1 {
-		return -1, fmt.Errorf("Failed to find exposed Host Orchestrator port for given host: %s", host)
-	}
-	return exposedHostOrchestratorPort, nil
+	return bridgeNetwork.IPAddress, nil
 }
 
-func (m *DockerInstanceManager) GetHostURL(host string) (*url.URL, error) {
-	addr, err := m.GetHostAddr()
+func (m *DockerInstanceManager) getHostPort() (int, error) {
+	return m.Config.Docker.HostOrchestratorPort, nil
+}
+
+func (m *DockerInstanceManager) getHostURL(host string) (*url.URL, error) {
+	addr, err := m.getHostAddr(host)
 	if err != nil {
 		return nil, err
 	}
-	port, err := m.GetHostPort(host)
+	port, err := m.getHostPort()
 	if err != nil {
 		return nil, err
 	}
@@ -273,7 +266,7 @@ func (m *DockerInstanceManager) GetHostClient(zone string, host string) (HostCli
 	if zone != "local" {
 		return nil, errors.NewBadRequestError("Invalid zone. It should be 'local'.", nil)
 	}
-	url, err := m.GetHostURL(host)
+	url, err := m.getHostURL(host)
 	if err != nil {
 		return nil, err
 	}

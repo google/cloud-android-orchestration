@@ -82,8 +82,7 @@ func (m *DockerInstanceManager) CreateHost(zone string, _ *apiv1.CreateHostReque
 		},
 	}
 	hostConfig := &container.HostConfig{
-		Privileged:      true,
-		PublishAllPorts: true,
+		Privileged: true,
 	}
 	createRes, err := m.Client.ContainerCreate(ctx, config, hostConfig, nil, nil, "")
 	if err != nil {

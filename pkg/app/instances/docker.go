@@ -118,10 +118,15 @@ func (m *DockerInstanceManager) ListHosts(zone string, user accounts.User, _ *Li
 	}
 	var items []*apiv1.HostInstance
 	for _, container := range listRes {
+		ipAddr, err := m.getIpAddr(&container)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to get IP address of docker instance: %w", err)
+		}
 		items = append(items, &apiv1.HostInstance{
 			Name: container.ID,
 			Docker: &apiv1.DockerInstance{
 				ImageName: container.Image,
+				IPAddress: ipAddr,
 			},
 		})
 	}
@@ -222,6 +227,14 @@ func (m *DockerInstanceManager) WaitOperation(zone string, _ accounts.User, name
 	}
 }
 
+func (m *DockerInstanceManager) getIpAddr(container *types.Container) (string, error) {
+	bridgeNetwork := container.NetworkSettings.Networks["bridge"]
+	if bridgeNetwork == nil {
+		return "", fmt.Errorf("Failed to find network information of docker instance")
+	}
+	return bridgeNetwork.IPAddress, nil
+}
+
 func (m *DockerInstanceManager) getHostAddr(host string) (string, error) {
 	ctx := context.TODO()
 	listRes, err := m.Client.ContainerList(ctx, types.ContainerListOptions{})
@@ -238,11 +251,7 @@ func (m *DockerInstanceManager) getHostAddr(host string) (string, error) {
 	if hostContainer == nil {
 		return "", fmt.Errorf("Failed to find host: %s", host)
 	}
-	bridgeNetwork := hostContainer.NetworkSettings.Networks["bridge"]
-	if bridgeNetwork == nil {
-		return "", fmt.Errorf("Failed to find network information of docker instance")
-	}
-	return bridgeNetwork.IPAddress, nil
+	return m.getIpAddr(hostContainer)
 }
 
 func (m *DockerInstanceManager) getHostPort() (int, error) {

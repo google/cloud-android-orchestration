@@ -23,6 +23,8 @@ type HostInstance struct {
 type DockerInstance struct {
 	// Specifies the docker image name.
 	ImageName string `json:"image_name"`
+	// IP address of docker instance.
+	IPAddress string `json:"ip_address"`
 }
 
 type GCPInstance struct {

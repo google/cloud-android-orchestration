@@ -46,3 +46,8 @@ If there's a network or security issue for accessing cloud orchestrator
 remotely, please try using SOCKS5 proxy. Currently `cvdr` supports using
 SOCKS5 proxy with the flag like `--http_proxy=socks5://localhost:1337` for all
 subcommands.
+
+## Use cloud orchestrator by cvdr
+
+Please follow [cvdr.md](cvdr.md). The URL of running cloud orchestrator should
+be `http://${CLOUD_ORCHESTRATOR_IP_ADDRESS}:8080`.

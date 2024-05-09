@@ -1,0 +1,33 @@
+WebStaticFilesPath = "web"
+
+# List of allowed origins
+# e.g. "https://localhost:8080"
+CORSAllowedOrigins = []
+
+[AccountManager]
+Type = "unix"
+
+[AccountManager.OAuth2]
+Provider = "Google"
+RedirectURL = "http://localhost:8080/oauth2callback"
+
+[SecretManager]
+Type = ""
+
+[EncryptionService]
+Type = "Fake"
+
+[DatabaseService]
+Type = "InMemory"
+
+[InstanceManager]
+Type = "docker"
+HostOrchestratorProtocol = "http"
+AllowSelfSignedHostSSLCertificate = true
+
+[InstanceManager.Docker]
+DockerImageName = "cuttlefish-orchestration:latest"
+HostOrchestratorPort = 2080
+
+[WebRTC]
+STUNServers = ["stun:stun.l.google.com:19302"]

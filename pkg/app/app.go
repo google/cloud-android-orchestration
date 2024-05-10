@@ -123,6 +123,10 @@ func (c *App) Handler() http.Handler {
 	router.Handle("/v1/config", c.Authenticate(c.ConfigHandler)).Methods("GET")
 	router.Handle("/", c.Authenticate(indexHandler))
 
+	if c.config.AccountManager.Type == accounts.UsernameOnlyAMType {
+		router.Handle("/username", HTTPHandler(c.UsernameOnlyLoggingHandler)).Methods("GET", "POST")
+	}
+
 	rootRouter := mux.NewRouter()
 	rootRouter.PathPrefix("/").Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c.AddCorsHeaderIfNeeded(w, r)
@@ -256,6 +260,20 @@ func (c *App) AuthHandler(w http.ResponseWriter, r *http.Request) error {
 	authURL := c.oauth2Helper.AuthCodeURL(state, oauth2.AccessTypeOffline)
 	http.Redirect(w, r, authURL, http.StatusSeeOther)
 	return nil
+}
+
+func (c *App) UsernameOnlyLoggingHandler(w http.ResponseWriter, r *http.Request) error {
+	if c.config.AccountManager.Type != accounts.UsernameOnlyAMType {
+		panic("Must use UsernameOnlyAccountManager")
+	}
+	switch r.Method {
+	case http.MethodGet:
+		return accounts.UsernameOnlyLoggingForm(w, r)
+	case http.MethodPost:
+		return accounts.HandleUsernameOnlyLogging(w, r)
+	default:
+		return apperr.NewMethodNotAllowedError(fmt.Sprintf("not supported for http %q", r.Method), nil)
+	}
 }
 
 func (c *App) OAuth2Callback(w http.ResponseWriter, r *http.Request) error {

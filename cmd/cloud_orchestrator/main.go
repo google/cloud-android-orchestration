@@ -117,6 +117,8 @@ func LoadAccountManager(config *config.Config) accounts.Manager {
 		am = accounts.NewUnixAccountManager()
 	case accounts.HTTPBasicAMType:
 		am = accounts.NewHTTPBasicAccountManager()
+	case accounts.URLQueryAMType:
+		am = accounts.NewURLQueryAccountManager()
 	default:
 		log.Fatal("Unknown Account Manager type: ", config.AccountManager.Type)
 	}

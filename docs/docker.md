@@ -10,23 +10,13 @@ Please follow the docker part of
 in `google/android-cuttlefish` github repository, and check if the docker image
 `cuttlefish-orchestration` exists.
 
-## Build cloud orchestrator
+## Build and run cloud orchestrator
 
-To build cloud orchestrator, please execute:
+To build and run cloud orchestrator, please execute below commands in the server
+machine.
 ```bash
 git clone https://github.com/google/cloud-android-orchestration.git
 cd cloud-android-orchestration # Root directory of this repository
-go build ./cmd/cloud_orchestrator
-```
-
-If build was successful, you would be able to see `cloud_orchestrator` binary at
-the root directory of this repository.
-
-## Run cloud orchestrator
-
-To run cloud orchestrator, please execute:
-```bash
-# In the root directory of this repository
 scripts/docker/run.sh
 ```
 

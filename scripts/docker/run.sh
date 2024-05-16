@@ -27,4 +27,4 @@ docker_api_version=$(\
 
 CONFIG_FILE=scripts/docker/conf.toml \
 DOCKER_API_VERSION=$docker_api_version \
-./cloud_orchestrator
+go run ./cmd/cloud_orchestrator

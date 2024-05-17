@@ -42,10 +42,14 @@ the empty string. Note that this is a temporary solution.
 TODO(0405ysj): Update this section after renaming the flag name from
 `http_proxy` into `proxy`.
 -->
-If there's a network or security issue for accessing cloud orchestrator
-remotely, please try using SOCKS5 proxy. Currently `cvdr` supports using
-SOCKS5 proxy with the flag like `--http_proxy=socks5://localhost:1337` for all
-subcommands.
+If there's a firewall which blocks accessing cloud orchestrator with HTTP/HTTPS
+requests, please try using SOCKS5 proxy. Establishing SOCKS5 proxy by creating
+SSH dynamic port forwarding is available with following command.
+```bash
+ssh -D ${SOCKS5_PORT} -q -C -N ${USERNAME}@${CLOUD_ORCHESTRATOR_IPv4_ADDRESS}
+```
+Besides, currently `cvdr` supports using SOCKS5 proxy with the flag like
+`--http_proxy=socks5://localhost:${SOCKS5_PORT}` for all subcommands.
 
 ## Use cloud orchestrator by cvdr
 

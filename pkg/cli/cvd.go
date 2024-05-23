@@ -38,6 +38,8 @@ type RemoteCVDLocator struct {
 	// Instead of `Name`, `WebRTCDeviceID` is the identifier used for setting up the adb connections. It
 	// contains the group name and the device name, eg: "cvd-1_1".
 	WebRTCDeviceID string `json:"webrtc_device_id"`
+	// ADB port of Cuttlefish instance.
+	ADBSerial string `json:"adb_serial"`
 }
 
 type RemoteCVD struct {
@@ -61,6 +63,7 @@ func NewRemoteCVD(url, host string, cvd *hoapi.CVD) *RemoteCVD {
 			ID:                  cvd.ID(),
 			Name:                cvd.Name,
 			WebRTCDeviceID:      cvd.WebRTCDeviceID,
+			ADBSerial:           cvd.ADBSerial,
 		},
 		Status:   cvd.Status,
 		Displays: cvd.Displays,
@@ -391,6 +394,19 @@ func listHostCVDsInner(service client.Service, host string, statuses map[RemoteC
 		}
 	}
 	return ret, nil
+}
+
+func findCVD(service client.Service, controlDir, host, device string) (*RemoteCVD, error) {
+	cvdHosts, err := listCVDsSingleHost(service, controlDir, host)
+	if err != nil {
+		return nil, fmt.Errorf("error listing CVDs: %w", err)
+	}
+	for _, cvd := range cvdHosts[0].CVDs {
+		if device == cvd.WebRTCDeviceID {
+			return cvd, nil
+		}
+	}
+	return nil, fmt.Errorf("failed to find CVD for %s in %s", device, host)
 }
 
 const RequiredImagesFilename = "device/google/cuttlefish/required_images"

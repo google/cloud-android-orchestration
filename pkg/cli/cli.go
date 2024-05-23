@@ -20,10 +20,14 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
+	"os/signal"
 	"os/user"
 	"strings"
+	"syscall"
 	"time"
 
 	client "github.com/google/cloud-android-orchestration/pkg/client"
@@ -32,6 +36,7 @@ import (
 	"github.com/PaesslerAG/jsonpath"
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
+	"golang.org/x/net/proxy"
 	"golang.org/x/term"
 )
 
@@ -107,9 +112,10 @@ const (
 )
 
 const (
-	ConnectCommandName         = "connect"
-	DisconnectCommandName      = "disconnect"
-	ConnectionAgentCommandName = "agent"
+	ConnectCommandName               = "connect"
+	DisconnectCommandName            = "disconnect"
+	ConnectionWebRTCAgentCommandName = "webrtc_agent"
+	ConnectionProxyAgentCommandName  = "proxy_agent"
 )
 
 const (
@@ -179,7 +185,8 @@ type ConnectFlags struct {
 	host             string
 	skipConfirmation bool
 	// Path to file containing the ICE configuration to be used in the underlaying WebRTC connection.
-	ice_config string
+	ice_config   string
+	connectAgent string
 }
 
 func (f *ConnectFlags) AsArgs() []string {
@@ -584,7 +591,7 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 }
 
 func connectionCommands(opts *subCommandOpts) []*cobra.Command {
-	connFlags := &ConnectFlags{CVDRemoteFlags: opts.RootFlags, host: "", skipConfirmation: false}
+	connFlags := &ConnectFlags{CVDRemoteFlags: opts.RootFlags, host: "", skipConfirmation: false, connectAgent: ConnectionWebRTCAgentCommandName}
 	connect := &cobra.Command{
 		Use:   ConnectCommandName,
 		Short: "(Re)Connects to a CVD and tunnels ADB messages",
@@ -596,6 +603,7 @@ func connectionCommands(opts *subCommandOpts) []*cobra.Command {
 	connect.Flags().BoolVarP(&connFlags.skipConfirmation, "yes", "y", false,
 		"Don't ask for confirmation for closing multiple connections.")
 	connect.Flags().StringVar(&connFlags.ice_config, iceConfigFlag, "", iceConfigFlagDesc)
+	connect.Flags().StringVar(&connFlags.connectAgent, "connect_agent", ConnectionWebRTCAgentCommandName, "Connect agent type")
 	disconnect := &cobra.Command{
 		Use:   fmt.Sprintf("%s <foo> <bar> <baz>", DisconnectCommandName),
 		Short: "Disconnect (ADB) from CVD",
@@ -606,17 +614,26 @@ func connectionCommands(opts *subCommandOpts) []*cobra.Command {
 	disconnect.Flags().StringVar(&connFlags.host, hostFlag, "", "Specifies the host")
 	disconnect.Flags().BoolVarP(&connFlags.skipConfirmation, "yes", "y", false,
 		"Don't ask for confirmation for closing multiple connections.")
-	agent := &cobra.Command{
+	webrtcAgent := &cobra.Command{
 		Hidden: true,
-		Use:    ConnectionAgentCommandName,
+		Use:    ConnectionWebRTCAgentCommandName,
 		RunE: func(c *cobra.Command, args []string) error {
-			return runConnectionAgentCommand(connFlags, &command{c, &connFlags.Verbose}, args, opts)
+			return runConnectionWebrtcAgentCommand(connFlags, &command{c, &connFlags.Verbose}, args, opts)
 		},
 	}
-	agent.Flags().StringVar(&connFlags.host, hostFlag, "", "Specifies the host")
-	agent.Flags().StringVar(&connFlags.ice_config, iceConfigFlag, "", iceConfigFlagDesc)
-	agent.MarkPersistentFlagRequired(hostFlag)
-	return []*cobra.Command{connect, disconnect, agent}
+	webrtcAgent.Flags().StringVar(&connFlags.host, hostFlag, "", "Specifies the host")
+	webrtcAgent.Flags().StringVar(&connFlags.ice_config, iceConfigFlag, "", iceConfigFlagDesc)
+	webrtcAgent.MarkPersistentFlagRequired(hostFlag)
+	proxyAgent := &cobra.Command{
+		Hidden: true,
+		Use:    ConnectionProxyAgentCommandName,
+		RunE: func(c *cobra.Command, args []string) error {
+			return runConnectionProxyAgentCommand(connFlags, &command{c, &connFlags.Verbose}, args, opts)
+		},
+	}
+	proxyAgent.Flags().StringVar(&connFlags.host, hostFlag, "", "Specifies the host")
+	proxyAgent.MarkPersistentFlagRequired(hostFlag)
+	return []*cobra.Command{connect, disconnect, webrtcAgent, proxyAgent}
 }
 
 func runCreateHostCommand(c *cobra.Command, flags *CreateHostFlags, opts *subCommandOpts) error {
@@ -731,7 +748,7 @@ func runCreateCVDCommand(c *cobra.Command, args []string, flags *CreateCVDFlags,
 	if flags.CreateCVDOpts.AutoConnect {
 		for _, cvd := range cvds {
 			statePrinter.Print(fmt.Sprintf(connectCVDStateMsgFmt, cvd.WebRTCDeviceID))
-			cvd.ConnStatus, err = ConnectDevice(flags.CreateCVDOpts.Host, cvd.WebRTCDeviceID, "", &command{c, &flags.Verbose}, opts)
+			cvd.ConnStatus, err = ConnectDevice(flags.CreateCVDOpts.Host, cvd.WebRTCDeviceID, "", ConnectionWebRTCAgentCommandName, &command{c, &flags.Verbose}, opts)
 			statePrinter.PrintDone(fmt.Sprintf(connectCVDStateMsgFmt, cvd.WebRTCDeviceID), err)
 			if err != nil {
 				merr = multierror.Append(merr, fmt.Errorf("failed to connect to device: %w", err))
@@ -840,7 +857,7 @@ func promptHostNameSelection(c *command, service client.Service, selOpt Selectio
 
 // Starts a connection agent process and waits for it to report the connection was
 // successfully created or an error occurred.
-func ConnectDevice(host, device, ice_config string, c *command, opts *subCommandOpts) (*ConnStatus, error) {
+func ConnectDevice(host, device, ice_config, agent string, c *command, opts *subCommandOpts) (*ConnStatus, error) {
 	// Clean old logs files as we are about to create new ones.
 	go func() {
 		minAge := opts.InitialConfig.LogFilesDeleteThreshold()
@@ -857,7 +874,7 @@ func ConnectDevice(host, device, ice_config string, c *command, opts *subCommand
 		host:           host,
 		ice_config:     ice_config,
 	}
-	cmdArgs := buildAgentCmdArgs(flags, device)
+	cmdArgs := buildAgentCmdArgs(flags, device, agent)
 
 	output, err := opts.CommandRunner.StartBgCommand(cmdArgs...)
 	if err != nil {
@@ -944,7 +961,7 @@ func runConnectCommand(flags *ConnectFlags, c *command, args []string, opts *sub
 		go func(connCh chan ConnStatus, errCh chan error, cvd RemoteCVDLocator) {
 			defer close(connCh)
 			defer close(errCh)
-			status, err := ConnectDevice(cvd.Host, cvd.WebRTCDeviceID, flags.ice_config, c, opts)
+			status, err := ConnectDevice(cvd.Host, cvd.WebRTCDeviceID, flags.ice_config, flags.connectAgent, c, opts)
 			if err != nil {
 				errCh <- fmt.Errorf("failed to connect to %q on %q: %w", cvd.WebRTCDeviceID, cvd.Host, err)
 			} else {
@@ -983,23 +1000,152 @@ func printConnection(c *command, cvd RemoteCVDLocator, status ConnStatus) {
 	c.Printf("%s/%s: %s\n", cvd.Host, cvd.WebRTCDeviceID, state)
 }
 
-func buildAgentCmdArgs(flags *ConnectFlags, device string) []string {
-	args := []string{
-		ConnectionAgentCommandName,
-		device,
-	}
+func buildAgentCmdArgs(flags *ConnectFlags, device string, connectAgent string) []string {
+	args := []string{connectAgent, device}
 	return append(args, flags.AsArgs()...)
 }
 
-// Handler for the agent command. This is not meant to be called by the user
-// directly, but instead is started by the open command.
+// Letting the process be a proxy server for establishing the connection.
+func forwardProxy(socketPath, proxyAddr, adbAddr string, adbServerProxy ADBServerProxy) error {
+	// Make connection towards [host_ip_address]:[cuttlefish_instance_adb_port]
+	var dialer proxy.Dialer
+	if proxyAddr != "" {
+		proxyUrl, err := url.Parse(proxyAddr)
+		if err != nil {
+			return fmt.Errorf("failed to parse proxy URL: %w", err)
+		}
+		if proxyUrl.Scheme != "socks5" {
+			return fmt.Errorf("scheme of proxy URL is not socks5. actual: %s", proxyUrl.Scheme)
+		}
+		dialer, err = proxy.SOCKS5("tcp", proxyUrl.Host, nil, nil)
+		if err != nil {
+			return fmt.Errorf("failed to create proxy dialer: %w", err)
+		}
+	} else {
+		dialer = proxy.Direct
+	}
+	remoteConn, err := dialer.Dial("tcp", adbAddr)
+	if err != nil {
+		return fmt.Errorf("failed to dial remote port: %w", err)
+	}
+	defer remoteConn.Close()
+
+	// Create a file socket to establish ADB connection
+	localListener, err := net.Listen("unix", socketPath)
+	if err != nil {
+		return fmt.Errorf("failed to create unix socket: %w", err)
+	}
+	defer localListener.Close()
+
+	// Enroll signal channel to handle SIGINT and SIGTERM.
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+
+	// Initialize ADB connection
+	errorCh := make(chan error)
+	go func() {
+		if err := adbServerProxy.ConnectWithLocalFileSystem(socketPath); err != nil {
+			errorCh <- fmt.Errorf("failed to connect adb: %w", err)
+		}
+	}()
+	defer adbServerProxy.DisconnectWithLocalFileSystem(socketPath)
+
+	// Listener is accepted by ADB connection.
+	startLocalToRemoteCh := make(chan net.Conn)
+	startRemoteToLocalCh := make(chan net.Conn)
+	go func() {
+		localConn, err := localListener.Accept()
+		if err != nil {
+			errorCh <- fmt.Errorf("failed to accept connection: %w", err)
+
+		} else {
+			startLocalToRemoteCh <- localConn
+			startRemoteToLocalCh <- localConn
+		}
+	}()
+
+	// After acception, start data transfer to do the role proxying ADB connection.
+	go func() {
+		localConn := <-startLocalToRemoteCh
+		if _, err := io.Copy(remoteConn, localConn); err != nil {
+			errorCh <- fmt.Errorf("no longer able to copy data from local to remote: %w", err)
+		}
+	}()
+	go func() {
+		localConn := <-startRemoteToLocalCh
+		if _, err := io.Copy(localConn, remoteConn); err != nil {
+			errorCh <- fmt.Errorf("no longer able to copy data from remote to local: %w", err)
+		}
+	}()
+
+	// Wait for channels notifying the termination.
+	var chErr error
+	select {
+	case <-sigCh:
+	case chErr = <-errorCh:
+	}
+
+	// Remove the socket file before the termination of this process.
+	if err := os.Remove(socketPath); err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			chErr = multierror.Append(chErr, fmt.Errorf("failed to cleanup existing proxy socket: %w", err))
+		}
+	}
+	return chErr
+}
+
+// Handler for the webrtc agent command. This is not meant to be called by the
+// user directly, but instead is started by the open command.
+// The process runs as a background process of runConnectCommand, for proxying
+// connection to the ADB port located remotely.
+func runConnectionProxyAgentCommand(flags *ConnectFlags, c *command, args []string, opts *subCommandOpts) error {
+	if len(args) > 1 {
+		return fmt.Errorf("connection agent only supports a single device, received: %v", args)
+	}
+	if len(args) == 0 {
+		return errors.New("missing device")
+	}
+	device := args[0]
+	service, err := opts.ServiceBuilder(flags.CVDRemoteFlags, c.Command)
+	if err != nil {
+		return err
+	}
+	controlDir := opts.InitialConfig.ConnectionControlDirExpanded()
+
+	// Retrieving IP address and port of ADB connection
+	host, err := findHost(service, flags.host)
+	if err != nil {
+		return fmt.Errorf("failed to find host")
+	}
+	if host.Docker == nil {
+		return errors.New("instance type should be Docker")
+	}
+	cvd, err := findCVD(service, controlDir, flags.host, device)
+	if err != nil {
+		return fmt.Errorf("failed to find cvd: %w", err)
+	}
+	_, port, err := net.SplitHostPort(cvd.ADBSerial)
+	if err != nil {
+		return fmt.Errorf("failed to parse port from ADB serial: %w", err)
+	}
+	if port == "" {
+		return errors.New("failed to find port")
+	}
+	adbAddress := net.JoinHostPort(host.Docker.IPAddress, port)
+	socketPath := GetProxySocketPath(controlDir, flags.host, device)
+
+	return forwardProxy(socketPath, flags.HTTPProxy, adbAddress, opts.ADBServerProxy)
+}
+
+// Handler for the webrtc agent command. This is not meant to be called by the
+// user directly, but instead is started by the open command.
 // The process starts executing in the foreground, with its stderr connected to
 // the terminal. If an error occurs the process exits with a non-zero exit code
 // and the error is printed to stderr. If the connection is successfully
 // established, the process closes all its standard IO channels and continues
 // execution in the background. Any errors detected when the process is in
 // background are written to the log file instead.
-func runConnectionAgentCommand(flags *ConnectFlags, c *command, args []string, opts *subCommandOpts) error {
+func runConnectionWebrtcAgentCommand(flags *ConnectFlags, c *command, args []string, opts *subCommandOpts) error {
 	localICEConfig, err := verifyICEConfigFlag(flags.ice_config)
 	if err != nil {
 		return err

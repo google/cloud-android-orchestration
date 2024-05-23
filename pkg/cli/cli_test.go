@@ -83,7 +83,15 @@ func (*fakeADBServerProxy) Connect(int) error {
 	return nil
 }
 
+func (*fakeADBServerProxy) ConnectWithLocalFileSystem(string) error {
+	return nil
+}
+
 func (*fakeADBServerProxy) Disconnect(int) error {
+	return nil
+}
+
+func (*fakeADBServerProxy) DisconnectWithLocalFileSystem(string) error {
 	return nil
 }
 
@@ -253,7 +261,7 @@ func TestBuildAgentCmdline(t *testing.T) {
 		skipConfirmation: false,
 	}
 	device := "device"
-	args := buildAgentCmdArgs(&flags, device)
+	args := buildAgentCmdArgs(&flags, device, ConnectionWebRTCAgentCommandName)
 	var options CommandOptions
 	cmd := NewCVDRemoteCommand(&options)
 	subCmd, args, err := cmd.command.Traverse(args)
@@ -266,8 +274,8 @@ func TestBuildAgentCmdline(t *testing.T) {
 	if reflect.DeepEqual(args, []string{device}) {
 		t.Errorf("expected resulting args to just have [%q], but found %v", device, args)
 	}
-	if subCmd.Name() != ConnectionAgentCommandName {
-		t.Errorf("expected it to parse %q command, found: %q", ConnectionAgentCommandName, subCmd.Name())
+	if subCmd.Name() != ConnectionWebRTCAgentCommandName {
+		t.Errorf("expected it to parse %q command, found: %q", ConnectionWebRTCAgentCommandName, subCmd.Name())
 	}
 	// TODO(jemoreira): Compare the parsed flags with used flags
 }

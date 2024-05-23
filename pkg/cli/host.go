@@ -15,6 +15,8 @@
 package cli
 
 import (
+	"fmt"
+
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
 	"github.com/google/cloud-android-orchestration/pkg/client"
 )
@@ -50,4 +52,17 @@ func hostnames(service client.Service) ([]string, error) {
 		result = append(result, h.Name)
 	}
 	return result, nil
+}
+
+func findHost(service client.Service, name string) (*apiv1.HostInstance, error) {
+	hosts, err := service.ListHosts()
+	if err != nil {
+		return nil, fmt.Errorf("error listing hosts: %w", err)
+	}
+	for _, host := range hosts.Items {
+		if host.Name == name {
+			return host, nil
+		}
+	}
+	return nil, fmt.Errorf("name not found: %s", name)
 }

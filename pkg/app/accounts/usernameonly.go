@@ -20,33 +20,33 @@ import (
 	apperr "github.com/google/cloud-android-orchestration/pkg/app/errors"
 )
 
-const HTTPBasicAMType AMType = "http-basic"
+const UsernameOnlyAMType AMType = "username-only"
 
-// Implements the AccountManager interfaces using the RFC 2617 HTTP Basic
-// Authentication, where the user-ID and password are provided in the HTTP
-// request header.
-type HTTPBasicAccountManager struct{}
+// Implements the AccountManager interfaces for closed deployed cloud
+// orchestrators. This AccountManager leverages the RFC 2617 HTTP Basic
+// Authentication to get the account information, but only username is used.
+type UsernameOnlyAccountManager struct{}
 
-func NewHTTPBasicAccountManager() *HTTPBasicAccountManager {
-	return &HTTPBasicAccountManager{}
+func NewUsernameOnlyAccountManager() *UsernameOnlyAccountManager {
+	return &UsernameOnlyAccountManager{}
 }
 
-func (m *HTTPBasicAccountManager) UserFromRequest(r *http.Request) (User, error) {
+func (m *UsernameOnlyAccountManager) UserFromRequest(r *http.Request) (User, error) {
 	return userFromRequest(r)
 }
 
-type HTTPBasicUser struct {
+type UsernameOnlyUser struct {
 	username string
 }
 
-func (u *HTTPBasicUser) Username() string { return u.username }
+func (u *UsernameOnlyUser) Username() string { return u.username }
 
-func (u *HTTPBasicUser) Email() string { return "" }
+func (u *UsernameOnlyUser) Email() string { return "" }
 
-func userFromRequest(r *http.Request) (*HTTPBasicUser, error) {
+func userFromRequest(r *http.Request) (*UsernameOnlyUser, error) {
 	username, _, ok := r.BasicAuth()
 	if !ok {
 		return nil, apperr.NewBadRequestError("No username in request", nil)
 	}
-	return &HTTPBasicUser{username}, nil
+	return &UsernameOnlyUser{username}, nil
 }

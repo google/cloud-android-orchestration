@@ -35,11 +35,10 @@ const (
 
 func loadInitialConfig() (*cli.Config, error) {
 	config := cli.BaseConfig()
+	srcs := []string{}
 	if path, ok := os.LookupEnv(envVarSystemConfigPath); ok {
 		path = cli.ExpandPath(path)
-		if err := cli.LoadConfigFile(path, config); err != nil {
-			return nil, err
-		}
+		srcs = append(srcs, path)
 	}
 	if path, ok := os.LookupEnv(envVarUserConfigPath); ok {
 		path = cli.ExpandPath(path)
@@ -64,12 +63,13 @@ func loadInitialConfig() (*cli.Config, error) {
 			statErr = nil
 		}
 		if statErr == nil {
-			if err := cli.LoadConfigFile(path, config); err != nil {
-				return nil, err
-			}
+			srcs = append(srcs, path)
 		} else {
 			return nil, fmt.Errorf("invalid user config file path: %w", statErr)
 		}
+	}
+	if err := cli.LoadConfig(srcs, config); err != nil {
+		return nil, err
 	}
 	return config, nil
 }

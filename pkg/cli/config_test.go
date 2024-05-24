@@ -37,7 +37,7 @@ Host = { GCP = { MinCPUPlatform = "cpu_platform" } }
 	// This test is little more than a change detector, however it's still
 	// useful to detect config parsing errors early, such as those introduced by
 	// a rename of the config properties.
-	err := LoadConfigFile(fname, c)
+	err := LoadConfig([]string{fname}, c)
 
 	if err != nil {
 		t.Errorf("failed to parse config: %v", err)
@@ -67,7 +67,7 @@ Authn = { OIDCToken = { TokenFile = "/path/to/token" } }
 	fname := tempFile(t, fullConfig)
 	c := BaseConfig()
 
-	err := LoadConfigFile(fname, c)
+	err := LoadConfig([]string{fname}, c)
 	if err != nil {
 		t.SkipNow()
 	}
@@ -85,10 +85,45 @@ func TestLoadConfigFileInvalidConfig(t *testing.T) {
 	fname := tempFile(t, config)
 	c := BaseConfig()
 
-	err := LoadConfigFile(fname, c)
+	err := LoadConfig([]string{fname}, c)
 
 	if err == nil {
 		t.Errorf("expected unknown config property to produce an error")
+	}
+}
+
+func TestLoadConfigMultiFiles(t *testing.T) {
+	const system = `
+SystemDefaultService = "foo"
+
+[Services."foo"]
+ServiceURL = "foo.com"
+`
+	const user = `
+[Services."bar"]
+ServiceURL = "bar.com"
+`
+	scf := tempFile(t, system)
+	ucf := tempFile(t, user)
+	expected := &Config{
+		SystemDefaultService: "foo",
+		ConnectionControlDir: "~/.cvdr/connections",
+		KeepLogFilesDays:     30,
+		Services: map[string]*Service{
+			"foo": {
+				ServiceURL: "foo.com",
+			},
+			"bar": {
+				ServiceURL: "bar.com",
+			},
+		},
+	}
+	c := BaseConfig()
+
+	_ = LoadConfig([]string{scf, ucf}, c)
+
+	if diff := cmp.Diff(expected, c); diff != "" {
+		t.Errorf("config mismatch (-want +got):\n%s", diff)
 	}
 }
 
@@ -130,7 +165,7 @@ machine_type: "foo-standard-4"
 	}
 	expected := &Config{
 		Services: map[string]*Service{
-			"acloud": &Service{
+			"acloud": {
 				Zone: "foo-central1-c",
 				Host: &HostConfig{
 					GCP: GCPHostConfig{
@@ -152,7 +187,7 @@ machine_type: "foo-standard-4"
 			t.Fatal(err)
 		}
 		c := &Config{}
-		if err := LoadConfigFile(dst, c); err != nil {
+		if err := LoadConfig([]string{dst}, c); err != nil {
 			t.Fatal(err)
 		}
 		if diff := cmp.Diff(expected, c); diff != "" {

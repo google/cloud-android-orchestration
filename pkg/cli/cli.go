@@ -374,20 +374,20 @@ func NewCVDRemoteCommand(o *CommandOptions) *CVDRemoteCommand {
 	rootCmd.SetArgs(o.Args)
 	rootCmd.SetOut(o.IOStreams.Out)
 	rootCmd.SetErr(o.IOStreams.ErrOut)
-	rootCmd.PersistentFlags().StringVar(&flags.ServiceURL, serviceURLFlag, o.InitialConfig.ServiceURL,
+	rootCmd.PersistentFlags().StringVar(&flags.ServiceURL, serviceURLFlag, o.InitialConfig.DefaultService().ServiceURL,
 		"Cloud orchestration service url.")
-	if o.InitialConfig.ServiceURL == "" {
+	if o.InitialConfig.DefaultService().ServiceURL == "" {
 		// Make it required if not configured
 		rootCmd.MarkPersistentFlagRequired(serviceURLFlag)
 	}
-	rootCmd.PersistentFlags().StringVar(&flags.Zone, zoneFlag, o.InitialConfig.Zone, "Cloud zone.")
-	rootCmd.PersistentFlags().StringVar(&flags.Proxy, proxyFlag, o.InitialConfig.Proxy,
+	rootCmd.PersistentFlags().StringVar(&flags.Zone, zoneFlag, o.InitialConfig.DefaultService().Zone, "Cloud zone.")
+	rootCmd.PersistentFlags().StringVar(&flags.Proxy, proxyFlag, o.InitialConfig.DefaultService().Proxy,
 		"Proxy used to route the http communication through.")
 	// Do not show a `help` command, users have always the `-h` and `--help` flags for help purpose.
 	rootCmd.SetHelpCommand(&cobra.Command{Hidden: true})
 	rootCmd.PersistentFlags().BoolVarP(&flags.Verbose, verboseFlag, "v", false, "Be verbose.")
 	subCmdOpts := &subCommandOpts{
-		ServiceBuilder: buildServiceBuilder(o.ServiceBuilder, o.InitialConfig.Authn),
+		ServiceBuilder: buildServiceBuilder(o.ServiceBuilder, o.InitialConfig.DefaultService().Authn),
 		RootFlags:      flags,
 		InitialConfig:  o.InitialConfig,
 		CommandRunner:  o.CommandRunner,
@@ -446,10 +446,9 @@ func hostCommand(opts *subCommandOpts) *cobra.Command {
 		},
 	}
 	create.Flags().StringVar(&createFlags.GCP.MachineType, gcpMachineTypeFlag,
-		opts.InitialConfig.Host.GCP.MachineType, gcpMachineTypeFlagDesc)
+		opts.InitialConfig.DefaultService().Host.GCP.MachineType, gcpMachineTypeFlagDesc)
 	create.Flags().StringVar(&createFlags.GCP.MinCPUPlatform, gcpMinCPUPlatformFlag,
-		opts.InitialConfig.Host.GCP.MinCPUPlatform, gcpMinCPUPlatformFlagDesc)
-	create.Flags().StringArrayVar(&acceleratorFlagValues, acceleratorFlag, nil, acceleratorFlagDesc)
+		opts.InitialConfig.DefaultService().Host.GCP.MinCPUPlatform, gcpMinCPUPlatformFlagDesc)
 	list := &cobra.Command{
 		Use:   "list",
 		Short: "Lists hosts.",
@@ -526,7 +525,10 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 		"Creates multiple instances with the same artifacts. Only relevant if given a single build source")
 	create.Flags().BoolVar(&createFlags.AutoConnect, autoConnectFlag, true,
 		"Automatically connect through ADB after device is created.")
-	create.Flags().StringVar(&createFlags.BuildAPICredentialsSource, credentialsSourceFlag, opts.InitialConfig.BuildAPICredentialsSource,
+	create.Flags().StringVar(
+		&createFlags.BuildAPICredentialsSource,
+		credentialsSourceFlag,
+		"none",
 		"Source for the Build API OAuth2 credentials")
 	// Local artifact sources
 	create.Flags().StringVar(&createFlags.LocalBootloaderSrc, localBootloaderSrcFlag, "", "Local bootloader source")
@@ -553,13 +555,13 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 		{
 			ValueRef: &createFlags.GCP.MachineType,
 			Name:     gcpMachineTypeFlag,
-			Default:  opts.InitialConfig.Host.GCP.MachineType,
+			Default:  opts.InitialConfig.DefaultService().Host.GCP.MachineType,
 			Desc:     gcpMachineTypeFlagDesc,
 		},
 		{
 			ValueRef: &createFlags.GCP.MinCPUPlatform,
 			Name:     gcpMinCPUPlatformFlag,
-			Default:  opts.InitialConfig.Host.GCP.MinCPUPlatform,
+			Default:  opts.InitialConfig.DefaultService().Host.GCP.MinCPUPlatform,
 			Desc:     gcpMinCPUPlatformFlagDesc,
 		},
 	}

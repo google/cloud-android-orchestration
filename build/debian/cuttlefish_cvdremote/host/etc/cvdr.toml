@@ -1,6 +1,21 @@
 # Configuration for the cvdr program, the CLI client to the Cloud Android
 # Orchestration service. For instructions on the TOML format see https://toml.io
 
+# Default service
+# SystemDefaultService = "foo"
+
+# Directory where the control sockets for the CVD connections will be created and
+# log files will be placed. The directory path should be short enough for UNIX
+# sockets (limited to 108 characters).
+# ConnectionControlDir = "~/.cvdr/connections"
+
+# Every time a new ADB connection is open, old log files are deleted. Files not
+# modified for KeepLogFilesDays days are considered old. Set to -1 to keep log
+# files forever.
+# KeepLogFilesDays = 30
+
+# [Services."foo"]
+
 # This property should be set on real deployments to avoid forcing users to
 #  specify --service_url=<url> everytime.
 # The URL should be the full path to the service API without including the api
@@ -15,16 +30,6 @@
 # (Optional) Proxy URL.
 # Proxy = "http://proxy.company.com:123456"
 
-# Directory where the control sockets for the CVD connections will be created and
-# log files will be placed. The directory path should be short enough for UNIX
-# sockets (limited to 108 characters).
-# ConnectionControlDir = "~/.cvdr/connections"
-
-# Every time a new ADB connection is open, old log files are deleted. Files not
-# modified for KeepLogFilesDays days are considered old. Set to -1 to keep log
-# files forever.
-# KeepLogFilesDays = 30
-
 # Source for the Build API credentials to be used on cvd create operations.
 # Possible values are:
 #  - "none": Don't use Build API credentials.
@@ -34,11 +39,12 @@
 # The host.GCP section provides default configuration values for hosts created
 # using the GCP Cloud Provider. Other providers will have their own
 # host.<Provider> sections when added.
-[Host.GCP]
-
-# Machine type to use for new hosts when the user doesn't specify one on the
-# command line. The machine type must support nested virtualization for CVDs to
-# be hosted on them.
-MachineType = "n1-standard-4"
-
-# MinCPUPlatform = ""
+Host ={
+  GCP = {
+    # MinCPUPlatform = ""
+    # Machine type to use for new hosts when the user doesn't specify one on the
+    # command line. The machine type must support nested virtualization for CVDs to
+    # be hosted on them.
+    MachineType = "e2-standard-4"
+  }
+}

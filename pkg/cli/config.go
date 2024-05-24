@@ -97,12 +97,16 @@ func BaseConfig() *Config {
 	}
 }
 
-func LoadConfigFile(path string, c *Config) error {
-	b, err := os.ReadFile(path)
-	if err != nil {
-		return fmt.Errorf("error reading config file: %w", err)
+func LoadConfig(srcs []string, c *Config) error {
+	combined := []byte{}
+	for _, path := range srcs {
+		b, err := os.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("error reading config file: %w", err)
+		}
+		combined = append(combined, b...)
 	}
-	decoder := toml.NewDecoder(bytes.NewReader(b))
+	decoder := toml.NewDecoder(bytes.NewReader(combined))
 	// Fail if there is some unknown configuration. This is better than silently
 	// ignoring a (perhaps misspelled) config entry.
 	decoder.Strict(true)

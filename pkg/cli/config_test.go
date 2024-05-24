@@ -25,10 +25,12 @@ import (
 
 func TestLoadConfigFile(t *testing.T) {
 	const config = `
+SystemDefaultService = "foo"
+
+[Services."foo"]
 ServiceURL = "service_url"
 Proxy = "proxy"
-[Host.GCP]
-MinCPUPlatform = "cpu_platform"
+Host = { GCP = { MinCPUPlatform = "cpu_platform" } }
 `
 	fname := tempFile(t, config)
 	c := BaseConfig()
@@ -48,14 +50,19 @@ MinCPUPlatform = "cpu_platform"
 
 func TestLoadFullConfig(t *testing.T) {
 	const fullConfig = `
+SystemDefaultService = "foo"
+
+[Services."foo"]
 ServiceURL = "service_url"
 Zone = "zone"
 Proxy = "proxy"
-[Host.GCP]
-MachineType = "machine_type"
-MinCPUPlatform = "cpu_platform"
-[Authn.OIDCToken]
-TokenFile = "/path/to/token"
+Host = {
+  GCP = {
+    MachineType = "machine_type"
+    MinCPUPlatform = "cpu_platform"
+  }
+}
+Authn = { OIDCToken = { TokenFile = "/path/to/token" } }
 `
 	fname := tempFile(t, fullConfig)
 	c := BaseConfig()
@@ -82,45 +89,6 @@ func TestLoadConfigFileInvalidConfig(t *testing.T) {
 
 	if err == nil {
 		t.Errorf("expected unknown config property to produce an error")
-	}
-}
-
-func TestLoadConfigFileTwice(t *testing.T) {
-	const system = `
-ServiceURL = "service-foo"
-Zone = "zone-foo"
-KeepLogFilesDays = 30
-[Host.GCP]
-MinCPUPlatform = "min-cpu-platform-foo"
-`
-	const user = `
-Zone = "zone-bar"
-KeepLogFilesDays = 0
-[Host.GCP]
-MachineType = "machine-type-bar"
-`
-	scf := tempFile(t, system)
-	ucf := tempFile(t, user)
-	expected := &Config{
-		ServiceURL:                "service-foo",
-		Zone:                      "zone-bar",
-		KeepLogFilesDays:          0,
-		ConnectionControlDir:      "~/.cvdr/connections",
-		BuildAPICredentialsSource: NoneCredentialsSource,
-		Host: HostConfig{
-			GCP: GCPHostConfig{
-				MachineType:    "machine-type-bar",
-				MinCPUPlatform: "min-cpu-platform-foo",
-			},
-		},
-	}
-	c := BaseConfig()
-
-	_ = LoadConfigFile(scf, c)
-	_ = LoadConfigFile(ucf, c)
-
-	if diff := cmp.Diff(expected, c); diff != "" {
-		t.Errorf("config mismatch (-want +got):\n%s", diff)
 	}
 }
 
@@ -161,10 +129,14 @@ machine_type: "foo-standard-4"
 		},
 	}
 	expected := &Config{
-		Zone: "foo-central1-c",
-		Host: HostConfig{
-			GCP: GCPHostConfig{
-				MachineType: "foo-standard-4",
+		Services: map[string]*Service{
+			"acloud": &Service{
+				Zone: "foo-central1-c",
+				Host: &HostConfig{
+					GCP: GCPHostConfig{
+						MachineType: "foo-standard-4",
+					},
+				},
 			},
 		},
 	}

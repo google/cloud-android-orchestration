@@ -217,12 +217,9 @@ func TestCommandSucceeds(t *testing.T) {
 		t.Run(test.Name, func(t *testing.T) {
 			io, _, out := newTestIOStreams()
 			opts := &CommandOptions{
-				IOStreams: io,
-				Args:      append(test.Args, "--service_url="+serviceURL),
-				InitialConfig: Config{
-					ConnectionControlDir:      t.TempDir(),
-					BuildAPICredentialsSource: "none",
-				},
+				IOStreams:     io,
+				Args:          append(test.Args, "--service_url="+serviceURL),
+				InitialConfig: Config{ConnectionControlDir: t.TempDir()},
 				ServiceBuilder: func(opts *client.ServiceOptions) (client.Service, error) {
 					return &fakeService{}, nil
 				},

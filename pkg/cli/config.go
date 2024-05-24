@@ -53,14 +53,33 @@ type HTTPBasicAuthnConfig struct {
 }
 
 type Config struct {
+	// Default service, service to be used in case none other was selected.
+	SystemDefaultService string `json:"system_default_service,omitempty"`
+	// [OPTIONAL] If set, it overrides the `SystemDefaultService` parameter.
+	UserDefaultService   string              `json:"user_default_service,omitempty"`
+	Services             map[string]*Service `json:"services,omitempty"`
+	ConnectionControlDir string              `json:"connection_control_dir,omitempty"`
+	KeepLogFilesDays     int                 `json:"keep_log_files_days,omitempty"`
+}
+
+type Service struct {
 	ServiceURL                string       `json:"service_url,omitempty"`
 	Zone                      string       `json:"zone,omitempty"`
 	Proxy                     string       `json:"proxy,omitempty"`
 	ConnectionControlDir      string       `json:"connection_control_dir,omitempty"`
 	KeepLogFilesDays          int          `json:"keep_log_files_days,omitempty"`
 	BuildAPICredentialsSource string       `json:"build_api_credentials_source,omitempty"`
-	Host                      HostConfig   `json:"host,omitempty"`
+	Host                      *HostConfig  `json:"host,omitempty"`
 	Authn                     *AuthnConfig `json:"authn,omitempty"`
+}
+
+func (c *Config) DefaultService() *Service {
+	if c.UserDefaultService != "" {
+		return c.Services[c.UserDefaultService]
+	} else if c.SystemDefaultService != "" {
+		return c.Services[c.SystemDefaultService]
+	}
+	return &Service{Host: &HostConfig{}}
 }
 
 func (c *Config) ConnectionControlDirExpanded() string {
@@ -73,9 +92,8 @@ func (c *Config) LogFilesDeleteThreshold() time.Duration {
 
 func BaseConfig() *Config {
 	return &Config{
-		ConnectionControlDir:      "~/.cvdr/connections",
-		KeepLogFilesDays:          30,                    // A default is needed to not keep forever
-		BuildAPICredentialsSource: NoneCredentialsSource, // Default needed because empty string is invalid
+		ConnectionControlDir: "~/.cvdr/connections",
+		KeepLogFilesDays:     30, // A default is needed to not keep forever
 	}
 }
 
@@ -117,10 +135,14 @@ func ImportAcloudConfig(src, dst string) error {
 		return fmt.Errorf("failed extracing acloud config: %w", err)
 	}
 	c := map[string]any{
-		"Zone": ac.Zone,
-		"Host": map[string]any{
-			"GCP": map[string]any{
-				"MachineType": ac.MachineType,
+		"Services": map[string]any{
+			"acloud": map[string]any{
+				"Zone": ac.Zone,
+				"Host": map[string]any{
+					"GCP": map[string]any{
+						"MachineType": ac.MachineType,
+					},
+				},
 			},
 		},
 	}

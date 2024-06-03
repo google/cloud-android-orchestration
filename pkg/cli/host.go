@@ -26,8 +26,9 @@ type CreateHostOpts struct {
 }
 
 type CreateGCPHostOpts struct {
-	MachineType    string
-	MinCPUPlatform string
+	MachineType        string
+	MinCPUPlatform     string
+	AcceleratorConfigs []acceleratorConfig
 }
 
 func createHost(service client.Service, opts CreateHostOpts) (*apiv1.HostInstance, error) {
@@ -38,6 +39,14 @@ func createHost(service client.Service, opts CreateHostOpts) (*apiv1.HostInstanc
 				MinCPUPlatform: opts.GCP.MinCPUPlatform,
 			},
 		},
+	}
+	if len(opts.GCP.AcceleratorConfigs) != 0 {
+		s := []*apiv1.AcceleratorConfig{}
+		for _, c := range opts.GCP.AcceleratorConfigs {
+			c := &apiv1.AcceleratorConfig{AcceleratorCount: int64(c.Count), AcceleratorType: c.Type}
+			s = append(s, c)
+		}
+		req.HostInstance.GCP.AcceleratorConfigs = s
 	}
 	return service.CreateHost(&req)
 }

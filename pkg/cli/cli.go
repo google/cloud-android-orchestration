@@ -26,6 +26,7 @@ import (
 	"os"
 	"os/signal"
 	"os/user"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -79,11 +80,14 @@ const (
 )
 
 const (
+	acceleratorFlag = "accelerator"
+
 	gcpMachineTypeFlag    = "gcp_machine_type"
 	gcpMinCPUPlatformFlag = "gcp_min_cpu_platform"
 )
 
 const (
+	acceleratorFlagDesc       = "Configuration to attach accelerator cards, i.e: --accelerator type=nvidia-tesla-p100,count=1"
 	gcpMachineTypeFlagDesc    = "Indicates the machine type"
 	gcpMinCPUPlatformFlagDesc = "Specifies a minimum CPU platform for the VM instance"
 )
@@ -428,11 +432,17 @@ func (c *CVDRemoteCommand) Execute() error {
 }
 
 func hostCommand(opts *subCommandOpts) *cobra.Command {
+	acceleratorFlagValues := []string{}
 	createFlags := &CreateHostFlags{CVDRemoteFlags: opts.RootFlags, CreateHostOpts: &CreateHostOpts{}}
 	create := &cobra.Command{
 		Use:   "create",
 		Short: "Creates a host.",
 		RunE: func(c *cobra.Command, args []string) error {
+			configs, err := parseAcceleratorFlag(acceleratorFlagValues)
+			if err != nil {
+				return err
+			}
+			createFlags.GCP.AcceleratorConfigs = configs
 			return runCreateHostCommand(c, createFlags, opts)
 		},
 	}
@@ -440,6 +450,7 @@ func hostCommand(opts *subCommandOpts) *cobra.Command {
 		opts.InitialConfig.Host.GCP.MachineType, gcpMachineTypeFlagDesc)
 	create.Flags().StringVar(&createFlags.GCP.MinCPUPlatform, gcpMinCPUPlatformFlag,
 		opts.InitialConfig.Host.GCP.MinCPUPlatform, gcpMinCPUPlatformFlagDesc)
+	create.Flags().StringArrayVar(&acceleratorFlagValues, acceleratorFlag, nil, acceleratorFlagDesc)
 	list := &cobra.Command{
 		Use:   "list",
 		Short: "Lists hosts.",
@@ -1439,4 +1450,55 @@ func toFixedLength(v string, l int, filling rune) string {
 	} else {
 		return v + strings.Repeat(string(filling), l-len(v))
 	}
+}
+
+type acceleratorConfig struct {
+	Count int
+	Type  string
+}
+
+// Values should follow the pattern: `type=[TYPE],count=[COUNT]`, i.e: `type=nvidia-tesla-p100,count=1`.
+func parseAcceleratorFlag(values []string) ([]acceleratorConfig, error) {
+	singleValueParser := func(value string) (*acceleratorConfig, error) {
+		sanitized := strings.Join(strings.Fields(value), "")
+		cStrs := strings.Split(sanitized, ",")
+		if len(cStrs) != 2 {
+			return nil, fmt.Errorf("invalid accelerator token: %q", value)
+		}
+		config := &acceleratorConfig{}
+		for _, pair := range cStrs {
+			keyValue := strings.Split(pair, "=")
+			if len(keyValue) != 2 {
+				return nil, fmt.Errorf("invalid accelerator `[key]=[value]` token: %q", keyValue)
+			}
+			switch key := keyValue[0]; key {
+			case "count":
+				i, err := strconv.Atoi(keyValue[1])
+				if err != nil {
+					return nil, fmt.Errorf("invalid accelerator count value: %w", err)
+				}
+				config.Count = i
+			case "type":
+				config.Type = keyValue[1]
+			default:
+				return nil, fmt.Errorf("unknown accelerator key: %q", key)
+			}
+		}
+		if config.Count == 0 {
+			return nil, fmt.Errorf("missing accelerator count")
+		}
+		if config.Type == "" {
+			return nil, fmt.Errorf("missing accelerator type")
+		}
+		return config, nil
+	}
+	result := []acceleratorConfig{}
+	for _, v := range values {
+		c, err := singleValueParser(v)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, *c)
+	}
+	return result, nil
 }

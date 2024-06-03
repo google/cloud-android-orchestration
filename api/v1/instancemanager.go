@@ -33,6 +33,16 @@ type GCPInstance struct {
 	MachineType string `json:"machine_type"`
 	// Specifies a minimum CPU platform for the VM instance.
 	MinCPUPlatform string `json:"min_cpu_platform"`
+	// List of accelerator configurations.
+	AcceleratorConfigs []*AcceleratorConfig `json:"accelerator_configs,omitempty"`
+}
+
+type AcceleratorConfig struct {
+	// Number of accelerators.
+	AcceleratorCount int64 `json:"accelerator_count,omitempty"`
+	// Full or partial URL of the accelerator type resource.
+	// For example: `projects/my-project/zones/us-central1-c/acceleratorTypes/nvidia-tesla-p100`
+	AcceleratorType string `json:"accelerator_type,omitempty"`
 }
 
 type Operation struct {

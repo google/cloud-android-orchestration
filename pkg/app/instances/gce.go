@@ -137,6 +137,19 @@ func (m *GCEInstanceManager) CreateHost(zone string, req *apiv1.CreateHostReques
 			labelCreatedBy: user.Username(),
 		},
 	}
+	if len(req.HostInstance.GCP.AcceleratorConfigs) != 0 {
+		configs := []*compute.AcceleratorConfig{}
+		for _, c := range req.HostInstance.GCP.AcceleratorConfigs {
+			configs = append(configs, &compute.AcceleratorConfig{
+				AcceleratorCount: c.AcceleratorCount,
+				AcceleratorType:  c.AcceleratorType,
+			})
+		}
+		payload.GuestAccelerators = configs
+		payload.Scheduling = &compute.Scheduling{
+			OnHostMaintenance: "TERMINATE",
+		}
+	}
 	if m.Config.GCP.AcloudCompatible {
 		payload.Labels[labelAcloudCreatedBy] = user.Username()
 		startupScript := acloudSetupScript

@@ -1,6 +1,13 @@
-# Use cvdr from your local machine
+# cvdr
 
-This page describes how to run `cvdr` to use cloud orchestrator remotely.
+This page describes about `cvdr` and its usage.
+
+## What's cvdr?
+
+`cvdr` is a CLI binary tool for accessing and managing Cuttlefish instances
+remotely.
+It wraps [Cloud Orchestrator](cloud_orchestrator.md), to provide user-friendly
+interface.
 
 ## Build cvdr
 
@@ -13,9 +20,9 @@ go build ./cmd/cvdr
 
 ## Find URL of cloud orchestrator
 
-If cloud orchestrator manages docker instances, please read
-[docker.md](docker.md) to check URL of cloud orchestrator.
-Let's define this URL as `SERVICE_URL` for the rest of this page.
+Please read [cloud_orchestrator.md](cloud_orchestrator.md) to know.
+Let's define the URL of Cloud Orchestrator as `SERVICE_URL` for the rest of this
+page.
 
 ## Use cvdr step-by-step
 

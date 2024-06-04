@@ -28,10 +28,6 @@ If the address of cloud orchestrator is not `localhost`, please modify the
 return value of `ChooseNetworkInterface` in `cmd/cloud_orchestrator/main.go` to
 the empty string. Note that this is a temporary solution.
 
-<!--
-TODO(0405ysj): Update this section after renaming the flag name from
-`http_proxy` into `proxy`.
--->
 If there's a firewall which blocks accessing cloud orchestrator with HTTP/HTTPS
 requests, please try using SOCKS5 proxy. Establishing SOCKS5 proxy by creating
 SSH dynamic port forwarding is available with following command.
@@ -39,7 +35,7 @@ SSH dynamic port forwarding is available with following command.
 ssh -D ${SOCKS5_PORT} -q -C -N ${USERNAME}@${CLOUD_ORCHESTRATOR_IPv4_ADDRESS}
 ```
 Besides, currently `cvdr` supports using SOCKS5 proxy with the flag like
-`--http_proxy=socks5://localhost:${SOCKS5_PORT}` for all subcommands.
+`--proxy=socks5://localhost:${SOCKS5_PORT}` for all subcommands.
 
 ## Use cloud orchestrator by cvdr
 

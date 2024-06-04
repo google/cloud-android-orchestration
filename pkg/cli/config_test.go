@@ -26,7 +26,7 @@ import (
 func TestLoadConfigFile(t *testing.T) {
 	const config = `
 ServiceURL = "service_url"
-HTTPProxy = "http_proxy"
+Proxy = "proxy"
 [Host.GCP]
 MinCPUPlatform = "cpu_platform"
 `
@@ -50,7 +50,7 @@ func TestLoadFullConfig(t *testing.T) {
 	const fullConfig = `
 ServiceURL = "service_url"
 Zone = "zone"
-HTTPProxy = "http_proxy"
+Proxy = "proxy"
 [Host.GCP]
 MachineType = "machine_type"
 MinCPUPlatform = "cpu_platform"

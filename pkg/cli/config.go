@@ -55,7 +55,7 @@ type HTTPBasicAuthnConfig struct {
 type Config struct {
 	ServiceURL                string       `json:"service_url,omitempty"`
 	Zone                      string       `json:"zone,omitempty"`
-	HTTPProxy                 string       `json:"http_proxy,omitempty"`
+	Proxy                     string       `json:"proxy,omitempty"`
 	ConnectionControlDir      string       `json:"connection_control_dir,omitempty"`
 	KeepLogFilesDays          int          `json:"keep_log_files_days,omitempty"`
 	BuildAPICredentialsSource string       `json:"build_api_credentials_source,omitempty"`

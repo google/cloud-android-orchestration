@@ -75,7 +75,7 @@ const (
 	hostFlag       = "host"
 	serviceURLFlag = "service_url"
 	zoneFlag       = "zone"
-	httpProxyFlag  = "http_proxy"
+	proxyFlag      = "proxy"
 	verboseFlag    = "verbose"
 )
 
@@ -137,7 +137,7 @@ type AsArgs interface {
 type CVDRemoteFlags struct {
 	ServiceURL string
 	Zone       string
-	HTTPProxy  string
+	Proxy      string
 	Verbose    bool
 }
 
@@ -146,8 +146,8 @@ func (f *CVDRemoteFlags) AsArgs() []string {
 		"--" + serviceURLFlag, f.ServiceURL,
 		"--" + zoneFlag, f.Zone,
 	}
-	if f.HTTPProxy != "" {
-		args = append(args, "--"+httpProxyFlag, f.HTTPProxy)
+	if f.Proxy != "" {
+		args = append(args, "--"+proxyFlag, f.Proxy)
 	}
 	if f.Verbose {
 		args = append(args, "-v")
@@ -382,7 +382,7 @@ func NewCVDRemoteCommand(o *CommandOptions) *CVDRemoteCommand {
 		rootCmd.MarkPersistentFlagRequired(serviceURLFlag)
 	}
 	rootCmd.PersistentFlags().StringVar(&flags.Zone, zoneFlag, o.InitialConfig.Zone, "Cloud zone.")
-	rootCmd.PersistentFlags().StringVar(&flags.HTTPProxy, httpProxyFlag, o.InitialConfig.HTTPProxy,
+	rootCmd.PersistentFlags().StringVar(&flags.Proxy, proxyFlag, o.InitialConfig.Proxy,
 		"Proxy used to route the http communication through.")
 	// Do not show a `help` command, users have always the `-h` and `--help` flags for help purpose.
 	rootCmd.SetHelpCommand(&cobra.Command{Hidden: true})
@@ -1145,7 +1145,7 @@ func runConnectionProxyAgentCommand(flags *ConnectFlags, c *command, args []stri
 	adbAddress := net.JoinHostPort(host.Docker.IPAddress, port)
 	socketPath := GetProxySocketPath(controlDir, flags.host, device)
 
-	return forwardProxy(socketPath, flags.HTTPProxy, adbAddress, opts.ADBServerProxy)
+	return forwardProxy(socketPath, flags.Proxy, adbAddress, opts.ADBServerProxy)
 }
 
 // Handler for the webrtc agent command. This is not meant to be called by the
@@ -1338,7 +1338,7 @@ const chunkSizeBytes = 16 * 1024 * 1024
 
 func buildServiceBuilder(builder client.ServiceBuilder, authnConfig *AuthnConfig) serviceBuilder {
 	return func(flags *CVDRemoteFlags, c *cobra.Command) (client.Service, error) {
-		proxyURL := flags.HTTPProxy
+		proxyURL := flags.Proxy
 		var dumpOut io.Writer = io.Discard
 		if flags.Verbose {
 			dumpOut = c.ErrOrStderr()

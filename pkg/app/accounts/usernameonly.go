@@ -18,8 +18,6 @@ import (
 	"html/template"
 	"net/http"
 	"strings"
-
-	apperr "github.com/google/cloud-android-orchestration/pkg/app/errors"
 )
 
 const (
@@ -39,7 +37,17 @@ func NewUsernameOnlyAccountManager() *UsernameOnlyAccountManager {
 }
 
 func (m *UsernameOnlyAccountManager) UserFromRequest(r *http.Request) (User, error) {
-	return userFromRequest(r)
+	// Accept putting the username in a cookie to support using a browser
+	// to interact with CO.
+	cookie, err := r.Cookie(unameCookie)
+	if err == nil && cookie.Value != "" {
+		return &UsernameOnlyUser{cookie.Value}, nil
+	}
+	username, _, ok := r.BasicAuth()
+	if !ok {
+		return nil, nil
+	}
+	return &UsernameOnlyUser{username}, nil
 }
 
 type UsernameOnlyUser struct {
@@ -49,20 +57,6 @@ type UsernameOnlyUser struct {
 func (u *UsernameOnlyUser) Username() string { return u.username }
 
 func (u *UsernameOnlyUser) Email() string { return "" }
-
-func userFromRequest(r *http.Request) (*UsernameOnlyUser, error) {
-	// Accept putting the username in a cookie to support using a browser
-	// to interact with CO.
-	cookie, err := r.Cookie(unameCookie)
-	if err == nil && cookie.Value != "" {
-		return &UsernameOnlyUser{cookie.Value}, nil
-	}
-	username, _, ok := r.BasicAuth()
-	if !ok {
-		return nil, apperr.NewBadRequestError("No username in request", nil)
-	}
-	return &UsernameOnlyUser{username}, nil
-}
 
 type LoggingData struct {
 	Username string
@@ -97,7 +91,7 @@ func UsernameOnlyLoggingForm(w http.ResponseWriter, r *http.Request) error {
 	return loggingTemplate.Execute(w, nil)
 }
 
-func HandleUsernameOnlyLogging(w http.ResponseWriter, r *http.Request) error {
+func HandleUsernameOnlyLogging(w http.ResponseWriter, r *http.Request, redirect string) error {
 	username := r.FormValue("username")
 	if strings.TrimSpace(username) == "" {
 		return loggingTemplate.Execute(w, LoggingData{
@@ -109,6 +103,10 @@ func HandleUsernameOnlyLogging(w http.ResponseWriter, r *http.Request) error {
 		Value: username,
 		Path:  "/",
 	})
+	if redirect != "" {
+		http.Redirect(w, r, redirect, http.StatusFound)
+		return nil
+	}
 	return loggingTemplate.Execute(w, LoggingData{
 		Username: username,
 	})

@@ -22,6 +22,7 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -270,7 +271,11 @@ func (c *App) UsernameOnlyLoggingHandler(w http.ResponseWriter, r *http.Request)
 	case http.MethodGet:
 		return accounts.UsernameOnlyLoggingForm(w, r)
 	case http.MethodPost:
-		return accounts.HandleUsernameOnlyLogging(w, r)
+		originalURL, err := url.QueryUnescape(r.URL.Query().Get("original-url"))
+		if err != nil {
+			return err
+		}
+		return accounts.HandleUsernameOnlyLogging(w, r, originalURL)
 	default:
 		return apperr.NewMethodNotAllowedError(fmt.Sprintf("not supported for http %q", r.Method), nil)
 	}
@@ -519,6 +524,11 @@ func (a *App) Authenticate(fn AuthHTTPHandler) HTTPHandler {
 			return err
 		}
 		if user == nil {
+			if a.config.AccountManager.Type == accounts.UsernameOnlyAMType {
+				redirectURL := fmt.Sprintf("/username?original-url=%s", url.QueryEscape(r.URL.String()))
+				http.Redirect(w, r, redirectURL, http.StatusFound)
+				return nil
+			}
 			return apperr.NewUnauthenticatedError("Authentication required", nil)
 		}
 		return fn(w, r, user)

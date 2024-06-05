@@ -12,9 +12,9 @@ without much trouble.
 
 To know details, please refer to these documents below.
 
-- [Cloud Orchestrator](docs/cloud_orchestrator.md): A web service for hosting
+- [Cloud Orchestrator](docs/cloud_orchestrator.md): A web service for managing
 VMs or containers for running Cuttlefish instances on top of.
-- [cvdr](docs/cvdr.md): CLI wrapper of Cloud Orchestrator providing
-user-friendly interface.
-- [Cuttlefish Web Launcher](web/page0/README.md): Navigator & web-based wrapper
-of Cloud Orchestrator providing user-friendly interface.
+- [cvdr](docs/cvdr.md): CLI client of Cloud Orchestrator providing user-friendly
+interface.
+- [Cuttlefish Web Launcher](web/page0/README.md): Web client of Cloud
+Orchestrator providing user-friendly interface.

@@ -4,7 +4,7 @@ This page describes about `Cloud Orchestrator`.
 
 ## What's Cloud Orchestrator?
 
-Cloud Orchestrator is a web service that managing virtual machines or containers
+Cloud Orchestrator is a web service for managing virtual machines or containers
 as host instances.
 It can create, list, and delete host instances, and provides the way to access
 hosts to launch Cuttlefish instances on top of the host instance via Host

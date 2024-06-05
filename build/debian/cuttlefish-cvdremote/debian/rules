@@ -16,8 +16,8 @@ include /usr/share/dpkg/buildflags.mk
 %:
 	dh $@ --with=config-package
 
-GOUTIL := ../../scripts/goutil
-SOURCE_DIR := ../..
+GOUTIL := ../../../scripts/goutil
+SOURCE_DIR := ../../..
 
 override_dh_auto_build:
 	$(GOUTIL) $(SOURCE_DIR) build -v -ldflags="-w" ./cmd/cvdr

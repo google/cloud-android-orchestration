@@ -25,7 +25,7 @@ jobs:
     - name: Vet
       run: go vet ./...
 
-  build-test-debian-package:
+  build-cuttlefish-cvdremote-debian-package:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -43,7 +43,7 @@ jobs:
         go-version: ${{ matrix.go-version }}
     - name: install debuild dependencies
       run: apt install -y git devscripts config-package-dev debhelper-compat golang
-    - name: Build
-      run: cd build/package && dpkg-buildpackage -i -uc -us -b
-    - name: Install cvdremote debian package
-      run: dpkg -i build/cvdremote_*_*64.deb || apt-get install -f -y
+    - name: Build package
+      run: cd build/debian/cuttlefish-cvdremote && dpkg-buildpackage -i -uc -us -b
+    - name: Install package
+      run: dpkg -i build/debian/cuttlefish-cvdremote_*_*64.deb || apt-get install -f -y

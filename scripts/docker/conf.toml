@@ -5,7 +5,7 @@ WebStaticFilesPath = "web"
 CORSAllowedOrigins = []
 
 [AccountManager]
-Type = "unix"
+Type = "username-only"
 
 [AccountManager.OAuth2]
 Provider = "Google"

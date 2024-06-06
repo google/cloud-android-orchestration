@@ -29,7 +29,6 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
-	"time"
 
 	client "github.com/google/cloud-android-orchestration/pkg/client"
 	wclient "github.com/google/cloud-android-orchestration/pkg/webrtcclient"
@@ -1348,8 +1347,6 @@ func buildServiceBuilder(builder client.ServiceBuilder, authnConfig *AuthnConfig
 			ProxyURL:       proxyURL,
 			DumpOut:        dumpOut,
 			ErrOut:         c.ErrOrStderr(),
-			RetryAttempts:  3,
-			RetryDelay:     5 * time.Second,
 			ChunkSizeBytes: chunkSizeBytes,
 		}
 		if authnConfig != nil {

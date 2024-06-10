@@ -66,8 +66,6 @@ type Service struct {
 	ServiceURL                string       `json:"service_url,omitempty"`
 	Zone                      string       `json:"zone,omitempty"`
 	Proxy                     string       `json:"proxy,omitempty"`
-	ConnectionControlDir      string       `json:"connection_control_dir,omitempty"`
-	KeepLogFilesDays          int          `json:"keep_log_files_days,omitempty"`
 	BuildAPICredentialsSource string       `json:"build_api_credentials_source,omitempty"`
 	Host                      *HostConfig  `json:"host,omitempty"`
 	Authn                     *AuthnConfig `json:"authn,omitempty"`

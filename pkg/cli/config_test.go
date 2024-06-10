@@ -51,25 +51,31 @@ Host = { GCP = { MinCPUPlatform = "cpu_platform" } }
 func TestLoadFullConfig(t *testing.T) {
 	const fullConfig = `
 SystemDefaultService = "foo"
+UserDefaultService = "bar"
 
 [Services."foo"]
 ServiceURL = "service_url"
 Zone = "zone"
 Proxy = "proxy"
+BuildAPICredentialsSource = "injected"
 Host = {
   GCP = {
-    MachineType = "machine_type"
+    MachineType = "machine_type",
     MinCPUPlatform = "cpu_platform"
   }
 }
-Authn = { OIDCToken = { TokenFile = "/path/to/token" } }
+Authn = {
+  OIDCToken = {
+    TokenFile = "/path/to/token"
+  }
+}
 `
 	fname := tempFile(t, fullConfig)
 	c := BaseConfig()
 
 	err := LoadConfig([]string{fname}, c)
 	if err != nil {
-		t.SkipNow()
+		t.Fatal(err)
 	}
 	// Ensure no field was left unparsed. This will fail everytime a new field is
 	// added to cli.Config, just add it to the valid config above with a non zero
@@ -218,17 +224,21 @@ machine_type: "foo-standard-4"
 // It also returns the name of the first zero-valued field it finds.
 func HasZeroes(o any) (bool, string) {
 	value := reflect.ValueOf(o)
-	if value.Kind() != reflect.Struct {
+	if value.Kind() != reflect.Struct && value.Kind() != reflect.Map {
 		return value.IsZero(), ""
 	}
-	for i := 0; i < value.NumField(); i++ {
-		if has, name := HasZeroes(value.Field(i).Interface()); has {
-			fullName := value.Type().Field(i).Name
-			if name != "" {
-				fullName += "." + name
+	if value.Kind() == reflect.Struct {
+		for i := 0; i < value.NumField(); i++ {
+			if has, name := HasZeroes(value.Field(i).Interface()); has {
+				fullName := value.Type().Field(i).Name
+				if name != "" {
+					fullName += "." + name
+				}
+				return true, fullName
 			}
-			return true, fullName
 		}
+	} else if value.Kind() == reflect.Map {
+		return HasZeroes(reflect.Indirect(value.MapIndex(value.MapKeys()[0])).Interface())
 	}
 	return false, ""
 }

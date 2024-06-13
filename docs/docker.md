@@ -20,10 +20,6 @@ cd cloud-android-orchestration # Root directory of this repository
 scripts/docker/run.sh
 ```
 
-<!--
-TODO(denniscy1993): Update this section after modifying AccountManager
-information of the config file.
--->
 If the address of cloud orchestrator is not `localhost`, please modify the
 return value of `ChooseNetworkInterface` in `cmd/cloud_orchestrator/main.go` to
 the empty string. Note that this is a temporary solution.
@@ -39,5 +35,5 @@ Besides, currently `cvdr` supports using SOCKS5 proxy with the flag like
 
 ## Use cloud orchestrator by cvdr
 
-Please follow [cvdr.md](cvdr.md). The URL of running cloud orchestrator should
-be `http://${CLOUD_ORCHESTRATOR_IP_ADDRESS}:8080`.
+Please set `CVDR_USER_CONFIG_PATH=./scripts/docker/cvdr.toml` and follow the
+steps at [cvdr.md](cvdr.md).

@@ -24,16 +24,20 @@ Please read [cloud_orchestrator.md](cloud_orchestrator.md) to know.
 Let's define the URL of Cloud Orchestrator as `SERVICE_URL` for the rest of this
 page.
 
+## Configure cvdr
+
+Please set `ServiceURL = ${SERVICE_URL}` in a `cvdr.toml` configuration file and
+set `CVDR_USER_CONFIG_PATH` while executing `cvdr`.
+See [build/debian/cuttlefish_cvdremote/host/etc/cvdr.toml](/build/debian/cuttlefish_cvdremote/host/etc/cvdr.toml)
+as an example of how to write a configuration file.
+
 ## Use cvdr step-by-step
 
 ### Host creation
 
 Please run:
 ```bash
-./cvdr \
---service_url=${SERVICE_URL} \
---zone=local \
-host create
+CVDR_USER_CONFIG_PATH=cvdr.toml ./cvdr host create
 ```
 
 And we expect the result like below. Let's define this value as `HOST_NAME` from
@@ -54,9 +58,8 @@ Let's assume using the latest Cuttlefish x86_64 image enrolled in
 
 Please run:
 ```bash
+CVDR_USER_CONFIG_PATH=cvdr.toml \
 ./cvdr \
---service_url=${SERVICE_URL} \
---zone=local \
 --host=${HOST_NAME} \
 --branch=aosp-main \
 --build_target=aosp_cf_x86_64_phone-trunk_staging-userdebug \
@@ -73,9 +76,8 @@ Then please check if the page seems like below.
 
 Please run:
 ```bash
+CVDR_USER_CONFIG_PATH=cvdr.toml \
 ./cvdr \
---service_url=${SERVICE_URL} \
---zone=local \
 --host=${HOST_NAME} \
 connect
 ```
@@ -94,9 +96,8 @@ Let's assume using the latest Cuttlefish x86_64 image enrolled in
 
 Please run:
 ```bash
+CVDR_USER_CONFIG_PATH=cvdr.toml \
 ./cvdr \
---service_url=${SERVICE_URL} \
---zone=local \
 --branch=aosp-main \
 --build_target=aosp_cf_x86_64_phone-trunk_staging-userdebug \
 create

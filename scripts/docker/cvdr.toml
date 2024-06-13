@@ -1,0 +1,32 @@
+# Configuration for the cvdr program when the Cloud Android Orchestration
+# service uses DockerInstanceManager.
+
+# Default service
+SystemDefaultService = "dockerIM"
+
+[Services.dockerIM]
+
+# ServiceURL should be the full path to the service API without including the
+# api version.
+# Please set `CLOUD_ORCHESTRATOR_IP_ADDRESS` according to your cloud
+# orchestrator deployment. Typically this is the IP address of your server.
+ServiceURL = "http://${CLOUD_ORCHESTRATOR_IP_ADDRESS}:8080"
+
+# The zone where the users' host VMs will be created.
+Zone = "local"
+
+# The proxy URL.
+# Please set `SOCKS5_PORT` according to your SSH dynamic port forwarding.
+Proxy = "socks5://localhost:${SOCKS5_PORT}"
+
+# The configuration for cvdr to get your username from the unix system.
+# This is required when the Cloud Android Orchestration service uses
+# UsernameOnlyAccountManager.
+Authn = {
+  HTTPBasicAuthn = {
+    UsernameSrc = "unix"
+  }
+}
+
+# The host config for the Cloud Android Orchestration service.
+Host = {}

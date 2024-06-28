@@ -30,10 +30,8 @@ SSH dynamic port forwarding is available with following command.
 ```bash
 ssh -D ${SOCKS5_PORT} -q -C -N ${USERNAME}@${CLOUD_ORCHESTRATOR_IPv4_ADDRESS}
 ```
-Besides, currently `cvdr` supports using SOCKS5 proxy with the flag like
-`--proxy=socks5://localhost:${SOCKS5_PORT}` for all subcommands.
 
 ## Use cloud orchestrator by cvdr
 
-Please set `CVDR_USER_CONFIG_PATH=./scripts/docker/cvdr.toml` and follow the
-steps at [cvdr.md](cvdr.md).
+Please check every configuration in `scripts/docker/cvdr.toml` is set well, and
+follow the steps at [cvdr.md](cvdr.md).

@@ -26,8 +26,8 @@ page.
 
 ## Configure cvdr
 
-Please set `ServiceURL = ${SERVICE_URL}` in a `cvdr.toml` configuration file and
-set `CVDR_USER_CONFIG_PATH` while executing `cvdr`.
+Please check the configuration file(`cvdr.toml`) and set the environment like
+`CVDR_USER_CONFIG_PATH=/path/to/cvdr.toml` while executing `cvdr`.
 See [build/debian/cuttlefish_cvdremote/host/etc/cvdr.toml](/build/debian/cuttlefish_cvdremote/host/etc/cvdr.toml)
 as an example of how to write a configuration file.
 

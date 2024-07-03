@@ -40,6 +40,8 @@ var testConfig = Config{
 	GCP: &GCPIMConfig{
 		ProjectID:       "google.com:test-project",
 		HostImageFamily: "projects/test-project-releases/global/images/family/foo",
+		Network:         "projects/google.com:test-project/global/networks/default",
+		Subnetwork:      "",
 	},
 }
 
@@ -171,7 +173,7 @@ func TestCreateHostRequestBody(t *testing.T) {
           "type": "ONE_TO_ONE_NAT"
         }
       ],
-      "name": "projects/google.com:test-project/global/networks/default"
+      "network": "projects/google.com:test-project/global/networks/default"
     }
   ]
 }`

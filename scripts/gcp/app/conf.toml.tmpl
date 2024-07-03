@@ -45,6 +45,8 @@ AllowSelfSignedHostSSLCertificate = true
 ProjectID = "${PROJECT_ID}"
 HostImageFamily = "projects/${PROJECT_ID}/global/images/family/cf-debian11-amd64"
 HostOrchestratorPort = 2443
+Network = "projects/${PROJECT_ID}/global/networks/default"
+Subnetwork = ""
 
 [WebRTC]
 STUNServers = ["stun:stun.l.google.com:19302"]

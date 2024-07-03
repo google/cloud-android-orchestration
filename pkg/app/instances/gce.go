@@ -36,6 +36,8 @@ type GCPIMConfig struct {
 	ProjectID            string
 	HostImageFamily      string
 	HostOrchestratorPort int
+	Network              string
+	Subnetwork           string
 	// If true, instances created should be compatible with `acloud CLI`.
 	AcloudCompatible bool
 }
@@ -124,7 +126,8 @@ func (m *GCEInstanceManager) CreateHost(zone string, req *apiv1.CreateHostReques
 		},
 		NetworkInterfaces: []*compute.NetworkInterface{
 			{
-				Name: buildDefaultNetworkName(m.Config.GCP.ProjectID),
+				Network:    m.Config.GCP.Network,
+				Subnetwork: m.Config.GCP.Subnetwork,
 				AccessConfigs: []*compute.AccessConfig{
 					{
 						Name: "External NAT",
@@ -271,10 +274,6 @@ func validateRequest(r *apiv1.CreateHostRequest) error {
 		return errors.NewBadRequestError("invalid CreateHostRequest", nil)
 	}
 	return nil
-}
-
-func buildDefaultNetworkName(projectID string) string {
-	return fmt.Sprintf("projects/%s/global/networks/default", projectID)
 }
 
 func BuildHostInstance(in *compute.Instance) (*apiv1.HostInstance, error) {

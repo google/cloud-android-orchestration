@@ -15,6 +15,7 @@
 package cli
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -34,6 +35,7 @@ import (
 	wclient "github.com/google/cloud-android-orchestration/pkg/webrtcclient"
 
 	"github.com/PaesslerAG/jsonpath"
+	"github.com/gorilla/websocket"
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	"golang.org/x/net/proxy"
@@ -115,10 +117,11 @@ const (
 )
 
 const (
-	ConnectCommandName               = "connect"
-	DisconnectCommandName            = "disconnect"
-	ConnectionWebRTCAgentCommandName = "webrtc_agent"
-	ConnectionProxyAgentCommandName  = "proxy_agent"
+	ConnectCommandName                  = "connect"
+	DisconnectCommandName               = "disconnect"
+	ConnectionWebRTCAgentCommandName    = "webrtc_agent"
+	ConnectionProxyAgentCommandName     = "proxy_agent"
+	ConnectionWebSocketAgentCommandName = "websocket_agent"
 )
 
 const (
@@ -645,7 +648,16 @@ func connectionCommands(opts *subCommandOpts) []*cobra.Command {
 	}
 	proxyAgent.Flags().StringVar(&connFlags.host, hostFlag, "", "Specifies the host")
 	proxyAgent.MarkPersistentFlagRequired(hostFlag)
-	return []*cobra.Command{connect, disconnect, webrtcAgent, proxyAgent}
+	webSocketAgent := &cobra.Command{
+		Hidden: true,
+		Use:    ConnectionWebSocketAgentCommandName,
+		RunE: func(c *cobra.Command, args []string) error {
+			return runConnectionWebSocketAgentCommand(connFlags, &command{c, &connFlags.Verbose}, args, opts)
+		},
+	}
+	webSocketAgent.Flags().StringVar(&connFlags.host, hostFlag, "", "Specifies the host")
+	webSocketAgent.MarkPersistentFlagRequired(hostFlag)
+	return []*cobra.Command{connect, disconnect, webrtcAgent, proxyAgent, webSocketAgent}
 }
 
 func runCreateHostCommand(c *cobra.Command, flags *CreateHostFlags, opts *subCommandOpts) error {
@@ -1230,6 +1242,125 @@ func runConnectionWebrtcAgentCommand(flags *ConnectFlags, c *command, args []str
 	// There is no point in returning error codes from a background process, errors
 	// will be written to the log file instead.
 	return nil
+}
+
+func runConnectionWebSocketAgentCommand(flags *ConnectFlags, c *command, args []string, opts *subCommandOpts) error {
+	// Change Web URL to WebSocket URL
+	// e.g. https://127.0.0.1:1443/ -> wss://127.0.0.1:1443
+	wsRoot := flags.ServiceURL
+	wsRoot = strings.ReplaceAll(wsRoot, "https://", "wss://")
+	wsRoot = strings.ReplaceAll(wsRoot, "http://", "ws://")
+	wsRoot, _ = strings.CutSuffix(wsRoot, "/")
+
+	// Connect to ADB proxy WebSocket
+	//   wss://127.0.0.1:1443/devices/cvd-1/adb
+	// Since the operator is self-signed, skip verifying cert
+	dialer := websocket.Dialer {
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true,
+		},
+	}
+	device := args[0]
+	wsUrl := fmt.Sprintf("%s/devices/%s/adb", wsRoot, device)
+	wsConn, _, err := dialer.Dial(wsUrl, nil)
+	if err != nil {
+		log.Fatal("Failed to connect ", wsUrl, ": ", err)
+		return err
+	}
+	defer wsConn.Close()
+
+	// Open local TCP port that ADB server connects to and make ADB server connect
+	// to the port
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		c.PrintErrf("Failed to listen ADB socket: %v", err)
+		return err
+	}
+	adbPort := l.Addr().(*net.TCPAddr).Port
+	if err := opts.ADBServerProxy.Connect(adbPort); err != nil {
+		c.PrintErrf("Failed to connect ADB to device: %v\n", err)
+		return err
+	}
+	tcpConn, err := l.Accept()
+	if err != nil {
+		c.PrintErrf("Failed to accept ADB socket: %v", err)
+		return err
+	}
+	defer tcpConn.Close()
+
+	// Send connect result to the parent
+	result := ConnStatus {
+		ADB: ForwarderState {
+			Port: adbPort,
+			State: StateAsStr(FwdConnected),
+		},
+	}
+	output, err := json.Marshal(result)
+	if err != nil {
+		return err
+	} else {
+		c.Println(string(output))
+	}
+
+	// Close all standard IOs to make agent as daemon
+	if cin, ok := c.InOrStdin().(io.Closer); ok {
+		cin.Close()
+	}
+	if cout, ok := c.OutOrStdout().(io.Closer); ok {
+		cout.Close()
+	}
+	if cerr, ok := c.ErrOrStderr().(io.Closer); ok {
+		cerr.Close()
+	}
+
+	// Redirect WebSocket to ADB TCP port
+	wsWrapper := &wsIoWrapper{
+		wsConn: wsConn,
+		pos: 0,
+		buf: nil,
+	}
+	go func() {
+		io.Copy(wsWrapper, tcpConn)
+		wsWrapper.Close()
+	}()
+	io.Copy(tcpConn, wsWrapper)
+	tcpConn.Close()
+	return nil
+}
+
+// Wrapper for implementing io.ReadWriteCloser of websocket.Conn
+type wsIoWrapper struct {
+	wsConn *websocket.Conn
+	pos int
+	buf []byte
+}
+
+var _ io.ReadWriteCloser = (*wsIoWrapper)(nil)
+
+func (w *wsIoWrapper) Read(buf []byte) (int, error) {
+	if w.buf == nil || w.pos >= len(w.buf) {
+		_, readBuf, err := w.wsConn.ReadMessage()
+		if err != nil {
+			return 0, err
+		}
+		w.buf = readBuf
+		w.pos = 0
+	}
+	nRead := copy(buf[:], w.buf[w.pos:])
+	w.pos += nRead
+	return nRead, nil
+}
+
+func (w *wsIoWrapper) Write(buf []byte) (int, error) {
+	err := w.wsConn.WriteMessage(websocket.BinaryMessage, buf)
+	if err != nil {
+		return 0, err
+	}
+	return len(buf), nil
+}
+
+func (w *wsIoWrapper) Close() error {
+	return w.wsConn.Close()
 }
 
 func runDisconnectCommand(flags *ConnectFlags, c *command, args []string, opts *subCommandOpts) error {

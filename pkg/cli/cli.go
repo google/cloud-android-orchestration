@@ -1277,10 +1277,11 @@ func runConnectionWebSocketAgentCommand(flags *ConnectFlags, c *command, args []
 		return err
 	}
 	adbPort := l.Addr().(*net.TCPAddr).Port
-	if err := opts.ADBServerProxy.Connect(adbPort); err != nil {
-		c.PrintErrf("Failed to connect ADB to device: %v\n", err)
-		return err
-	}
+	go func() {
+		if err := opts.ADBServerProxy.Connect(adbPort); err != nil {
+			c.PrintErrf("Failed to connect ADB to device: %v\n", err)
+		}
+	}()
 	tcpConn, err := l.Accept()
 	if err != nil {
 		c.PrintErrf("Failed to accept ADB socket: %v", err)

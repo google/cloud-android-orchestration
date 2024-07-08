@@ -1254,23 +1254,6 @@ func runConnectionWebSocketAgentCommand(flags *ConnectFlags, c *command, args []
 		wsRoot = wsRoot[:len(wsRoot)-1]
 	}
 
-	// Connect to ADB proxy WebSocket
-	//   wss://127.0.0.1:1443/devices/cvd-1/adb
-	// Since the operator is self-signed, skip verifying cert
-	dialer := websocket.Dialer{
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: true,
-		},
-	}
-	device := args[0]
-	wsUrl := fmt.Sprintf("%s/devices/%s/adb", wsRoot, device)
-	wsConn, _, err := dialer.Dial(wsUrl, nil)
-	if err != nil {
-		log.Fatal("Failed to connect ", wsUrl, ": ", err)
-		return err
-	}
-	defer wsConn.Close()
-
 	// Open local TCP port that ADB server connects to and make ADB server connect
 	// to the port
 	l, err := net.Listen("tcp", "127.0.0.1:0")
@@ -1316,18 +1299,34 @@ func runConnectionWebSocketAgentCommand(flags *ConnectFlags, c *command, args []
 		cerr.Close()
 	}
 
+	// Connect to ADB proxy WebSocket
+	//   wss://127.0.0.1:1443/devices/cvd-1/adb
+	// Since the operator is self-signed, skip verifying cert
+	dialer := websocket.Dialer{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true,
+		},
+	}
+	device := args[0]
+	wsUrl := fmt.Sprintf("%s/devices/%s/adb", wsRoot, device)
+	wsConn, _, err := dialer.Dial(wsUrl, nil)
+	if err != nil {
+		log.Fatal("Failed to connect ", wsUrl, ": ", err)
+		return err
+	}
+
 	// Redirect WebSocket to ADB TCP port
 	wsWrapper := &wsIoWrapper{
 		wsConn: wsConn,
 		pos:    0,
 		buf:    nil,
 	}
+	defer wsWrapper.Close()
 	go func() {
 		io.Copy(wsWrapper, tcpConn)
 		wsWrapper.Close()
 	}()
 	io.Copy(tcpConn, wsWrapper)
-	tcpConn.Close()
 	return nil
 }
 

@@ -1251,13 +1251,13 @@ func runConnectionWebSocketAgentCommand(flags *ConnectFlags, c *command, args []
 	wsRoot = strings.ReplaceAll(wsRoot, "https://", "wss://")
 	wsRoot = strings.ReplaceAll(wsRoot, "http://", "ws://")
 	if strings.HasSuffix(wsRoot, "/") {
-		wsRoot = wsRoot[:len(wsRoot) - 1]
+		wsRoot = wsRoot[:len(wsRoot)-1]
 	}
 
 	// Connect to ADB proxy WebSocket
 	//   wss://127.0.0.1:1443/devices/cvd-1/adb
 	// Since the operator is self-signed, skip verifying cert
-	dialer := websocket.Dialer {
+	dialer := websocket.Dialer{
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: true,
 		},
@@ -1292,9 +1292,9 @@ func runConnectionWebSocketAgentCommand(flags *ConnectFlags, c *command, args []
 	defer tcpConn.Close()
 
 	// Send connect result to the parent
-	result := ConnStatus {
-		ADB: ForwarderState {
-			Port: adbPort,
+	result := ConnStatus{
+		ADB: ForwarderState{
+			Port:  adbPort,
 			State: StateAsStr(FwdConnected),
 		},
 	}
@@ -1319,8 +1319,8 @@ func runConnectionWebSocketAgentCommand(flags *ConnectFlags, c *command, args []
 	// Redirect WebSocket to ADB TCP port
 	wsWrapper := &wsIoWrapper{
 		wsConn: wsConn,
-		pos: 0,
-		buf: nil,
+		pos:    0,
+		buf:    nil,
 	}
 	go func() {
 		io.Copy(wsWrapper, tcpConn)
@@ -1334,8 +1334,8 @@ func runConnectionWebSocketAgentCommand(flags *ConnectFlags, c *command, args []
 // Wrapper for implementing io.ReadWriteCloser of websocket.Conn
 type wsIoWrapper struct {
 	wsConn *websocket.Conn
-	pos int
-	buf []byte
+	pos    int
+	buf    []byte
 }
 
 var _ io.ReadWriteCloser = (*wsIoWrapper)(nil)

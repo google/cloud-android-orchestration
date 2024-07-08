@@ -1250,7 +1250,9 @@ func runConnectionWebSocketAgentCommand(flags *ConnectFlags, c *command, args []
 	wsRoot := flags.ServiceURL
 	wsRoot = strings.ReplaceAll(wsRoot, "https://", "wss://")
 	wsRoot = strings.ReplaceAll(wsRoot, "http://", "ws://")
-	wsRoot, _ = strings.CutSuffix(wsRoot, "/")
+	if strings.HasSuffix(wsRoot, "/") {
+		wsRoot = wsRoot[:len(wsRoot) - 1]
+	}
 
 	// Connect to ADB proxy WebSocket
 	//   wss://127.0.0.1:1443/devices/cvd-1/adb

@@ -1272,7 +1272,6 @@ func runConnectionWebSocketAgentCommand(flags *ConnectFlags, c *command, args []
 		c.PrintErrf("Failed to accept ADB socket: %v", err)
 		return err
 	}
-	defer tcpConn.Close()
 
 	// Connect to ADB proxy WebSocket
 	//   wss://127.0.0.1:1443/devices/cvd-1/adb
@@ -1321,12 +1320,12 @@ func runConnectionWebSocketAgentCommand(flags *ConnectFlags, c *command, args []
 		pos:    0,
 		buf:    nil,
 	}
-	defer wsWrapper.Close()
 	go func() {
 		io.Copy(wsWrapper, tcpConn)
 		wsWrapper.Close()
 	}()
 	io.Copy(tcpConn, wsWrapper)
+	tcpConn.Close()
 	return nil
 }
 

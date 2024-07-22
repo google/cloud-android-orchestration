@@ -180,7 +180,7 @@ type DeleteCVDFlags struct {
 
 type subCommandOpts struct {
 	ServiceBuilder serviceBuilder
-	RootFlags      *CVDRemoteFlags
+	CVDRemoteFlags *CVDRemoteFlags
 	InitialConfig  Config
 	CommandRunner  CommandRunner
 	ADBServerProxy ADBServerProxy
@@ -391,7 +391,7 @@ func NewCVDRemoteCommand(o *CommandOptions) *CVDRemoteCommand {
 	rootCmd.PersistentFlags().BoolVarP(&flags.Verbose, verboseFlag, "v", false, "Be verbose.")
 	subCmdOpts := &subCommandOpts{
 		ServiceBuilder: buildServiceBuilder(o.ServiceBuilder, o.InitialConfig.DefaultService().Authn),
-		RootFlags:      flags,
+		CVDRemoteFlags: flags,
 		InitialConfig:  o.InitialConfig,
 		CommandRunner:  o.CommandRunner,
 		ADBServerProxy: o.ADBServerProxy,
@@ -435,7 +435,7 @@ func (c *CVDRemoteCommand) Execute() error {
 
 func hostCommand(opts *subCommandOpts) *cobra.Command {
 	acceleratorFlagValues := []string{}
-	createFlags := &CreateHostFlags{CVDRemoteFlags: opts.RootFlags, CreateHostOpts: &CreateHostOpts{}}
+	createFlags := &CreateHostFlags{CVDRemoteFlags: opts.CVDRemoteFlags, CreateHostOpts: &CreateHostOpts{}}
 	create := &cobra.Command{
 		Use:   "create",
 		Short: "Creates a host.",
@@ -456,14 +456,14 @@ func hostCommand(opts *subCommandOpts) *cobra.Command {
 		Use:   "list",
 		Short: "Lists hosts.",
 		RunE: func(c *cobra.Command, args []string) error {
-			return runListHostCommand(c, opts.RootFlags, opts)
+			return runListHostCommand(c, opts.CVDRemoteFlags, opts)
 		},
 	}
 	del := &cobra.Command{
 		Use:   "delete <foo> <bar> <baz>",
 		Short: "Delete hosts.",
 		RunE: func(c *cobra.Command, args []string) error {
-			return runDeleteHostsCommand(c, args, opts.RootFlags, opts)
+			return runDeleteHostsCommand(c, args, opts.CVDRemoteFlags, opts)
 		},
 	}
 	host := &cobra.Command{
@@ -479,7 +479,7 @@ func hostCommand(opts *subCommandOpts) *cobra.Command {
 func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 	// Create command
 	createFlags := &CreateCVDFlags{
-		CVDRemoteFlags: opts.RootFlags,
+		CVDRemoteFlags: opts.CVDRemoteFlags,
 		CreateCVDOpts:  &CreateCVDOpts{},
 		CreateHostOpts: &CreateHostOpts{},
 	}
@@ -574,7 +574,7 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 		create.MarkFlagsMutuallyExclusive(hostFlag, name)
 	}
 	// List command
-	listFlags := &ListCVDsFlags{CVDRemoteFlags: opts.RootFlags}
+	listFlags := &ListCVDsFlags{CVDRemoteFlags: opts.CVDRemoteFlags}
 	list := &cobra.Command{
 		Use:   "list",
 		Short: "List CVDs",
@@ -588,11 +588,11 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 		Use:   "pull [HOST]",
 		Short: "Pull cvd runtime artifacts",
 		RunE: func(c *cobra.Command, args []string) error {
-			return runPullCommand(c, args, opts.RootFlags, opts)
+			return runPullCommand(c, args, opts.CVDRemoteFlags, opts)
 		},
 	}
 	// Delete command
-	delFlags := &DeleteCVDFlags{CVDRemoteFlags: opts.RootFlags}
+	delFlags := &DeleteCVDFlags{CVDRemoteFlags: opts.CVDRemoteFlags}
 	del := &cobra.Command{
 		Use:   "delete [--host=HOST] [id]",
 		Short: "Deletes cvd instance",
@@ -606,7 +606,7 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 }
 
 func connectionCommands(opts *subCommandOpts) []*cobra.Command {
-	connFlags := &ConnectFlags{CVDRemoteFlags: opts.RootFlags, host: "", skipConfirmation: false, connectAgent: ConnectionWebRTCAgentCommandName}
+	connFlags := &ConnectFlags{CVDRemoteFlags: opts.CVDRemoteFlags, host: "", skipConfirmation: false, connectAgent: ConnectionWebRTCAgentCommandName}
 	connect := &cobra.Command{
 		Use:   ConnectCommandName,
 		Short: "(Re)Connects to a CVD and tunnels ADB messages",
@@ -894,7 +894,7 @@ func ConnectDevice(host, device, ice_config, agent string, c *command, opts *sub
 	}()
 
 	flags := &ConnectFlags{
-		CVDRemoteFlags: opts.RootFlags,
+		CVDRemoteFlags: opts.CVDRemoteFlags,
 		host:           host,
 		ice_config:     ice_config,
 	}

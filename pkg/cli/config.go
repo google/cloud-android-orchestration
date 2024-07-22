@@ -95,20 +95,25 @@ func BaseConfig() *Config {
 	}
 }
 
-func LoadConfig(srcs []string, c *Config) error {
-	combined := []byte{}
-	for _, path := range srcs {
-		b, err := os.ReadFile(path)
-		if err != nil {
-			return fmt.Errorf("error reading config file: %w", err)
-		}
-		combined = append(combined, b...)
+func LoadConfig(sysSrc, userSrc string, c *Config) error {
+	// Load system configuration
+	if err := loadConfig(sysSrc, c); err != nil {
+		return fmt.Errorf("error loading system configuration: %w", err)
 	}
-	decoder := toml.NewDecoder(bytes.NewReader(combined))
-	// Fail if there is some unknown configuration. This is better than silently
-	// ignoring a (perhaps misspelled) config entry.
-	decoder.Strict(true)
-	return decoder.Decode(c)
+	if userSrc == "" {
+		return nil
+	}
+	sysSrvcs := c.Services
+	c.Services = nil
+	// Load user configuration
+	if err := loadConfig(userSrc, c); err != nil {
+		return fmt.Errorf("error loading user configuration: %w", err)
+	}
+	// Combine services configurations.
+	for k, v := range sysSrvcs {
+		c.Services[k] = v
+	}
+	return nil
 }
 
 func ExpandPath(path string) string {
@@ -188,4 +193,22 @@ func extractAcloudConfig(input string) (AcloudConfig, error) {
 		MachineType: machineType,
 	}
 	return result, nil
+}
+
+func loadConfig(src string, out *Config) error {
+	if src == "" {
+		return nil
+	}
+	b, err := os.ReadFile(src)
+	if err != nil {
+		return err
+	}
+	decoder := toml.NewDecoder(bytes.NewReader(b))
+	// Fail if there is some unknown configuration. This is better than silently
+	// ignoring a (perhaps misspelled) config entry.
+	decoder.Strict(true)
+	if err := decoder.Decode(out); err != nil {
+		return err
+	}
+	return nil
 }

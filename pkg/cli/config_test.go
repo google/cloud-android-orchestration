@@ -37,7 +37,7 @@ Host = { GCP = { MinCPUPlatform = "cpu_platform" } }
 	// This test is little more than a change detector, however it's still
 	// useful to detect config parsing errors early, such as those introduced by
 	// a rename of the config properties.
-	err := LoadConfig([]string{fname}, c)
+	err := LoadConfig(fname, "", c)
 
 	if err != nil {
 		t.Errorf("failed to parse config: %v", err)
@@ -73,7 +73,7 @@ Authn = {
 	fname := tempFile(t, fullConfig)
 	c := BaseConfig()
 
-	err := LoadConfig([]string{fname}, c)
+	err := LoadConfig(fname, "", c)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +91,7 @@ func TestLoadConfigFileInvalidConfig(t *testing.T) {
 	fname := tempFile(t, config)
 	c := BaseConfig()
 
-	err := LoadConfig([]string{fname}, c)
+	err := LoadConfig(fname, "", c)
 
 	if err == nil {
 		t.Errorf("expected unknown config property to produce an error")
@@ -106,6 +106,8 @@ SystemDefaultService = "foo"
 ServiceURL = "foo.com"
 `
 	const user = `
+UserDefaultService = "bar"
+
 [Services."bar"]
 ServiceURL = "bar.com"
 `
@@ -113,6 +115,7 @@ ServiceURL = "bar.com"
 	ucf := tempFile(t, user)
 	expected := &Config{
 		SystemDefaultService: "foo",
+		UserDefaultService:   "bar",
 		ConnectionControlDir: "~/.cvdr/connections",
 		KeepLogFilesDays:     30,
 		Services: map[string]*Service{
@@ -126,8 +129,11 @@ ServiceURL = "bar.com"
 	}
 	c := BaseConfig()
 
-	_ = LoadConfig([]string{scf, ucf}, c)
+	err := LoadConfig(scf, ucf, c)
 
+	if err != nil {
+		t.Fatal(err)
+	}
 	if diff := cmp.Diff(expected, c); diff != "" {
 		t.Errorf("config mismatch (-want +got):\n%s", diff)
 	}
@@ -193,7 +199,7 @@ machine_type: "foo-standard-4"
 			t.Fatal(err)
 		}
 		c := &Config{}
-		if err := LoadConfig([]string{dst}, c); err != nil {
+		if err := LoadConfig(dst, "", c); err != nil {
 			t.Fatal(err)
 		}
 		if diff := cmp.Diff(expected, c); diff != "" {

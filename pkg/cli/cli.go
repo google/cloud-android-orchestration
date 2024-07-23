@@ -414,7 +414,7 @@ func NewCVDRemoteCommand(o *CommandOptions) *CVDRemoteCommand {
 	rootCmd.SetHelpCommand(&cobra.Command{Hidden: true})
 	rootCmd.PersistentFlags().BoolVarP(&flags.Verbose, verboseFlag, "v", false, "Be verbose.")
 	subCmdOpts := &subCommandOpts{
-		ServiceBuilder: buildServiceBuilder(o.ServiceBuilder, o.InitialConfig.DefaultService().Authn),
+		ServiceBuilder: buildServiceBuilder(o.ServiceBuilder, &o.InitialConfig),
 		CVDRemoteFlags: flags,
 		InitialConfig:  o.InitialConfig,
 		CommandRunner:  o.CommandRunner,
@@ -1503,7 +1503,7 @@ type serviceBuilder func(flags *CVDRemoteFlags, c *cobra.Command) (client.Servic
 
 const chunkSizeBytes = 16 * 1024 * 1024
 
-func buildServiceBuilder(builder client.ServiceBuilder, authnConfig *AuthnConfig) serviceBuilder {
+func buildServiceBuilder(builder client.ServiceBuilder, config *Config) serviceBuilder {
 	return func(flags *CVDRemoteFlags, c *cobra.Command) (client.Service, error) {
 		proxyURL := flags.Proxy
 		var dumpOut io.Writer = io.Discard
@@ -1517,6 +1517,11 @@ func buildServiceBuilder(builder client.ServiceBuilder, authnConfig *AuthnConfig
 			ErrOut:         c.ErrOrStderr(),
 			ChunkSizeBytes: chunkSizeBytes,
 		}
+		srvConfig := config.DefaultService()
+		if flags.Service != "" {
+			srvConfig, _ = config.Services[flags.Service]
+		}
+		authnConfig := srvConfig.Authn
 		if authnConfig != nil {
 			if authnConfig.OIDCToken != nil && authnConfig.HTTPBasicAuthn != nil {
 				return nil, fmt.Errorf("should only set one authentication option")

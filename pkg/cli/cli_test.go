@@ -253,10 +253,10 @@ func TestBuildAgentCmdline(t *testing.T) {
 	// modify the corresponding AsArgs method.
 	flags := ConnectFlags{
 		CVDRemoteFlags: &CVDRemoteFlags{
-			"service url",
-			"zone",
-			"http proxy",
-			true, // verbose
+			ServiceURL: "service url",
+			Zone:       "zone",
+			Proxy:      "http proxy",
+			Verbose:    true, // verbose
 		},
 		host:             "host",
 		skipConfirmation: false,

@@ -73,6 +73,7 @@ type CVDRemoteCommand struct {
 }
 
 const (
+	serviceFlag    = "service"
 	hostFlag       = "host"
 	serviceURLFlag = "service_url"
 	zoneFlag       = "zone"
@@ -136,11 +137,23 @@ type AsArgs interface {
 	AsArgs() []string
 }
 
+type RootFlags struct {
+	Service string
+}
+
 type CVDRemoteFlags struct {
+	*RootFlags
+
 	ServiceURL string
 	Zone       string
 	Proxy      string
 	Verbose    bool
+}
+
+func (f *CVDRemoteFlags) Update(s *Service) {
+	f.ServiceURL = s.ServiceURL
+	f.Zone = s.Zone
+	f.Proxy = s.Proxy
 }
 
 func (f *CVDRemoteFlags) AsArgs() []string {
@@ -162,10 +175,20 @@ type CreateHostFlags struct {
 	*CreateHostOpts
 }
 
+func (f *CreateHostFlags) Update(s *Service) {
+	f.CVDRemoteFlags.Update(s)
+	f.CreateHostOpts.Update(s)
+}
+
 type CreateCVDFlags struct {
 	*CVDRemoteFlags
 	*CreateCVDOpts
 	*CreateHostOpts
+}
+
+func (f *CreateCVDFlags) Update(s *Service) {
+	f.CVDRemoteFlags.Update(s)
+	f.CreateHostOpts.Update(s)
 }
 
 type ListCVDsFlags struct {
@@ -366,7 +389,7 @@ func PromptYesOrNo(out *os.File, in *os.File, text string) (bool, error) {
 }
 
 func NewCVDRemoteCommand(o *CommandOptions) *CVDRemoteCommand {
-	flags := &CVDRemoteFlags{}
+	flags := &CVDRemoteFlags{RootFlags: &RootFlags{}}
 	rootCmd := &cobra.Command{
 		Use:               "cvdr",
 		Short:             "Manages Cuttlefish Virtual Devices (CVDs) in the cloud.",
@@ -377,6 +400,7 @@ func NewCVDRemoteCommand(o *CommandOptions) *CVDRemoteCommand {
 	rootCmd.SetArgs(o.Args)
 	rootCmd.SetOut(o.IOStreams.Out)
 	rootCmd.SetErr(o.IOStreams.ErrOut)
+	rootCmd.PersistentFlags().StringVarP(&flags.Service, serviceFlag, "s", "", "Select service.")
 	rootCmd.PersistentFlags().StringVar(&flags.ServiceURL, serviceURLFlag, o.InitialConfig.DefaultService().ServiceURL,
 		"Cloud orchestration service url.")
 	if o.InitialConfig.DefaultService().ServiceURL == "" {
@@ -437,8 +461,9 @@ func hostCommand(opts *subCommandOpts) *cobra.Command {
 	acceleratorFlagValues := []string{}
 	createFlags := &CreateHostFlags{CVDRemoteFlags: opts.CVDRemoteFlags, CreateHostOpts: &CreateHostOpts{}}
 	create := &cobra.Command{
-		Use:   "create",
-		Short: "Creates a host.",
+		Use:     "create",
+		Short:   "Creates a host.",
+		PreRunE: preRunE(createFlags, &opts.CVDRemoteFlags.Service, &opts.InitialConfig),
 		RunE: func(c *cobra.Command, args []string) error {
 			configs, err := parseAcceleratorFlag(acceleratorFlagValues)
 			if err != nil {
@@ -453,15 +478,17 @@ func hostCommand(opts *subCommandOpts) *cobra.Command {
 	create.Flags().StringVar(&createFlags.GCP.MinCPUPlatform, gcpMinCPUPlatformFlag,
 		opts.InitialConfig.DefaultService().Host.GCP.MinCPUPlatform, gcpMinCPUPlatformFlagDesc)
 	list := &cobra.Command{
-		Use:   "list",
-		Short: "Lists hosts.",
+		Use:     "list",
+		Short:   "Lists hosts.",
+		PreRunE: preRunE(opts.CVDRemoteFlags, &opts.CVDRemoteFlags.Service, &opts.InitialConfig),
 		RunE: func(c *cobra.Command, args []string) error {
 			return runListHostCommand(c, opts.CVDRemoteFlags, opts)
 		},
 	}
 	del := &cobra.Command{
-		Use:   "delete <foo> <bar> <baz>",
-		Short: "Delete hosts.",
+		Use:     "delete <foo> <bar> <baz>",
+		Short:   "Delete hosts.",
+		PreRunE: preRunE(opts.CVDRemoteFlags, &opts.CVDRemoteFlags.Service, &opts.InitialConfig),
 		RunE: func(c *cobra.Command, args []string) error {
 			return runDeleteHostsCommand(c, args, opts.CVDRemoteFlags, opts)
 		},
@@ -484,8 +511,9 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 		CreateHostOpts: &CreateHostOpts{},
 	}
 	create := &cobra.Command{
-		Use:   "create [config.json]",
-		Short: "Creates a CVD",
+		Use:     "create [config.json]",
+		Short:   "Creates a CVD",
+		PreRunE: preRunE(createFlags, &opts.CVDRemoteFlags.Service, &opts.InitialConfig),
 		RunE: func(c *cobra.Command, args []string) error {
 			return runCreateCVDCommand(c, args, createFlags, opts)
 		},
@@ -576,8 +604,9 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 	// List command
 	listFlags := &ListCVDsFlags{CVDRemoteFlags: opts.CVDRemoteFlags}
 	list := &cobra.Command{
-		Use:   "list",
-		Short: "List CVDs",
+		Use:     "list",
+		Short:   "List CVDs",
+		PreRunE: preRunE(listFlags, &opts.CVDRemoteFlags.Service, &opts.InitialConfig),
 		RunE: func(c *cobra.Command, args []string) error {
 			return runListCVDsCommand(c, listFlags, opts)
 		},
@@ -585,8 +614,9 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 	list.Flags().StringVar(&listFlags.Host, hostFlag, "", "Specifies the host")
 	// Pull command
 	pull := &cobra.Command{
-		Use:   "pull [HOST]",
-		Short: "Pull cvd runtime artifacts",
+		Use:     "pull [HOST]",
+		Short:   "Pull cvd runtime artifacts",
+		PreRunE: preRunE(opts.CVDRemoteFlags, &opts.CVDRemoteFlags.Service, &opts.InitialConfig),
 		RunE: func(c *cobra.Command, args []string) error {
 			return runPullCommand(c, args, opts.CVDRemoteFlags, opts)
 		},
@@ -594,8 +624,9 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 	// Delete command
 	delFlags := &DeleteCVDFlags{CVDRemoteFlags: opts.CVDRemoteFlags}
 	del := &cobra.Command{
-		Use:   "delete [--host=HOST] [id]",
-		Short: "Deletes cvd instance",
+		Use:     "delete [--host=HOST] [id]",
+		Short:   "Deletes cvd instance",
+		PreRunE: preRunE(delFlags, &opts.CVDRemoteFlags.Service, &opts.InitialConfig),
 		RunE: func(c *cobra.Command, args []string) error {
 			return runDeleteCVDCommand(c, args, delFlags, opts)
 		},
@@ -608,8 +639,9 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 func connectionCommands(opts *subCommandOpts) []*cobra.Command {
 	connFlags := &ConnectFlags{CVDRemoteFlags: opts.CVDRemoteFlags, host: "", skipConfirmation: false, connectAgent: ConnectionWebRTCAgentCommandName}
 	connect := &cobra.Command{
-		Use:   ConnectCommandName,
-		Short: "(Re)Connects to a CVD and tunnels ADB messages",
+		Use:     ConnectCommandName,
+		Short:   "(Re)Connects to a CVD and tunnels ADB messages",
+		PreRunE: preRunE(connFlags, &opts.CVDRemoteFlags.Service, &opts.InitialConfig),
 		RunE: func(c *cobra.Command, args []string) error {
 			return runConnectCommand(connFlags, &command{c, &connFlags.Verbose}, args, opts)
 		},
@@ -620,8 +652,9 @@ func connectionCommands(opts *subCommandOpts) []*cobra.Command {
 	connect.Flags().StringVar(&connFlags.ice_config, iceConfigFlag, "", iceConfigFlagDesc)
 	connect.Flags().StringVar(&connFlags.connectAgent, "connect_agent", ConnectionWebRTCAgentCommandName, "Connect agent type")
 	disconnect := &cobra.Command{
-		Use:   fmt.Sprintf("%s <foo> <bar> <baz>", DisconnectCommandName),
-		Short: "Disconnect (ADB) from CVD",
+		Use:     fmt.Sprintf("%s <foo> <bar> <baz>", DisconnectCommandName),
+		Short:   "Disconnect (ADB) from CVD",
+		PreRunE: preRunE(connFlags, &opts.CVDRemoteFlags.Service, &opts.InitialConfig),
 		RunE: func(c *cobra.Command, args []string) error {
 			return runDisconnectCommand(connFlags, &command{c, &connFlags.Verbose}, args, opts)
 		},
@@ -1633,4 +1666,24 @@ func parseAcceleratorFlag(values []string) ([]acceleratorConfig, error) {
 		result = append(result, *c)
 	}
 	return result, nil
+}
+
+type Flags interface {
+	Update(s *Service)
+}
+
+type preRunEFn func(cmd *cobra.Command, args []string) error
+
+func preRunE(flags Flags, name *string, c *Config) preRunEFn {
+	return func(cmd *cobra.Command, args []string) error {
+		if name == nil || *name == "" {
+			return nil
+		}
+		val, ok := c.Services[*name]
+		if !ok {
+			return fmt.Errorf("service %s not found", *name)
+		}
+		flags.Update(val)
+		return nil
+	}
 }

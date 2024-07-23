@@ -25,6 +25,11 @@ type CreateHostOpts struct {
 	GCP CreateGCPHostOpts
 }
 
+func (f *CreateHostOpts) Update(s *Service) {
+	f.GCP.MachineType = s.Host.GCP.MachineType
+	f.GCP.MinCPUPlatform = s.Host.GCP.MinCPUPlatform
+}
+
 type CreateGCPHostOpts struct {
 	MachineType        string
 	MinCPUPlatform     string

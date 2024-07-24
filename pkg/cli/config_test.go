@@ -179,7 +179,7 @@ machine_type: "foo-standard-4"
 		Services: map[string]*Service{
 			"acloud": {
 				Zone: "foo-central1-c",
-				Host: &HostConfig{
+				Host: HostConfig{
 					GCP: GCPHostConfig{
 						MachineType: "foo-standard-4",
 					},

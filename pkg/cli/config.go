@@ -67,7 +67,7 @@ type Service struct {
 	Zone                      string       `json:"zone,omitempty"`
 	Proxy                     string       `json:"proxy,omitempty"`
 	BuildAPICredentialsSource string       `json:"build_api_credentials_source,omitempty"`
-	Host                      *HostConfig  `json:"host,omitempty"`
+	Host                      HostConfig   `json:"host,omitempty"`
 	Authn                     *AuthnConfig `json:"authn,omitempty"`
 }
 
@@ -77,7 +77,7 @@ func (c *Config) DefaultService() *Service {
 	} else if c.SystemDefaultService != "" {
 		return c.Services[c.SystemDefaultService]
 	}
-	return &Service{Host: &HostConfig{}}
+	return &Service{}
 }
 
 func (c *Config) ConnectionControlDirExpanded() string {

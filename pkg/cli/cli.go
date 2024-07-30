@@ -139,6 +139,7 @@ type AsArgs interface {
 
 type RootFlags struct {
 	Service string
+	Verbose bool
 }
 
 type CVDRemoteFlags struct {
@@ -147,7 +148,6 @@ type CVDRemoteFlags struct {
 	ServiceURL string
 	Zone       string
 	Proxy      string
-	Verbose    bool
 }
 
 func (f *CVDRemoteFlags) Update(s *Service) {

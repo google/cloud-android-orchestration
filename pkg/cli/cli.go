@@ -75,6 +75,7 @@ type CVDRemoteCommand struct {
 const (
 	serviceFlag    = "service"
 	hostFlag       = "host"
+	groupFlag      = "group"
 	serviceURLFlag = "service_url"
 	zoneFlag       = "zone"
 	proxyFlag      = "proxy"
@@ -194,6 +195,12 @@ func (f *CreateCVDFlags) Update(s *Service) {
 type ListCVDsFlags struct {
 	*ServiceFlags
 	Host string
+}
+
+type BugreportFlags struct {
+	*ServiceFlags
+	Host  string
+	Group string
 }
 
 type DeleteCVDFlags struct {
@@ -612,6 +619,18 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 		},
 	}
 	list.Flags().StringVar(&listFlags.Host, hostFlag, "", "Specifies the host")
+	// Bugreport command
+	brFlags := &BugreportFlags{ServiceFlags: opts.ServiceFlags}
+	br := &cobra.Command{
+		Use:     "bugreport [--host HOST [--group GROUP]]",
+		Short:   "Pull cvd runtime artifacts",
+		PreRunE: preRunE(opts.ServiceFlags, &opts.ServiceFlags.Service, &opts.InitialConfig),
+		RunE: func(c *cobra.Command, args []string) error {
+			return runBugreportCommand(c, brFlags, opts)
+		},
+	}
+	br.Flags().StringVar(&brFlags.Host, hostFlag, "", "Specifies the host")
+	br.Flags().StringVar(&brFlags.Group, groupFlag, "", "Specifies the group")
 	// Pull command
 	pull := &cobra.Command{
 		Use:     "pull [HOST]",
@@ -633,7 +652,7 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 	}
 	del.Flags().StringVar(&delFlags.Host, hostFlag, "", "Specifies the host")
 	del.MarkFlagRequired(hostFlag)
-	return []*cobra.Command{create, list, pull, del}
+	return []*cobra.Command{create, list, br, pull, del}
 }
 
 func connectionCommands(opts *subCommandOpts) []*cobra.Command {
@@ -838,6 +857,53 @@ func runListCVDsCommand(c *cobra.Command, flags *ListCVDsFlags, opts *subCommand
 	return err
 }
 
+func runBugreportCommand(c *cobra.Command, flags *BugreportFlags, opts *subCommandOpts) error {
+	service, err := opts.ServiceBuilder(flags.ServiceFlags, c)
+	if err != nil {
+		return err
+	}
+	host := flags.Host
+	if host == "" {
+		sel, err := promptSingleHostNameSelection(&command{c, &flags.Verbose}, service)
+		if err != nil {
+			return err
+		}
+		if sel == "" {
+			c.PrintErrln("no host selected")
+			return nil
+		}
+		host = sel
+	}
+	group := flags.Group
+	if group == "" {
+		sel, err := promptSingleGroupNameSelection(
+			&command{c, &flags.Verbose},
+			service,
+			opts.InitialConfig.ConnectionControlDirExpanded(),
+			host)
+		if err != nil {
+			return err
+		}
+		if sel == "" {
+			c.PrintErrln("no cvd group selected")
+			return nil
+		}
+		group = sel
+	}
+	f, err := os.CreateTemp("", "cvdr_bugreport")
+	if err != nil {
+		return err
+	}
+	if err := service.HostService(host).CreateBugreport(group, f); err != nil {
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+	c.Println("Bugreport created: " + f.Name())
+	return nil
+}
+
 func runPullCommand(c *cobra.Command, args []string, flags *ServiceFlags, opts *subCommandOpts) error {
 	service, err := opts.ServiceBuilder(flags, c)
 	if err != nil {
@@ -910,6 +976,27 @@ func promptHostNameSelection(c *command, service client.Service, selOpt Selectio
 		return []string{}, nil
 	}
 	return PromptSelectionFromSliceString(c, names, selOpt)
+}
+
+// Returns empty string if there was no group.
+func promptSingleGroupNameSelection(c *command, service client.Service, controlDir, host string) (string, error) {
+	hosts, err := listCVDsSingleHost(service, controlDir, host)
+	if err != nil {
+		return "", err
+	}
+	cvds := flattenCVDs(hosts)
+	names := []string{}
+	for _, e := range cvds {
+		names = append(names, e.Group())
+	}
+	sel, err := PromptSelectionFromSliceString(c, names, Single)
+	if err != nil {
+		return "", err
+	}
+	if len(sel) > 1 {
+		log.Fatalf("expected one item, got %+v", sel)
+	}
+	return sel[0], nil
 }
 
 // Starts a connection agent process and waits for it to report the connection was

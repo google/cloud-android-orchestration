@@ -42,6 +42,10 @@ type RemoteCVDLocator struct {
 	ADBSerial string `json:"adb_serial"`
 }
 
+func (l *RemoteCVDLocator) Group() string {
+	return strings.Split(l.ID, "/")[0]
+}
+
 type RemoteCVD struct {
 	RemoteCVDLocator
 	Status     string

@@ -174,6 +174,8 @@ func (fakeHostService) DownloadRuntimeArtifacts(dst io.Writer) error {
 
 func (fakeHostService) WaitForOperation(string, any) error { return nil }
 
+func (fakeHostService) CreateBugreport(string, io.Writer) error { return nil }
+
 func TestCommandSucceeds(t *testing.T) {
 	tests := []struct {
 		Name   string

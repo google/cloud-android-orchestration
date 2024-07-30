@@ -252,7 +252,7 @@ func TestBuildAgentCmdline(t *testing.T) {
 	// are modified. This should help the developer realize they also need to
 	// modify the corresponding AsArgs method.
 	flags := ConnectFlags{
-		CVDRemoteFlags: &CVDRemoteFlags{
+		ServiceFlags: &ServiceFlags{
 			RootFlags: &RootFlags{
 				Verbose: true, // verbose
 			},

@@ -631,15 +631,6 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 	}
 	br.Flags().StringVar(&brFlags.Host, hostFlag, "", "Specifies the host")
 	br.Flags().StringVar(&brFlags.Group, groupFlag, "", "Specifies the group")
-	// Pull command
-	pull := &cobra.Command{
-		Use:     "pull [HOST]",
-		Short:   "Pull cvd runtime artifacts",
-		PreRunE: preRunE(opts.ServiceFlags, &opts.ServiceFlags.Service, &opts.InitialConfig),
-		RunE: func(c *cobra.Command, args []string) error {
-			return runPullCommand(c, args, opts.ServiceFlags, opts)
-		},
-	}
 	// Delete command
 	delFlags := &DeleteCVDFlags{ServiceFlags: opts.ServiceFlags}
 	del := &cobra.Command{
@@ -652,7 +643,7 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 	}
 	del.Flags().StringVar(&delFlags.Host, hostFlag, "", "Specifies the host")
 	del.MarkFlagRequired(hostFlag)
-	return []*cobra.Command{create, list, br, pull, del}
+	return []*cobra.Command{create, list, br, del}
 }
 
 func connectionCommands(opts *subCommandOpts) []*cobra.Command {
@@ -901,42 +892,6 @@ func runBugreportCommand(c *cobra.Command, flags *BugreportFlags, opts *subComma
 		return err
 	}
 	c.Println("Bugreport created: " + f.Name())
-	return nil
-}
-
-func runPullCommand(c *cobra.Command, args []string, flags *ServiceFlags, opts *subCommandOpts) error {
-	service, err := opts.ServiceBuilder(flags, c)
-	if err != nil {
-		return err
-	}
-	host := ""
-	switch l := len(args); l {
-	case 0:
-		sel, err := promptSingleHostNameSelection(&command{c, &flags.Verbose}, service)
-		if err != nil {
-			return err
-		}
-		if sel == "" {
-			c.PrintErrln("No hosts")
-			return nil
-		}
-		host = sel
-	case 1:
-		host = args[0]
-	default /* len(args) > 1 */ :
-		return errors.New("invalid number of args")
-	}
-	f, err := os.CreateTemp("", "cvdrPull")
-	if err != nil {
-		return err
-	}
-	if err := service.HostService(host).DownloadRuntimeArtifacts(f); err != nil {
-		return err
-	}
-	if err := f.Close(); err != nil {
-		return err
-	}
-	c.Println("See logs: " + f.Name())
 	return nil
 }
 

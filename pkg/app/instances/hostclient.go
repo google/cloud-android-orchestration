@@ -19,6 +19,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -98,6 +99,11 @@ func (c *NetHostClient) GetReverseProxy() *httputil.ReverseProxy {
 	if c.client != http.DefaultClient {
 		// Make sure the reverse proxy has the same customizations as the http client.
 		devProxy.Transport = c.client.Transport
+	}
+	devProxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
+		log.Printf("request %q failed: proxy error: %v", r.Method+" "+r.URL.Path, err)
+		w.Header().Add("x-cutf-proxy", "co-host")
+		w.WriteHeader(http.StatusBadGateway)
 	}
 	return devProxy
 }

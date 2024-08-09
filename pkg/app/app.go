@@ -258,7 +258,10 @@ func (c *App) AuthHandler(w http.ResponseWriter, r *http.Request) error {
 	if err := c.setOrUpdateSession(w, &s); err != nil {
 		return err
 	}
-	authURL := c.oauth2Helper.AuthCodeURL(state, oauth2.AccessTypeOffline)
+	if err := c.oauth2Helper.CheckOAuthConfigExist(); err != nil {
+		return err
+	}
+	authURL := c.oauth2Helper.OAuthConfig.AuthCodeURL(state, oauth2.AccessTypeOffline)
 	http.Redirect(w, r, authURL, http.StatusSeeOther)
 	return nil
 }
@@ -286,7 +289,10 @@ func (c *App) OAuth2Callback(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	tk, err := c.oauth2Helper.Exchange(context.Background(), authCode)
+	if err := c.oauth2Helper.CheckOAuthConfigExist(); err != nil {
+		return err
+	}
+	tk, err := c.oauth2Helper.OAuthConfig.Exchange(context.Background(), authCode)
 	if err != nil {
 		return fmt.Errorf("error exchanging token: %w", err)
 	}
@@ -498,7 +504,10 @@ func (c *App) fetchUserCredentials(user accounts.User) (*oauth2.Token, error) {
 	}
 	if !tk.Valid() {
 		// Refresh the token and store it in the db.
-		tks := c.oauth2Helper.TokenSource(context.TODO(), tk)
+		if err := c.oauth2Helper.CheckOAuthConfigExist(); err != nil {
+			return nil, err
+		}
+		tks := c.oauth2Helper.OAuthConfig.TokenSource(context.TODO(), tk)
 		tk, err = tks.Token()
 		if err != nil {
 			return nil, fmt.Errorf("error refreshing token: %w", err)

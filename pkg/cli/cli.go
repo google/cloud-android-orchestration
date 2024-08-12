@@ -1587,6 +1587,7 @@ func buildServiceBuilder(builder client.ServiceBuilder, config *Config) serviceB
 					}
 					opts.Authn.HTTPBasic = &client.HTTPBasic{
 						Username: user.Username,
+						Email:    authnConfig.HTTPBasicAuthn.UserEmail,
 					}
 				default:
 					return nil, fmt.Errorf("invalid http basic authn UsernameSrc type: %s", authnConfig.HTTPBasicAuthn.UsernameSrc)

@@ -26,6 +26,8 @@ const (
 
 	unameCookie    = "accountUsername"
 	userMailCookie = "accountEmail"
+
+	UserEmailHeaderKey = "X-UserAccount-Email"
 )
 
 // Implements the AccountManager interfaces for closed deployed cloud
@@ -61,7 +63,8 @@ func (m *UsernameOnlyAccountManager) UserFromRequest(r *http.Request) (User, err
 	if !ok {
 		return nil, nil
 	}
-	return &UsernameOnlyUser{username, ""}, nil
+	email = r.Header.Get(UserEmailHeaderKey)
+	return &UsernameOnlyUser{username, email}, nil
 }
 
 type UsernameOnlyUser struct {

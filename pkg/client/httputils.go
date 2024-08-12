@@ -19,7 +19,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/cenkalti/backoff/v4"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -31,6 +30,10 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	accounts "github.com/google/cloud-android-orchestration/pkg/app/accounts"
+
+	"github.com/cenkalti/backoff/v4"
 )
 
 type HTTPHelper struct {
@@ -39,6 +42,7 @@ type HTTPHelper struct {
 	Dumpster          io.Writer
 	AccessToken       string
 	HTTPBasicUsername string
+	HTTPBasicEmail    string
 }
 
 func (h *HTTPHelper) NewGetRequest(path string) *HTTPRequestBuilder {
@@ -195,6 +199,8 @@ func (rb *HTTPRequestBuilder) doWithRetries(retryOpts RetryOptions) (*http.Respo
 		rb.AddHeader("Authorization", "Bearer "+rb.helper.AccessToken)
 	} else if rb.helper.HTTPBasicUsername != "" {
 		rb.SetBasicAuth()
+	} else if rb.helper.HTTPBasicEmail != "" {
+		rb.AddHeader(accounts.UserEmailHeaderKey, rb.helper.HTTPBasicEmail)
 	}
 	if rb.err != nil {
 		return nil, rb.err

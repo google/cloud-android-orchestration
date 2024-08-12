@@ -50,6 +50,7 @@ const UnixUsernameSrc UsernameSrcType = "unix"
 
 type HTTPBasicAuthnConfig struct {
 	UsernameSrc UsernameSrcType `json:"username_src,omitempty"`
+	UserEmail   string          `json:"user_email,omitempty"`
 }
 
 type Config struct {

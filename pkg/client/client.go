@@ -64,6 +64,7 @@ type OIDCToken struct {
 
 type HTTPBasic struct {
 	Username string
+	Email    string
 }
 
 type ServiceOptions struct {
@@ -113,6 +114,7 @@ func NewService(opts *ServiceOptions) (Service, error) {
 		}
 		if opts.Authn.HTTPBasic != nil {
 			helper.HTTPBasicUsername = opts.Authn.HTTPBasic.Username
+			helper.HTTPBasicEmail = opts.Authn.HTTPBasic.Email
 		}
 	}
 	return &serviceImpl{ServiceOptions: opts, httpHelper: helper}, nil

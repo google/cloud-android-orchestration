@@ -24,6 +24,7 @@ import (
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
+	"golang.org/x/oauth2/jwt"
 )
 
 type OAuth2Config struct {
@@ -35,15 +36,44 @@ const (
 	GoogleOAuth2Provider = "Google"
 )
 
+const (
+	JWTAuthType     = "jwt"
+	OAuthClientType = "oauth"
+)
+
 type Helper struct {
-	oauth2.Config
-	Revoke func(*oauth2.Token) error
+	OAuthConfig *oauth2.Config
+	JwtConfig   *jwt.Config
+	AuthType    string
+	Revoke      func(*oauth2.Token) error
 }
 
-// Build a oauth2.Config object with Google as the provider.
-func NewGoogleOAuth2Helper(redirectURL string, sm secrets.SecretManager) *Helper {
-	return &Helper{
-		Config: oauth2.Config{
+func (h Helper) CheckOAuthConfigExist() error {
+	if h.OAuthConfig != nil {
+		return nil
+	}
+	return errors.New("error: no oauth config")
+}
+
+// Build Config with Google as the provider.
+// Use JwtConfig when the credential type is service account,
+// Otherwise, use OAuthConfig
+func NewGoogleOAuth2Helper(redirectURL string, sm secrets.SecretManager, credential []byte) (*Helper, error) {
+	helper := &Helper{
+		OAuthConfig: nil,
+		JwtConfig:   nil,
+		AuthType:    "",
+		Revoke:      RevokeGoogleOAuth2Token,
+	}
+	if len(credential) != 0 {
+		jwtConfig, err := google.JWTConfigFromJSON(credential, "https://www.googleapis.com/auth/androidbuild.internal")
+		if err != nil {
+			return nil, err
+		}
+		helper.JwtConfig = jwtConfig
+		helper.AuthType = JWTAuthType
+	} else {
+		helper.OAuthConfig = &oauth2.Config{
 			ClientID:     sm.OAuth2ClientID(),
 			ClientSecret: sm.OAuth2ClientSecret(),
 			Scopes: []string{
@@ -53,9 +83,10 @@ func NewGoogleOAuth2Helper(redirectURL string, sm secrets.SecretManager) *Helper
 			},
 			RedirectURL: redirectURL,
 			Endpoint:    google.Endpoint,
-		},
-		Revoke: RevokeGoogleOAuth2Token,
+		}
+		helper.AuthType = OAuthClientType
 	}
+	return helper, nil
 }
 
 func RevokeGoogleOAuth2Token(tk *oauth2.Token) error {

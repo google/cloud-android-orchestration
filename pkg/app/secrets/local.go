@@ -45,10 +45,33 @@ func NewFromFileSecretManager(path string) (*FromFileSecretManager, error) {
 	return &sm, nil
 }
 
-func (sm *FromFileSecretManager) OAuth2ClientID() string {
+func (sm FromFileSecretManager) OAuth2ClientID() string {
 	return sm.ClientID
 }
 
-func (sm *FromFileSecretManager) OAuth2ClientSecret() string {
+func (sm FromFileSecretManager) OAuth2ClientSecret() string {
 	return sm.ClientSecret
+}
+
+type CredentialType struct {
+	Type string `json:"type"`
+}
+
+// Check if the credential type is service accout,
+// if so: return credential content
+// else: return nil
+func (sm FromFileSecretManager) GetServiceAccountCredential(path string) ([]byte, error) {
+	credential, err := os.ReadFile(path)
+	if err != nil {
+		return []byte{}, err
+	}
+
+	var credType CredentialType
+	if err = json.Unmarshal(credential, &credType); err != nil {
+		return []byte{}, err
+	}
+	if credType.Type != "service_account" {
+		return []byte{}, nil
+	}
+	return credential, nil
 }

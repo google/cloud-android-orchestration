@@ -98,14 +98,30 @@ func LoadSecretManager(config *config.Config) secrets.SecretManager {
 }
 
 func LoadOAuth2Config(config *config.Config, sm secrets.SecretManager) *appOAuth2.Helper {
-	var oauth2Helper *appOAuth2.Helper
+	var credential []byte
+	switch config.SecretManager.Type {
+	case secrets.UnixSMType:
+		secretFilePath := config.SecretManager.UNIX.SecretFilePath
+		var err error
+		credential, err = sm.(*secrets.FromFileSecretManager).GetServiceAccountCredential(secretFilePath)
+		if err != nil {
+			log.Fatal(err)
+		}
+	default:
+		credential = []byte{}
+	}
+
 	switch config.AccountManager.OAuth2.Provider {
 	case appOAuth2.GoogleOAuth2Provider:
-		oauth2Helper = appOAuth2.NewGoogleOAuth2Helper(config.AccountManager.OAuth2.RedirectURL, sm)
+		oauth2Helper, err := appOAuth2.NewGoogleOAuth2Helper(config.AccountManager.OAuth2.RedirectURL, sm, credential)
+		if err != nil {
+			log.Fatal(err)
+		}
+		return oauth2Helper
 	default:
 		log.Fatal("Unknown oauth2 provider: ", config.AccountManager.OAuth2.Provider)
 	}
-	return oauth2Helper
+	return nil
 }
 
 func LoadAccountManager(config *config.Config) accounts.Manager {

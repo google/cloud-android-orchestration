@@ -1593,6 +1593,7 @@ func buildServiceBuilder(builder client.ServiceBuilder, config *Config) serviceB
 				}
 			}
 		}
+		opts.InjectBuildAPICreds = srvConfig.BuildAPICredentialsSource == "injected"
 		return builder(opts)
 	}
 }

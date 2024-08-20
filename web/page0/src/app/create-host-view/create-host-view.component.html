@@ -39,7 +39,7 @@
     </section>
 
     <div class="footbar">
-        <mat-progress-bar *ngIf="showProgressBar(status$ | async)" mode="indeterminate"></mat-progress-bar>
+        <mat-progress-bar *ngIf="showProgressBar(status$ | async)" mode="indeterminate" aria-label="Sending create host request"></mat-progress-bar>
 
         <button class="footbar-button" mat-button color="primary" (click)="onSubmit()" [disabled]="!hostForm.valid">
             Create

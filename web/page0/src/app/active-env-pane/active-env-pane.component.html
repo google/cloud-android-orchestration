@@ -15,7 +15,7 @@
     </div>
 
     <mat-divider></mat-divider>
-    <mat-progress-bar *ngIf="showProgressBar(status$ | async)" mode="indeterminate"></mat-progress-bar>
+    <mat-progress-bar *ngIf="showProgressBar(status$ | async)" mode="indeterminate" aria-label="Loading env list data"></mat-progress-bar>
 
     <div *ngIf="envs$ | async; let envList; else: none">
         <div *ngIf="envList.length > 0; else none">

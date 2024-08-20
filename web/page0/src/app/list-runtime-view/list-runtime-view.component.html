@@ -23,6 +23,7 @@
   <mat-progress-bar
     *ngIf="showProgressBar(status$ | async)"
     mode="indeterminate"
+    aria-label="Loading runtimes data"
   ></mat-progress-bar>
 
   <div *ngIf="runtimes$ | async; let runtimeList">

@@ -133,6 +133,7 @@
       <mat-progress-bar
         *ngIf="showProgressBar(status$ | async)"
         mode="indeterminate"
+        aria-label="Sending creation request"
       ></mat-progress-bar>
 
       <button

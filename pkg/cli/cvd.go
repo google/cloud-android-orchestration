@@ -15,12 +15,15 @@
 package cli
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"text/template"
 
 	"github.com/google/cloud-android-orchestration/pkg/client"
 
@@ -159,6 +162,54 @@ func (c *cvdCreator) Create() ([]*hoapi.CVD, error) {
 	return c.createCVDFromAndroidCI()
 }
 
+const uaEnvConfigTmplStr = `
+{
+  "common": {
+    "host_package": "@user_artifacts/{{.ArtifactsDir}}"
+  },
+  "instances": [
+    {
+      "vm": {
+        "memory_mb": 8192,
+        "setupwizard_mode": "OPTIONAL",
+        "cpus": 8
+      },
+      "disk": {
+        "default_build": "@user_artifacts/{{.ArtifactsDir}}"
+      },
+      "streaming": {
+        "device_id": "cvd-1"
+      }
+    }
+  ]
+}
+`
+
+var uaEnvConfigTmpl *template.Template
+
+func init() {
+	var err error
+	if uaEnvConfigTmpl, err = template.New("").Parse(uaEnvConfigTmplStr); err != nil {
+		panic(err)
+	}
+}
+
+type uaEnvConfigTmplData struct {
+	ArtifactsDir string
+}
+
+func buildUAEnvConfig(data uaEnvConfigTmplData) (map[string]interface{}, error) {
+	var b bytes.Buffer
+	if err := uaEnvConfigTmpl.Execute(&b, uaEnvConfigTmplData{ArtifactsDir: data.ArtifactsDir}); err != nil {
+		return nil, err
+	}
+	result := make(map[string]interface{})
+	if err := json.Unmarshal(b.Bytes(), &result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
 func (c *cvdCreator) createCVDFromLocalBuild() ([]*hoapi.CVD, error) {
 	buildTop, err := envVar(AndroidBuildTopVarName)
 	if err != nil {
@@ -190,20 +241,15 @@ func (c *cvdCreator) createCVDFromLocalBuild() ([]*hoapi.CVD, error) {
 	if err != nil {
 		return nil, err
 	}
+	envConfig, err := buildUAEnvConfig(uaEnvConfigTmplData{ArtifactsDir: uploadDir})
+	if err != nil {
+		return nil, err
+	}
 	if err := uploadFiles(hostSrv, uploadDir, names, c.statePrinter); err != nil {
 		return nil, err
 	}
-	req := hoapi.CreateCVDRequest{
-		CVD: &hoapi.CVD{
-			BuildSource: &hoapi.BuildSource{
-				UserBuildSource: &hoapi.UserBuildSource{
-					ArtifactsDir: uploadDir,
-				},
-			},
-		},
-		AdditionalInstancesNum: c.opts.AdditionalInstancesNum(),
-	}
-	res, err := hostSrv.CreateCVD(&req, c.credentialsFactory())
+	req := &hoapi.CreateCVDRequest{EnvConfig: envConfig}
+	res, err := hostSrv.CreateCVD(req, c.credentialsFactory())
 	if err != nil {
 		return nil, err
 	}

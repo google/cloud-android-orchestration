@@ -333,21 +333,16 @@ func (c *cvdCreator) createCVDFromLocalSrcs() ([]*hoapi.CVD, error) {
 	if err != nil {
 		return nil, err
 	}
+	envConfig, err := buildUAEnvConfig(uaEnvConfigTmplData{ArtifactsDir: uploadDir})
+	if err != nil {
+		return nil, err
+	}
 	hostSrv := c.service.HostService(c.opts.Host)
 	if err := uploadFiles(hostSrv, uploadDir, c.opts.CreateCVDLocalOpts.srcs(), c.statePrinter); err != nil {
 		return nil, err
 	}
-	req := hoapi.CreateCVDRequest{
-		CVD: &hoapi.CVD{
-			BuildSource: &hoapi.BuildSource{
-				UserBuildSource: &hoapi.UserBuildSource{
-					ArtifactsDir: uploadDir,
-				},
-			},
-		},
-		AdditionalInstancesNum: c.opts.AdditionalInstancesNum(),
-	}
-	res, err := hostSrv.CreateCVD(&req, c.credentialsFactory())
+	req := &hoapi.CreateCVDRequest{EnvConfig: envConfig}
+	res, err := hostSrv.CreateCVD(req, c.credentialsFactory())
 	if err != nil {
 		return nil, err
 	}

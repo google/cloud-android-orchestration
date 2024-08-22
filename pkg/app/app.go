@@ -148,8 +148,8 @@ func (a *App) InfraConfig() apiv1.InfraConfig {
 }
 
 const (
-	headerNameCOInjectBuildAPICreds = "X-Cutf-Cloud-Orchestrator-Inject-BuildAPI-Creds"
-	headerNameHOBuildAPICreds       = "X-Cutf-Host-Orchestrator-BuildAPI-Creds"
+	headerNameHOBuildAPICreds = "X-Cutf-Host-Orchestrator-BuildAPI-Creds"
+	headerValueInjected       = "injected"
 )
 
 func (a *App) ForwardToHost(w http.ResponseWriter, r *http.Request, user accounts.User) error {
@@ -164,7 +164,7 @@ func (a *App) ForwardToHost(w http.ResponseWriter, r *http.Request, user account
 	if err != nil {
 		return err
 	}
-	if len(r.Header.Values(headerNameCOInjectBuildAPICreds)) != 0 {
+	if r.Header.Get(headerNameHOBuildAPICreds) == headerValueInjected {
 		if err := a.injectBuildAPICredsIntoRequest(r, user); err != nil {
 			return err
 		}

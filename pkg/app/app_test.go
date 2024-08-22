@@ -386,7 +386,7 @@ func TestHostForwarderInjectCredentialsUsingHTTPHeader(t *testing.T) {
 	}, &testAccountManager{}, nil, encryption.NewFakeEncryptionService(), dbs, "", nil, config.WebRTCConfig{}, &config.Config{})
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest(http.MethodGet, reqURL, nil)
-	req.Header.Set(headerNameCOInjectBuildAPICreds, "")
+	req.Header.Set(headerNameHOBuildAPICreds, headerValueInjected)
 
 	makeRequest(w, req, controller)
 

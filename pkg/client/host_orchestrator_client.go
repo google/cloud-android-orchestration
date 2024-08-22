@@ -67,7 +67,7 @@ type HostOrchestratorService interface {
 	CreateBugreport(group string, dst io.Writer) error
 }
 
-const defaultHostOrchestratorCredentialsHeader = "X-Cutf-Host-Orchestrator-BuildAPI-Creds"
+const hoBuildAPICredentialsHeader = "X-Cutf-Host-Orchestrator-BuildAPI-Creds"
 
 func NewHostOrchestratorService(url string) HostOrchestratorService {
 	return &HostOrchestratorServiceImpl{
@@ -75,13 +75,11 @@ func NewHostOrchestratorService(url string) HostOrchestratorService {
 			Client:       http.DefaultClient,
 			RootEndpoint: url,
 		},
-		BuildAPICredentialsHeader: defaultHostOrchestratorCredentialsHeader,
 	}
 }
 
 type HostOrchestratorServiceImpl struct {
-	HTTPHelper                HTTPHelper
-	BuildAPICredentialsHeader string
+	HTTPHelper HTTPHelper
 }
 
 func (c *HostOrchestratorServiceImpl) getInfraConfig() (*opapi.InfraConfig, error) {
@@ -238,7 +236,7 @@ func (c *HostOrchestratorServiceImpl) FetchArtifacts(req *hoapi.FetchArtifactsRe
 	var op hoapi.Operation
 	rb := c.HTTPHelper.NewPostRequest("/artifacts", req)
 	if creds != "" {
-		rb.AddHeader(c.BuildAPICredentialsHeader, creds)
+		rb.AddHeader(hoBuildAPICredentialsHeader, creds)
 	}
 	if err := rb.JSONResDo(&op); err != nil {
 		return nil, err
@@ -255,7 +253,7 @@ func (c *HostOrchestratorServiceImpl) CreateCVDOp(req *hoapi.CreateCVDRequest, c
 	op := &hoapi.Operation{}
 	rb := c.HTTPHelper.NewPostRequest("/cvds", req)
 	if creds != "" {
-		rb.AddHeader(c.BuildAPICredentialsHeader, creds)
+		rb.AddHeader(hoBuildAPICredentialsHeader, creds)
 	}
 	if err := rb.JSONResDo(op); err != nil {
 		return nil, err

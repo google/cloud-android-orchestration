@@ -188,8 +188,6 @@ func (s *serviceImpl) RootURI() string {
 func (s *serviceImpl) HostService(host string) HostOrchestratorService {
 	hs := &HostOrchestratorServiceImpl{
 		HTTPHelper: s.httpHelper,
-		// Make the cloud orchestrator inject the credentials instead
-		BuildAPICredentialsHeader: headerNameCOInjectBuildAPICreds,
 	}
 	hs.HTTPHelper.RootEndpoint = s.httpHelper.RootEndpoint + "/hosts/" + host
 	return hs

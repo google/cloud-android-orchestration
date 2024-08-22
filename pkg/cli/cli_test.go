@@ -28,7 +28,7 @@ import (
 	"github.com/google/cloud-android-orchestration/pkg/client"
 	wclient "github.com/google/cloud-android-orchestration/pkg/webrtcclient"
 
-	hoapi "github.com/google/android-cuttlefish/frontend/src/liboperator/api/v1"
+	hoapi "github.com/google/android-cuttlefish/frontend/src/host_orchestrator/api/v1"
 	"github.com/google/go-cmp/cmp"
 )
 

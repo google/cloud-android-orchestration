@@ -28,7 +28,6 @@ import (
 	"testing"
 	"time"
 
-	hoapi "github.com/google/android-cuttlefish/frontend/src/liboperator/api/v1"
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
 	"github.com/google/cloud-android-orchestration/pkg/app/accounts"
 	"github.com/google/cloud-android-orchestration/pkg/app/config"
@@ -39,6 +38,7 @@ import (
 	appOAuth2 "github.com/google/cloud-android-orchestration/pkg/app/oauth2"
 	"github.com/google/cloud-android-orchestration/pkg/app/session"
 
+	hoapi "github.com/google/android-cuttlefish/frontend/src/host_orchestrator/api/v1"
 	"github.com/google/go-cmp/cmp"
 	"golang.org/x/oauth2"
 )

@@ -27,7 +27,7 @@ import (
 
 	"github.com/google/cloud-android-orchestration/pkg/client"
 
-	hoapi "github.com/google/android-cuttlefish/frontend/src/liboperator/api/v1"
+	hoapi "github.com/google/android-cuttlefish/frontend/src/host_orchestrator/api/v1"
 	"github.com/hashicorp/go-multierror"
 )
 

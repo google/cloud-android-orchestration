@@ -10,7 +10,8 @@ require (
 	github.com/cenkalti/backoff/v4 v4.2.0
 	github.com/docker/docker v24.0.9+incompatible
 	github.com/golang-jwt/jwt v3.2.2+incompatible
-	github.com/google/android-cuttlefish/frontend/src/liboperator v0.0.0-20240502215314-3182038fb7ea
+	github.com/google/android-cuttlefish/frontend/src/host_orchestrator v0.0.0-20240822210212-880a924dd887
+	github.com/google/android-cuttlefish/frontend/src/liboperator v0.0.0-20240822182916-7bea0dafdbde
 	github.com/google/go-cmp v0.5.9
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0

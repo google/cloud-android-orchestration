@@ -139,15 +139,15 @@ func (fakeHostService) ConnectADBWebSocket(device string) (*websocket.Conn, erro
 	return nil, nil
 }
 
-func (fakeHostService) FetchArtifacts(req *hoapi.FetchArtifactsRequest, creds string) (*hoapi.FetchArtifactsResponse, error) {
+func (fakeHostService) FetchArtifacts(req *hoapi.FetchArtifactsRequest, creds client.BuildAPICredential) (*hoapi.FetchArtifactsResponse, error) {
 	return &hoapi.FetchArtifactsResponse{AndroidCIBundle: &hoapi.AndroidCIBundle{}}, nil
 }
 
-func (fakeHostService) CreateCVD(req *hoapi.CreateCVDRequest, creds string) (*hoapi.CreateCVDResponse, error) {
+func (fakeHostService) CreateCVD(req *hoapi.CreateCVDRequest, creds client.BuildAPICredential) (*hoapi.CreateCVDResponse, error) {
 	return &hoapi.CreateCVDResponse{CVDs: []*hoapi.CVD{{Name: "cvd-1"}}}, nil
 }
 
-func (fakeHostService) CreateCVDOp(req *hoapi.CreateCVDRequest, creds string) (*hoapi.Operation, error) {
+func (fakeHostService) CreateCVDOp(req *hoapi.CreateCVDRequest, creds client.BuildAPICredential) (*hoapi.Operation, error) {
 	return nil, nil
 }
 

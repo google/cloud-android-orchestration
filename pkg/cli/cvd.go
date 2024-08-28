@@ -16,7 +16,6 @@ package cli
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -26,8 +25,8 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/google/cloud-android-orchestration/pkg/cli/authz"
 	"github.com/google/cloud-android-orchestration/pkg/client"
-	"golang.org/x/oauth2/google"
 
 	hoapi "github.com/google/android-cuttlefish/frontend/src/host_orchestrator/api/v1"
 	"github.com/hashicorp/go-multierror"
@@ -358,24 +357,42 @@ func credentialsFactoryFromSource(source string) (CredentialsFactory, error) {
 	case InjectedCredentialsSource:
 		return func() string { return client.InjectedCredentials }, nil
 	default:
-		return jwtAccessToken(source)
+		// expected: `(jwt|oauth):/dir/credentialFile`
+		strs := strings.SplitN(source, ":", 2)
+		if strs == nil || len(strs) != 2 {
+			return nil, fmt.Errorf("unknown credential type, only accept: `none`/`injected`/`%s:'<filepath>'`/`%s:'<filepath>'`", jwtAuthType, oauthAuthType)
+		}
+		authType, filepath := strs[0], strs[1]
+		return accessToken(authType, filepath)
 	}
 }
 
-func jwtAccessToken(filepath string) (func() string, error) {
+const (
+	jwtAuthType   = "jwt"
+	oauthAuthType = "oauth"
+)
+
+func accessToken(authType string, filepath string) (func() string, error) {
 	content, err := os.ReadFile(filepath)
 	if err != nil {
 		return nil, fmt.Errorf("cannot read content from credential filepath %s: %w", filepath, err)
 	}
-	jwtConfig, err := google.JWTConfigFromJSON(content, "https://www.googleapis.com/auth/androidbuild.internal")
-	if err != nil {
-		return nil, err
+	switch authType {
+	case jwtAuthType:
+		tk, err := authz.JWTAccessToken(content)
+		if err != nil {
+			return nil, err
+		}
+		return func() string { return tk.AccessToken }, nil
+	case oauthAuthType:
+		tk, err := authz.OAuthAccessToken(content)
+		if err != nil {
+			return nil, err
+		}
+		return func() string { return tk.AccessToken }, nil
+	default:
+		return nil, fmt.Errorf("unknown authType, get '%s' (expected: '%s' or '%s')", authType, jwtAuthType, oauthAuthType)
 	}
-	tk, err := jwtConfig.TokenSource(context.Background()).Token()
-	if err != nil {
-		return nil, err
-	}
-	return func() string { return tk.AccessToken }, nil
 }
 
 type cvdListResult struct {

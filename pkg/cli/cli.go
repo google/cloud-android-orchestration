@@ -1319,6 +1319,16 @@ func runConnectionWebrtcAgentCommand(flags *ConnectFlags, c *command, args []str
 	return nil
 }
 
+func wsURL(wsRoot string, zone string, host string, device string) string {
+	var b strings.Builder
+	b.WriteString(wsRoot)
+	if host != "none" {
+		b.WriteString(fmt.Sprintf("/v1/zones/%s/hosts/%s", zone, host))
+	}
+	b.WriteString(fmt.Sprintf("/devices/%s/adb", device))
+	return b.String()
+}
+
 func runConnectionWebSocketAgentCommand(flags *ConnectFlags, c *command, args []string, opts *subCommandOpts) error {
 	// Change Web URL to WebSocket URL
 	// e.g. https://127.0.0.1:1443/ -> wss://127.0.0.1:1443
@@ -1358,10 +1368,10 @@ func runConnectionWebSocketAgentCommand(flags *ConnectFlags, c *command, args []
 		},
 	}
 	device := args[0]
-	wsUrl := fmt.Sprintf("%s/devices/%s/adb", wsRoot, device)
-	wsConn, _, err := dialer.Dial(wsUrl, nil)
+	url := wsURL(wsRoot, flags.Zone, flags.host, device)
+	wsConn, _, err := dialer.Dial(url, nil)
 	if err != nil {
-		log.Fatal("Failed to connect ", wsUrl, ": ", err)
+		log.Fatal("Failed to connect ", url, ": ", err)
 		return err
 	}
 

@@ -109,6 +109,10 @@ func (m *DockerInstanceManager) ListHosts(zone string, user accounts.User, _ *Li
 			Key:   "label",
 			Value: ownerFilterExpr,
 		},
+		filters.KeyValuePair{
+			Key:   "ancestor",
+			Value: m.Config.Docker.DockerImageName,
+		},
 	)
 	listRes, err := m.Client.ContainerList(ctx, types.ContainerListOptions{
 		Filters: listFilters,

@@ -103,6 +103,8 @@ github.com/golang/protobuf v1.5.3 h1:KhyjKVUg7Usr/dYsdSqoFveMYd5ko72D+zANwlG1mmg
 github.com/golang/protobuf v1.5.3/go.mod h1:XVQd3VNwM+JqD3oG2Ue2ip4fOMUkwXdXDdiuN0vRsmY=
 github.com/google/android-cuttlefish/frontend/src/host_orchestrator v0.0.0-20240822210212-880a924dd887 h1:8FUb1el9+ZS0qetn5vBazvJzCEsqBjyXBJTWbEUreQ0=
 github.com/google/android-cuttlefish/frontend/src/host_orchestrator v0.0.0-20240822210212-880a924dd887/go.mod h1:jXT8KyxHnr3qWiE+qhZjhcrCquDFdl6h0LBpNoreP1U=
+github.com/google/android-cuttlefish/frontend/src/host_orchestrator v0.0.0-20240830204501-4bffeb28c143 h1:Nob+zxDE1tE5KKqBpwYIdMXwtgek8P7Tof14Z/JgccY=
+github.com/google/android-cuttlefish/frontend/src/host_orchestrator v0.0.0-20240830204501-4bffeb28c143/go.mod h1:jXT8KyxHnr3qWiE+qhZjhcrCquDFdl6h0LBpNoreP1U=
 github.com/google/android-cuttlefish/frontend/src/liboperator v0.0.0-20240822182916-7bea0dafdbde h1:laMjSvqBHvDZ9DB+YaM6I4y5t0a7zYQRorYLM1VJsyM=
 github.com/google/android-cuttlefish/frontend/src/liboperator v0.0.0-20240822182916-7bea0dafdbde/go.mod h1:iA3V13fYW7It3n+LqvgOkXAOhw56XAjS1vH43+kU/4o=
 github.com/google/go-cmp v0.2.0/go.mod h1:oXzfMopK8JAjlY9xF4vHSVASa0yLyX7SntLO5aqRK0M=

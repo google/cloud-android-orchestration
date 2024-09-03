@@ -400,9 +400,6 @@ func TestHostForwarderDoesNotInjectCredentials(t *testing.T) {
 	msg, _ := json.Marshal(&hoapi.CreateCVDRequest{
 		CVD: &hoapi.CVD{
 			Name: "cvdname",
-			BuildSource: &hoapi.BuildSource{
-				UserBuildSource: &hoapi.UserBuildSource{},
-			},
 		},
 	})
 	credentials := "abcdef"

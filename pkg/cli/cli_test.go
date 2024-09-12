@@ -30,6 +30,7 @@ import (
 
 	hoapi "github.com/google/android-cuttlefish/frontend/src/host_orchestrator/api/v1"
 	"github.com/google/go-cmp/cmp"
+	"github.com/gorilla/websocket"
 )
 
 func TestRequiredFlags(t *testing.T) {
@@ -131,6 +132,10 @@ func (fakeHostService) GetInfraConfig() (*apiv1.InfraConfig, error) {
 }
 
 func (fakeHostService) ConnectWebRTC(device string, observer wclient.Observer, logger io.Writer, opts client.ConnectWebRTCOpts) (*wclient.Connection, error) {
+	return nil, nil
+}
+
+func (fakeHostService) ConnectADBWebSocket(device string) (*websocket.Conn, error) {
 	return nil, nil
 }
 

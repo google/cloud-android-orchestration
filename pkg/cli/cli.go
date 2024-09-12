@@ -1319,26 +1319,35 @@ func runConnectionWebrtcAgentCommand(flags *ConnectFlags, c *command, args []str
 	return nil
 }
 
-func wsURL(wsRoot string, zone string, host string, device string) string {
-	var b strings.Builder
-	b.WriteString(wsRoot)
-	if host != "none" {
-		b.WriteString(fmt.Sprintf("/v1/zones/%s/hosts/%s", zone, host))
+func connectADBWebSocketDirect(serviceURL string, device string) (*websocket.Conn, error) {
+	// Connect to ADB proxy WebSocket directly by using serviceURL as Operator URL.
+	//   wss://127.0.0.1:1443/devices/cvd-1/adb
+	url, err := url.Parse(serviceURL)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to parse URL %s: %w", serviceURL, err)
 	}
-	b.WriteString(fmt.Sprintf("/devices/%s/adb", device))
-	return b.String()
+	switch p := &url.Scheme; *p {
+	case "https":
+		*p = "wss"
+	case "http":
+		*p = "ws"
+	default:
+		return nil, fmt.Errorf("Unknown scheme %s", *p)
+	}
+	url = url.JoinPath("devices", device, "adb")
+	dialer := websocket.Dialer{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true,
+		},
+	}
+	wsConn, _, err := dialer.Dial(url.String(), nil)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to connect WebSocket %s: %w", url.String(), err)
+	}
+	return wsConn, nil
 }
 
 func runConnectionWebSocketAgentCommand(flags *ConnectFlags, c *command, args []string, opts *subCommandOpts) error {
-	// Change Web URL to WebSocket URL
-	// e.g. https://127.0.0.1:1443/ -> wss://127.0.0.1:1443
-	wsRoot := flags.ServiceURL
-	wsRoot = strings.ReplaceAll(wsRoot, "https://", "wss://")
-	wsRoot = strings.ReplaceAll(wsRoot, "http://", "ws://")
-	if strings.HasSuffix(wsRoot, "/") {
-		wsRoot = wsRoot[:len(wsRoot)-1]
-	}
-
 	// Open local TCP port that ADB server connects to and make ADB server connect
 	// to the port
 	l, err := net.Listen("tcp", "127.0.0.1:0")
@@ -1359,20 +1368,26 @@ func runConnectionWebSocketAgentCommand(flags *ConnectFlags, c *command, args []
 	}
 	defer tcpConn.Close()
 
-	// Connect to ADB proxy WebSocket
-	//   wss://127.0.0.1:1443/devices/cvd-1/adb
-	// Since the operator is self-signed, skip verifying cert
-	dialer := websocket.Dialer{
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: true,
-		},
-	}
 	device := args[0]
-	url := wsURL(wsRoot, flags.Zone, flags.host, device)
-	wsConn, _, err := dialer.Dial(url, nil)
-	if err != nil {
-		log.Fatal("Failed to connect ", url, ": ", err)
-		return err
+	var wsConn *websocket.Conn
+	if flags.host == "none" {
+		// Connect to the ADB WebSocket directly using ServiceURL and device.
+		// This is for operator only scenario.
+		wsConn, err = connectADBWebSocketDirect(flags.ServiceURL, device)
+		if err != nil {
+			return err
+		}
+	} else {
+		// Connect to the ADB WebSocket using Host Orchestrator service client.
+		// This is for normal scenario (HO behind CO).
+		service, err := opts.ServiceBuilder(flags.ServiceFlags, c.Command)
+		if err != nil {
+			return err
+		}
+		wsConn, err = service.HostService(flags.host).ConnectADBWebSocket(device)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Send connect result to the parent

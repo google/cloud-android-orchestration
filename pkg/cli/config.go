@@ -104,7 +104,7 @@ func LoadConfig(sysSrc, userSrc string, c *Config) error {
 		return nil
 	}
 	sysSrvcs := c.Services
-	c.Services = nil
+	c.Services = make(map[string]*Service)
 	// Load user configuration
 	if err := loadConfig(userSrc, c); err != nil {
 		return fmt.Errorf("error loading user configuration: %w", err)

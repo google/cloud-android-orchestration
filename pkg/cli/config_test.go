@@ -139,6 +139,47 @@ ServiceURL = "bar.com"
 	}
 }
 
+func TestLoadConfigMultiFilesNoUserService(t *testing.T) {
+	const system = `
+SystemDefaultService = "foo"
+
+[Services."foo"]
+ServiceURL = "foo.com"
+
+[Services."bar"]
+ServiceURL = "bar.com"
+`
+	const user = `
+UserDefaultService = "bar"
+`
+	scf := tempFile(t, system)
+	ucf := tempFile(t, user)
+	expected := &Config{
+		SystemDefaultService: "foo",
+		UserDefaultService:   "bar",
+		ConnectionControlDir: "~/.cvdr/connections",
+		KeepLogFilesDays:     30,
+		Services: map[string]*Service{
+			"foo": {
+				ServiceURL: "foo.com",
+			},
+			"bar": {
+				ServiceURL: "bar.com",
+			},
+		},
+	}
+	c := BaseConfig()
+
+	err := LoadConfig(scf, ucf, c)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	if diff := cmp.Diff(expected, c); diff != "" {
+		t.Errorf("config mismatch (-want +got):\n%s", diff)
+	}
+}
+
 func TestImportAcloudConfig(t *testing.T) {
 	tests := []struct {
 		content string

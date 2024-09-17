@@ -293,7 +293,7 @@ func cvdOutput(c *RemoteCVD) []string {
 		"Status: " + c.Status,
 		"ADB: " + adbStateStr(c),
 		"Displays: " + fmt.Sprintf("%v", c.Displays),
-		"Logs: " + client.BuildCVDLogsURL(c.ServiceRootEndpoint, c.Host, c.Name),
+		"Logs: " + client.BuildCVDLogsURL(c.ServiceRootEndpoint, c.Host, c.ID),
 	}
 }
 

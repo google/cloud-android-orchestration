@@ -28,6 +28,7 @@ import {runtimesLoadStatusSelector} from 'src/app/store/selectors';
 import {FetchService} from '../fetch.service';
 
 @Component({
+  standalone: false,
   selector: 'app-register-runtime-view',
   templateUrl: './register-runtime-view.component.html',
   styleUrls: ['./register-runtime-view.component.scss'],

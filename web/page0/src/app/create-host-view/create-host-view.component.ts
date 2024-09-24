@@ -26,6 +26,7 @@ import {DEFAULT_HOST_SETTING, DEFAULT_ZONE} from '../settings';
 import {ResultType} from '../interface/result-interface';
 
 @Component({
+  standalone: false,
   selector: 'app-create-host-view',
   templateUrl: './create-host-view.component.html',
   styleUrls: ['./create-host-view.component.scss'],

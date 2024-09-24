@@ -6,6 +6,7 @@ import {RuntimeService} from '../runtime.service';
 import {runtimesLoadStatusSelector} from '../store/selectors';
 
 @Component({
+  standalone: false,
   selector: 'app-list-runtime-view',
   templateUrl: './list-runtime-view.component.html',
   styleUrls: ['./list-runtime-view.component.scss'],

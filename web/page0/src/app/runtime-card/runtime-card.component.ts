@@ -8,6 +8,7 @@ import {HostService} from '../host.service';
 import {RuntimeService} from '../runtime.service';
 
 @Component({
+  standalone: false,
   selector: 'app-runtime-card',
   templateUrl: './runtime-card.component.html',
   styleUrls: ['./runtime-card.component.scss'],

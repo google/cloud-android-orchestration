@@ -3,6 +3,7 @@ import {FormGroup} from '@angular/forms';
 import {EnvFormService} from '../env-form.service';
 
 @Component({
+  standalone: false,
   selector: 'app-device-form',
   templateUrl: './device-form.component.html',
   styleUrls: ['./device-form.component.scss'],

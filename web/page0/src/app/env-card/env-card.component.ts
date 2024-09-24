@@ -18,6 +18,7 @@ const icons = {
 };
 
 @Component({
+  standalone: false,
   selector: 'app-env-card',
   templateUrl: './env-card.component.html',
   styleUrls: ['./env-card.component.scss'],

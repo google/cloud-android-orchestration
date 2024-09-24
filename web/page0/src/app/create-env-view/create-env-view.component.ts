@@ -10,6 +10,7 @@ import {validRuntimeListSelector} from '../store/selectors';
 import {Store} from '../store/store';
 import {AUTO_CREATE_HOST} from '../utils';
 @Component({
+  standalone: false,
   selector: 'app-create-env-view',
   templateUrl: './create-env-view.component.html',
   styleUrls: ['./create-env-view.component.scss'],

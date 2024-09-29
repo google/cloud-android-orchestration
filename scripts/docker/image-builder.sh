@@ -14,17 +14,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Shell script for running Cloud Orchestrator based on Docker
-# Please run in the root directory of this repository.
+script_location=`realpath -s $(dirname ${BASH_SOURCE[0]})`
+cloud_android_orchestration_root_dir=$(realpath -s $script_location/../..)
 
-# Specify docker API version for running cloud orchestrator
-docker_api_version_code=1.43
-docker_api_version_installed=$(docker version --format '{{.Client.APIVersion}}')
-docker_api_version=$(\
-  echo -e $docker_api_version_code\\n$docker_api_version_installed \
-  | sort --version-sort \
-  | head -n 1)
+if [[ "$1" == "" ]]; then
+    tag=cuttlefish-cloud-orchestration
+else
+    tag=$1
+fi
 
-CONFIG_FILE=scripts/docker/conf.toml \
-DOCKER_API_VERSION=$docker_api_version \
-go run ./cmd/cloud_orchestrator
+# Build docker image
+pushd $cloud_android_orchestration_root_dir
+docker build \
+    --force-rm \
+    --no-cache \
+    -f scripts/docker/Dockerfile \
+    -t $tag \
+    .
+popd

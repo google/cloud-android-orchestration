@@ -115,6 +115,12 @@ func (o *CreateCVDOpts) AdditionalInstancesNum() uint32 {
 	return uint32(o.NumInstances - 1)
 }
 
+func (o *CreateCVDOpts) Update(s *Service) {
+	if s.BuildAPICredentialsSource != "" {
+		o.BuildAPICredentialsSource = s.BuildAPICredentialsSource
+	}
+}
+
 func createCVD(service client.Service, createOpts CreateCVDOpts, statePrinter *statePrinter) ([]*RemoteCVD, error) {
 	creator, err := newCVDCreator(service, createOpts, statePrinter)
 	if err != nil {

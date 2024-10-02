@@ -189,6 +189,7 @@ type CreateCVDFlags struct {
 
 func (f *CreateCVDFlags) Update(s *Service) {
 	f.ServiceFlags.Update(s)
+	f.CreateCVDOpts.Update(s)
 	f.CreateHostOpts.Update(s)
 }
 

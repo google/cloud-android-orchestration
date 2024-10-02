@@ -111,7 +111,7 @@ const (
 	systemImgBuildTargetFlag  = "system_build_target"
 	numInstancesFlag          = "num_instances"
 	autoConnectFlag           = "auto_connect"
-	credentialsSourceFlag     = "credentials_source"
+	buildAPICredsSourceFlag   = "build_api_creds_source"
 	localBootloaderSrcFlag    = "local_bootloader_src"
 	localCVDHostPkgSrcFlag    = "local_cvd_host_pkg_src"
 	localImagesSrcsFlag       = "local_images_srcs"
@@ -565,7 +565,7 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 		"Automatically connect through ADB after device is created.")
 	create.Flags().StringVar(
 		&createFlags.BuildAPICredentialsSource,
-		credentialsSourceFlag,
+		buildAPICredsSourceFlag,
 		"none",
 		"Source for the Build API OAuth2 credentials")
 	// Local artifact sources

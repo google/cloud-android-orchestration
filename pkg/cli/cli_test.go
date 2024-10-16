@@ -29,6 +29,7 @@ import (
 	wclient "github.com/google/cloud-android-orchestration/pkg/webrtcclient"
 
 	hoapi "github.com/google/android-cuttlefish/frontend/src/host_orchestrator/api/v1"
+	hoclient "github.com/google/android-cuttlefish/frontend/src/libhoclient"
 	"github.com/google/go-cmp/cmp"
 	"github.com/gorilla/websocket"
 )
@@ -118,7 +119,7 @@ func (fakeService) RootURI() string {
 	return serviceURL + "/v1"
 }
 
-func (fakeService) HostService(host string) client.HostOrchestratorService {
+func (fakeService) HostService(host string) hoclient.HostOrchestratorService {
 	if host == "" {
 		panic("empty host")
 	}
@@ -131,7 +132,7 @@ func (fakeHostService) GetInfraConfig() (*apiv1.InfraConfig, error) {
 	return nil, nil
 }
 
-func (fakeHostService) ConnectWebRTC(device string, observer wclient.Observer, logger io.Writer, opts client.ConnectWebRTCOpts) (*wclient.Connection, error) {
+func (fakeHostService) ConnectWebRTC(device string, observer wclient.Observer, logger io.Writer, opts hoclient.ConnectWebRTCOpts) (*wclient.Connection, error) {
 	return nil, nil
 }
 
@@ -139,15 +140,15 @@ func (fakeHostService) ConnectADBWebSocket(device string) (*websocket.Conn, erro
 	return nil, nil
 }
 
-func (fakeHostService) FetchArtifacts(req *hoapi.FetchArtifactsRequest, creds client.BuildAPICredential) (*hoapi.FetchArtifactsResponse, error) {
+func (fakeHostService) FetchArtifacts(req *hoapi.FetchArtifactsRequest, creds hoclient.BuildAPICredential) (*hoapi.FetchArtifactsResponse, error) {
 	return &hoapi.FetchArtifactsResponse{AndroidCIBundle: &hoapi.AndroidCIBundle{}}, nil
 }
 
-func (fakeHostService) CreateCVD(req *hoapi.CreateCVDRequest, creds client.BuildAPICredential) (*hoapi.CreateCVDResponse, error) {
+func (fakeHostService) CreateCVD(req *hoapi.CreateCVDRequest, creds hoclient.BuildAPICredential) (*hoapi.CreateCVDResponse, error) {
 	return &hoapi.CreateCVDResponse{CVDs: []*hoapi.CVD{{Name: "cvd-1"}}}, nil
 }
 
-func (fakeHostService) CreateCVDOp(req *hoapi.CreateCVDRequest, creds client.BuildAPICredential) (*hoapi.Operation, error) {
+func (fakeHostService) CreateCVDOp(req *hoapi.CreateCVDRequest, creds hoclient.BuildAPICredential) (*hoapi.Operation, error) {
 	return nil, nil
 }
 
@@ -167,7 +168,7 @@ func (fakeHostService) UploadFile(uploadDir string, name string) error {
 	return nil
 }
 
-func (fakeHostService) UploadFileWithOptions(uploadDir string, name string, options client.UploadOptions) error {
+func (fakeHostService) UploadFileWithOptions(uploadDir string, name string, options hoclient.UploadOptions) error {
 	return nil
 }
 

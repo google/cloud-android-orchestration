@@ -25,6 +25,7 @@ import (
 
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
 
+	hoclient "github.com/google/android-cuttlefish/frontend/src/libhoclient"
 	"github.com/hashicorp/go-multierror"
 )
 
@@ -83,20 +84,20 @@ type Service interface {
 
 	DeleteHosts(names []string) error
 
-	HostService(host string) HostOrchestratorService
+	HostService(host string) hoclient.HostOrchestratorService
 
 	RootURI() string
 }
 
 type serviceImpl struct {
 	*ServiceOptions
-	httpHelper HTTPHelper
+	httpHelper hoclient.HTTPHelper
 }
 
 type ServiceBuilder func(opts *ServiceOptions) (Service, error)
 
 func NewService(opts *ServiceOptions) (Service, error) {
-	helper := HTTPHelper{
+	helper := hoclient.HTTPHelper{
 		Client:       &http.Client{},
 		RootEndpoint: opts.RootEndpoint,
 		Dumpster:     opts.DumpOut,
@@ -132,7 +133,7 @@ func (c *serviceImpl) CreateHost(req *apiv1.CreateHostRequest) (*apiv1.HostInsta
 	// There is a short delay between the creation of the host and the availability of the host
 	// orchestrator. This call ensures the host orchestrator had time to start before returning
 	// from the this function.
-	retryOpts := RetryOptions{
+	retryOpts := hoclient.RetryOptions{
 		StatusCodes: []int{http.StatusBadGateway},
 		RetryDelay:  5 * time.Second,
 		MaxWait:     2 * time.Minute,
@@ -174,7 +175,7 @@ func (c *serviceImpl) DeleteHosts(names []string) error {
 
 func (c *serviceImpl) waitForOperation(op *apiv1.Operation, res any) error {
 	path := "/operations/" + op.Name + "/:wait"
-	retryOpts := RetryOptions{
+	retryOpts := hoclient.RetryOptions{
 		StatusCodes: []int{http.StatusServiceUnavailable},
 		RetryDelay:  5 * time.Second,
 		MaxWait:     2 * time.Minute,
@@ -186,11 +187,11 @@ func (s *serviceImpl) RootURI() string {
 	return s.RootEndpoint
 }
 
-func (s *serviceImpl) HostService(host string) HostOrchestratorService {
-	hs := &HostOrchestratorServiceImpl{
+func (s *serviceImpl) HostService(host string) hoclient.HostOrchestratorService {
+	hs := &hoclient.HostOrchestratorServiceImpl{
 		HTTPHelper: s.httpHelper,
 		// Make the cloud orchestrator inject the credentials instead
-		BuildAPICredentialsHeader: DefaultHostOrchestratorCredentialsHeader,
+		BuildAPICredentialsHeader: hoclient.DefaultHostOrchestratorCredentialsHeader,
 		ProxyURL:                  s.ProxyURL,
 	}
 	if s.InjectBuildAPICreds {

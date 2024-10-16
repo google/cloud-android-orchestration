@@ -31,6 +31,7 @@ import (
 	client "github.com/google/cloud-android-orchestration/pkg/client"
 	wclient "github.com/google/cloud-android-orchestration/pkg/webrtcclient"
 
+	hoclient "github.com/google/android-cuttlefish/frontend/src/libhoclient"
 	"github.com/hashicorp/go-multierror"
 	"github.com/pion/webrtc/v3"
 )
@@ -392,7 +393,7 @@ func NewConnController(
 		logger:       logger,
 	}
 
-	opts := client.ConnectWebRTCOpts{
+	opts := hoclient.ConnectWebRTCOpts{
 		LocalICEConfig: localICEConfig,
 	}
 	conn, err := service.HostService(cvd.Host).ConnectWebRTC(cvd.WebRTCDeviceID, tc, logger.Writer(), opts)

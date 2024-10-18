@@ -9,6 +9,9 @@ remotely.
 It wraps [Cloud Orchestrator](cloud_orchestrator.md), to provide user-friendly
 interface.
 
+Please run `cvdr --help` for advanced functionalities of `cvdr` not described
+below, such as launching Cuttlefish with locally built image.
+
 ## Build cvdr
 
 Please run:

@@ -10,19 +10,16 @@ Please follow the docker part of
 in `google/android-cuttlefish` github repository, and check if the docker image
 `cuttlefish-orchestration` exists.
 
-## Build and run cloud orchestrator
+## Building cuttlefish-cloud-orchestration
 
-To build and run cloud orchestrator, please execute below commands in the server
-machine.
-```bash
-git clone https://github.com/google/cloud-android-orchestration.git
-cd cloud-android-orchestration # Root directory of this repository
-scripts/docker/run.sh
-```
+Docker image `cuttlefish-cloud-orchestration` runs cloud orchestrator inside
+container. To build `cuttlefish-cloud-orchestration`, please run
+`scripts/docker/image-builder.sh`.
 
-If the address of cloud orchestrator is not `localhost`, please modify the
-return value of `ChooseNetworkInterface` in `cmd/cloud_orchestrator/main.go` to
-the empty string. Note that this is a temporary solution.
+## Running cloud orchestrator with cuttlefish-cloud-orchestration
+
+Please run `scripts/docker/image-runner.sh` to start 
+`cuttlefish-cloud-orchestration` docker instance.
 
 If there's a firewall which blocks accessing cloud orchestrator with HTTP/HTTPS
 requests, please try using SOCKS5 proxy. Establishing SOCKS5 proxy by creating

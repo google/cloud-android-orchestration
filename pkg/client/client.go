@@ -61,7 +61,7 @@ type HTTPBasic struct {
 	Username string
 }
 
-type ServiceOptions struct {
+type ClientOptions struct {
 	RootEndpoint        string
 	ProxyURL            string
 	DumpOut             io.Writer
@@ -71,7 +71,7 @@ type ServiceOptions struct {
 	InjectBuildAPICreds bool
 }
 
-type Service interface {
+type Client interface {
 	CreateHost(req *apiv1.CreateHostRequest) (*apiv1.HostInstance, error)
 
 	ListHosts() (*apiv1.ListHostsResponse, error)
@@ -83,14 +83,14 @@ type Service interface {
 	RootURI() string
 }
 
-type serviceImpl struct {
-	*ServiceOptions
+type clientImpl struct {
+	*ClientOptions
 	httpHelper hoclient.HTTPHelper
 }
 
-type ServiceBuilder func(opts *ServiceOptions) (Service, error)
+type ClientBuilder func(opts *ClientOptions) (Client, error)
 
-func NewService(opts *ServiceOptions) (Service, error) {
+func NewClient(opts *ClientOptions) (Client, error) {
 	helper := hoclient.HTTPHelper{
 		Client:       &http.Client{},
 		RootEndpoint: opts.RootEndpoint,
@@ -111,10 +111,10 @@ func NewService(opts *ServiceOptions) (Service, error) {
 			helper.HTTPBasicUsername = opts.Authn.HTTPBasic.Username
 		}
 	}
-	return &serviceImpl{ServiceOptions: opts, httpHelper: helper}, nil
+	return &clientImpl{ClientOptions: opts, httpHelper: helper}, nil
 }
 
-func (c *serviceImpl) CreateHost(req *apiv1.CreateHostRequest) (*apiv1.HostInstance, error) {
+func (c *clientImpl) CreateHost(req *apiv1.CreateHostRequest) (*apiv1.HostInstance, error) {
 	var op apiv1.Operation
 	if err := c.httpHelper.NewPostRequest("/hosts", req).JSONResDo(&op); err != nil {
 		return nil, err
@@ -140,7 +140,7 @@ func (c *serviceImpl) CreateHost(req *apiv1.CreateHostRequest) (*apiv1.HostInsta
 	return ins, nil
 }
 
-func (c *serviceImpl) ListHosts() (*apiv1.ListHostsResponse, error) {
+func (c *clientImpl) ListHosts() (*apiv1.ListHostsResponse, error) {
 	var res apiv1.ListHostsResponse
 	if err := c.httpHelper.NewGetRequest("/hosts").JSONResDo(&res); err != nil {
 		return nil, err
@@ -148,7 +148,7 @@ func (c *serviceImpl) ListHosts() (*apiv1.ListHostsResponse, error) {
 	return &res, nil
 }
 
-func (c *serviceImpl) DeleteHosts(names []string) error {
+func (c *clientImpl) DeleteHosts(names []string) error {
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	var merr error
@@ -167,7 +167,7 @@ func (c *serviceImpl) DeleteHosts(names []string) error {
 	return merr
 }
 
-func (c *serviceImpl) waitForOperation(op *apiv1.Operation, res any) error {
+func (c *clientImpl) waitForOperation(op *apiv1.Operation, res any) error {
 	path := "/operations/" + op.Name + "/:wait"
 	retryOpts := hoclient.RetryOptions{
 		StatusCodes: []int{http.StatusServiceUnavailable},
@@ -177,11 +177,11 @@ func (c *serviceImpl) waitForOperation(op *apiv1.Operation, res any) error {
 	return c.httpHelper.NewPostRequest(path, nil).JSONResDoWithRetries(res, retryOpts)
 }
 
-func (s *serviceImpl) RootURI() string {
+func (s *clientImpl) RootURI() string {
 	return s.RootEndpoint
 }
 
-func (s *serviceImpl) HostService(host string) hoclient.HostOrchestratorService {
+func (s *clientImpl) HostService(host string) hoclient.HostOrchestratorService {
 	hs := &hoclient.HostOrchestratorServiceImpl{
 		HTTPHelper: s.httpHelper,
 		ProxyURL:   s.ProxyURL,

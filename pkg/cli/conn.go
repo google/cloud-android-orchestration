@@ -133,7 +133,7 @@ type findOrConnRet struct {
 	Error      error
 }
 
-func FindOrConnect(controlDir string, cvd RemoteCVDLocator, service client.Service, localICEConfig *wclient.ICEConfig) (findOrConnRet, error) {
+func FindOrConnect(controlDir string, cvd RemoteCVDLocator, srvClient client.Client, localICEConfig *wclient.ICEConfig) (findOrConnRet, error) {
 	statuses, err := listCVDConnectionsByHost(controlDir, cvd.Host)
 	// Even with an error some connections may have been listed.
 	if s, ok := statuses[cvd]; ok {
@@ -143,7 +143,7 @@ func FindOrConnect(controlDir string, cvd RemoteCVDLocator, service client.Servi
 	// after the checks were made above but before the socket was created below.
 	// The likelihood of hitting that is very low though, and the effort required
 	// to prevent it high, so we are choosing to live with it for the time being.
-	controller, tErr := NewConnController(controlDir, service, cvd, localICEConfig)
+	controller, tErr := NewConnController(controlDir, srvClient, cvd, localICEConfig)
 	if tErr != nil {
 		// This error is fatal, ingore any previous ones to avoid unnecessary noise.
 		return findOrConnRet{}, fmt.Errorf("failed to create connection controller: %w", tErr)
@@ -374,7 +374,7 @@ type ConnController struct {
 
 func NewConnController(
 	controlDir string,
-	service client.Service,
+	srvClient client.Client,
 	cvd RemoteCVDLocator,
 	localICEConfig *wclient.ICEConfig) (*ConnController, error) {
 	logger, err := createLogger(controlDir, cvd)
@@ -396,7 +396,7 @@ func NewConnController(
 	opts := hoclient.ConnectWebRTCOpts{
 		LocalICEConfig: localICEConfig,
 	}
-	conn, err := service.HostService(cvd.Host).ConnectWebRTC(cvd.WebRTCDeviceID, tc, logger.Writer(), opts)
+	conn, err := srvClient.HostService(cvd.Host).ConnectWebRTC(cvd.WebRTCDeviceID, tc, logger.Writer(), opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to %q: %w", cvd.WebRTCDeviceID, err)
 	}

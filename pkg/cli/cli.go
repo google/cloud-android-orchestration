@@ -62,7 +62,7 @@ type CommandOptions struct {
 	IOStreams
 	Args           []string
 	InitialConfig  Config
-	ServiceBuilder client.ServiceBuilder
+	ClientBuilder  client.ClientBuilder
 	CommandRunner  CommandRunner
 	ADBServerProxy ADBServerProxy
 }
@@ -211,7 +211,7 @@ type DeleteCVDFlags struct {
 }
 
 type subCommandOpts struct {
-	ServiceBuilder serviceBuilder
+	ClientBuilder  clientBuilder
 	ServiceFlags   *ServiceFlags
 	InitialConfig  Config
 	CommandRunner  CommandRunner
@@ -423,7 +423,7 @@ func NewCVDRemoteCommand(o *CommandOptions) *CVDRemoteCommand {
 	rootCmd.SetHelpCommand(&cobra.Command{Hidden: true})
 	rootCmd.PersistentFlags().BoolVarP(&flags.Verbose, verboseFlag, "v", false, "Be verbose.")
 	subCmdOpts := &subCommandOpts{
-		ServiceBuilder: buildServiceBuilder(o.ServiceBuilder, &o.InitialConfig),
+		ClientBuilder:  buildClientBuilder(o.ClientBuilder, &o.InitialConfig),
 		ServiceFlags:   flags,
 		InitialConfig:  o.InitialConfig,
 		CommandRunner:  o.CommandRunner,
@@ -711,11 +711,11 @@ func connectionCommands(opts *subCommandOpts) []*cobra.Command {
 }
 
 func runCreateHostCommand(c *cobra.Command, flags *CreateHostFlags, opts *subCommandOpts) error {
-	service, err := opts.ServiceBuilder(flags.ServiceFlags, c)
+	srvClient, err := opts.ClientBuilder(flags.ServiceFlags, c)
 	if err != nil {
 		return fmt.Errorf("failed to build service instance: %w", err)
 	}
-	ins, err := createHost(service, *flags.CreateHostOpts)
+	ins, err := createHost(srvClient, *flags.CreateHostOpts)
 	if err != nil {
 		return fmt.Errorf("failed to create host: %w", err)
 	}
@@ -724,7 +724,7 @@ func runCreateHostCommand(c *cobra.Command, flags *CreateHostFlags, opts *subCom
 }
 
 func runListHostCommand(c *cobra.Command, flags *ServiceFlags, opts *subCommandOpts) error {
-	apiClient, err := opts.ServiceBuilder(flags, c)
+	apiClient, err := opts.ClientBuilder(flags, c)
 	if err != nil {
 		return err
 	}
@@ -739,13 +739,13 @@ func runListHostCommand(c *cobra.Command, flags *ServiceFlags, opts *subCommandO
 }
 
 func runDeleteHostsCommand(c *cobra.Command, args []string, flags *ServiceFlags, opts *subCommandOpts) error {
-	service, err := opts.ServiceBuilder(flags, c)
+	srvClient, err := opts.ClientBuilder(flags, c)
 	if err != nil {
 		return err
 	}
 	hosts := args
 	if len(hosts) == 0 {
-		if hosts, err = promptHostNameSelection(&command{c, &flags.Verbose}, service, AllowAll); err != nil {
+		if hosts, err = promptHostNameSelection(&command{c, &flags.Verbose}, srvClient, AllowAll); err != nil {
 			return err
 		}
 	}
@@ -756,7 +756,7 @@ func runDeleteHostsCommand(c *cobra.Command, args []string, flags *ServiceFlags,
 			c.PrintErrf("Warning: Failed to disconnect devices for host %s: %v\n", host, err)
 		}
 	}
-	return service.DeleteHosts(hosts)
+	return srvClient.DeleteHosts(hosts)
 }
 
 func disconnectDevicesByHost(host string, opts *subCommandOpts) error {
@@ -797,20 +797,20 @@ func runCreateCVDCommand(c *cobra.Command, args []string, flags *CreateCVDFlags,
 		return fmt.Errorf("invalid --num_instances flag value: %d", flags.NumInstances)
 	}
 	statePrinter := newStatePrinter(c.ErrOrStderr(), flags.Verbose)
-	service, err := opts.ServiceBuilder(flags.ServiceFlags, c)
+	srvClient, err := opts.ClientBuilder(flags.ServiceFlags, c)
 	if err != nil {
 		return fmt.Errorf("failed to build service instance: %w", err)
 	}
 	if flags.CreateCVDOpts.Host == "" {
 		statePrinter.Print(createHostStateMsg)
-		ins, err := createHost(service, *flags.CreateHostOpts)
+		ins, err := createHost(srvClient, *flags.CreateHostOpts)
 		statePrinter.PrintDone(createHostStateMsg, err)
 		if err != nil {
 			return fmt.Errorf("failed to create host: %w", err)
 		}
 		flags.CreateCVDOpts.Host = ins.Name
 	}
-	cvds, err := createCVD(service, *flags.CreateCVDOpts, statePrinter)
+	cvds, err := createCVD(srvClient, *flags.CreateCVDOpts, statePrinter)
 	if err != nil {
 		var apiErr *client.ApiCallError
 		if errors.As(err, &apiErr) && apiErr.Code == http.StatusUnauthorized {
@@ -831,7 +831,7 @@ func runCreateCVDCommand(c *cobra.Command, args []string, flags *CreateCVDFlags,
 	}
 	hosts := []*RemoteHost{
 		{
-			ServiceRootEndpoint: service.RootURI(),
+			ServiceRootEndpoint: srvClient.RootURI(),
 			Name:                flags.CreateCVDOpts.Host,
 			CVDs:                cvds,
 		},
@@ -841,28 +841,28 @@ func runCreateCVDCommand(c *cobra.Command, args []string, flags *CreateCVDFlags,
 }
 
 func runListCVDsCommand(c *cobra.Command, flags *ListCVDsFlags, opts *subCommandOpts) error {
-	service, err := opts.ServiceBuilder(flags.ServiceFlags, c)
+	srvClient, err := opts.ClientBuilder(flags.ServiceFlags, c)
 	if err != nil {
 		return err
 	}
 	var hosts []*RemoteHost
 	if flags.Host != "" {
-		hosts, err = listCVDsSingleHost(service, opts.InitialConfig.ConnectionControlDirExpanded(), flags.Host)
+		hosts, err = listCVDsSingleHost(srvClient, opts.InitialConfig.ConnectionControlDirExpanded(), flags.Host)
 	} else {
-		hosts, err = listCVDs(service, opts.InitialConfig.ConnectionControlDirExpanded())
+		hosts, err = listCVDs(srvClient, opts.InitialConfig.ConnectionControlDirExpanded())
 	}
 	WriteListCVDsOutput(c.OutOrStdout(), hosts)
 	return err
 }
 
 func runBugreportCommand(c *cobra.Command, flags *BugreportFlags, opts *subCommandOpts) error {
-	service, err := opts.ServiceBuilder(flags.ServiceFlags, c)
+	srvClient, err := opts.ClientBuilder(flags.ServiceFlags, c)
 	if err != nil {
 		return err
 	}
 	host := flags.Host
 	if host == "" {
-		sel, err := promptSingleHostNameSelection(&command{c, &flags.Verbose}, service)
+		sel, err := promptSingleHostNameSelection(&command{c, &flags.Verbose}, srvClient)
 		if err != nil {
 			return err
 		}
@@ -876,7 +876,7 @@ func runBugreportCommand(c *cobra.Command, flags *BugreportFlags, opts *subComma
 	if group == "" {
 		sel, err := promptSingleGroupNameSelection(
 			&command{c, &flags.Verbose},
-			service,
+			srvClient,
 			opts.InitialConfig.ConnectionControlDirExpanded(),
 			host)
 		if err != nil {
@@ -892,7 +892,7 @@ func runBugreportCommand(c *cobra.Command, flags *BugreportFlags, opts *subComma
 	if err != nil {
 		return err
 	}
-	if err := service.HostService(host).CreateBugreport(group, f); err != nil {
+	if err := srvClient.HostService(host).CreateBugreport(group, f); err != nil {
 		return err
 	}
 	if err := f.Close(); err != nil {
@@ -903,7 +903,7 @@ func runBugreportCommand(c *cobra.Command, flags *BugreportFlags, opts *subComma
 }
 
 func runDeleteCVDCommand(c *cobra.Command, args []string, flags *DeleteCVDFlags, opts *subCommandOpts) error {
-	service, err := opts.ServiceBuilder(flags.ServiceFlags, c)
+	srvClient, err := opts.ClientBuilder(flags.ServiceFlags, c)
 	if err != nil {
 		return err
 	}
@@ -913,12 +913,12 @@ func runDeleteCVDCommand(c *cobra.Command, args []string, flags *DeleteCVDFlags,
 	if len(args) > 1 {
 		return errors.New("deleting multiple instances is not supported yet")
 	}
-	return service.HostService(flags.Host).DeleteCVD(args[0])
+	return srvClient.HostService(flags.Host).DeleteCVD(args[0])
 }
 
 // Returns empty string if there was no host.
-func promptSingleHostNameSelection(c *command, service client.Service) (string, error) {
-	sel, err := promptHostNameSelection(c, service, Single)
+func promptSingleHostNameSelection(c *command, srvClient client.Client) (string, error) {
+	sel, err := promptHostNameSelection(c, srvClient, Single)
 	if err != nil {
 		return "", err
 	}
@@ -929,8 +929,8 @@ func promptSingleHostNameSelection(c *command, service client.Service) (string, 
 }
 
 // Returns empty list if there was no host.
-func promptHostNameSelection(c *command, service client.Service, selOpt SelectionOption) ([]string, error) {
-	names, err := hostnames(service)
+func promptHostNameSelection(c *command, srvClient client.Client, selOpt SelectionOption) ([]string, error) {
+	names, err := hostnames(srvClient)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list hosts: %w", err)
 	}
@@ -941,8 +941,8 @@ func promptHostNameSelection(c *command, service client.Service, selOpt Selectio
 }
 
 // Returns empty string if there was no group.
-func promptSingleGroupNameSelection(c *command, service client.Service, controlDir, host string) (string, error) {
-	hosts, err := listCVDsSingleHost(service, controlDir, host)
+func promptSingleGroupNameSelection(c *command, srvClient client.Client, controlDir, host string) (string, error) {
+	hosts, err := listCVDsSingleHost(srvClient, controlDir, host)
 	if err != nil {
 		return "", err
 	}
@@ -1010,14 +1010,14 @@ func runConnectCommand(flags *ConnectFlags, c *command, args []string, opts *sub
 	if len(args) > 0 && flags.host == "" {
 		return fmt.Errorf("missing host for devices: %v", args)
 	}
-	service, err := opts.ServiceBuilder(flags.ServiceFlags, c.Command)
+	srvClient, err := opts.ClientBuilder(flags.ServiceFlags, c.Command)
 	if err != nil {
 		return err
 	}
 	var cvds []RemoteCVDLocator
 	for _, d := range args {
 		cvds = append(cvds, RemoteCVDLocator{
-			ServiceRootEndpoint: service.RootURI(),
+			ServiceRootEndpoint: srvClient.RootURI(),
 			Host:                flags.host,
 			WebRTCDeviceID:      d,
 		})
@@ -1026,10 +1026,10 @@ func runConnectCommand(flags *ConnectFlags, c *command, args []string, opts *sub
 	if len(cvds) == 0 {
 		var hosts []*RemoteHost
 		if flags.host == "" {
-			hosts, err = listCVDs(service, opts.InitialConfig.ConnectionControlDirExpanded())
+			hosts, err = listCVDs(srvClient, opts.InitialConfig.ConnectionControlDirExpanded())
 		} else {
 			hosts, err = listCVDsSingleHost(
-				service, opts.InitialConfig.ConnectionControlDirExpanded(), flags.host)
+				srvClient, opts.InitialConfig.ConnectionControlDirExpanded(), flags.host)
 		}
 		if err != nil {
 			return err
@@ -1212,21 +1212,21 @@ func runConnectionProxyAgentCommand(flags *ConnectFlags, c *command, args []stri
 		return errors.New("missing device")
 	}
 	device := args[0]
-	service, err := opts.ServiceBuilder(flags.ServiceFlags, c.Command)
+	srvClient, err := opts.ClientBuilder(flags.ServiceFlags, c.Command)
 	if err != nil {
 		return err
 	}
 	controlDir := opts.InitialConfig.ConnectionControlDirExpanded()
 
 	// Retrieving IP address and port of ADB connection
-	host, err := findHost(service, flags.host)
+	host, err := findHost(srvClient, flags.host)
 	if err != nil {
 		return fmt.Errorf("failed to find host")
 	}
 	if host.Docker == nil {
 		return errors.New("instance type should be Docker")
 	}
-	cvd, err := findCVD(service, controlDir, flags.host, device)
+	cvd, err := findCVD(srvClient, controlDir, flags.host, device)
 	if err != nil {
 		return fmt.Errorf("failed to find cvd: %w", err)
 	}
@@ -1263,19 +1263,19 @@ func runConnectionWebrtcAgentCommand(flags *ConnectFlags, c *command, args []str
 		return fmt.Errorf("missing device")
 	}
 	device := args[0]
-	service, err := opts.ServiceBuilder(flags.ServiceFlags, c.Command)
+	srvClient, err := opts.ClientBuilder(flags.ServiceFlags, c.Command)
 	if err != nil {
 		return err
 	}
 
 	devSpec := RemoteCVDLocator{
-		ServiceRootEndpoint: service.RootURI(),
+		ServiceRootEndpoint: srvClient.RootURI(),
 		Host:                flags.host,
 		WebRTCDeviceID:      device,
 	}
 
 	controlDir := opts.InitialConfig.ConnectionControlDirExpanded()
-	ret, err := FindOrConnect(controlDir, devSpec, service, localICEConfig)
+	ret, err := FindOrConnect(controlDir, devSpec, srvClient, localICEConfig)
 	if err != nil {
 		return err
 	}
@@ -1387,11 +1387,11 @@ func runConnectionWebSocketAgentCommand(flags *ConnectFlags, c *command, args []
 	} else {
 		// Connect to the ADB WebSocket using Host Orchestrator service client.
 		// This is for normal scenario (HO behind CO).
-		service, err := opts.ServiceBuilder(flags.ServiceFlags, c.Command)
+		srvClient, err := opts.ClientBuilder(flags.ServiceFlags, c.Command)
 		if err != nil {
 			return err
 		}
-		wsConn, err = service.HostService(flags.host).ConnectADBWebSocket(device)
+		wsConn, err = srvClient.HostService(flags.host).ConnectADBWebSocket(device)
 		if err != nil {
 			return err
 		}
@@ -1573,18 +1573,18 @@ func filterMap[K comparable, T any](m map[K]T, pred func(K, T) bool) map[K]T {
 	return r
 }
 
-type serviceBuilder func(flags *ServiceFlags, c *cobra.Command) (client.Service, error)
+type clientBuilder func(flags *ServiceFlags, c *cobra.Command) (client.Client, error)
 
 const chunkSizeBytes = 16 * 1024 * 1024
 
-func buildServiceBuilder(builder client.ServiceBuilder, config *Config) serviceBuilder {
-	return func(flags *ServiceFlags, c *cobra.Command) (client.Service, error) {
+func buildClientBuilder(builder client.ClientBuilder, config *Config) clientBuilder {
+	return func(flags *ServiceFlags, c *cobra.Command) (client.Client, error) {
 		proxyURL := flags.Proxy
 		var dumpOut io.Writer = io.Discard
 		if flags.Verbose {
 			dumpOut = c.ErrOrStderr()
 		}
-		opts := &client.ServiceOptions{
+		opts := &client.ClientOptions{
 			RootEndpoint:   buildServiceRootEndpoint(flags.ServiceURL, flags.Zone),
 			ProxyURL:       proxyURL,
 			DumpOut:        dumpOut,

@@ -123,8 +123,8 @@ func (o *CreateCVDOpts) Update(s *Service) {
 	}
 }
 
-func createCVD(service client.Service, createOpts CreateCVDOpts, statePrinter *statePrinter) ([]*RemoteCVD, error) {
-	creator, err := newCVDCreator(service, createOpts, statePrinter)
+func createCVD(srvClient client.Client, createOpts CreateCVDOpts, statePrinter *statePrinter) ([]*RemoteCVD, error) {
+	creator, err := newCVDCreator(srvClient, createOpts, statePrinter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create cvd: %w", err)
 	}
@@ -134,7 +134,7 @@ func createCVD(service client.Service, createOpts CreateCVDOpts, statePrinter *s
 	}
 	result := []*RemoteCVD{}
 	for _, cvd := range cvds {
-		result = append(result, NewRemoteCVD(service.RootURI(), createOpts.Host, cvd))
+		result = append(result, NewRemoteCVD(srvClient.RootURI(), createOpts.Host, cvd))
 	}
 	return result, nil
 }
@@ -142,19 +142,19 @@ func createCVD(service client.Service, createOpts CreateCVDOpts, statePrinter *s
 type CredentialsFactory func() hoclient.BuildAPICreds
 
 type cvdCreator struct {
-	service            client.Service
+	client             client.Client
 	opts               CreateCVDOpts
 	statePrinter       *statePrinter
 	credentialsFactory CredentialsFactory
 }
 
-func newCVDCreator(service client.Service, opts CreateCVDOpts, statePrinter *statePrinter) (*cvdCreator, error) {
+func newCVDCreator(srvClient client.Client, opts CreateCVDOpts, statePrinter *statePrinter) (*cvdCreator, error) {
 	cf, err := credentialsFactoryFromSource(opts.BuildAPICredentialsSource, opts.BuildAPIUserProjectID)
 	if err != nil {
 		return nil, err
 	}
 	return &cvdCreator{
-		service:            service,
+		client:             srvClient,
 		opts:               opts,
 		statePrinter:       statePrinter,
 		credentialsFactory: cf,
@@ -245,7 +245,7 @@ func (c *cvdCreator) createCVDFromLocalBuild() ([]*hoapi.CVD, error) {
 		return nil, err
 	}
 	names = append(names, filepath.Join(hostOut, CVDHostPackageName))
-	hostSrv := c.service.HostService(c.opts.Host)
+	hostSrv := c.client.HostService(c.opts.Host)
 	uploadDir, err := hostSrv.CreateUploadDir()
 	if err != nil {
 		return nil, err
@@ -283,7 +283,7 @@ func (c *cvdCreator) createWithCanonicalConfig() ([]*hoapi.CVD, error) {
 		EnvConfig: c.opts.EnvConfig,
 	}
 	c.statePrinter.Print(stateMsgFetchAndStart)
-	res, err := c.service.HostService(c.opts.Host).CreateCVD(createReq, c.credentialsFactory())
+	res, err := c.client.HostService(c.opts.Host).CreateCVD(createReq, c.credentialsFactory())
 	c.statePrinter.PrintDone(stateMsgFetchAndStart, err)
 	if err != nil {
 		return nil, err
@@ -307,7 +307,7 @@ func (c *cvdCreator) createWithOpts() ([]*hoapi.CVD, error) {
 		AndroidCIBundle: &hoapi.AndroidCIBundle{Build: mainBuild, Type: hoapi.MainBundleType},
 	}
 	c.statePrinter.Print(stateMsgFetchMainBundle)
-	fetchMainBuildRes, err := c.service.HostService(c.opts.Host).FetchArtifacts(fetchReq, c.credentialsFactory())
+	fetchMainBuildRes, err := c.client.HostService(c.opts.Host).FetchArtifacts(fetchReq, c.credentialsFactory())
 	c.statePrinter.PrintDone(stateMsgFetchMainBundle, err)
 	if err != nil {
 		return nil, err
@@ -326,7 +326,7 @@ func (c *cvdCreator) createWithOpts() ([]*hoapi.CVD, error) {
 		AdditionalInstancesNum: c.opts.AdditionalInstancesNum(),
 	}
 	c.statePrinter.Print(stateMsgStartCVD)
-	res, err := c.service.HostService(c.opts.Host).CreateCVD(createReq, c.credentialsFactory())
+	res, err := c.client.HostService(c.opts.Host).CreateCVD(createReq, c.credentialsFactory())
 	c.statePrinter.PrintDone(stateMsgStartCVD, err)
 	if err != nil {
 		return nil, err
@@ -338,7 +338,7 @@ func (c *cvdCreator) createCVDFromLocalSrcs() ([]*hoapi.CVD, error) {
 	if err := c.opts.CreateCVDLocalOpts.validate(); err != nil {
 		return nil, fmt.Errorf("invalid local source: %w", err)
 	}
-	uploadDir, err := c.service.HostService(c.opts.Host).CreateUploadDir()
+	uploadDir, err := c.client.HostService(c.opts.Host).CreateUploadDir()
 	if err != nil {
 		return nil, err
 	}
@@ -346,7 +346,7 @@ func (c *cvdCreator) createCVDFromLocalSrcs() ([]*hoapi.CVD, error) {
 	if err != nil {
 		return nil, err
 	}
-	hostSrv := c.service.HostService(c.opts.Host)
+	hostSrv := c.client.HostService(c.opts.Host)
 	if err := uploadFiles(hostSrv, uploadDir, c.opts.CreateCVDLocalOpts.srcs(), c.statePrinter); err != nil {
 		return nil, err
 	}
@@ -423,8 +423,8 @@ type cvdListResult struct {
 	Error  error
 }
 
-func listCVDs(service client.Service, controlDir string) ([]*RemoteHost, error) {
-	hl, err := service.ListHosts()
+func listCVDs(srvClient client.Client, controlDir string) ([]*RemoteHost, error) {
+	hl, err := srvClient.ListHosts()
 	if err != nil {
 		return nil, fmt.Errorf("error listing hosts: %w", err)
 	}
@@ -438,7 +438,7 @@ func listCVDs(service client.Service, controlDir string) ([]*RemoteHost, error) 
 		ch := make(chan cvdListResult)
 		chans = append(chans, ch)
 		go func(name string, ch chan<- cvdListResult) {
-			cvds, err := listHostCVDsInner(service, name, statuses)
+			cvds, err := listHostCVDsInner(srvClient, name, statuses)
 			ch <- cvdListResult{Result: cvds, Error: err}
 		}(host, ch)
 	}
@@ -450,7 +450,7 @@ func listCVDs(service client.Service, controlDir string) ([]*RemoteHost, error) 
 			merr = multierror.Append(merr, fmt.Errorf("lists cvds for host %q failed: %w", hostName, err))
 		}
 		host := &RemoteHost{
-			ServiceRootEndpoint: service.RootURI(),
+			ServiceRootEndpoint: srvClient.RootURI(),
 			Name:                hostName,
 			CVDs:                listResult.Result,
 		}
@@ -459,15 +459,15 @@ func listCVDs(service client.Service, controlDir string) ([]*RemoteHost, error) 
 	return result, merr
 }
 
-func listCVDsSingleHost(service client.Service, controlDir, host string) ([]*RemoteHost, error) {
+func listCVDsSingleHost(srvClient client.Client, controlDir, host string) ([]*RemoteHost, error) {
 	statuses, merr := listCVDConnectionsByHost(controlDir, host)
-	cvds, err := listHostCVDsInner(service, host, statuses)
+	cvds, err := listHostCVDsInner(srvClient, host, statuses)
 	if err != nil {
 		merr = multierror.Append(merr, err)
 	}
 	result := []*RemoteHost{
 		{
-			ServiceRootEndpoint: service.RootURI(),
+			ServiceRootEndpoint: srvClient.RootURI(),
 			Name:                host,
 			CVDs:                cvds,
 		},
@@ -484,14 +484,14 @@ func flattenCVDs(hosts []*RemoteHost) []*RemoteCVD {
 }
 
 // Calling listCVDConnectionsByHost is inefficient, this internal function avoids that for listAllCVDs.
-func listHostCVDsInner(service client.Service, host string, statuses map[RemoteCVDLocator]ConnStatus) ([]*RemoteCVD, error) {
-	cvds, err := service.HostService(host).ListCVDs()
+func listHostCVDsInner(srvClient client.Client, host string, statuses map[RemoteCVDLocator]ConnStatus) ([]*RemoteCVD, error) {
+	cvds, err := srvClient.HostService(host).ListCVDs()
 	if err != nil {
 		return nil, err
 	}
 	ret := make([]*RemoteCVD, len(cvds))
 	for i, c := range cvds {
-		ret[i] = NewRemoteCVD(service.RootURI(), host, c)
+		ret[i] = NewRemoteCVD(srvClient.RootURI(), host, c)
 		if status, ok := statuses[ret[i].RemoteCVDLocator]; ok {
 			ret[i].ConnStatus = &status
 		}
@@ -499,8 +499,8 @@ func listHostCVDsInner(service client.Service, host string, statuses map[RemoteC
 	return ret, nil
 }
 
-func findCVD(service client.Service, controlDir, host, device string) (*RemoteCVD, error) {
-	cvdHosts, err := listCVDsSingleHost(service, controlDir, host)
+func findCVD(srvClient client.Client, controlDir, host, device string) (*RemoteCVD, error) {
+	cvdHosts, err := listCVDsSingleHost(srvClient, controlDir, host)
 	if err != nil {
 		return nil, fmt.Errorf("error listing CVDs: %w", err)
 	}

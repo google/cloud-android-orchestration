@@ -36,7 +36,7 @@ type CreateGCPHostOpts struct {
 	AcceleratorConfigs []acceleratorConfig
 }
 
-func createHost(service client.Service, opts CreateHostOpts) (*apiv1.HostInstance, error) {
+func createHost(srvClient client.Client, opts CreateHostOpts) (*apiv1.HostInstance, error) {
 	req := apiv1.CreateHostRequest{
 		HostInstance: &apiv1.HostInstance{
 			GCP: &apiv1.GCPInstance{
@@ -53,11 +53,11 @@ func createHost(service client.Service, opts CreateHostOpts) (*apiv1.HostInstanc
 		}
 		req.HostInstance.GCP.AcceleratorConfigs = s
 	}
-	return service.CreateHost(&req)
+	return srvClient.CreateHost(&req)
 }
 
-func hostnames(service client.Service) ([]string, error) {
-	hosts, err := service.ListHosts()
+func hostnames(srvClient client.Client) ([]string, error) {
+	hosts, err := srvClient.ListHosts()
 	if err != nil {
 		return nil, err
 	}
@@ -68,8 +68,8 @@ func hostnames(service client.Service) ([]string, error) {
 	return result, nil
 }
 
-func findHost(service client.Service, name string) (*apiv1.HostInstance, error) {
-	hosts, err := service.ListHosts()
+func findHost(srvClient client.Client, name string) (*apiv1.HostInstance, error) {
+	hosts, err := srvClient.ListHosts()
 	if err != nil {
 		return nil, fmt.Errorf("error listing hosts: %w", err)
 	}

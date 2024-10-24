@@ -232,7 +232,7 @@ func TestCommandSucceeds(t *testing.T) {
 				IOStreams:     io,
 				Args:          append(test.Args, "--service_url="+serviceURL),
 				InitialConfig: Config{ConnectionControlDir: t.TempDir()},
-				ServiceBuilder: func(opts *client.ServiceOptions) (client.Service, error) {
+				ClientBuilder: func(opts *client.ClientOptions) (client.Client, error) {
 					return &fakeService{}, nil
 				},
 				CommandRunner:  &fakeCommandRunner{},

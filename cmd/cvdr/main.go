@@ -128,7 +128,7 @@ func main() {
 	opts := &cli.CommandOptions{
 		IOStreams:      cli.IOStreams{In: os.Stdin, Out: os.Stdout, ErrOut: os.Stderr},
 		Args:           os.Args[1:],
-		ServiceBuilder: client.NewService,
+		ClientBuilder:  client.NewClient,
 		InitialConfig:  *config,
 		CommandRunner:  &cmdRunner{},
 		ADBServerProxy: &cli.ADBServerProxyImpl{},

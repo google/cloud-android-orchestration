@@ -45,13 +45,13 @@ func TestDeleteHosts(t *testing.T) {
 		}
 	}))
 	defer ts.Close()
-	opts := &ServiceOptions{
+	opts := &ClientOptions{
 		RootEndpoint: ts.URL,
 		DumpOut:      io.Discard,
 	}
-	srv, _ := NewService(opts)
+	c, _ := NewClient(opts)
 
-	err := srv.DeleteHosts([]string{"foo", "bar", "baz", "quz"})
+	err := c.DeleteHosts([]string{"foo", "bar", "baz", "quz"})
 
 	merr, _ := err.(*multierror.Error)
 	errs := merr.WrappedErrors()

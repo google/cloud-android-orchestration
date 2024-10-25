@@ -23,7 +23,6 @@ import (
 	"path/filepath"
 
 	"github.com/google/cloud-android-orchestration/pkg/cli"
-	"github.com/google/cloud-android-orchestration/pkg/client"
 	"golang.org/x/term"
 )
 
@@ -128,7 +127,6 @@ func main() {
 	opts := &cli.CommandOptions{
 		IOStreams:      cli.IOStreams{In: os.Stdin, Out: os.Stdout, ErrOut: os.Stderr},
 		Args:           os.Args[1:],
-		ClientBuilder:  client.NewClient,
 		InitialConfig:  *config,
 		CommandRunner:  &cmdRunner{},
 		ADBServerProxy: &cli.ADBServerProxyImpl{},

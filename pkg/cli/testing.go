@@ -2,6 +2,7 @@ package cli
 
 import (
 	"io"
+	"net/url"
 
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
 
@@ -38,6 +39,10 @@ func (fakeClient) HostService(host string) hoclient.HostOrchestratorService {
 		panic("empty host")
 	}
 	return &fakeHostService{}
+}
+
+func (fakeClient) HostServiceURL(host string) (*url.URL, error) {
+	return nil, nil
 }
 
 type fakeHostService struct{}

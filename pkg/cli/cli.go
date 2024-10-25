@@ -62,7 +62,6 @@ type CommandOptions struct {
 	IOStreams
 	Args           []string
 	InitialConfig  Config
-	ClientBuilder  client.ClientBuilder
 	CommandRunner  CommandRunner
 	ADBServerProxy ADBServerProxy
 }
@@ -211,7 +210,6 @@ type DeleteCVDFlags struct {
 }
 
 type subCommandOpts struct {
-	ClientBuilder  clientBuilder
 	ServiceFlags   *ServiceFlags
 	InitialConfig  Config
 	CommandRunner  CommandRunner
@@ -423,7 +421,6 @@ func NewCVDRemoteCommand(o *CommandOptions) *CVDRemoteCommand {
 	rootCmd.SetHelpCommand(&cobra.Command{Hidden: true})
 	rootCmd.PersistentFlags().BoolVarP(&flags.Verbose, verboseFlag, "v", false, "Be verbose.")
 	subCmdOpts := &subCommandOpts{
-		ClientBuilder:  buildClientBuilder(o.ClientBuilder, &o.InitialConfig),
 		ServiceFlags:   flags,
 		InitialConfig:  o.InitialConfig,
 		CommandRunner:  o.CommandRunner,
@@ -711,7 +708,7 @@ func connectionCommands(opts *subCommandOpts) []*cobra.Command {
 }
 
 func runCreateHostCommand(c *cobra.Command, flags *CreateHostFlags, opts *subCommandOpts) error {
-	srvClient, err := opts.ClientBuilder(flags.ServiceFlags, c)
+	srvClient, err := newClient(opts.InitialConfig, flags.ServiceFlags, c)
 	if err != nil {
 		return fmt.Errorf("failed to build service instance: %w", err)
 	}
@@ -724,11 +721,11 @@ func runCreateHostCommand(c *cobra.Command, flags *CreateHostFlags, opts *subCom
 }
 
 func runListHostCommand(c *cobra.Command, flags *ServiceFlags, opts *subCommandOpts) error {
-	apiClient, err := opts.ClientBuilder(flags, c)
+	srvClient, err := newClient(opts.InitialConfig, flags, c)
 	if err != nil {
 		return err
 	}
-	hosts, err := apiClient.ListHosts()
+	hosts, err := srvClient.ListHosts()
 	if err != nil {
 		return fmt.Errorf("error listing hosts: %w", err)
 	}
@@ -739,7 +736,7 @@ func runListHostCommand(c *cobra.Command, flags *ServiceFlags, opts *subCommandO
 }
 
 func runDeleteHostsCommand(c *cobra.Command, args []string, flags *ServiceFlags, opts *subCommandOpts) error {
-	srvClient, err := opts.ClientBuilder(flags, c)
+	srvClient, err := newClient(opts.InitialConfig, flags, c)
 	if err != nil {
 		return err
 	}
@@ -797,7 +794,7 @@ func runCreateCVDCommand(c *cobra.Command, args []string, flags *CreateCVDFlags,
 		return fmt.Errorf("invalid --num_instances flag value: %d", flags.NumInstances)
 	}
 	statePrinter := newStatePrinter(c.ErrOrStderr(), flags.Verbose)
-	srvClient, err := opts.ClientBuilder(flags.ServiceFlags, c)
+	srvClient, err := newClient(opts.InitialConfig, flags.ServiceFlags, c)
 	if err != nil {
 		return fmt.Errorf("failed to build service instance: %w", err)
 	}
@@ -841,7 +838,7 @@ func runCreateCVDCommand(c *cobra.Command, args []string, flags *CreateCVDFlags,
 }
 
 func runListCVDsCommand(c *cobra.Command, flags *ListCVDsFlags, opts *subCommandOpts) error {
-	srvClient, err := opts.ClientBuilder(flags.ServiceFlags, c)
+	srvClient, err := newClient(opts.InitialConfig, flags.ServiceFlags, c)
 	if err != nil {
 		return err
 	}
@@ -856,7 +853,7 @@ func runListCVDsCommand(c *cobra.Command, flags *ListCVDsFlags, opts *subCommand
 }
 
 func runBugreportCommand(c *cobra.Command, flags *BugreportFlags, opts *subCommandOpts) error {
-	srvClient, err := opts.ClientBuilder(flags.ServiceFlags, c)
+	srvClient, err := newClient(opts.InitialConfig, flags.ServiceFlags, c)
 	if err != nil {
 		return err
 	}
@@ -903,7 +900,7 @@ func runBugreportCommand(c *cobra.Command, flags *BugreportFlags, opts *subComma
 }
 
 func runDeleteCVDCommand(c *cobra.Command, args []string, flags *DeleteCVDFlags, opts *subCommandOpts) error {
-	srvClient, err := opts.ClientBuilder(flags.ServiceFlags, c)
+	srvClient, err := newClient(opts.InitialConfig, flags.ServiceFlags, c)
 	if err != nil {
 		return err
 	}
@@ -1010,7 +1007,7 @@ func runConnectCommand(flags *ConnectFlags, c *command, args []string, opts *sub
 	if len(args) > 0 && flags.host == "" {
 		return fmt.Errorf("missing host for devices: %v", args)
 	}
-	srvClient, err := opts.ClientBuilder(flags.ServiceFlags, c.Command)
+	srvClient, err := newClient(opts.InitialConfig, flags.ServiceFlags, c.Command)
 	if err != nil {
 		return err
 	}
@@ -1212,7 +1209,7 @@ func runConnectionProxyAgentCommand(flags *ConnectFlags, c *command, args []stri
 		return errors.New("missing device")
 	}
 	device := args[0]
-	srvClient, err := opts.ClientBuilder(flags.ServiceFlags, c.Command)
+	srvClient, err := newClient(opts.InitialConfig, flags.ServiceFlags, c.Command)
 	if err != nil {
 		return err
 	}
@@ -1263,7 +1260,7 @@ func runConnectionWebrtcAgentCommand(flags *ConnectFlags, c *command, args []str
 		return fmt.Errorf("missing device")
 	}
 	device := args[0]
-	srvClient, err := opts.ClientBuilder(flags.ServiceFlags, c.Command)
+	srvClient, err := newClient(opts.InitialConfig, flags.ServiceFlags, c.Command)
 	if err != nil {
 		return err
 	}
@@ -1387,7 +1384,7 @@ func runConnectionWebSocketAgentCommand(flags *ConnectFlags, c *command, args []
 	} else {
 		// Connect to the ADB WebSocket using Host Orchestrator service client.
 		// This is for normal scenario (HO behind CO).
-		srvClient, err := opts.ClientBuilder(flags.ServiceFlags, c.Command)
+		srvClient, err := newClient(opts.InitialConfig, flags.ServiceFlags, c.Command)
 		if err != nil {
 			return err
 		}
@@ -1577,57 +1574,58 @@ type clientBuilder func(flags *ServiceFlags, c *cobra.Command) (client.Client, e
 
 const chunkSizeBytes = 16 * 1024 * 1024
 
-func buildClientBuilder(builder client.ClientBuilder, config *Config) clientBuilder {
-	return func(flags *ServiceFlags, c *cobra.Command) (client.Client, error) {
-		proxyURL := flags.Proxy
-		var dumpOut io.Writer = io.Discard
-		if flags.Verbose {
-			dumpOut = c.ErrOrStderr()
-		}
-		opts := &client.ClientOptions{
-			RootEndpoint:   buildServiceRootEndpoint(flags.ServiceURL, flags.Zone),
-			ProxyURL:       proxyURL,
-			DumpOut:        dumpOut,
-			ErrOut:         c.ErrOrStderr(),
-			ChunkSizeBytes: chunkSizeBytes,
-		}
-		srvConfig := config.DefaultService()
-		if flags.Service != "" {
-			srvConfig, _ = config.Services[flags.Service]
-		}
-		authnConfig := srvConfig.Authn
-		if authnConfig != nil {
-			if authnConfig.OIDCToken != nil && authnConfig.HTTPBasicAuthn != nil {
-				return nil, fmt.Errorf("should only set one authentication option")
-			}
-			opts.Authn = &client.AuthnOpts{}
-			if authnConfig.OIDCToken != nil {
-				content, err := os.ReadFile(authnConfig.OIDCToken.TokenFile)
-				if err != nil {
-					return nil, fmt.Errorf("failed loading oidc token: %w", err)
-				}
-				value := strings.TrimSuffix(string(content), "\n")
-				opts.Authn.OIDCToken = &client.OIDCToken{
-					Value: value,
-				}
-			} else if authnConfig.HTTPBasicAuthn != nil {
-				switch authnConfig.HTTPBasicAuthn.UsernameSrc {
-				case UnixUsernameSrc:
-					user, err := user.Current()
-					if err != nil {
-						return nil, fmt.Errorf("unable to get unix username for http basic authn: %w", err)
-					}
-					opts.Authn.HTTPBasic = &client.HTTPBasic{
-						Username: user.Username,
-					}
-				default:
-					return nil, fmt.Errorf("invalid http basic authn UsernameSrc type: %s", authnConfig.HTTPBasicAuthn.UsernameSrc)
-				}
-			}
-		}
-		opts.InjectBuildAPICreds = srvConfig.BuildAPICredentialsSource == "injected"
-		return builder(opts)
+func newClient(config Config, flags *ServiceFlags, c *cobra.Command) (client.Client, error) {
+	if flags.ServiceURL == unitTestServiceURL {
+		return &fakeClient{}, nil
 	}
+	proxyURL := flags.Proxy
+	var dumpOut io.Writer = io.Discard
+	if flags.Verbose {
+		dumpOut = c.ErrOrStderr()
+	}
+	opts := &client.ClientOptions{
+		RootEndpoint:   buildServiceRootEndpoint(flags.ServiceURL, flags.Zone),
+		ProxyURL:       proxyURL,
+		DumpOut:        dumpOut,
+		ErrOut:         c.ErrOrStderr(),
+		ChunkSizeBytes: chunkSizeBytes,
+	}
+	srvConfig := config.DefaultService()
+	if flags.Service != "" {
+		srvConfig, _ = config.Services[flags.Service]
+	}
+	authnConfig := srvConfig.Authn
+	if authnConfig != nil {
+		if authnConfig.OIDCToken != nil && authnConfig.HTTPBasicAuthn != nil {
+			return nil, fmt.Errorf("should only set one authentication option")
+		}
+		opts.Authn = &client.AuthnOpts{}
+		if authnConfig.OIDCToken != nil {
+			content, err := os.ReadFile(authnConfig.OIDCToken.TokenFile)
+			if err != nil {
+				return nil, fmt.Errorf("failed loading oidc token: %w", err)
+			}
+			value := strings.TrimSuffix(string(content), "\n")
+			opts.Authn.OIDCToken = &client.OIDCToken{
+				Value: value,
+			}
+		} else if authnConfig.HTTPBasicAuthn != nil {
+			switch authnConfig.HTTPBasicAuthn.UsernameSrc {
+			case UnixUsernameSrc:
+				user, err := user.Current()
+				if err != nil {
+					return nil, fmt.Errorf("unable to get unix username for http basic authn: %w", err)
+				}
+				opts.Authn.HTTPBasic = &client.HTTPBasic{
+					Username: user.Username,
+				}
+			default:
+				return nil, fmt.Errorf("invalid http basic authn UsernameSrc type: %s", authnConfig.HTTPBasicAuthn.UsernameSrc)
+			}
+		}
+	}
+	opts.InjectBuildAPICreds = srvConfig.BuildAPICredentialsSource == "injected"
+	return client.NewClient(opts)
 }
 
 func buildServiceRootEndpoint(serviceURL, zone string) string {

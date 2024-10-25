@@ -88,8 +88,6 @@ type clientImpl struct {
 	httpHelper hoclient.HTTPHelper
 }
 
-type ClientBuilder func(opts *ClientOptions) (Client, error)
-
 func NewClient(opts *ClientOptions) (Client, error) {
 	helper := hoclient.HTTPHelper{
 		Client:       &http.Client{},

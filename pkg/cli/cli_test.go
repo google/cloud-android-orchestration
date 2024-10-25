@@ -24,14 +24,8 @@ import (
 	"strings"
 	"testing"
 
-	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
-	"github.com/google/cloud-android-orchestration/pkg/client"
-
 	hoapi "github.com/google/android-cuttlefish/frontend/src/host_orchestrator/api/v1"
-	hoclient "github.com/google/android-cuttlefish/frontend/src/libhoclient"
-	wclient "github.com/google/android-cuttlefish/frontend/src/libhoclient/webrtcclient"
 	"github.com/google/go-cmp/cmp"
-	"github.com/gorilla/websocket"
 )
 
 func TestRequiredFlags(t *testing.T) {
@@ -97,91 +91,6 @@ func (*fakeADBServerProxy) DisconnectWithLocalFileSystem(string) error {
 	return nil
 }
 
-type fakeService struct{}
-
-func (fakeService) CreateHost(req *apiv1.CreateHostRequest) (*apiv1.HostInstance, error) {
-	return &apiv1.HostInstance{Name: "foo"}, nil
-}
-
-func (fakeService) ListHosts() (*apiv1.ListHostsResponse, error) {
-	return &apiv1.ListHostsResponse{
-		Items: []*apiv1.HostInstance{{Name: "foo"}, {Name: "bar"}},
-	}, nil
-}
-
-func (fakeService) DeleteHosts(name []string) error {
-	return nil
-}
-
-const serviceURL = "http://waldo.com"
-
-func (fakeService) RootURI() string {
-	return serviceURL + "/v1"
-}
-
-func (fakeService) HostService(host string) hoclient.HostOrchestratorService {
-	if host == "" {
-		panic("empty host")
-	}
-	return &fakeHostService{}
-}
-
-type fakeHostService struct{}
-
-func (fakeHostService) GetInfraConfig() (*apiv1.InfraConfig, error) {
-	return nil, nil
-}
-
-func (fakeHostService) ConnectWebRTC(device string, observer wclient.Observer, logger io.Writer, opts hoclient.ConnectWebRTCOpts) (*wclient.Connection, error) {
-	return nil, nil
-}
-
-func (fakeHostService) ConnectADBWebSocket(device string) (*websocket.Conn, error) {
-	return nil, nil
-}
-
-func (fakeHostService) FetchArtifacts(req *hoapi.FetchArtifactsRequest, creds hoclient.BuildAPICreds) (*hoapi.FetchArtifactsResponse, error) {
-	return &hoapi.FetchArtifactsResponse{AndroidCIBundle: &hoapi.AndroidCIBundle{}}, nil
-}
-
-func (fakeHostService) CreateCVD(req *hoapi.CreateCVDRequest, creds hoclient.BuildAPICreds) (*hoapi.CreateCVDResponse, error) {
-	return &hoapi.CreateCVDResponse{CVDs: []*hoapi.CVD{{Name: "cvd-1"}}}, nil
-}
-
-func (fakeHostService) CreateCVDOp(req *hoapi.CreateCVDRequest, creds hoclient.BuildAPICreds) (*hoapi.Operation, error) {
-	return nil, nil
-}
-
-func (fakeHostService) DeleteCVD(id string) error {
-	return nil
-}
-
-func (fakeHostService) ListCVDs() ([]*hoapi.CVD, error) {
-	return []*hoapi.CVD{{Name: "cvd-1"}}, nil
-}
-
-func (fakeHostService) CreateUploadDir() (string, error) {
-	return "", nil
-}
-
-func (fakeHostService) UploadFile(uploadDir string, name string) error {
-	return nil
-}
-
-func (fakeHostService) UploadFileWithOptions(uploadDir string, name string, options hoclient.UploadOptions) error {
-	return nil
-}
-
-func (fakeHostService) ExtractFile(string, string) (*hoapi.Operation, error) { return nil, nil }
-
-func (fakeHostService) DownloadRuntimeArtifacts(dst io.Writer) error {
-	return nil
-}
-
-func (fakeHostService) WaitForOperation(string, any) error { return nil }
-
-func (fakeHostService) CreateBugreport(string, io.Writer) error { return nil }
-
 func TestCommandSucceeds(t *testing.T) {
 	tests := []struct {
 		Name   string
@@ -206,35 +115,32 @@ func TestCommandSucceeds(t *testing.T) {
 		{
 			Name:   "create",
 			Args:   []string{"create", "--build_id=123"},
-			ExpOut: expectedOutput(serviceURL, "foo", hoapi.CVD{Name: "cvd-1"}, 12345),
+			ExpOut: expectedOutput(unitTestServiceURL, "foo", hoapi.CVD{Name: "cvd-1"}, 12345),
 		},
 		{
 			Name:   "create with --host",
 			Args:   []string{"create", "--host=bar", "--build_id=123"},
-			ExpOut: expectedOutput(serviceURL, "bar", hoapi.CVD{Name: "cvd-1"}, 12345),
+			ExpOut: expectedOutput(unitTestServiceURL, "bar", hoapi.CVD{Name: "cvd-1"}, 12345),
 		},
 		{
 			Name: "list",
 			Args: []string{"list"},
-			ExpOut: expectedOutput(serviceURL, "foo", hoapi.CVD{Name: "cvd-1"}, 0) +
-				expectedOutput(serviceURL, "bar", hoapi.CVD{Name: "cvd-1"}, 0),
+			ExpOut: expectedOutput(unitTestServiceURL, "foo", hoapi.CVD{Name: "cvd-1"}, 0) +
+				expectedOutput(unitTestServiceURL, "bar", hoapi.CVD{Name: "cvd-1"}, 0),
 		},
 		{
 			Name:   "list with --host",
 			Args:   []string{"list", "--host=bar"},
-			ExpOut: expectedOutput(serviceURL, "bar", hoapi.CVD{Name: "cvd-1"}, 0),
+			ExpOut: expectedOutput(unitTestServiceURL, "bar", hoapi.CVD{Name: "cvd-1"}, 0),
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
 			io, _, out := newTestIOStreams()
 			opts := &CommandOptions{
-				IOStreams:     io,
-				Args:          append(test.Args, "--service_url="+serviceURL),
-				InitialConfig: Config{ConnectionControlDir: t.TempDir()},
-				ClientBuilder: func(opts *client.ClientOptions) (client.Client, error) {
-					return &fakeService{}, nil
-				},
+				IOStreams:      io,
+				Args:           append(test.Args, "--service_url="+unitTestServiceURL),
+				InitialConfig:  Config{ConnectionControlDir: t.TempDir()},
 				CommandRunner:  &fakeCommandRunner{},
 				ADBServerProxy: &fakeADBServerProxy{},
 			}
@@ -305,7 +211,7 @@ func newTestIOStreams() (IOStreams, *bytes.Buffer, *bytes.Buffer) {
 
 func expectedOutput(serviceURL, host string, cvd hoapi.CVD, port int) string {
 	out := &bytes.Buffer{}
-	remoteCVD := NewRemoteCVD(fakeService{}.RootURI(), host, &cvd)
+	remoteCVD := NewRemoteCVD(fakeClient{}.RootURI(), host, &cvd)
 	remoteCVD.ConnStatus = &ConnStatus{
 		ADB: ForwarderState{
 			State: "not connected",
@@ -314,7 +220,7 @@ func expectedOutput(serviceURL, host string, cvd hoapi.CVD, port int) string {
 	}
 	hosts := []*RemoteHost{
 		{
-			ServiceRootEndpoint: fakeService{}.RootURI(),
+			ServiceRootEndpoint: fakeClient{}.RootURI(),
 			Name:                host,
 			CVDs:                []*RemoteCVD{remoteCVD},
 		},

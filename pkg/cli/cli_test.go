@@ -211,20 +211,14 @@ func newTestIOStreams() (IOStreams, *bytes.Buffer, *bytes.Buffer) {
 
 func expectedOutput(serviceURL, host string, cvd hoapi.CVD, port int) string {
 	out := &bytes.Buffer{}
-	remoteCVD := NewRemoteCVD(fakeClient{}.RootURI(), host, &cvd)
+	remoteCVD := NewRemoteCVD(host, &cvd)
 	remoteCVD.ConnStatus = &ConnStatus{
 		ADB: ForwarderState{
 			State: "not connected",
 			Port:  port,
 		},
 	}
-	hosts := []*RemoteHost{
-		{
-			ServiceRootEndpoint: fakeClient{}.RootURI(),
-			Name:                host,
-			CVDs:                []*RemoteCVD{remoteCVD},
-		},
-	}
+	hosts := []*RemoteHost{{Name: host, CVDs: []*RemoteCVD{remoteCVD}}}
 	WriteListCVDsOutput(out, hosts)
 	b, _ := ioutil.ReadAll(out)
 	return string(b)

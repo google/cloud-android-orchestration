@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -34,8 +35,7 @@ import (
 )
 
 type RemoteCVDLocator struct {
-	ServiceRootEndpoint string `json:"service_root_endpoint"`
-	Host                string `json:"host"`
+	Host string `json:"host"`
 	// Identifier within the whole fleet.
 	ID string `json:"id"`
 	// Identifier within a group.
@@ -59,20 +59,19 @@ type RemoteCVD struct {
 }
 
 type RemoteHost struct {
-	ServiceRootEndpoint string `json:"service_root_endpoint"`
-	Name                string `json:"host"`
-	CVDs                []*RemoteCVD
+	ServiceURL *url.URL
+	Name       string
+	CVDs       []*RemoteCVD
 }
 
-func NewRemoteCVD(url, host string, cvd *hoapi.CVD) *RemoteCVD {
+func NewRemoteCVD(host string, cvd *hoapi.CVD) *RemoteCVD {
 	return &RemoteCVD{
 		RemoteCVDLocator: RemoteCVDLocator{
-			ServiceRootEndpoint: url,
-			Host:                host,
-			ID:                  cvd.ID(),
-			Name:                cvd.Name,
-			WebRTCDeviceID:      cvd.WebRTCDeviceID,
-			ADBSerial:           cvd.ADBSerial,
+			Host:           host,
+			ID:             cvd.ID(),
+			Name:           cvd.Name,
+			WebRTCDeviceID: cvd.WebRTCDeviceID,
+			ADBSerial:      cvd.ADBSerial,
 		},
 		Status:   cvd.Status,
 		Displays: cvd.Displays,
@@ -134,7 +133,7 @@ func createCVD(srvClient client.Client, createOpts CreateCVDOpts, statePrinter *
 	}
 	result := []*RemoteCVD{}
 	for _, cvd := range cvds {
-		result = append(result, NewRemoteCVD(srvClient.RootURI(), createOpts.Host, cvd))
+		result = append(result, NewRemoteCVD(createOpts.Host, cvd))
 	}
 	return result, nil
 }
@@ -448,11 +447,17 @@ func listCVDs(srvClient client.Client, controlDir string) ([]*RemoteHost, error)
 		listResult := <-ch
 		if listResult.Error != nil {
 			merr = multierror.Append(merr, fmt.Errorf("lists cvds for host %q failed: %w", hostName, err))
+			continue
+		}
+		srvURL, err := srvClient.HostServiceURL(hostName)
+		if err != nil {
+			merr = multierror.Append(merr, fmt.Errorf("failed getting host service url: %w", err))
+			continue
 		}
 		host := &RemoteHost{
-			ServiceRootEndpoint: srvClient.RootURI(),
-			Name:                hostName,
-			CVDs:                listResult.Result,
+			ServiceURL: srvURL,
+			Name:       hostName,
+			CVDs:       listResult.Result,
 		}
 		result = append(result, host)
 	}
@@ -465,13 +470,7 @@ func listCVDsSingleHost(srvClient client.Client, controlDir, host string) ([]*Re
 	if err != nil {
 		merr = multierror.Append(merr, err)
 	}
-	result := []*RemoteHost{
-		{
-			ServiceRootEndpoint: srvClient.RootURI(),
-			Name:                host,
-			CVDs:                cvds,
-		},
-	}
+	result := []*RemoteHost{{Name: host, CVDs: cvds}}
 	return result, merr
 }
 
@@ -491,7 +490,7 @@ func listHostCVDsInner(srvClient client.Client, host string, statuses map[Remote
 	}
 	ret := make([]*RemoteCVD, len(cvds))
 	for i, c := range cvds {
-		ret[i] = NewRemoteCVD(srvClient.RootURI(), host, c)
+		ret[i] = NewRemoteCVD(host, c)
 		if status, ok := statuses[ret[i].RemoteCVDLocator]; ok {
 			ret[i].ConnStatus = &status
 		}

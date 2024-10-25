@@ -272,7 +272,7 @@ func WriteListCVDsOutput(w io.Writer, hosts []*RemoteHost) {
 			continue
 		}
 		for _, cvd := range host.CVDs {
-			lines := cvdOutput(cvd)
+			lines := cvdOutput(host, cvd)
 			for _, l := range lines {
 				fmt.Fprintln(w, "  "+l)
 			}
@@ -282,18 +282,16 @@ func WriteListCVDsOutput(w io.Writer, hosts []*RemoteHost) {
 }
 
 func hostOutput(h *RemoteHost) string {
-	return fmt.Sprintf("%s (%s)",
-		h.Name,
-		client.BuilHostIndexURL(h.ServiceRootEndpoint, h.Name))
+	return fmt.Sprintf("%s (%s/)", h.Name, h.ServiceURL)
 }
 
-func cvdOutput(c *RemoteCVD) []string {
+func cvdOutput(h *RemoteHost, c *RemoteCVD) []string {
 	return []string{
 		c.ID,
 		"Status: " + c.Status,
 		"ADB: " + adbStateStr(c),
 		"Displays: " + fmt.Sprintf("%v", c.Displays),
-		"Logs: " + client.BuildCVDLogsURL(c.ServiceRootEndpoint, c.Host, c.ID),
+		"Logs: " + fmt.Sprintf("%s/cvds/%s/logs/", h.ServiceURL, c.ID),
 	}
 }
 
@@ -826,11 +824,15 @@ func runCreateCVDCommand(c *cobra.Command, args []string, flags *CreateCVDFlags,
 			}
 		}
 	}
+	hostSrvURL, err := srvClient.HostServiceURL(flags.CreateCVDOpts.Host)
+	if err != nil {
+		return fmt.Errorf("failed getting host service url: %w", err)
+	}
 	hosts := []*RemoteHost{
 		{
-			ServiceRootEndpoint: srvClient.RootURI(),
-			Name:                flags.CreateCVDOpts.Host,
-			CVDs:                cvds,
+			ServiceURL: hostSrvURL,
+			Name:       flags.CreateCVDOpts.Host,
+			CVDs:       cvds,
 		},
 	}
 	WriteListCVDsOutput(c.OutOrStdout(), hosts)
@@ -1014,9 +1016,8 @@ func runConnectCommand(flags *ConnectFlags, c *command, args []string, opts *sub
 	var cvds []RemoteCVDLocator
 	for _, d := range args {
 		cvds = append(cvds, RemoteCVDLocator{
-			ServiceRootEndpoint: srvClient.RootURI(),
-			Host:                flags.host,
-			WebRTCDeviceID:      d,
+			Host:           flags.host,
+			WebRTCDeviceID: d,
 		})
 	}
 	// Find the user's cvds if they didn't specify any.
@@ -1266,9 +1267,8 @@ func runConnectionWebrtcAgentCommand(flags *ConnectFlags, c *command, args []str
 	}
 
 	devSpec := RemoteCVDLocator{
-		ServiceRootEndpoint: srvClient.RootURI(),
-		Host:                flags.host,
-		WebRTCDeviceID:      device,
+		Host:           flags.host,
+		WebRTCDeviceID: device,
 	}
 
 	controlDir := opts.InitialConfig.ConnectionControlDirExpanded()

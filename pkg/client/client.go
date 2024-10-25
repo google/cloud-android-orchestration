@@ -80,7 +80,11 @@ type Client interface {
 
 	HostService(host string) hoclient.HostOrchestratorService
 
-	RootURI() string
+	HostServiceURL(host string) (*url.URL, error)
+}
+
+type HostHTTPEndpointResolver interface {
+	Resolve(name string) (*url.URL, error)
 }
 
 type clientImpl struct {
@@ -188,18 +192,18 @@ func (s *clientImpl) HostService(host string) hoclient.HostOrchestratorService {
 	return hs
 }
 
+func (s *clientImpl) HostServiceURL(host string) (*url.URL, error) {
+	res, err := url.Parse(s.httpHelper.RootEndpoint + "/hosts/" + host)
+	if err != nil {
+		return nil, fmt.Errorf("failed parsing host service url: %w", err)
+	}
+	return res, nil
+}
+
 func BuildRootEndpoint(serviceURL, version, zone string) string {
 	result := serviceURL + "/" + version
 	if zone != "" {
 		result += "/zones/" + zone
 	}
 	return result
-}
-
-func BuilHostIndexURL(rootEndpoint, host string) string {
-	return fmt.Sprintf("%s/hosts/%s/", rootEndpoint, host)
-}
-
-func BuildCVDLogsURL(rootEndpoint, host, id string) string {
-	return fmt.Sprintf("%s/hosts/%s/cvds/%s/logs/", rootEndpoint, host, id)
 }

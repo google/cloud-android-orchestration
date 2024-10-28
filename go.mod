@@ -50,7 +50,7 @@ require (
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
-	github.com/google/android-cuttlefish/frontend/src/libhoclient v0.0.0-20241015220958-6d128c03da81 // indirect
+	github.com/google/android-cuttlefish/frontend/src/libhoclient v0.0.0-20241028162827-6c01d79fd632 // indirect
 	github.com/google/s2a-go v0.1.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.2.3 // indirect
 	github.com/googleapis/gax-go/v2 v2.8.0 // indirect

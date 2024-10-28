@@ -139,7 +139,7 @@ func createCVD(service client.Service, createOpts CreateCVDOpts, statePrinter *s
 	return result, nil
 }
 
-type CredentialsFactory func() hoclient.BuildAPICredential
+type CredentialsFactory func() hoclient.BuildAPICreds
 
 type cvdCreator struct {
 	service            client.Service
@@ -358,17 +358,21 @@ func (c *cvdCreator) createCVDFromLocalSrcs() ([]*hoapi.CVD, error) {
 	return res.CVDs, nil
 }
 
+type coInjectBuildAPICreds struct{}
+
+func (c *coInjectBuildAPICreds) ApplyToHTTPRequest(rb *hoclient.HTTPRequestBuilder) {
+	rb.AddHeader("X-Cutf-Cloud-Orchestrator-Inject-BuildAPI-Creds" /* avoid empty header value */, "inject")
+}
+
 func credentialsFactoryFromSource(source string, projectID string) (CredentialsFactory, error) {
 	switch source {
 	case NoneCredentialsSource:
-		return func() hoclient.BuildAPICredential { return hoclient.BuildAPICredential{} }, nil
+		return func() hoclient.BuildAPICreds { return &hoclient.AccessTokenBuildAPICreds{} }, nil
 	case InjectedCredentialsSource:
 		if projectID != "" {
 			return nil, fmt.Errorf("project ID is not supported with injected credentials")
 		}
-		return func() hoclient.BuildAPICredential {
-			return hoclient.BuildAPICredential{AccessToken: client.InjectedCredentials}
-		}, nil
+		return func() hoclient.BuildAPICreds { return &coInjectBuildAPICreds{} }, nil
 	default:
 		// expected: `(jwt|oauth):/dir/credentialFile`
 		strs := strings.SplitN(source, ":", 2)
@@ -380,8 +384,8 @@ func credentialsFactoryFromSource(source string, projectID string) (CredentialsF
 		if err != nil {
 			return nil, fmt.Errorf("retrieve access token error: %w", err)
 		}
-		return func() hoclient.BuildAPICredential {
-			return hoclient.BuildAPICredential{AccessToken: token, UserProjectID: projectID}
+		return func() hoclient.BuildAPICreds {
+			return &hoclient.AccessTokenBuildAPICreds{AccessToken: token, UserProjectID: projectID}
 		}, nil
 	}
 }

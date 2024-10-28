@@ -29,12 +29,6 @@ import (
 	"github.com/hashicorp/go-multierror"
 )
 
-const (
-	// Value to pass as credentials to the Host Orchestrator service endpoints. Any non-empty value is enough.
-	InjectedCredentials             = "inject"
-	headerNameCOInjectBuildAPICreds = "X-Cutf-Cloud-Orchestrator-Inject-BuildAPI-Creds"
-)
-
 type ApiCallError struct {
 	Code     int    `json:"code,omitempty"`
 	ErrorMsg string `json:"error,omitempty"`
@@ -190,12 +184,7 @@ func (s *serviceImpl) RootURI() string {
 func (s *serviceImpl) HostService(host string) hoclient.HostOrchestratorService {
 	hs := &hoclient.HostOrchestratorServiceImpl{
 		HTTPHelper: s.httpHelper,
-		// Make the cloud orchestrator inject the credentials instead
-		BuildAPICredentialsHeader: hoclient.DefaultHostOrchestratorCredentialsHeader,
-		ProxyURL:                  s.ProxyURL,
-	}
-	if s.InjectBuildAPICreds {
-		hs.BuildAPICredentialsHeader = headerNameCOInjectBuildAPICreds
+		ProxyURL:   s.ProxyURL,
 	}
 	hs.HTTPHelper.RootEndpoint = s.httpHelper.RootEndpoint + "/hosts/" + host
 	return hs

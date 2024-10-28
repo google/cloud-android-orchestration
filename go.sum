@@ -111,6 +111,8 @@ github.com/google/android-cuttlefish/frontend/src/host_orchestrator v0.0.0-20241
 github.com/google/android-cuttlefish/frontend/src/host_orchestrator v0.0.0-20241008171059-6292f0536d3c/go.mod h1:jXT8KyxHnr3qWiE+qhZjhcrCquDFdl6h0LBpNoreP1U=
 github.com/google/android-cuttlefish/frontend/src/libhoclient v0.0.0-20241015220958-6d128c03da81 h1:CYRoqG++A4l2UKvLLzUDaWA+NzJY8zAt2j/FEVu3lDo=
 github.com/google/android-cuttlefish/frontend/src/libhoclient v0.0.0-20241015220958-6d128c03da81/go.mod h1:KPb7LvjOt8oanRFqjgBjp6Hc/E60usOKGpeQlEWUDBk=
+github.com/google/android-cuttlefish/frontend/src/libhoclient v0.0.0-20241028162827-6c01d79fd632 h1:BQjnXiwag9KrdLn2YMJvPtuj2/Ow2h//DGJlRT31aDE=
+github.com/google/android-cuttlefish/frontend/src/libhoclient v0.0.0-20241028162827-6c01d79fd632/go.mod h1:KPb7LvjOt8oanRFqjgBjp6Hc/E60usOKGpeQlEWUDBk=
 github.com/google/android-cuttlefish/frontend/src/liboperator v0.0.0-20240822182916-7bea0dafdbde h1:laMjSvqBHvDZ9DB+YaM6I4y5t0a7zYQRorYLM1VJsyM=
 github.com/google/android-cuttlefish/frontend/src/liboperator v0.0.0-20240822182916-7bea0dafdbde/go.mod h1:iA3V13fYW7It3n+LqvgOkXAOhw56XAjS1vH43+kU/4o=
 github.com/google/go-cmp v0.2.0/go.mod h1:oXzfMopK8JAjlY9xF4vHSVASa0yLyX7SntLO5aqRK0M=

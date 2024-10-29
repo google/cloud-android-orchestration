@@ -32,9 +32,9 @@ import (
 	"syscall"
 
 	client "github.com/google/cloud-android-orchestration/pkg/client"
-	wclient "github.com/google/cloud-android-orchestration/pkg/webrtcclient"
 
 	"github.com/PaesslerAG/jsonpath"
+	wclient "github.com/google/android-cuttlefish/frontend/src/libhoclient/webrtcclient"
 	"github.com/gorilla/websocket"
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"

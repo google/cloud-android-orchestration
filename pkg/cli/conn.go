@@ -29,9 +29,9 @@ import (
 	"time"
 
 	client "github.com/google/cloud-android-orchestration/pkg/client"
-	wclient "github.com/google/cloud-android-orchestration/pkg/webrtcclient"
 
 	hoclient "github.com/google/android-cuttlefish/frontend/src/libhoclient"
+	wclient "github.com/google/android-cuttlefish/frontend/src/libhoclient/webrtcclient"
 	"github.com/hashicorp/go-multierror"
 	"github.com/pion/webrtc/v3"
 )

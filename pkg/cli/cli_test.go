@@ -26,10 +26,10 @@ import (
 
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
 	"github.com/google/cloud-android-orchestration/pkg/client"
-	wclient "github.com/google/cloud-android-orchestration/pkg/webrtcclient"
 
 	hoapi "github.com/google/android-cuttlefish/frontend/src/host_orchestrator/api/v1"
 	hoclient "github.com/google/android-cuttlefish/frontend/src/libhoclient"
+	wclient "github.com/google/android-cuttlefish/frontend/src/libhoclient/webrtcclient"
 	"github.com/google/go-cmp/cmp"
 	"github.com/gorilla/websocket"
 )

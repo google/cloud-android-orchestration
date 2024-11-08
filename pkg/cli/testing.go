@@ -100,3 +100,15 @@ func (fakeHostService) DownloadRuntimeArtifacts(dst io.Writer) error {
 func (fakeHostService) WaitForOperation(string, any) error { return nil }
 
 func (fakeHostService) CreateBugreport(string, io.Writer) error { return nil }
+
+func (fakeHostService) Powerwash(groupName, instanceName string) error { return nil }
+
+func (fakeHostService) Stop(groupName, instanceName string) error { return nil }
+
+func (fakeHostService) Start(groupName, instanceName string, req *hoapi.StartCVDRequest) error {
+	return nil
+}
+
+func (fakeHostService) CreateSnapshot(groupName, instanceName string) (*hoapi.CreateSnapshotResponse, error) {
+	return nil, nil
+}

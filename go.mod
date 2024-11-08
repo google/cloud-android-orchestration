@@ -10,7 +10,7 @@ require (
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/docker/docker v24.0.9+incompatible
 	github.com/golang-jwt/jwt v3.2.2+incompatible
-	github.com/google/android-cuttlefish/frontend/src/host_orchestrator v0.0.0-20241008171059-6292f0536d3c
+	github.com/google/android-cuttlefish/frontend/src/host_orchestrator v0.0.0-20241030000315-e864bdae6e57
 	github.com/google/android-cuttlefish/frontend/src/liboperator v0.0.0-20240822182916-7bea0dafdbde
 	github.com/google/go-cmp v0.5.9
 	github.com/google/uuid v1.3.1
@@ -50,7 +50,7 @@ require (
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
-	github.com/google/android-cuttlefish/frontend/src/libhoclient v0.0.0-20241029193057-efa991458b67 // indirect
+	github.com/google/android-cuttlefish/frontend/src/libhoclient v0.0.0-20241108210539-a83c58892170 // indirect
 	github.com/google/s2a-go v0.1.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.2.3 // indirect
 	github.com/googleapis/gax-go/v2 v2.8.0 // indirect

@@ -99,8 +99,7 @@ type CreateCVDOpts struct {
 	LocalImage      bool
 	// Creates multiple instances. Only relevant if given a single build source.
 	NumInstances int
-	// Structure: https://android.googlesource.com/device/google/cuttlefish/+/8bbd3b9cd815f756f332791d45c4f492b663e493/host/commands/cvd/parser/README.md
-	// Example: https://cs.android.com/android/platform/superproject/main/+/main:device/google/cuttlefish/host/cvd_test_configs/main_phone-main_watch.json;drc=b2e8f4f014abb7f9cb56c0ae199334aacb04542d
+	// TODO(b/378123925): Work with https://github.com/google/android-cuttlefish/blob/main/base/cvd/cuttlefish/host/commands/cvd/cli/parser/load_config.proto
 	EnvConfig map[string]interface{}
 	// If true, perform the ADB connection automatically.
 	AutoConnect               bool
@@ -278,16 +277,113 @@ func (c *cvdCreator) createCVDFromAndroidCI() ([]*hoapi.CVD, error) {
 }
 
 func (c *cvdCreator) createWithCanonicalConfig() ([]*hoapi.CVD, error) {
+	hostSrv := c.client.HostService(c.opts.Host)
+	envConfig := make(map[string]any)
+	if err := deepCopy(c.opts.EnvConfig, &envConfig); err != nil {
+		return nil, fmt.Errorf("deep copying env config failed: %w", err)
+	}
+	if err := c.uploadFilesAndUpdateEnvConfig(hostSrv, envConfig); err != nil {
+		return nil, fmt.Errorf("failed uploading files from environment config: %w", err)
+	}
 	createReq := &hoapi.CreateCVDRequest{
-		EnvConfig: c.opts.EnvConfig,
+		EnvConfig: envConfig,
 	}
 	c.statePrinter.Print(stateMsgFetchAndStart)
-	res, err := c.client.HostService(c.opts.Host).CreateCVD(createReq, c.credentialsFactory())
+	res, err := hostSrv.CreateCVD(createReq, c.credentialsFactory())
 	c.statePrinter.PrintDone(stateMsgFetchAndStart, err)
 	if err != nil {
 		return nil, err
 	}
 	return res.CVDs, nil
+}
+
+func (c *cvdCreator) uploadFilesAndUpdateEnvConfig(hostSrv hoclient.HostOrchestratorService, config map[string]interface{}) error {
+	if err := c.uploadCVDHostPackageAndUpdateEnvConfig(hostSrv, config); err != nil {
+		return err
+	}
+	return c.uploadImagesAndUpdateEnvConfig(hostSrv, config)
+}
+
+// TODO(b/378123925) Work with https://github.com/google/android-cuttlefish/blob/main/base/cvd/cuttlefish/host/commands/cvd/cli/parser/load_config.proto
+func (c *cvdCreator) uploadCVDHostPackageAndUpdateEnvConfig(hostSrv hoclient.HostOrchestratorService, config map[string]interface{}) error {
+	common, ok := config["common"]
+	if !ok {
+		return nil
+	}
+	commonMap, ok := common.(map[string]any)
+	if !ok {
+		return nil
+	}
+	hostPackage, ok := commonMap["host_package"]
+	if !ok {
+		return nil
+	}
+	if val, ok := hostPackage.(string); ok && !strings.HasPrefix(val, "@ab") {
+		isDir, err := isDirectory(val)
+		if err != nil {
+			return fmt.Errorf("directory test for %q failed: %w", val, err)
+		}
+		if isDir {
+			return fmt.Errorf("uploading directory not supported")
+		}
+		uploadDir, err := hostSrv.CreateUploadDir()
+		if err != nil {
+			return fmt.Errorf("failed creating upload dir: %w", err)
+		}
+		if err := uploadFiles(hostSrv, uploadDir, []string{val}, c.statePrinter); err != nil {
+			return fmt.Errorf("failed uploading %q: %w", val, err)
+		}
+		commonMap["host_package"] = "@user_artifacts/" + uploadDir
+	}
+	return nil
+}
+
+// TODO(b/378123925) Work with https://github.com/google/android-cuttlefish/blob/main/base/cvd/cuttlefish/host/commands/cvd/cli/parser/load_config.proto
+func (c *cvdCreator) uploadImagesAndUpdateEnvConfig(hostSrv hoclient.HostOrchestratorService, config map[string]interface{}) error {
+	instances, ok := config["instances"]
+	if !ok {
+		return nil
+	}
+	instancesArr, ok := instances.([]any)
+	if !ok {
+		return nil
+	}
+	for _, ins := range instancesArr {
+		ins, ok := ins.(map[string]any)
+		if !ok {
+			continue
+		}
+		disk, ok := ins["disk"]
+		if !ok {
+			continue
+		}
+		diskMap, ok := disk.(map[string]any)
+		if !ok {
+			continue
+		}
+		defaultBuild, ok := diskMap["default_build"]
+		if !ok {
+			continue
+		}
+		if val, ok := defaultBuild.(string); ok && !strings.HasPrefix(val, "@ab") {
+			isDir, err := isDirectory(val)
+			if err != nil {
+				return fmt.Errorf("directory test for %q failed: %w", val, err)
+			}
+			if isDir {
+				return fmt.Errorf("uploading directory not supported")
+			}
+			uploadDir, err := hostSrv.CreateUploadDir()
+			if err != nil {
+				return fmt.Errorf("failed creating upload dir: %w", err)
+			}
+			if err := uploadFiles(hostSrv, uploadDir, []string{val}, c.statePrinter); err != nil {
+				return fmt.Errorf("failed uploading %q: %w", val, err)
+			}
+			diskMap["default_build"] = "@user_artifacts/" + uploadDir
+		}
+	}
+	return nil
 }
 
 func (c *cvdCreator) createWithOpts() ([]*hoapi.CVD, error) {
@@ -652,4 +748,21 @@ func uploadFiles(srv hoclient.HostOrchestratorService, uploadDir string, names [
 		}
 	}
 	return nil
+}
+
+// Deep copies src to dst using json marshaling.
+func deepCopy(src, dst any) error {
+	b, err := json.Marshal(src)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(b, dst)
+}
+
+func isDirectory(path string) (bool, error) {
+	fileInfo, err := os.Stat(path)
+	if err != nil {
+		return false, err
+	}
+	return fileInfo.IsDir(), nil
 }

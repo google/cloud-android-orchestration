@@ -111,6 +111,8 @@ func LoadOAuth2Config(config *config.Config, sm secrets.SecretManager) *appOAuth
 func LoadAccountManager(config *config.Config) accounts.Manager {
 	var am accounts.Manager
 	switch config.AccountManager.Type {
+	case accounts.IAPType:
+		am = accounts.NewIAPAccountManager()
 	case accounts.GAEAMType:
 		am = accounts.NewGAEUsersAccountManager()
 	case accounts.UnixAMType:

@@ -38,6 +38,7 @@ type GCPIMConfig struct {
 	HostOrchestratorPort int
 	Network              string
 	Subnetwork           string
+	UsePrivateIP         bool
 	// If true, instances created should be compatible with `acloud CLI`.
 	AcloudCompatible bool
 }
@@ -107,6 +108,17 @@ func (m *GCEInstanceManager) CreateHost(zone string, req *apiv1.CreateHostReques
 	if err := validateRequest(req); err != nil {
 		return nil, err
 	}
+	accessConfig := []*compute.AccessConfig{
+		{
+			Name: "External NAT",
+			Type: "ONE_TO_ONE_NAT",
+		},
+	}
+
+	if m.Config.GCP.UsePrivateIP {
+		accessConfig = []*compute.AccessConfig{}
+	}
+
 	payload := &compute.Instance{
 		Name: m.InstanceNameGenerator.NewName(),
 		// This is required in the format: "zones/zone/machineTypes/machine-type".
@@ -127,14 +139,9 @@ func (m *GCEInstanceManager) CreateHost(zone string, req *apiv1.CreateHostReques
 		},
 		NetworkInterfaces: []*compute.NetworkInterface{
 			{
-				Network:    m.Config.GCP.Network,
-				Subnetwork: m.Config.GCP.Subnetwork,
-				AccessConfigs: []*compute.AccessConfig{
-					{
-						Name: "External NAT",
-						Type: "ONE_TO_ONE_NAT",
-					},
-				},
+				Network:       m.Config.GCP.Network,
+				Subnetwork:    m.Config.GCP.Subnetwork,
+				AccessConfigs: accessConfig,
 			},
 		},
 		Labels: map[string]string{

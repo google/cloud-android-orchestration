@@ -1,0 +1,42 @@
+#!/bin/bash
+
+pushd ../../../ > /dev/null
+
+gcloud auth configure-docker --quiet \
+    ${REGION}-docker.pkg.dev
+
+docker build -t ${IMAGE} .
+
+docker push ${IMAGE}
+
+gcloud run deploy ${CLOUD_RUN_NAME} \
+  --image=${IMAGE} \
+  --no-allow-unauthenticated \
+  --port=8080 \
+  --service-account=${SA_EMAIL} \
+  --set-env-vars='CONFIG_FILE=/config/conf.toml' --set-env-vars='IAP_AUDIENCE=/projects/${PROJECT_NUMBER}/global/backendServices/${BACKEND_SERVICE_ID}' \
+  --set-secrets=/config/conf.toml=cloud-orchestrator-config:latest \
+  --ingress=internal-and-cloud-load-balancing \
+  --vpc-connector=${CONNECTOR_ID} \
+  --vpc-egress=private-ranges-only \
+  --region=${REGION} \
+  --project=${PROJECT_ID}
+
+gcloud run services add-iam-policy-binding ${CLOUD_RUN_NAME} \
+    --region=${REGION} \
+    --member=serviceAccount:service-${PROJECT_NUMBER}@gcp-sa-iap.iam.gserviceaccount.com \
+    --role=roles/run.invoker \
+    --project=${PROJECT_ID}
+
+cat << EOF > SETTING_FILE
+  access_settings:
+    oauth_settings:
+      programmatic_clients: ["${OAUTH_CLIENT_ID}"]
+EOF
+
+gcloud iap settings set SETTING_FILE \
+  --project=${PROJECT_ID} \
+  --resource-type=iap_web \
+  --service=${BACKEND_SERVICE_NAME}
+
+popd > /dev/null

@@ -1,4 +1,11 @@
+SETTING_FILE
 /cvdr
 /cloud_orchestrator
+/scripts/gcp/cloudrun/build-and-deploy.sh
 
 tags
+
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfvars

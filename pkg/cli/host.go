@@ -28,11 +28,13 @@ type CreateHostOpts struct {
 func (f *CreateHostOpts) Update(s *Service) {
 	f.GCP.MachineType = s.Host.GCP.MachineType
 	f.GCP.MinCPUPlatform = s.Host.GCP.MinCPUPlatform
+	f.GCP.BootDiskSizeGB = s.Host.GCP.BootDiskSizeGB
 }
 
 type CreateGCPHostOpts struct {
 	MachineType        string
 	MinCPUPlatform     string
+	BootDiskSizeGB     int64
 	AcceleratorConfigs []acceleratorConfig
 }
 
@@ -42,6 +44,7 @@ func createHost(srvClient client.Client, opts CreateHostOpts) (*apiv1.HostInstan
 			GCP: &apiv1.GCPInstance{
 				MachineType:    opts.GCP.MachineType,
 				MinCPUPlatform: opts.GCP.MinCPUPlatform,
+				BootDiskSizeGB: opts.GCP.BootDiskSizeGB,
 			},
 		},
 	}

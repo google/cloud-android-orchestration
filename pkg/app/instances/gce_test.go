@@ -153,6 +153,7 @@ func TestCreateHostRequestBody(t *testing.T) {
   },
   "disks": [
     {
+      "autoDelete": true,
       "boot": true,
       "initializeParams": {
         "sourceImage": "projects/test-project-releases/global/images/family/foo"

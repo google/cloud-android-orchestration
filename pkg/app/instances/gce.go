@@ -121,7 +121,8 @@ func (m *GCEInstanceManager) CreateHost(zone string, req *apiv1.CreateHostReques
 				InitializeParams: &compute.AttachedDiskInitializeParams{
 					SourceImage: m.Config.GCP.HostImageFamily,
 				},
-				Boot: true,
+				Boot:       true,
+				AutoDelete: true,
 			},
 		},
 		NetworkInterfaces: []*compute.NetworkInterface{

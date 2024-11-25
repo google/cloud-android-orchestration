@@ -64,8 +64,8 @@ variable "serverless_connector_name" {
   default     = "co-vpc-connector"
 }
 
-variable "use_private_ips" {
-  description = "Toggle to use private IPs in GCP"
+variable "use_external_ip" {
+  description = "Toggle to use external IPs in GCP"
   type        = bool
-  default     = true
+  default     = false
 }

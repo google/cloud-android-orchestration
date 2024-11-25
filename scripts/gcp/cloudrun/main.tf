@@ -80,7 +80,7 @@ resource "google_secret_manager_secret_version" "secret-version-basic" {
     PROJECT_ID      = var.project_id,
     NETWORK         = google_compute_network.network.id,
     SUBNETWORK      = google_compute_subnetwork.subnetwork.id
-    USE_PRIVATE_IPS = var.use_private_ips
+    USE_EXTERNAL_IP = var.use_external_ip
   })
 }
 
@@ -215,7 +215,7 @@ resource "google_vpc_access_connector" "connector" {
 }
 
 module "cloud-nat" {
-  for_each      = var.use_private_ips ? toset(["1"]) : toset([])
+  count         = var.use_external_ip ? 0 : 1
   source        = "terraform-google-modules/cloud-nat/google"
   version       = "~> 5.0"
   project_id    = var.project_id

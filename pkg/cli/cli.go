@@ -86,12 +86,14 @@ const (
 
 	gcpMachineTypeFlag    = "gcp_machine_type"
 	gcpMinCPUPlatformFlag = "gcp_min_cpu_platform"
+	gcpBootDiskSizeGB     = "gcp_boot_disk_size_gb"
 )
 
 const (
 	acceleratorFlagDesc       = "Configuration to attach accelerator cards, i.e: --accelerator type=nvidia-tesla-p100,count=1"
 	gcpMachineTypeFlagDesc    = "Indicates the machine type"
 	gcpMinCPUPlatformFlagDesc = "Specifies a minimum CPU platform for the VM instance"
+	gcpBootDiskSizeGBDesc     = "Specifies the Boot Disk size for the VM instance"
 )
 
 const (
@@ -481,6 +483,8 @@ func hostCommand(opts *subCommandOpts) *cobra.Command {
 		opts.InitialConfig.DefaultService().Host.GCP.MachineType, gcpMachineTypeFlagDesc)
 	create.Flags().StringVar(&createFlags.GCP.MinCPUPlatform, gcpMinCPUPlatformFlag,
 		opts.InitialConfig.DefaultService().Host.GCP.MinCPUPlatform, gcpMinCPUPlatformFlagDesc)
+	create.Flags().Int64Var(&createFlags.GCP.BootDiskSizeGB, gcpBootDiskSizeGB,
+		opts.InitialConfig.DefaultService().Host.GCP.BootDiskSizeGB, gcpBootDiskSizeGBDesc)
 	list := &cobra.Command{
 		Use:     "list",
 		Short:   "Lists hosts.",

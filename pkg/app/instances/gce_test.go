@@ -82,7 +82,6 @@ func TestCreateHostInvalidRequests(t *testing.T) {
 	}{
 		{func(r *apiv1.CreateHostRequest) { r.HostInstance = nil }},
 		{func(r *apiv1.CreateHostRequest) { r.HostInstance.Name = "foo" }},
-		{func(r *apiv1.CreateHostRequest) { r.HostInstance.BootDiskSizeGB = 1 }},
 		{func(r *apiv1.CreateHostRequest) { r.HostInstance.GCP = nil }},
 		{func(r *apiv1.CreateHostRequest) { r.HostInstance.GCP.MachineType = "" }},
 	}
@@ -142,6 +141,7 @@ func TestCreateHostRequestBody(t *testing.T) {
 				GCP: &apiv1.GCPInstance{
 					MachineType:    "n1-standard-1",
 					MinCPUPlatform: "Intel Haswell",
+					BootDiskSizeGB: 100,
 				},
 			},
 		},
@@ -156,6 +156,7 @@ func TestCreateHostRequestBody(t *testing.T) {
       "autoDelete": true,
       "boot": true,
       "initializeParams": {
+        "diskSizeGb": "100",
         "sourceImage": "projects/test-project-releases/global/images/family/foo"
       }
     }
@@ -638,11 +639,11 @@ func TestBuildHostInstance(t *testing.T) {
 	got, err := BuildHostInstance(input)
 
 	want := apiv1.HostInstance{
-		Name:           "foo",
-		BootDiskSizeGB: 10,
+		Name: "foo",
 		GCP: &apiv1.GCPInstance{
 			MachineType:    "n1-standard-1",
 			MinCPUPlatform: "Intel Haswell",
+			BootDiskSizeGB: 10,
 		},
 	}
 	if diff := cmp.Diff(&want, got); diff != "" {

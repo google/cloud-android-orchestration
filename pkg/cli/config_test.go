@@ -61,7 +61,8 @@ BuildAPICredentialsSource = "injected"
 Host = {
   GCP = {
     MachineType = "machine_type",
-    MinCPUPlatform = "cpu_platform"
+    MinCPUPlatform = "cpu_platform",
+    BootDiskSizeGB = 10
   }
 }
 Authn = {

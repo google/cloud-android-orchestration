@@ -12,8 +12,6 @@ type Zone struct {
 type HostInstance struct {
 	// [Output Only] Instance name.
 	Name string `json:"name,omitempty"`
-	// [Output Only] Boot disk size in GB.
-	BootDiskSizeGB int64 `json:"boot_disk_size_gb,omitempty"`
 	// GCP specific properties.
 	GCP *GCPInstance `json:"gcp,omitempty"`
 	// Docker specific properties.
@@ -35,6 +33,8 @@ type GCPInstance struct {
 	MinCPUPlatform string `json:"min_cpu_platform"`
 	// List of accelerator configurations.
 	AcceleratorConfigs []*AcceleratorConfig `json:"accelerator_configs,omitempty"`
+	// Boot disk size in GB; Defaults to SourceImage disk size if unset
+	BootDiskSizeGB int64 `json:"boot_disk_size_gb,omitempty"`
 }
 
 type AcceleratorConfig struct {

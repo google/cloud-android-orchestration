@@ -29,6 +29,7 @@ import (
 type GCPHostConfig struct {
 	MachineType    string `json:"machine_type,omitempty"`
 	MinCPUPlatform string `json:"min_cpu_platform,omitempty"`
+	BootDiskSizeGB int64  `json:"boot_disk_size_gb,omitempty"`
 }
 
 type HostConfig struct {

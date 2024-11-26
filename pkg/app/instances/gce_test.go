@@ -169,6 +169,61 @@ func TestCreateHostRequestBody(t *testing.T) {
   "name": "foo",
   "networkInterfaces": [
     {
+      "network": "projects/google.com:test-project/global/networks/default"
+    }
+  ]
+}`
+	r := prettyJSON(t, &bodySent)
+	if r != expected {
+		t.Errorf("unexpected body, diff: %s", diffPrettyText(r, expected))
+	}
+}
+
+func TestCreateHostExternalIpRequestBody(t *testing.T) {
+	var bodySent compute.Instance
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := ioutil.ReadAll(r.Body)
+		json.Unmarshal(body, &bodySent)
+		replyJSON(w, &compute.Operation{Name: "operation-1"})
+	}))
+	defer ts.Close()
+	testService := buildTestService(t, ts)
+	testConfigExternalIp := testConfig
+	testConfigExternalIp.GCP.UseExternalIP = true
+	im := NewGCEInstanceManager(testConfigExternalIp, testService, testNameGenerator)
+
+	im.CreateHost("us-central1-a",
+		&apiv1.CreateHostRequest{
+			HostInstance: &apiv1.HostInstance{
+				GCP: &apiv1.GCPInstance{
+					MachineType:    "n1-standard-1",
+					MinCPUPlatform: "Intel Haswell",
+				},
+			},
+		},
+		&TestUser{})
+
+	expected := `{
+  "advancedMachineFeatures": {
+    "enableNestedVirtualization": true
+  },
+  "disks": [
+    {
+      "autoDelete": true,
+      "boot": true,
+      "initializeParams": {
+        "sourceImage": "projects/test-project-releases/global/images/family/foo"
+      }
+    }
+  ],
+  "labels": {
+    "cf-created_by": "` + fakeUsername + `"
+  },
+  "machineType": "zones/us-central1-a/machineTypes/n1-standard-1",
+  "minCpuPlatform": "Intel Haswell",
+  "name": "foo",
+  "networkInterfaces": [
+    {
       "accessConfigs": [
         {
           "name": "External NAT",

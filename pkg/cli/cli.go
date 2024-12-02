@@ -34,6 +34,7 @@ import (
 	client "github.com/google/cloud-android-orchestration/pkg/client"
 
 	"github.com/PaesslerAG/jsonpath"
+	hoapi "github.com/google/android-cuttlefish/frontend/src/host_orchestrator/api/v1"
 	wclient "github.com/google/android-cuttlefish/frontend/src/libhoclient/webrtcclient"
 	"github.com/gorilla/websocket"
 	"github.com/hashicorp/go-multierror"
@@ -216,6 +217,13 @@ type DeleteCVDFlags struct {
 }
 
 type StopCVDFlags struct {
+	*ServiceFlags
+	Host  string
+	Group string
+	Name  string
+}
+
+type StartCVDFlags struct {
 	*ServiceFlags
 	Host  string
 	Group string
@@ -676,7 +684,23 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 	stop.MarkFlagRequired(groupFlag)
 	stop.Flags().StringVar(&stopFlags.Name, nameFlag, "", "Instance name")
 	stop.MarkFlagRequired(nameFlag)
-	return []*cobra.Command{create, list, br, del, stop}
+	// Start command
+	startFlags := &StartCVDFlags{ServiceFlags: opts.ServiceFlags}
+	start := &cobra.Command{
+		Use:     "start --host=HOST --group=GROUP --name=NAME",
+		Short:   "Start a stopped instance",
+		PreRunE: preRunE(startFlags, &opts.ServiceFlags.Service, &opts.InitialConfig),
+		RunE: func(c *cobra.Command, args []string) error {
+			return runStartCVDCommand(c, args, startFlags, opts)
+		},
+	}
+	start.Flags().StringVar(&startFlags.Host, hostFlag, "", "Host name")
+	start.MarkFlagRequired(hostFlag)
+	start.Flags().StringVar(&startFlags.Group, groupFlag, "", "Instances group name")
+	start.MarkFlagRequired(groupFlag)
+	start.Flags().StringVar(&startFlags.Name, nameFlag, "", "Instance name")
+	start.MarkFlagRequired(nameFlag)
+	return []*cobra.Command{create, list, br, del, stop, start}
 }
 
 func connectionCommands(opts *subCommandOpts) []*cobra.Command {
@@ -952,6 +976,15 @@ func runStopCVDCommand(c *cobra.Command, args []string, flags *StopCVDFlags, opt
 		return err
 	}
 	return srvClient.HostService(flags.Host).Stop(flags.Group, flags.Name)
+}
+
+func runStartCVDCommand(c *cobra.Command, args []string, flags *StartCVDFlags, opts *subCommandOpts) error {
+	srvClient, err := newClient(opts.InitialConfig, flags.ServiceFlags, c)
+	if err != nil {
+		return err
+	}
+	req := &hoapi.StartCVDRequest{}
+	return srvClient.HostService(flags.Host).Start(flags.Group, flags.Name, req)
 }
 
 // Returns empty string if there was no host.

@@ -230,6 +230,13 @@ type StartCVDFlags struct {
 	Name  string
 }
 
+type SnapshotCVDFlags struct {
+	*ServiceFlags
+	Host  string
+	Group string
+	Name  string
+}
+
 type subCommandOpts struct {
 	ServiceFlags   *ServiceFlags
 	InitialConfig  Config
@@ -700,7 +707,23 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 	start.MarkFlagRequired(groupFlag)
 	start.Flags().StringVar(&startFlags.Name, nameFlag, "", "Instance name")
 	start.MarkFlagRequired(nameFlag)
-	return []*cobra.Command{create, list, br, del, stop, start}
+	// Snapshot command
+	snapshotFlags := &SnapshotCVDFlags{ServiceFlags: opts.ServiceFlags}
+	snapshot := &cobra.Command{
+		Use:     "snapshot --host=HOST --group=GROUP --name=NAME",
+		Short:   "Snapshot a device",
+		PreRunE: preRunE(snapshotFlags, &opts.ServiceFlags.Service, &opts.InitialConfig),
+		RunE: func(c *cobra.Command, args []string) error {
+			return runSnapshotCVDCommand(c, args, snapshotFlags, opts)
+		},
+	}
+	snapshot.Flags().StringVar(&snapshotFlags.Host, hostFlag, "", "Host name")
+	snapshot.MarkFlagRequired(hostFlag)
+	snapshot.Flags().StringVar(&snapshotFlags.Group, groupFlag, "", "Instances group name")
+	snapshot.MarkFlagRequired(groupFlag)
+	snapshot.Flags().StringVar(&snapshotFlags.Name, nameFlag, "", "Instance name")
+	snapshot.MarkFlagRequired(nameFlag)
+	return []*cobra.Command{create, list, br, del, stop, start, snapshot}
 }
 
 func connectionCommands(opts *subCommandOpts) []*cobra.Command {
@@ -985,6 +1008,19 @@ func runStartCVDCommand(c *cobra.Command, args []string, flags *StartCVDFlags, o
 	}
 	req := &hoapi.StartCVDRequest{}
 	return srvClient.HostService(flags.Host).Start(flags.Group, flags.Name, req)
+}
+
+func runSnapshotCVDCommand(c *cobra.Command, args []string, flags *SnapshotCVDFlags, opts *subCommandOpts) error {
+	srvClient, err := newClient(opts.InitialConfig, flags.ServiceFlags, c)
+	if err != nil {
+		return err
+	}
+	res, err := srvClient.HostService(flags.Host).CreateSnapshot(flags.Group, flags.Name)
+	if err != nil {
+		return err
+	}
+	c.Println(res.SnapshotID)
+	return nil
 }
 
 // Returns empty string if there was no host.

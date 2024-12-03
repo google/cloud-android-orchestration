@@ -123,6 +123,7 @@ const (
 	localCVDHostPkgSrcFlag     = "local_cvd_host_pkg_src"
 	localImagesSrcsFlag        = "local_images_srcs"
 	localImagesZipSrcFlag      = "local_images_zip_src"
+	snapshotIDFlag             = "snapshot_id"
 )
 
 const (
@@ -225,9 +226,10 @@ type StopCVDFlags struct {
 
 type StartCVDFlags struct {
 	*ServiceFlags
-	Host  string
-	Group string
-	Name  string
+	Host       string
+	Group      string
+	Name       string
+	SnapshotID string
 }
 
 type SnapshotCVDFlags struct {
@@ -707,6 +709,7 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 	start.MarkFlagRequired(groupFlag)
 	start.Flags().StringVar(&startFlags.Name, nameFlag, "", "Instance name")
 	start.MarkFlagRequired(nameFlag)
+	start.Flags().StringVar(&startFlags.SnapshotID, snapshotIDFlag, "", "Snapshot id")
 	// Snapshot command
 	snapshotFlags := &SnapshotCVDFlags{ServiceFlags: opts.ServiceFlags}
 	snapshot := &cobra.Command{
@@ -1007,6 +1010,9 @@ func runStartCVDCommand(c *cobra.Command, args []string, flags *StartCVDFlags, o
 		return err
 	}
 	req := &hoapi.StartCVDRequest{}
+	if flags.SnapshotID != "" {
+		req.SnapshotID = flags.SnapshotID
+	}
 	return srvClient.HostService(flags.Host).Start(flags.Group, flags.Name, req)
 }
 

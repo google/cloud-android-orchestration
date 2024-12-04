@@ -43,7 +43,7 @@ const dockerLabelCreatedBy = "created_by"
 // Docker implementation of the instance manager.
 type DockerInstanceManager struct {
 	Config Config
-	Client client.Client
+	Client *client.Client
 }
 
 type OPType string
@@ -53,7 +53,7 @@ const (
 	DeleteHostOPType OPType = "deletehost"
 )
 
-func NewDockerInstanceManager(cfg Config, cli client.Client) *DockerInstanceManager {
+func NewDockerInstanceManager(cfg Config, cli *client.Client) *DockerInstanceManager {
 	return &DockerInstanceManager{
 		Config: cfg,
 		Client: cli,

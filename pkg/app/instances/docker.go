@@ -21,14 +21,14 @@ import (
 	"strings"
 	"time"
 
+	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
+	"github.com/google/cloud-android-orchestration/pkg/app/accounts"
+	"github.com/google/cloud-android-orchestration/pkg/app/errors"
+
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
-
-	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
-	"github.com/google/cloud-android-orchestration/pkg/app/accounts"
-	"github.com/google/cloud-android-orchestration/pkg/app/errors"
 )
 
 const DockerIMType IMType = "docker"
@@ -88,7 +88,7 @@ func (m *DockerInstanceManager) CreateHost(zone string, _ *apiv1.CreateHostReque
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create docker container: %w", err)
 	}
-	err = m.Client.ContainerStart(ctx, createRes.ID, types.ContainerStartOptions{})
+	err = m.Client.ContainerStart(ctx, createRes.ID, container.StartOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("Failed to start docker container: %w", err)
 	}
@@ -114,7 +114,7 @@ func (m *DockerInstanceManager) ListHosts(zone string, user accounts.User, _ *Li
 			Value: m.Config.Docker.DockerImageName,
 		},
 	)
-	listRes, err := m.Client.ContainerList(ctx, types.ContainerListOptions{
+	listRes, err := m.Client.ContainerList(ctx, container.ListOptions{
 		Filters: listFilters,
 	})
 	if err != nil {
@@ -152,7 +152,7 @@ func (m *DockerInstanceManager) DeleteHost(zone string, user accounts.User, host
 	if err != nil {
 		return nil, fmt.Errorf("Failed to stop docker container: %w", err)
 	}
-	err = m.Client.ContainerRemove(ctx, host, types.ContainerRemoveOptions{})
+	err = m.Client.ContainerRemove(ctx, host, container.RemoveOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("Failed to remove docker container: %w", err)
 	}
@@ -241,7 +241,7 @@ func (m *DockerInstanceManager) getIpAddr(container *types.Container) (string, e
 
 func (m *DockerInstanceManager) getHostAddr(host string) (string, error) {
 	ctx := context.TODO()
-	listRes, err := m.Client.ContainerList(ctx, types.ContainerListOptions{})
+	listRes, err := m.Client.ContainerList(ctx, container.ListOptions{})
 	if err != nil {
 		return "", fmt.Errorf("Failed to list docker containers: %w", err)
 	}

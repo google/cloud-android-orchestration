@@ -67,7 +67,7 @@ func LoadInstanceManager(config *config.Config) instances.Manager {
 		if err != nil {
 			log.Fatal("Failed to get docker client: ", err)
 		}
-		im = instances.NewDockerInstanceManager(config.InstanceManager, *cli)
+		im = instances.NewDockerInstanceManager(config.InstanceManager, cli)
 	default:
 		log.Fatal("Unknown Instance Manager type: ", config.InstanceManager.Type)
 	}

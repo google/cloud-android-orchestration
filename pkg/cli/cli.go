@@ -34,6 +34,7 @@ import (
 	client "github.com/google/cloud-android-orchestration/pkg/client"
 
 	"github.com/PaesslerAG/jsonpath"
+	hoapi "github.com/google/android-cuttlefish/frontend/src/host_orchestrator/api/v1"
 	wclient "github.com/google/android-cuttlefish/frontend/src/libhoclient/webrtcclient"
 	"github.com/gorilla/websocket"
 	"github.com/hashicorp/go-multierror"
@@ -74,7 +75,6 @@ type CVDRemoteCommand struct {
 const (
 	serviceFlag    = "service"
 	hostFlag       = "host"
-	groupFlag      = "group"
 	serviceURLFlag = "service_url"
 	zoneFlag       = "zone"
 	proxyFlag      = "proxy"
@@ -94,6 +94,11 @@ const (
 	gcpMachineTypeFlagDesc    = "Indicates the machine type"
 	gcpMinCPUPlatformFlagDesc = "Specifies a minimum CPU platform for the VM instance"
 	gcpBootDiskSizeGBDesc     = "Specifies the Boot Disk size for the VM instance"
+)
+
+const (
+	groupFlag = "group"
+	nameFlag  = "name"
 )
 
 const (
@@ -118,6 +123,7 @@ const (
 	localCVDHostPkgSrcFlag     = "local_cvd_host_pkg_src"
 	localImagesSrcsFlag        = "local_images_srcs"
 	localImagesZipSrcFlag      = "local_images_zip_src"
+	snapshotIDFlag             = "snapshot_id"
 )
 
 const (
@@ -209,6 +215,28 @@ type BugreportFlags struct {
 type DeleteCVDFlags struct {
 	*ServiceFlags
 	Host string
+}
+
+type StopCVDFlags struct {
+	*ServiceFlags
+	Host  string
+	Group string
+	Name  string
+}
+
+type StartCVDFlags struct {
+	*ServiceFlags
+	Host       string
+	Group      string
+	Name       string
+	SnapshotID string
+}
+
+type SnapshotCVDFlags struct {
+	*ServiceFlags
+	Host  string
+	Group string
+	Name  string
 }
 
 type subCommandOpts struct {
@@ -649,7 +677,56 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 	}
 	del.Flags().StringVar(&delFlags.Host, hostFlag, "", "Specifies the host")
 	del.MarkFlagRequired(hostFlag)
-	return []*cobra.Command{create, list, br, del}
+	// Stop command
+	stopFlags := &StopCVDFlags{ServiceFlags: opts.ServiceFlags}
+	stop := &cobra.Command{
+		Use:     "stop --host=HOST --group=GROUP --name=NAME",
+		Short:   "Stops a running instance",
+		PreRunE: preRunE(stopFlags, &opts.ServiceFlags.Service, &opts.InitialConfig),
+		RunE: func(c *cobra.Command, args []string) error {
+			return runStopCVDCommand(c, args, stopFlags, opts)
+		},
+	}
+	stop.Flags().StringVar(&stopFlags.Host, hostFlag, "", "Host name")
+	stop.MarkFlagRequired(hostFlag)
+	stop.Flags().StringVar(&stopFlags.Group, groupFlag, "", "Instances group name")
+	stop.MarkFlagRequired(groupFlag)
+	stop.Flags().StringVar(&stopFlags.Name, nameFlag, "", "Instance name")
+	stop.MarkFlagRequired(nameFlag)
+	// Start command
+	startFlags := &StartCVDFlags{ServiceFlags: opts.ServiceFlags}
+	start := &cobra.Command{
+		Use:     "start --host=HOST --group=GROUP --name=NAME",
+		Short:   "Start a stopped instance",
+		PreRunE: preRunE(startFlags, &opts.ServiceFlags.Service, &opts.InitialConfig),
+		RunE: func(c *cobra.Command, args []string) error {
+			return runStartCVDCommand(c, args, startFlags, opts)
+		},
+	}
+	start.Flags().StringVar(&startFlags.Host, hostFlag, "", "Host name")
+	start.MarkFlagRequired(hostFlag)
+	start.Flags().StringVar(&startFlags.Group, groupFlag, "", "Instances group name")
+	start.MarkFlagRequired(groupFlag)
+	start.Flags().StringVar(&startFlags.Name, nameFlag, "", "Instance name")
+	start.MarkFlagRequired(nameFlag)
+	start.Flags().StringVar(&startFlags.SnapshotID, snapshotIDFlag, "", "Snapshot id")
+	// Snapshot command
+	snapshotFlags := &SnapshotCVDFlags{ServiceFlags: opts.ServiceFlags}
+	snapshot := &cobra.Command{
+		Use:     "snapshot --host=HOST --group=GROUP --name=NAME",
+		Short:   "Snapshot a device",
+		PreRunE: preRunE(snapshotFlags, &opts.ServiceFlags.Service, &opts.InitialConfig),
+		RunE: func(c *cobra.Command, args []string) error {
+			return runSnapshotCVDCommand(c, args, snapshotFlags, opts)
+		},
+	}
+	snapshot.Flags().StringVar(&snapshotFlags.Host, hostFlag, "", "Host name")
+	snapshot.MarkFlagRequired(hostFlag)
+	snapshot.Flags().StringVar(&snapshotFlags.Group, groupFlag, "", "Instances group name")
+	snapshot.MarkFlagRequired(groupFlag)
+	snapshot.Flags().StringVar(&snapshotFlags.Name, nameFlag, "", "Instance name")
+	snapshot.MarkFlagRequired(nameFlag)
+	return []*cobra.Command{create, list, br, del, stop, start, snapshot}
 }
 
 func connectionCommands(opts *subCommandOpts) []*cobra.Command {
@@ -917,6 +994,39 @@ func runDeleteCVDCommand(c *cobra.Command, args []string, flags *DeleteCVDFlags,
 		return errors.New("deleting multiple instances is not supported yet")
 	}
 	return srvClient.HostService(flags.Host).DeleteCVD(args[0])
+}
+
+func runStopCVDCommand(c *cobra.Command, args []string, flags *StopCVDFlags, opts *subCommandOpts) error {
+	srvClient, err := newClient(opts.InitialConfig, flags.ServiceFlags, c)
+	if err != nil {
+		return err
+	}
+	return srvClient.HostService(flags.Host).Stop(flags.Group, flags.Name)
+}
+
+func runStartCVDCommand(c *cobra.Command, args []string, flags *StartCVDFlags, opts *subCommandOpts) error {
+	srvClient, err := newClient(opts.InitialConfig, flags.ServiceFlags, c)
+	if err != nil {
+		return err
+	}
+	req := &hoapi.StartCVDRequest{}
+	if flags.SnapshotID != "" {
+		req.SnapshotID = flags.SnapshotID
+	}
+	return srvClient.HostService(flags.Host).Start(flags.Group, flags.Name, req)
+}
+
+func runSnapshotCVDCommand(c *cobra.Command, args []string, flags *SnapshotCVDFlags, opts *subCommandOpts) error {
+	srvClient, err := newClient(opts.InitialConfig, flags.ServiceFlags, c)
+	if err != nil {
+		return err
+	}
+	res, err := srvClient.HostService(flags.Host).CreateSnapshot(flags.Group, flags.Name)
+	if err != nil {
+		return err
+	}
+	c.Println(res.SnapshotID)
+	return nil
 }
 
 // Returns empty string if there was no host.

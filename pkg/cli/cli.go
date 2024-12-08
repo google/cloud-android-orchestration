@@ -1374,7 +1374,6 @@ func runConnectionWebSocketAgentCommand(flags *ConnectFlags, c *command, args []
 		c.PrintErrf("Failed to accept ADB socket: %v", err)
 		return err
 	}
-	defer tcpConn.Close()
 
 	device := args[0]
 	var wsConn *websocket.Conn
@@ -1429,12 +1428,12 @@ func runConnectionWebSocketAgentCommand(flags *ConnectFlags, c *command, args []
 		pos:    0,
 		buf:    nil,
 	}
-	defer wsWrapper.Close()
 	go func() {
 		io.Copy(wsWrapper, tcpConn)
 		wsWrapper.Close()
 	}()
 	io.Copy(tcpConn, wsWrapper)
+	tcpConn.Close()
 	return nil
 }
 

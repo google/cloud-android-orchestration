@@ -63,7 +63,7 @@ func LoadInstanceManager(config *config.Config) instances.Manager {
 	case instances.UnixIMType:
 		im = instances.NewLocalInstanceManager(config.InstanceManager)
 	case instances.DockerIMType:
-		cli, err := client.NewClientWithOpts(client.FromEnv)
+		cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 		if err != nil {
 			log.Fatal("Failed to get docker client: ", err)
 		}

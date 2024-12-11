@@ -30,6 +30,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	client "github.com/google/cloud-android-orchestration/pkg/client"
 
@@ -1422,6 +1423,20 @@ func runConnectionWebSocketAgentCommand(flags *ConnectFlags, c *command, args []
 	if cerr, ok := c.ErrOrStderr().(io.Closer); ok {
 		cerr.Close()
 	}
+
+	go func() {
+		ticker := time.NewTicker(10 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				if err := wsConn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(5*time.Second)); err != nil {
+					c.PrintErrf("Failed to write Ping: %v", err)
+					return
+				}
+			}
+		}
+	}()
 
 	// Redirect WebSocket to ADB TCP port
 	wsWrapper := &wsIoWrapper{

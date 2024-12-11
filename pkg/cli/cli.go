@@ -30,6 +30,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	client "github.com/google/cloud-android-orchestration/pkg/client"
 
@@ -1534,11 +1535,7 @@ func runConnectionWebSocketAgentCommand(flags *ConnectFlags, c *command, args []
 	}
 
 	// Redirect WebSocket to ADB TCP port
-	wsWrapper := &wsIoWrapper{
-		wsConn: wsConn,
-		pos:    0,
-		buf:    nil,
-	}
+	wsWrapper := newWsIoWrapper(c, wsConn)
 	go func() {
 		io.Copy(wsWrapper, tcpConn)
 		wsWrapper.Close()
@@ -1547,14 +1544,63 @@ func runConnectionWebSocketAgentCommand(flags *ConnectFlags, c *command, args []
 	return nil
 }
 
+type wsPingSender struct {
+	wsConn   *websocket.Conn
+	interval time.Duration
+	stopCh   chan interface{}
+}
+
+func (w *wsPingSender) Start(c *command) {
+	if w.stopCh != nil {
+		w.Stop()
+	}
+	w.stopCh = make(chan interface{})
+	go func(stopCh chan interface{}) {
+		ticker := time.NewTicker(w.interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				if err := w.wsConn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(5*time.Second)); err != nil {
+					c.PrintErrf("Failed to write ping message: %v", err)
+					return
+				}
+			case <-stopCh:
+				return
+			}
+		}
+	}(w.stopCh)
+}
+
+func (w *wsPingSender) Stop() {
+	w.stopCh <- nil
+	w.stopCh = nil
+}
+
 // Wrapper for implementing io.ReadWriteCloser of websocket.Conn
 type wsIoWrapper struct {
-	wsConn *websocket.Conn
-	pos    int
-	buf    []byte
+	wsConn     *websocket.Conn
+	pos        int
+	buf        []byte
+	pingSender *wsPingSender
 }
 
 var _ io.ReadWriteCloser = (*wsIoWrapper)(nil)
+
+func newWsIoWrapper(c *command, wsConn *websocket.Conn) *wsIoWrapper {
+	pingSender := &wsPingSender{
+		wsConn:   wsConn,
+		interval: 10 * time.Second,
+		stopCh:   nil,
+	}
+	pingSender.Start(c)
+	return &wsIoWrapper{
+		wsConn:     wsConn,
+		pos:        0,
+		buf:        nil,
+		pingSender: pingSender,
+	}
+}
 
 func (w *wsIoWrapper) Read(buf []byte) (int, error) {
 	if w.buf == nil || w.pos >= len(w.buf) {
@@ -1579,6 +1625,7 @@ func (w *wsIoWrapper) Write(buf []byte) (int, error) {
 }
 
 func (w *wsIoWrapper) Close() error {
+	w.pingSender.Stop()
 	return w.wsConn.Close()
 }
 

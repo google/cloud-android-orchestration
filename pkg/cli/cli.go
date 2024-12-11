@@ -1429,7 +1429,6 @@ func runConnectionWebSocketAgentCommand(flags *ConnectFlags, c *command, args []
 		pos:    0,
 		buf:    nil,
 	}
-	defer wsWrapper.Close()
 	go func() {
 		io.Copy(wsWrapper, tcpConn)
 		wsWrapper.Close()

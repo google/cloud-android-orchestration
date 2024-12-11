@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Copyright 2024 Google Inc. All rights reserved.
 
@@ -14,8 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Shell script for running Cloud Orchestrator based on Docker
-# Please run in the root directory of this repository.
-
-CONFIG_FILE=scripts/docker/conf.toml \
-go run ./cmd/cloud_orchestrator
+docker run \
+    -d \
+    -p 8080:8080 \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    -i \
+    -t cuttlefish-cloud-orchestration:latest

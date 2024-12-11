@@ -5,7 +5,7 @@ pushd ../../../ > /dev/null
 gcloud auth configure-docker --quiet \
     ${REGION}-docker.pkg.dev
 
-docker build -t ${IMAGE} .
+docker build -t ${IMAGE} --target runner-gcp .
 
 docker push ${IMAGE}
 

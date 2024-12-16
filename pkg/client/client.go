@@ -29,13 +29,13 @@ import (
 	"github.com/hashicorp/go-multierror"
 )
 
-type ApiCallError struct {
+type APICallError struct {
 	Code     int    `json:"code,omitempty"`
 	ErrorMsg string `json:"error,omitempty"`
 	Details  string `json:"details,omitempty"`
 }
 
-func (e *ApiCallError) Error() string {
+func (e *APICallError) Error() string {
 	str := fmt.Sprintf("api call error %d: %s", e.Code, e.ErrorMsg)
 	if e.Details != "" {
 		str += fmt.Sprintf("\n\nDETAILS: %s", e.Details)
@@ -43,8 +43,8 @@ func (e *ApiCallError) Error() string {
 	return str
 }
 
-func (e *ApiCallError) Is(target error) bool {
-	var a *ApiCallError
+func (e *APICallError) Is(target error) bool {
+	var a *APICallError
 	return errors.As(target, &a) && *a == *e
 }
 
@@ -61,7 +61,7 @@ type HTTPBasic struct {
 	Username string
 }
 
-type ClientOptions struct {
+type Options struct {
 	RootEndpoint        string
 	ProxyURL            string
 	DumpOut             io.Writer
@@ -88,22 +88,22 @@ type HostHTTPEndpointResolver interface {
 }
 
 type clientImpl struct {
-	*ClientOptions
+	*Options
 	httpHelper hoclient.HTTPHelper
 }
 
-func NewClient(opts *ClientOptions) (Client, error) {
+func NewClient(opts *Options) (Client, error) {
 	helper := hoclient.HTTPHelper{
 		Client:       &http.Client{},
 		RootEndpoint: opts.RootEndpoint,
 		Dumpster:     opts.DumpOut,
 	}
 	if opts.ProxyURL != "" {
-		proxyUrl, err := url.Parse(opts.ProxyURL)
+		proxyURL, err := url.Parse(opts.ProxyURL)
 		if err != nil {
 			return nil, err
 		}
-		helper.Client.Transport = &http.Transport{Proxy: http.ProxyURL(proxyUrl)}
+		helper.Client.Transport = &http.Transport{Proxy: http.ProxyURL(proxyURL)}
 	}
 	if opts.Authn != nil {
 		if opts.Authn.OIDCToken != nil {
@@ -113,7 +113,7 @@ func NewClient(opts *ClientOptions) (Client, error) {
 			helper.HTTPBasicUsername = opts.Authn.HTTPBasic.Username
 		}
 	}
-	return &clientImpl{ClientOptions: opts, httpHelper: helper}, nil
+	return &clientImpl{Options: opts, httpHelper: helper}, nil
 }
 
 func (c *clientImpl) CreateHost(req *apiv1.CreateHostRequest) (*apiv1.HostInstance, error) {
@@ -179,21 +179,21 @@ func (c *clientImpl) waitForOperation(op *apiv1.Operation, res any) error {
 	return c.httpHelper.NewPostRequest(path, nil).JSONResDoWithRetries(res, retryOpts)
 }
 
-func (s *clientImpl) RootURI() string {
-	return s.RootEndpoint
+func (c *clientImpl) RootURI() string {
+	return c.RootEndpoint
 }
 
-func (s *clientImpl) HostService(host string) hoclient.HostOrchestratorService {
+func (c *clientImpl) HostService(host string) hoclient.HostOrchestratorService {
 	hs := &hoclient.HostOrchestratorServiceImpl{
-		HTTPHelper: s.httpHelper,
-		ProxyURL:   s.ProxyURL,
+		HTTPHelper: c.httpHelper,
+		ProxyURL:   c.ProxyURL,
 	}
-	hs.HTTPHelper.RootEndpoint = s.httpHelper.RootEndpoint + "/hosts/" + host
+	hs.HTTPHelper.RootEndpoint = c.httpHelper.RootEndpoint + "/hosts/" + host
 	return hs
 }
 
-func (s *clientImpl) HostServiceURL(host string) (*url.URL, error) {
-	res, err := url.Parse(s.httpHelper.RootEndpoint + "/hosts/" + host)
+func (c *clientImpl) HostServiceURL(host string) (*url.URL, error) {
+	res, err := url.Parse(c.httpHelper.RootEndpoint + "/hosts/" + host)
 	if err != nil {
 		return nil, fmt.Errorf("failed parsing host service url: %w", err)
 	}

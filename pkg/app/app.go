@@ -43,7 +43,7 @@ import (
 )
 
 const (
-	sessionIdCookie = "sessionid"
+	sessionIDCookie = "sessionid"
 	allowedMethods  = "GET, POST, PUT, DELETE, OPTIONS, HEAD"
 )
 
@@ -135,16 +135,15 @@ func (c *App) Handler() http.Handler {
 			w.Header().Add("Allow", allowedMethods)
 			w.WriteHeader(http.StatusNoContent)
 			return
-		} else {
-			router.ServeHTTP(w, r)
 		}
+		router.ServeHTTP(w, r)
 	}))
 
 	return rootRouter
 }
 
-func (a *App) InfraConfig() apiv1.InfraConfig {
-	return a.infraConfig
+func (c *App) InfraConfig() apiv1.InfraConfig {
+	return c.infraConfig
 }
 
 const (
@@ -152,20 +151,20 @@ const (
 	headerNameHOBuildAPICreds       = "X-Cutf-Host-Orchestrator-BuildAPI-Creds"
 )
 
-func (a *App) ForwardToHost(w http.ResponseWriter, r *http.Request, user accounts.User) error {
+func (c *App) ForwardToHost(w http.ResponseWriter, r *http.Request, user accounts.User) error {
 	hostPath := "/" + mux.Vars(r)["hostPath"]
 
-	if interceptFile, found := a.findInterceptFile(hostPath); found {
+	if interceptFile, found := c.findInterceptFile(hostPath); found {
 		http.ServeFile(w, r, interceptFile)
 		return nil
 	}
 
-	hostClient, err := a.instanceManager.GetHostClient(getZone(r), getHost(r))
+	hostClient, err := c.instanceManager.GetHostClient(getZone(r), getHost(r))
 	if err != nil {
 		return err
 	}
 	if len(r.Header.Values(headerNameCOInjectBuildAPICreds)) != 0 {
-		if err := a.injectBuildAPICredsIntoRequest(r, user); err != nil {
+		if err := c.injectBuildAPICredsIntoRequest(r, user); err != nil {
 			return err
 		}
 	}
@@ -174,8 +173,8 @@ func (a *App) ForwardToHost(w http.ResponseWriter, r *http.Request, user account
 	return nil
 }
 
-func (a *App) injectBuildAPICredsIntoRequest(r *http.Request, user accounts.User) error {
-	tk, err := a.fetchUserCredentials(user)
+func (c *App) injectBuildAPICredsIntoRequest(r *http.Request, user accounts.User) error {
+	tk, err := c.fetchUserCredentials(user)
 	if err != nil {
 		return err
 	}
@@ -355,8 +354,8 @@ func (c *App) parseAuthorizationResponse(r *http.Request) (string, error) {
 	return code[0], nil
 }
 
-func (a *App) DeAuthHandler(w http.ResponseWriter, r *http.Request, user accounts.User) error {
-	if tk, err := a.fetchUserCredentials(user); err != nil || tk == nil {
+func (c *App) DeAuthHandler(w http.ResponseWriter, r *http.Request, user accounts.User) error {
+	if tk, err := c.fetchUserCredentials(user); err != nil || tk == nil {
 		fmt.Fprintln(w, "No credentials found")
 		return err
 	}
@@ -373,14 +372,14 @@ func (a *App) DeAuthHandler(w http.ResponseWriter, r *http.Request, user account
 	s := session.Session{
 		OAuth2State: randomHexString(),
 	}
-	if err := a.setOrUpdateSession(w, &s); err != nil {
+	if err := c.setOrUpdateSession(w, &s); err != nil {
 		return err
 	}
 	_, err := fmt.Fprintf(w, pageTemplate, s.OAuth2State)
 	return err
 }
 
-func (a *App) RescindAuthorizationHandler(w http.ResponseWriter, r *http.Request, user accounts.User) error {
+func (c *App) RescindAuthorizationHandler(w http.ResponseWriter, r *http.Request, user accounts.User) error {
 	r.ParseForm()
 	stateSlice, ok := r.PostForm["csrf_token"]
 	if !ok || len(stateSlice) == 0 {
@@ -388,7 +387,7 @@ func (a *App) RescindAuthorizationHandler(w http.ResponseWriter, r *http.Request
 	}
 	state := stateSlice[0]
 
-	session, err := a.fetchSession(r)
+	session, err := c.fetchSession(r)
 	if err != nil {
 		return err
 	}
@@ -396,9 +395,9 @@ func (a *App) RescindAuthorizationHandler(w http.ResponseWriter, r *http.Request
 		return apperr.NewBadRequestError("CSRF token doesn't match session", nil)
 	}
 	// The CSRF token should be used only once, deleting the entire session guarantees it.
-	defer a.databaseService.DeleteSession(session.Key)
+	defer c.databaseService.DeleteSession(session.Key)
 
-	tk, err := a.fetchUserCredentials(user)
+	tk, err := c.fetchUserCredentials(user)
 	if err != nil {
 		return err
 	}
@@ -407,35 +406,35 @@ func (a *App) RescindAuthorizationHandler(w http.ResponseWriter, r *http.Request
 		return nil
 	}
 	defer func() {
-		if err := a.databaseService.DeleteBuildAPICredentials(user.Username()); err != nil {
+		if err := c.databaseService.DeleteBuildAPICredentials(user.Username()); err != nil {
 			log.Printf("Failed to delete credentials from database: %v", err)
 		}
 	}()
-	if err := a.oauth2Helper.Revoke(tk); err != nil {
+	if err := c.oauth2Helper.Revoke(tk); err != nil {
 		return err
 	}
 	fmt.Fprintln(w, "Authorization rescinded")
 	return nil
 }
 
-func (a *App) ConfigHandler(w http.ResponseWriter, r *http.Request, user accounts.User) error {
+func (c *App) ConfigHandler(w http.ResponseWriter, r *http.Request, user accounts.User) error {
 	res := apiv1.Config{
-		InstanceManagerType: string(a.config.InstanceManager.Type),
+		InstanceManagerType: string(c.config.InstanceManager.Type),
 	}
 
 	replyJSON(w, res, http.StatusOK)
 	return nil
 }
 
-func (a *App) setOrUpdateSession(w http.ResponseWriter, s *session.Session) error {
+func (c *App) setOrUpdateSession(w http.ResponseWriter, s *session.Session) error {
 	if s.Key == "" {
 		s.Key = randomHexString()
 	}
-	if err := a.databaseService.CreateOrUpdateSession(*s); err != nil {
+	if err := c.databaseService.CreateOrUpdateSession(*s); err != nil {
 		return err
 	}
 	http.SetCookie(w, &http.Cookie{
-		Name:     sessionIdCookie,
+		Name:     sessionIDCookie,
 		Value:    s.Key,
 		Secure:   false,
 		SameSite: http.SameSiteLaxMode,
@@ -443,13 +442,13 @@ func (a *App) setOrUpdateSession(w http.ResponseWriter, s *session.Session) erro
 	return nil
 }
 
-func (a *App) fetchSession(r *http.Request) (*session.Session, error) {
-	sessionCookie, err := r.Cookie(sessionIdCookie)
+func (c *App) fetchSession(r *http.Request) (*session.Session, error) {
+	sessionCookie, err := r.Cookie(sessionIDCookie)
 	if err != nil {
 		return nil, fmt.Errorf("error reading cookie from request: %w", err)
 	}
 	sessionKey := sessionCookie.Value
-	s, err := a.databaseService.FetchSession(sessionKey)
+	s, err := c.databaseService.FetchSession(sessionKey)
 	if err == nil && s == nil {
 		err = apperr.NewBadRequestError("Session not found", nil)
 	}
@@ -517,14 +516,14 @@ func (c *App) fetchUserCredentials(user accounts.User) (*oauth2.Token, error) {
 // The wrapper will only pass the request to the inner handler if a user is
 // authenticated, otherwise it may choose to return an error or respond with
 // an HTTP redirect to the login page.
-func (a *App) Authenticate(fn AuthHTTPHandler) HTTPHandler {
+func (c *App) Authenticate(fn AuthHTTPHandler) HTTPHandler {
 	return func(w http.ResponseWriter, r *http.Request) error {
-		user, err := a.accountManager.UserFromRequest(r)
+		user, err := c.accountManager.UserFromRequest(r)
 		if err != nil {
 			return err
 		}
 		if user == nil {
-			if a.config.AccountManager.Type == accounts.UsernameOnlyAMType {
+			if c.config.AccountManager.Type == accounts.UsernameOnlyAMType {
 				redirectURL := fmt.Sprintf("/username?original-url=%s", url.QueryEscape(r.URL.String()))
 				http.Redirect(w, r, redirectURL, http.StatusFound)
 				return nil
@@ -553,10 +552,10 @@ func (h HTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (a *App) findInterceptFile(hostPath string) (string, bool) {
+func (c *App) findInterceptFile(hostPath string) (string, bool) {
 	// Currently only server_connector.js is to be intercepted
 	if ok, _ := regexp.MatchString("/devices/[^/]+/files/js/server_connector.js", hostPath); ok {
-		return a.connectorStaticFilesPath + "/intercept/js/server_connector.js", true
+		return c.connectorStaticFilesPath + "/intercept/js/server_connector.js", true
 	}
 	return "", false
 }

@@ -252,7 +252,7 @@ type ConnectFlags struct {
 	host             string
 	skipConfirmation bool
 	// Path to file containing the ICE configuration to be used in the underlaying WebRTC connection.
-	ice_config   string
+	iceConfig    string
 	connectAgent string
 }
 
@@ -261,8 +261,8 @@ func (f *ConnectFlags) AsArgs() []string {
 	if f.host != "" {
 		args = append(args, "--"+hostFlag, f.host)
 	}
-	if f.ice_config != "" {
-		args = append(args, "--"+iceConfigFlag, f.ice_config)
+	if f.iceConfig != "" {
+		args = append(args, "--"+iceConfigFlag, f.iceConfig)
 	}
 	return args
 }
@@ -330,9 +330,8 @@ func adbStateStr(c *RemoteCVD) string {
 	if c.ConnStatus != nil {
 		if c.ConnStatus.ADB.Port > 0 {
 			return fmt.Sprintf("127.0.0.1:%d", c.ConnStatus.ADB.Port)
-		} else {
-			return c.ConnStatus.ADB.State
 		}
+		return c.ConnStatus.ADB.State
 	}
 	return "not connected"
 }
@@ -359,7 +358,7 @@ func PromptSelectionFromSlice[T any](c *command, choices []T, toStr func(T) stri
 	maxChoice := len(choices) - 1
 	if len(choices) > 1 && selOpt&AllowAll != 0 {
 		c.PrintErrf("%d) All\n", len(choices))
-		maxChoice += 1
+		maxChoice++
 	}
 	c.PrintErrf("Choose an option: ")
 	chosen := -1
@@ -743,7 +742,7 @@ func connectionCommands(opts *subCommandOpts) []*cobra.Command {
 	connect.Flags().StringVar(&connFlags.host, hostFlag, "", "Specifies the host")
 	connect.Flags().BoolVarP(&connFlags.skipConfirmation, "yes", "y", false,
 		"Don't ask for confirmation for closing multiple connections.")
-	connect.Flags().StringVar(&connFlags.ice_config, iceConfigFlag, "", iceConfigFlagDesc)
+	connect.Flags().StringVar(&connFlags.iceConfig, iceConfigFlag, "", iceConfigFlagDesc)
 	connect.Flags().StringVar(&connFlags.connectAgent, "connect_agent", ConnectionWebRTCAgentCommandName, "Connect agent type")
 	disconnect := &cobra.Command{
 		Use:     fmt.Sprintf("%s <foo> <bar> <baz>", DisconnectCommandName),
@@ -764,7 +763,7 @@ func connectionCommands(opts *subCommandOpts) []*cobra.Command {
 		},
 	}
 	webrtcAgent.Flags().StringVar(&connFlags.host, hostFlag, "", "Specifies the host")
-	webrtcAgent.Flags().StringVar(&connFlags.ice_config, iceConfigFlag, "", iceConfigFlagDesc)
+	webrtcAgent.Flags().StringVar(&connFlags.iceConfig, iceConfigFlag, "", iceConfigFlagDesc)
 	webrtcAgent.MarkPersistentFlagRequired(hostFlag)
 	proxyAgent := &cobra.Command{
 		Hidden: true,
@@ -889,7 +888,7 @@ func runCreateCVDCommand(c *cobra.Command, args []string, flags *CreateCVDFlags,
 	}
 	cvds, err := createCVD(srvClient, *flags.CreateCVDOpts, statePrinter)
 	if err != nil {
-		var apiErr *client.ApiCallError
+		var apiErr *client.APICallError
 		if errors.As(err, &apiErr) && apiErr.Code == http.StatusUnauthorized {
 			c.PrintErrf("Authorization required, please visit %s/auth\n", flags.ServiceURL)
 		}
@@ -1077,7 +1076,7 @@ func promptSingleGroupNameSelection(c *command, srvClient client.Client, control
 
 // Starts a connection agent process and waits for it to report the connection was
 // successfully created or an error occurred.
-func ConnectDevice(host, device, ice_config, agent string, c *command, opts *subCommandOpts) (*ConnStatus, error) {
+func ConnectDevice(host, device, iceConfig, agent string, c *command, opts *subCommandOpts) (*ConnStatus, error) {
 	// Clean old logs files as we are about to create new ones.
 	go func() {
 		minAge := opts.InitialConfig.LogFilesDeleteThreshold()
@@ -1092,7 +1091,7 @@ func ConnectDevice(host, device, ice_config, agent string, c *command, opts *sub
 	flags := &ConnectFlags{
 		ServiceFlags: opts.ServiceFlags,
 		host:         host,
-		ice_config:   ice_config,
+		iceConfig:    iceConfig,
 	}
 	cmdArgs := buildAgentCmdArgs(flags, device, agent)
 
@@ -1118,7 +1117,7 @@ func ConnectDevice(host, device, ice_config, agent string, c *command, opts *sub
 }
 
 func runConnectCommand(flags *ConnectFlags, c *command, args []string, opts *subCommandOpts) error {
-	if _, err := verifyICEConfigFlag(flags.ice_config); err != nil {
+	if _, err := verifyICEConfigFlag(flags.iceConfig); err != nil {
 		return err
 	}
 	if len(args) > 0 && flags.host == "" {
@@ -1180,7 +1179,7 @@ func runConnectCommand(flags *ConnectFlags, c *command, args []string, opts *sub
 		go func(connCh chan ConnStatus, errCh chan error, cvd RemoteCVDLocator) {
 			defer close(connCh)
 			defer close(errCh)
-			status, err := ConnectDevice(cvd.Host, cvd.WebRTCDeviceID, flags.ice_config, flags.connectAgent, c, opts)
+			status, err := ConnectDevice(cvd.Host, cvd.WebRTCDeviceID, flags.iceConfig, flags.connectAgent, c, opts)
 			if err != nil {
 				errCh <- fmt.Errorf("failed to connect to %q on %q: %w", cvd.WebRTCDeviceID, cvd.Host, err)
 			} else {
@@ -1229,14 +1228,14 @@ func forwardProxy(socketPath, proxyAddr, adbAddr string, adbServerProxy ADBServe
 	// Make connection towards [host_ip_address]:[cuttlefish_instance_adb_port]
 	var dialer proxy.Dialer
 	if proxyAddr != "" {
-		proxyUrl, err := url.Parse(proxyAddr)
+		proxyURL, err := url.Parse(proxyAddr)
 		if err != nil {
 			return fmt.Errorf("failed to parse proxy URL: %w", err)
 		}
-		if proxyUrl.Scheme != "socks5" {
-			return fmt.Errorf("scheme of proxy URL is not socks5. actual: %s", proxyUrl.Scheme)
+		if proxyURL.Scheme != "socks5" {
+			return fmt.Errorf("scheme of proxy URL is not socks5. actual: %s", proxyURL.Scheme)
 		}
-		dialer, err = proxy.SOCKS5("tcp", proxyUrl.Host, nil, nil)
+		dialer, err = proxy.SOCKS5("tcp", proxyURL.Host, nil, nil)
 		if err != nil {
 			return fmt.Errorf("failed to create proxy dialer: %w", err)
 		}
@@ -1365,7 +1364,7 @@ func runConnectionProxyAgentCommand(flags *ConnectFlags, c *command, args []stri
 // execution in the background. Any errors detected when the process is in
 // background are written to the log file instead.
 func runConnectionWebrtcAgentCommand(flags *ConnectFlags, c *command, args []string, opts *subCommandOpts) error {
-	localICEConfig, err := verifyICEConfigFlag(flags.ice_config)
+	localICEConfig, err := verifyICEConfigFlag(flags.iceConfig)
 	if err != nil {
 		return err
 	}
@@ -1387,7 +1386,7 @@ func runConnectionWebrtcAgentCommand(flags *ConnectFlags, c *command, args []str
 	}
 
 	controlDir := opts.InitialConfig.ConnectionControlDirExpanded()
-	ret, err := FindOrConnect(controlDir, devSpec, srvClient, localICEConfig)
+	ret, err := findOrConnect(controlDir, devSpec, srvClient, localICEConfig)
 	if err != nil {
 		return err
 	}
@@ -1443,7 +1442,7 @@ func connectADBWebSocketDirect(serviceURL string, device string) (*websocket.Con
 	//   wss://127.0.0.1:1443/devices/cvd-1/adb
 	url, err := url.Parse(serviceURL)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to parse URL %s: %w", serviceURL, err)
+		return nil, fmt.Errorf("failed to parse URL %s: %w", serviceURL, err)
 	}
 	switch p := &url.Scheme; *p {
 	case "https":
@@ -1451,7 +1450,7 @@ func connectADBWebSocketDirect(serviceURL string, device string) (*websocket.Con
 	case "http":
 		*p = "ws"
 	default:
-		return nil, fmt.Errorf("Unknown scheme %s", *p)
+		return nil, fmt.Errorf("unknown scheme %s", *p)
 	}
 	url = url.JoinPath("devices", device, "adb")
 	dialer := websocket.Dialer{
@@ -1461,7 +1460,7 @@ func connectADBWebSocketDirect(serviceURL string, device string) (*websocket.Con
 	}
 	wsConn, _, err := dialer.Dial(url.String(), nil)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to connect WebSocket %s: %w", url.String(), err)
+		return nil, fmt.Errorf("failed to connect WebSocket %s: %w", url.String(), err)
 	}
 	return wsConn, nil
 }
@@ -1519,9 +1518,8 @@ func runConnectionWebSocketAgentCommand(flags *ConnectFlags, c *command, args []
 	output, err := json.Marshal(result)
 	if err != nil {
 		return err
-	} else {
-		c.Println(string(output))
 	}
+	c.Println(string(output))
 
 	// Close all standard IOs to make agent as daemon
 	if cin, ok := c.InOrStdin().(io.Closer); ok {
@@ -1743,7 +1741,7 @@ func newClient(config Config, flags *ServiceFlags, c *cobra.Command) (client.Cli
 	if flags.Verbose {
 		dumpOut = c.ErrOrStderr()
 	}
-	opts := &client.ClientOptions{
+	opts := &client.Options{
 		RootEndpoint:   buildServiceRootEndpoint(flags.ServiceURL, flags.Zone),
 		ProxyURL:       proxyURL,
 		DumpOut:        dumpOut,
@@ -1850,9 +1848,8 @@ func (p *statePrinter) print(msg string, state statePrinterState) {
 func toFixedLength(v string, l int, filling rune) string {
 	if len(v) > l {
 		return v[:l]
-	} else {
-		return v + strings.Repeat(string(filling), l-len(v))
 	}
+	return v + strings.Repeat(string(filling), l-len(v))
 }
 
 type acceleratorConfig struct {

@@ -453,13 +453,13 @@ func TestBadCSRFTokensInRescindAuth(t *testing.T) {
 		Values url.Values
 	}{{"MissingToken", url.Values{}}, {"WrongToken", url.Values{"csrf_token": []string{"wrongtoken"}}}}
 
-	const sessionId = "somesessionid"
+	const sessionID = "somesessionid"
 
 	for _, td := range testData {
 		t.Run(td.Name, func(t *testing.T) {
 			dbs := database.NewInMemoryDBService()
 			dbs.CreateOrUpdateSession(session.Session{
-				Key:         sessionId,
+				Key:         sessionID,
 				OAuth2State: "righttoken",
 			})
 			controller := NewApp(&testInstanceManager{}, &testAccountManager{}, nil, nil, dbs, "", nil, config.WebRTCConfig{}, &config.Config{})
@@ -472,8 +472,8 @@ func TestBadCSRFTokensInRescindAuth(t *testing.T) {
 			}
 			req.Header["Content-Type"] = []string{"application/x-www-form-urlencoded"}
 			req.AddCookie(&http.Cookie{
-				Name:  sessionIdCookie,
-				Value: sessionId,
+				Name:  sessionIDCookie,
+				Value: sessionID,
 			})
 			res, err := http.DefaultClient.Do(req)
 			if err != nil {

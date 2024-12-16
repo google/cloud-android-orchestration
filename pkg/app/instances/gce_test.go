@@ -188,9 +188,9 @@ func TestCreateHostExternalIpRequestBody(t *testing.T) {
 	}))
 	defer ts.Close()
 	testService := buildTestService(t, ts)
-	testConfigExternalIp := testConfig
-	testConfigExternalIp.GCP.UseExternalIP = true
-	im := NewGCEInstanceManager(testConfigExternalIp, testService, testNameGenerator)
+	testConfigExternalIP := testConfig
+	testConfigExternalIP.GCP.UseExternalIP = true
+	im := NewGCEInstanceManager(testConfigExternalIP, testService, testNameGenerator)
 
 	im.CreateHost("us-central1-a",
 		&apiv1.CreateHostRequest{

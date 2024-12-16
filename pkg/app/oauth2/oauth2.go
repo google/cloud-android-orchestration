@@ -26,7 +26,7 @@ import (
 	"golang.org/x/oauth2/google"
 )
 
-type OAuth2Config struct {
+type Config struct {
 	Provider    string
 	RedirectURL string
 }

@@ -45,7 +45,7 @@ func TestDeleteHosts(t *testing.T) {
 		}
 	}))
 	defer ts.Close()
-	opts := &ClientOptions{
+	opts := &Options{
 		RootEndpoint: ts.URL,
 		DumpOut:      io.Discard,
 	}

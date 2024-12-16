@@ -133,7 +133,7 @@ type findOrConnRet struct {
 	Error      error
 }
 
-func FindOrConnect(controlDir string, cvd RemoteCVDLocator, srvClient client.Client, localICEConfig *wclient.ICEConfig) (findOrConnRet, error) {
+func findOrConnect(controlDir string, cvd RemoteCVDLocator, srvClient client.Client, localICEConfig *wclient.ICEConfig) (findOrConnRet, error) {
 	statuses, err := listCVDConnectionsByHost(controlDir, cvd.Host)
 	// Even with an error some connections may have been listed.
 	if s, ok := statuses[cvd]; ok {

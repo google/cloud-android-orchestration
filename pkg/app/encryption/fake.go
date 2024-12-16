@@ -29,7 +29,7 @@ func (es *FakeEncryptionService) Encrypt(plaintext []byte) ([]byte, error) {
 	// encrypted message is different than the original.
 	const mask byte = 255
 	res := make([]byte, len(plaintext))
-	for i := 0; i < len(plaintext); i += 1 {
+	for i := 0; i < len(plaintext); i++ {
 		res[i] = plaintext[i] ^ mask
 	}
 	return res, nil

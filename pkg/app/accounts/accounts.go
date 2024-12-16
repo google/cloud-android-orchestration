@@ -35,5 +35,5 @@ type AMType string
 
 type Config struct {
 	Type   AMType
-	OAuth2 appOAuth2.OAuth2Config
+	OAuth2 appOAuth2.Config
 }

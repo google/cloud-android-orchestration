@@ -17,6 +17,8 @@ package instances
 import (
 	"context"
 	"fmt"
+	"io"
+	"log"
 	"net/url"
 	"strings"
 	"time"
@@ -28,6 +30,7 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
+	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
 )
 
@@ -38,7 +41,11 @@ type DockerIMConfig struct {
 	HostOrchestratorPort int
 }
 
-const dockerLabelCreatedBy = "created_by"
+const (
+	dockerLabelCreatedBy      = "created_by"
+	dockerLabelKeyManagedBy   = "managed_by"
+	dockerLabelValueManagedBy = "cloud_orchestrator"
+)
 
 // Docker implementation of the instance manager.
 type DockerInstanceManager struct {
@@ -73,12 +80,17 @@ func (m *DockerInstanceManager) CreateHost(zone string, _ *apiv1.CreateHostReque
 		return nil, errors.NewBadRequestError("Invalid zone. It should be 'local'.", nil)
 	}
 	ctx := context.TODO()
+	err := m.downloadDockerImageIfNeeded(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to retrieve docker image name: %w", err)
+	}
 	config := &container.Config{
 		AttachStdin: true,
 		Image:       m.Config.Docker.DockerImageName,
 		Tty:         true,
 		Labels: map[string]string{
-			dockerLabelCreatedBy: user.Username(),
+			dockerLabelCreatedBy:    user.Username(),
+			dockerLabelKeyManagedBy: dockerLabelValueManagedBy,
 		},
 	}
 	hostConfig := &container.HostConfig{
@@ -104,14 +116,15 @@ func (m *DockerInstanceManager) ListHosts(zone string, user accounts.User, _ *Li
 	}
 	ctx := context.TODO()
 	ownerFilterExpr := fmt.Sprintf("%s=%s", dockerLabelCreatedBy, user.Username())
+	managerFilterExpr := fmt.Sprintf("%s=%s", dockerLabelKeyManagedBy, dockerLabelValueManagedBy)
 	listFilters := filters.NewArgs(
 		filters.KeyValuePair{
 			Key:   "label",
 			Value: ownerFilterExpr,
 		},
 		filters.KeyValuePair{
-			Key:   "ancestor",
-			Value: m.Config.Docker.DockerImageName,
+			Key:   "label",
+			Value: managerFilterExpr,
 		},
 	)
 	listRes, err := m.Client.ContainerList(ctx, container.ListOptions{
@@ -296,4 +309,32 @@ func (m *DockerInstanceManager) getContainerLabel(host string, key string) (stri
 		return "", fmt.Errorf("Failed to find docker label: %s", key)
 	}
 	return value, nil
+}
+
+func (m *DockerInstanceManager) downloadDockerImageIfNeeded(ctx context.Context) error {
+	listRes, err := m.Client.ImageList(ctx, image.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("Failed to list docker images: %w", err)
+	}
+	for _, image := range listRes {
+		for _, tag := range image.RepoTags {
+			if tag == m.Config.Docker.DockerImageName {
+				return nil
+			}
+		}
+	}
+
+	reader, err := m.Client.ImagePull(ctx, m.Config.Docker.DockerImageName, image.PullOptions{})
+	if err != nil {
+		return fmt.Errorf("Failed to request pulling docker image %q: %w", m.Config.Docker.DockerImageName, err)
+	}
+	defer reader.Close()
+	// Caller of ImagePull should handle its output to complete actual ImagePull operation.
+	// Details in https://pkg.go.dev/github.com/docker/docker/client#Client.ImagePull.
+	_, err = io.Copy(io.Discard, reader)
+	if err != nil {
+		return fmt.Errorf("Failed to pull docker image %q: %w", m.Config.Docker.DockerImageName, err)
+	}
+	log.Println("Downloaded docker image: " + m.Config.Docker.DockerImageName)
+	return nil
 }

@@ -12,17 +12,9 @@ in `google/android-cuttlefish` github repository, and check if the docker image
 
 ## Build and run cloud orchestrator
 
-To build and run cloud orchestrator, please execute below commands in the server
-machine.
-```bash
-git clone https://github.com/google/cloud-android-orchestration.git
-cd cloud-android-orchestration # Root directory of this repository
-scripts/docker/run.sh
-```
-
-If the address of cloud orchestrator is not `localhost`, please modify the
-return value of `ChooseNetworkInterface` in `cmd/cloud_orchestrator/main.go` to
-the empty string. Note that this is a temporary solution.
+Config file for the cloud orchestrator is at
+[scripts/on-premises/single-server/conf.toml](conf.toml). Follow the steps at
+[cloud_orchestrator.md](/docs/cloud_orchestrator.md).
 
 If there's a firewall which blocks accessing cloud orchestrator with HTTP/HTTPS
 requests, please try using SOCKS5 proxy. Establishing SOCKS5 proxy by creating
@@ -33,5 +25,6 @@ ssh -D ${SOCKS5_PORT} -q -C -N ${USERNAME}@${CLOUD_ORCHESTRATOR_IPv4_ADDRESS}
 
 ## Use cloud orchestrator by cvdr
 
-Please check every configuration in `scripts/docker/cvdr.toml` is set well, and
-follow the steps at [cvdr.md](cvdr.md).
+Please check every configuration in
+`scripts/on-premises/single-server/cvdr.toml` is set well, and follow the steps
+at [cvdr.md](/docs/cvdr.md).

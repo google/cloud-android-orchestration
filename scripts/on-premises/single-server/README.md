@@ -1,20 +1,33 @@
-# Activate cloud orchestrator in the remote server
+# Activate cloud orchestrator at on-premise server
 
-This page describes how to run cloud orchestrator managing docker instances
-containing Host Orchestrator inside.
+This page describes how to run cloud orchestrator at on-premise server, which
+manages docker instances containing the host orchestrator inside.
 
-## Prepare docker image
+Note that this is under development, some features may be broken yet.
+Please let us know if you faced at any bugs.
 
-Please follow the docker part of
-[README.md](https://github.com/google/android-cuttlefish/blob/main/README.md#docker)
-in `google/android-cuttlefish` github repository, and check if the docker image
-`cuttlefish-orchestration` exists.
+## Try cloud orchestrator
 
-## Build and run cloud orchestrator
+Currently we're hosting docker images and its configuration files in Artifact
+Registry.
+Please execute the commands below if you want to download and run the cloud
+orchestrator.
 
-Config file for the cloud orchestrator is at
-[scripts/on-premises/single-server/conf.toml](conf.toml). Follow the steps at
-[cloud_orchestrator.md](/docs/cloud_orchestrator.md).
+Also, please choose one location among `us`, `europe`, or `asia`.
+It's available to download artifacts from any location, but download latency is
+different based on your location.
+
+```bash
+DOWNLOAD_LOCATION=us # Choose one among us, europe, or asia.
+docker pull $DOWNLOAD_LOCATION-docker.pkg.dev/android-cuttlefish-artifacts/cuttlefish-orchestration/cuttlefish-cloud-orchestrator
+wget -O conf.toml https://artifactregistry.googleapis.com/download/v1/projects/android-cuttlefish-artifacts/locations/$DOWNLOAD_LOCATION/repositories/cloud-orchestrator-config/files/on-premise-single-server:main:conf.toml:download?alt=media
+docker run \
+    -p 8080:8080 \
+    -e CONFIG_FILE="/conf.toml" \
+    -v $PWD/conf.toml:/conf.toml \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    -t $DOWNLOAD_LOCATION-docker.pkg.dev/android-cuttlefish-artifacts/cuttlefish-orchestration/cuttlefish-cloud-orchestrator:latest
+```
 
 If there's a firewall which blocks accessing cloud orchestrator with HTTP/HTTPS
 requests, please try using SOCKS5 proxy. Establishing SOCKS5 proxy by creating
@@ -22,9 +35,23 @@ SSH dynamic port forwarding is available with following command.
 ```bash
 ssh -D ${SOCKS5_PORT} -q -C -N ${USERNAME}@${CLOUD_ORCHESTRATOR_IPv4_ADDRESS}
 ```
-
 ## Use cloud orchestrator by cvdr
 
-Please check every configuration in
-`scripts/on-premises/single-server/cvdr.toml` is set well, and follow the steps
-at [cvdr.md](/docs/cvdr.md).
+The config file for `cvdr` is located at
+[scripts/on-premises/single-server/cvdr.toml](cvdr.toml).
+Please follow the steps at [cvdr.md](/docs/cvdr.md), to get started with `cvdr`.
+
+## Manually build and run cloud orchestrator
+
+The config file for cloud orchestrator is at
+[scripts/on-premises/single-server/conf.toml](conf.toml).
+Please follow the steps at [cloud_orchestrator.md](/docs/cloud_orchestrator.md),
+to build and run cloud orchestrator.
+
+Also, you may need to prepare another docker image containing the host
+orchestrator inside, unlike steps in
+[Try cloud orchestrator](#try-cloud-orchestrator).
+Please follow the docker part of
+[README.md](https://github.com/google/android-cuttlefish/blob/main/README.md#docker)
+in `google/android-cuttlefish` github repository, and check if proper docker
+image exists via `docker image list`.

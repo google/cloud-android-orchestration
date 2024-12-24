@@ -25,11 +25,9 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"os/signal"
 	"os/user"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	client "github.com/google/cloud-android-orchestration/pkg/client"
@@ -40,7 +38,6 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
-	"golang.org/x/net/proxy"
 	"golang.org/x/term"
 )
 
@@ -132,7 +129,6 @@ const (
 	ConnectCommandName                  = "connect"
 	DisconnectCommandName               = "disconnect"
 	ConnectionWebRTCAgentCommandName    = "webrtc_agent"
-	ConnectionProxyAgentCommandName     = "proxy_agent"
 	ConnectionWebSocketAgentCommandName = "websocket_agent"
 )
 
@@ -773,15 +769,6 @@ func connectionCommands(opts *subCommandOpts) []*cobra.Command {
 	webrtcAgent.Flags().StringVar(&connFlags.host, hostFlag, "", "Specifies the host")
 	webrtcAgent.Flags().StringVar(&connFlags.ice_config, iceConfigFlag, "", iceConfigFlagDesc)
 	webrtcAgent.MarkPersistentFlagRequired(hostFlag)
-	proxyAgent := &cobra.Command{
-		Hidden: true,
-		Use:    ConnectionProxyAgentCommandName,
-		RunE: func(c *cobra.Command, args []string) error {
-			return runConnectionProxyAgentCommand(connFlags, &command{c, &connFlags.Verbose}, args, opts)
-		},
-	}
-	proxyAgent.Flags().StringVar(&connFlags.host, hostFlag, "", "Specifies the host")
-	proxyAgent.MarkPersistentFlagRequired(hostFlag)
 	webSocketAgent := &cobra.Command{
 		Hidden: true,
 		Use:    ConnectionWebSocketAgentCommandName,
@@ -791,7 +778,7 @@ func connectionCommands(opts *subCommandOpts) []*cobra.Command {
 	}
 	webSocketAgent.Flags().StringVar(&connFlags.host, hostFlag, "", "Specifies the host")
 	webSocketAgent.MarkPersistentFlagRequired(hostFlag)
-	return []*cobra.Command{connect, disconnect, webrtcAgent, proxyAgent, webSocketAgent}
+	return []*cobra.Command{connect, disconnect, webrtcAgent, webSocketAgent}
 }
 
 func runCreateHostCommand(c *cobra.Command, flags *CreateHostFlags, opts *subCommandOpts) error {
@@ -1238,138 +1225,6 @@ func printConnection(c *command, cvd RemoteCVDLocator, status ConnStatus) {
 func buildAgentCmdArgs(flags *ConnectFlags, device string, connectAgent string) []string {
 	args := []string{connectAgent, device}
 	return append(args, flags.AsArgs()...)
-}
-
-// Letting the process be a proxy server for establishing the connection.
-func forwardProxy(socketPath, proxyAddr, adbAddr string, adbServerProxy ADBServerProxy) error {
-	// Make connection towards [host_ip_address]:[cuttlefish_instance_adb_port]
-	var dialer proxy.Dialer
-	if proxyAddr != "" {
-		proxyUrl, err := url.Parse(proxyAddr)
-		if err != nil {
-			return fmt.Errorf("failed to parse proxy URL: %w", err)
-		}
-		if proxyUrl.Scheme != "socks5" {
-			return fmt.Errorf("scheme of proxy URL is not socks5. actual: %s", proxyUrl.Scheme)
-		}
-		dialer, err = proxy.SOCKS5("tcp", proxyUrl.Host, nil, nil)
-		if err != nil {
-			return fmt.Errorf("failed to create proxy dialer: %w", err)
-		}
-	} else {
-		dialer = proxy.Direct
-	}
-	remoteConn, err := dialer.Dial("tcp", adbAddr)
-	if err != nil {
-		return fmt.Errorf("failed to dial remote port: %w", err)
-	}
-	defer remoteConn.Close()
-
-	// Create a file socket to establish ADB connection
-	localListener, err := net.Listen("unix", socketPath)
-	if err != nil {
-		return fmt.Errorf("failed to create unix socket: %w", err)
-	}
-	defer localListener.Close()
-
-	// Enroll signal channel to handle SIGINT and SIGTERM.
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-
-	// Initialize ADB connection
-	errorCh := make(chan error)
-	go func() {
-		if err := adbServerProxy.ConnectWithLocalFileSystem(socketPath); err != nil {
-			errorCh <- fmt.Errorf("failed to connect adb: %w", err)
-		}
-	}()
-	defer adbServerProxy.DisconnectWithLocalFileSystem(socketPath)
-
-	// Listener is accepted by ADB connection.
-	startLocalToRemoteCh := make(chan net.Conn)
-	startRemoteToLocalCh := make(chan net.Conn)
-	go func() {
-		localConn, err := localListener.Accept()
-		if err != nil {
-			errorCh <- fmt.Errorf("failed to accept connection: %w", err)
-
-		} else {
-			startLocalToRemoteCh <- localConn
-			startRemoteToLocalCh <- localConn
-		}
-	}()
-
-	// After acception, start data transfer to do the role proxying ADB connection.
-	go func() {
-		localConn := <-startLocalToRemoteCh
-		if _, err := io.Copy(remoteConn, localConn); err != nil {
-			errorCh <- fmt.Errorf("no longer able to copy data from local to remote: %w", err)
-		}
-	}()
-	go func() {
-		localConn := <-startRemoteToLocalCh
-		if _, err := io.Copy(localConn, remoteConn); err != nil {
-			errorCh <- fmt.Errorf("no longer able to copy data from remote to local: %w", err)
-		}
-	}()
-
-	// Wait for channels notifying the termination.
-	var chErr error
-	select {
-	case <-sigCh:
-	case chErr = <-errorCh:
-	}
-
-	// Remove the socket file before the termination of this process.
-	if err := os.Remove(socketPath); err != nil {
-		if !errors.Is(err, os.ErrNotExist) {
-			chErr = multierror.Append(chErr, fmt.Errorf("failed to cleanup existing proxy socket: %w", err))
-		}
-	}
-	return chErr
-}
-
-// Handler for the webrtc agent command. This is not meant to be called by the
-// user directly, but instead is started by the open command.
-// The process runs as a background process of runConnectCommand, for proxying
-// connection to the ADB port located remotely.
-func runConnectionProxyAgentCommand(flags *ConnectFlags, c *command, args []string, opts *subCommandOpts) error {
-	if len(args) > 1 {
-		return fmt.Errorf("connection agent only supports a single device, received: %v", args)
-	}
-	if len(args) == 0 {
-		return errors.New("missing device")
-	}
-	device := args[0]
-	srvClient, err := newClient(opts.InitialConfig, flags.ServiceFlags, c.Command)
-	if err != nil {
-		return err
-	}
-	controlDir := opts.InitialConfig.ConnectionControlDirExpanded()
-
-	// Retrieving IP address and port of ADB connection
-	host, err := findHost(srvClient, flags.host)
-	if err != nil {
-		return fmt.Errorf("failed to find host")
-	}
-	if host.Docker == nil {
-		return errors.New("instance type should be Docker")
-	}
-	cvd, err := findCVD(srvClient, controlDir, flags.host, device)
-	if err != nil {
-		return fmt.Errorf("failed to find cvd: %w", err)
-	}
-	_, port, err := net.SplitHostPort(cvd.ADBSerial)
-	if err != nil {
-		return fmt.Errorf("failed to parse port from ADB serial: %w", err)
-	}
-	if port == "" {
-		return errors.New("failed to find port")
-	}
-	adbAddress := net.JoinHostPort(host.Docker.IPAddress, port)
-	socketPath := GetProxySocketPath(controlDir, flags.host, device)
-
-	return forwardProxy(socketPath, flags.Proxy, adbAddress, opts.ADBServerProxy)
 }
 
 // Handler for the webrtc agent command. This is not meant to be called by the

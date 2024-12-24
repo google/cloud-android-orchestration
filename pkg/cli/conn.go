@@ -64,10 +64,6 @@ func EnsureConnDirsExist(controlDir string) error {
 	if err := os.MkdirAll(logsDir, 0755); err != nil {
 		return fmt.Errorf("failed to create logs directory: %w", err)
 	}
-	proxyDir := proxyDir(controlDir)
-	if err := os.MkdirAll(proxyDir, 0755); err != nil {
-		return fmt.Errorf("failed to create proxy directory: %w", err)
-	}
 	return nil
 }
 
@@ -555,20 +551,6 @@ func createControlSocket(dir, name string) (*net.UnixListener, error) {
 
 func logsDir(controlDir string) string {
 	return filepath.Join(controlDir, "logs")
-}
-
-func proxyDir(controlDir string) string {
-	return filepath.Join(controlDir, "proxy")
-}
-
-func GetProxySocketPath(controlDir, host, device string) string {
-	proxyDir := proxyDir(controlDir)
-	shortenHost := host
-	if len(shortenHost) >= 8 {
-		shortenHost = shortenHost[:8]
-	}
-	socketName := strings.Join([]string{shortenHost, device}, "_") + ".sock"
-	return filepath.Join(proxyDir, socketName)
 }
 
 func createLogger(controlDir string, dev RemoteCVDLocator) (*log.Logger, error) {

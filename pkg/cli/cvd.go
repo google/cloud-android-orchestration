@@ -594,19 +594,6 @@ func listHostCVDsInner(srvClient client.Client, host string, statuses map[Remote
 	return ret, nil
 }
 
-func findCVD(srvClient client.Client, controlDir, host, device string) (*RemoteCVD, error) {
-	cvdHosts, err := listCVDsSingleHost(srvClient, controlDir, host)
-	if err != nil {
-		return nil, fmt.Errorf("error listing CVDs: %w", err)
-	}
-	for _, cvd := range cvdHosts[0].CVDs {
-		if device == cvd.WebRTCDeviceID {
-			return cvd, nil
-		}
-	}
-	return nil, fmt.Errorf("failed to find CVD for %s in %s", device, host)
-}
-
 const RequiredImagesFilename = "device/google/cuttlefish/required_images"
 
 const (

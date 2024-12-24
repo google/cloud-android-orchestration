@@ -103,6 +103,7 @@ type CreateCVDOpts struct {
 	EnvConfig map[string]interface{}
 	// If true, perform the ADB connection automatically.
 	AutoConnect               bool
+	ConnectAgent              string
 	BuildAPICredentialsSource string
 	BuildAPIUserProjectID     string
 	CreateCVDLocalOpts
@@ -116,9 +117,8 @@ func (o *CreateCVDOpts) AdditionalInstancesNum() uint32 {
 }
 
 func (o *CreateCVDOpts) Update(s *Service) {
-	if s.BuildAPICredentialsSource != "" {
-		o.BuildAPICredentialsSource = s.BuildAPICredentialsSource
-	}
+	o.BuildAPICredentialsSource = s.BuildAPICredentialsSource
+	o.ConnectAgent = s.ConnectAgent
 }
 
 func createCVD(srvClient client.Client, createOpts CreateCVDOpts, statePrinter *statePrinter) ([]*RemoteCVD, error) {
@@ -592,19 +592,6 @@ func listHostCVDsInner(srvClient client.Client, host string, statuses map[Remote
 		}
 	}
 	return ret, nil
-}
-
-func findCVD(srvClient client.Client, controlDir, host, device string) (*RemoteCVD, error) {
-	cvdHosts, err := listCVDsSingleHost(srvClient, controlDir, host)
-	if err != nil {
-		return nil, fmt.Errorf("error listing CVDs: %w", err)
-	}
-	for _, cvd := range cvdHosts[0].CVDs {
-		if device == cvd.WebRTCDeviceID {
-			return cvd, nil
-		}
-	}
-	return nil, fmt.Errorf("failed to find CVD for %s in %s", device, host)
 }
 
 const RequiredImagesFilename = "device/google/cuttlefish/required_images"

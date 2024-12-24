@@ -79,15 +79,7 @@ func (*fakeADBServerProxy) Connect(int) error {
 	return nil
 }
 
-func (*fakeADBServerProxy) ConnectWithLocalFileSystem(string) error {
-	return nil
-}
-
 func (*fakeADBServerProxy) Disconnect(int) error {
-	return nil
-}
-
-func (*fakeADBServerProxy) DisconnectWithLocalFileSystem(string) error {
 	return nil
 }
 

@@ -103,6 +103,7 @@ type CreateCVDOpts struct {
 	EnvConfig map[string]interface{}
 	// If true, perform the ADB connection automatically.
 	AutoConnect               bool
+	ConnectAgent              string
 	BuildAPICredentialsSource string
 	BuildAPIUserProjectID     string
 	CreateCVDLocalOpts
@@ -116,9 +117,8 @@ func (o *CreateCVDOpts) AdditionalInstancesNum() uint32 {
 }
 
 func (o *CreateCVDOpts) Update(s *Service) {
-	if s.BuildAPICredentialsSource != "" {
-		o.BuildAPICredentialsSource = s.BuildAPICredentialsSource
-	}
+	o.BuildAPICredentialsSource = s.BuildAPICredentialsSource
+	o.ConnectAgent = s.ConnectAgent
 }
 
 func createCVD(srvClient client.Client, createOpts CreateCVDOpts, statePrinter *statePrinter) ([]*RemoteCVD, error) {

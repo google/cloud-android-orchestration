@@ -70,6 +70,7 @@ type Service struct {
 	BuildAPICredentialsSource string       `json:"build_api_credentials_source,omitempty"`
 	Host                      HostConfig   `json:"host,omitempty"`
 	Authn                     *AuthnConfig `json:"authn,omitempty"`
+	ConnectAgent              string       `json:"connect_agent,omitempty"`
 }
 
 func (c *Config) DefaultService() *Service {

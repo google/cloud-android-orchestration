@@ -257,6 +257,11 @@ type ConnectFlags struct {
 	connectAgent string
 }
 
+func (f *ConnectFlags) Update(s *Service) {
+	f.ServiceFlags.Update(s)
+	f.connectAgent = s.ConnectAgent
+}
+
 func (f *ConnectFlags) AsArgs() []string {
 	args := f.ServiceFlags.AsArgs()
 	if f.host != "" {
@@ -594,6 +599,7 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 		"Creates multiple instances with the same artifacts. Only relevant if given a single build source")
 	create.Flags().BoolVar(&createFlags.AutoConnect, autoConnectFlag, true,
 		"Automatically connect through ADB after device is created.")
+	create.Flags().StringVar(&createFlags.ConnectAgent, connectAgentFlag, opts.InitialConfig.DefaultService().ConnectAgent, "Connect agent type")
 	create.Flags().StringVar(
 		&createFlags.BuildAPICredentialsSource,
 		buildAPICredsSourceFlag,
@@ -732,7 +738,7 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 }
 
 func connectionCommands(opts *subCommandOpts) []*cobra.Command {
-	connFlags := &ConnectFlags{ServiceFlags: opts.ServiceFlags, host: "", skipConfirmation: false, connectAgent: ConnectionWebRTCAgentCommandName}
+	connFlags := &ConnectFlags{ServiceFlags: opts.ServiceFlags, host: "", skipConfirmation: false}
 	connect := &cobra.Command{
 		Use:     ConnectCommandName,
 		Short:   "(Re)Connects to a CVD and tunnels ADB messages",
@@ -745,7 +751,7 @@ func connectionCommands(opts *subCommandOpts) []*cobra.Command {
 	connect.Flags().BoolVarP(&connFlags.skipConfirmation, "yes", "y", false,
 		"Don't ask for confirmation for closing multiple connections.")
 	connect.Flags().StringVar(&connFlags.ice_config, iceConfigFlag, "", iceConfigFlagDesc)
-	connect.Flags().StringVar(&connFlags.connectAgent, connectAgentFlag, ConnectionWebRTCAgentCommandName, "Connect agent type")
+	connect.Flags().StringVar(&connFlags.connectAgent, connectAgentFlag, opts.InitialConfig.DefaultService().ConnectAgent, "Connect agent type")
 	disconnect := &cobra.Command{
 		Use:     fmt.Sprintf("%s <foo> <bar> <baz>", DisconnectCommandName),
 		Short:   "Disconnect (ADB) from CVD",
@@ -898,9 +904,13 @@ func runCreateCVDCommand(c *cobra.Command, args []string, flags *CreateCVDFlags,
 	}
 	var merr error
 	if flags.CreateCVDOpts.AutoConnect {
+		connectAgent := ConnectionWebRTCAgentCommandName
+		if flags.CreateCVDOpts.ConnectAgent != "" {
+			connectAgent = flags.CreateCVDOpts.ConnectAgent
+		}
 		for _, cvd := range cvds {
 			statePrinter.Print(fmt.Sprintf(connectCVDStateMsgFmt, cvd.WebRTCDeviceID))
-			cvd.ConnStatus, err = ConnectDevice(flags.CreateCVDOpts.Host, cvd.WebRTCDeviceID, "", ConnectionWebRTCAgentCommandName, &command{c, &flags.Verbose}, opts)
+			cvd.ConnStatus, err = ConnectDevice(flags.CreateCVDOpts.Host, cvd.WebRTCDeviceID, "", connectAgent, &command{c, &flags.Verbose}, opts)
 			statePrinter.PrintDone(fmt.Sprintf(connectCVDStateMsgFmt, cvd.WebRTCDeviceID), err)
 			if err != nil {
 				merr = multierror.Append(merr, fmt.Errorf("failed to connect to device: %w", err))
@@ -1168,6 +1178,11 @@ func runConnectCommand(flags *ConnectFlags, c *command, args []string, opts *sub
 		}
 	}
 
+	connectAgent := ConnectionWebRTCAgentCommandName
+	if flags.connectAgent != "" {
+		connectAgent = flags.connectAgent
+	}
+
 	var merr error
 	connChs := make([]chan ConnStatus, len(cvds))
 	errChs := make([]chan error, len(cvds))
@@ -1181,7 +1196,7 @@ func runConnectCommand(flags *ConnectFlags, c *command, args []string, opts *sub
 		go func(connCh chan ConnStatus, errCh chan error, cvd RemoteCVDLocator) {
 			defer close(connCh)
 			defer close(errCh)
-			status, err := ConnectDevice(cvd.Host, cvd.WebRTCDeviceID, flags.ice_config, flags.connectAgent, c, opts)
+			status, err := ConnectDevice(cvd.Host, cvd.WebRTCDeviceID, flags.ice_config, connectAgent, c, opts)
 			if err != nil {
 				errCh <- fmt.Errorf("failed to connect to %q on %q: %w", cvd.WebRTCDeviceID, cvd.Host, err)
 			} else {

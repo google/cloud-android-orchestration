@@ -21,9 +21,7 @@ import (
 
 type ADBServerProxy interface {
 	Connect(port int) error
-	ConnectWithLocalFileSystem(path string) error
 	Disconnect(port int) error
-	DisconnectWithLocalFileSystem(path string) error
 }
 
 const ADBServerPort = 5037
@@ -39,10 +37,6 @@ func (p *ADBServerProxyImpl) Connect(port int) error {
 	return p.connect(fmt.Sprintf("127.0.0.1:%d", port))
 }
 
-func (p *ADBServerProxyImpl) ConnectWithLocalFileSystem(path string) error {
-	return p.connect(fmt.Sprintf("localfilesystem:%s", path))
-}
-
 func (p *ADBServerProxyImpl) disconnect(adbSerial string) error {
 	msg := fmt.Sprintf("host:disconnect:%s", adbSerial)
 	return p.sendMsg(msg)
@@ -50,10 +44,6 @@ func (p *ADBServerProxyImpl) disconnect(adbSerial string) error {
 
 func (p *ADBServerProxyImpl) Disconnect(port int) error {
 	return p.disconnect(fmt.Sprintf("127.0.0.1:%d", port))
-}
-
-func (p *ADBServerProxyImpl) DisconnectWithLocalFileSystem(path string) error {
-	return p.disconnect(fmt.Sprintf("localfilesystem:%s", path))
 }
 
 func (*ADBServerProxyImpl) sendMsg(msg string) error {

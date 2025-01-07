@@ -117,6 +117,7 @@ const (
 	systemImgBuildIDFlag       = "system_build_id"
 	systemImgBuildTargetFlag   = "system_build_target"
 	numInstancesFlag           = "num_instances"
+	connectAgentFlag           = "connect_agent"
 	autoConnectFlag            = "auto_connect"
 	buildAPICredsSourceFlag    = "build_api_creds_source"
 	buildAPICredsUserProjectID = "build_api_creds_user_project_id"
@@ -744,7 +745,7 @@ func connectionCommands(opts *subCommandOpts) []*cobra.Command {
 	connect.Flags().BoolVarP(&connFlags.skipConfirmation, "yes", "y", false,
 		"Don't ask for confirmation for closing multiple connections.")
 	connect.Flags().StringVar(&connFlags.ice_config, iceConfigFlag, "", iceConfigFlagDesc)
-	connect.Flags().StringVar(&connFlags.connectAgent, "connect_agent", ConnectionWebRTCAgentCommandName, "Connect agent type")
+	connect.Flags().StringVar(&connFlags.connectAgent, connectAgentFlag, ConnectionWebRTCAgentCommandName, "Connect agent type")
 	disconnect := &cobra.Command{
 		Use:     fmt.Sprintf("%s <foo> <bar> <baz>", DisconnectCommandName),
 		Short:   "Disconnect (ADB) from CVD",

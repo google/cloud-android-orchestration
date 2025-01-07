@@ -128,8 +128,8 @@ const (
 const (
 	ConnectCommandName                  = "connect"
 	DisconnectCommandName               = "disconnect"
-	ConnectionWebRTCAgentCommandName    = "webrtc_agent"
-	ConnectionWebSocketAgentCommandName = "websocket_agent"
+	ConnectionWebRTCAgentCommandName    = "webrtc"
+	ConnectionWebSocketAgentCommandName = "websocket"
 )
 
 const (

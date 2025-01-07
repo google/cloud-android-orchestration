@@ -58,6 +58,7 @@ ServiceURL = "service_url"
 Zone = "zone"
 Proxy = "proxy"
 BuildAPICredentialsSource = "injected"
+ConnectAgent = "webrtc_agent"
 Host = {
   GCP = {
     MachineType = "machine_type",

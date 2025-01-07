@@ -32,3 +32,6 @@ Authn = {
 
 # The host config for the Cloud Android Orchestration service.
 Host = {}
+
+# Agent name used for ADB connection.
+ConnectAgent = "websocket_agent"

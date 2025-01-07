@@ -34,4 +34,4 @@ Authn = {
 Host = {}
 
 # Agent name used for ADB connection.
-ConnectAgent = "websocket_agent"
+ConnectAgent = "websocket"

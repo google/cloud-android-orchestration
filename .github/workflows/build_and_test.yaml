@@ -15,6 +15,11 @@ jobs:
       uses: actions/setup-go@v3
       with:
         go-version: ${{ matrix.go-version }}
+    - name: Staticcheck
+      uses: dominikh/staticcheck-action@v1.3.1
+      with:
+        version: "latest"
+        install-go: false
     - run: go version
     - name: Build
       run: go build ./...

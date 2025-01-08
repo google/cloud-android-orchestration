@@ -34,6 +34,37 @@ Please check the configuration file(`cvdr.toml`) and set the environment like
 See [build/debian/cuttlefish_cvdremote/host/etc/cvdr.toml](/build/debian/cuttlefish_cvdremote/host/etc/cvdr.toml)
 as an example of how to write a configuration file.
 
+## Use cvdr with one time execution
+
+Let's assume using the latest Cuttlefish x86_64 image enrolled in
+[ci.android.com](https://ci.android.com/).
+
+Please run:
+```bash
+CVDR_USER_CONFIG_PATH=cvdr.toml \
+./cvdr \
+--branch=aosp-main \
+--build_target=aosp_cf_x86_64_phone-trunk_staging-userdebug \
+create
+```
+
+Then we expect the result like below.
+```
+Creating Host........................................ OK
+Fetching main bundle artifacts....................... OK
+Starting and waiting for boot complete............... OK
+Connecting to cvd-1.................................. OK
+2e8137432a96f93558c838da5e590ec775a97e5a7bb20e66929d1a59eb337351 (http://localhost:8080/v1/zones/local/hosts/2e8137432a96f93558c838da5e590ec775a97e5a7bb20e66929d1a59eb337351/)
+  cvd/1
+  Status: Running
+  ADB: 127.0.0.1:33975
+  Displays: [720 x 1280 ( 320 )]
+  Logs: http://localhost:8080/v1/zones/local/hosts/2e8137432a96f93558c838da5e590ec775a97e5a7bb20e66929d1a59eb337351/cvds/1/logs/
+```
+If you want to validate, please refer the first provided URL in the output log
+and check if the page seems like below.
+![cvdr_cf_creation](resources/cvdr_cf_creation_example.png)
+
 ## Use cvdr step-by-step
 
 ### Host creation
@@ -91,34 +122,3 @@ bcef3e121d23e4958c9fc608966cb01e41ad842385da8d32fc9be4a2a060a580/cvd-1: 127.0.0.
 ```
 
 You could be able to see the device is enrolled via `adb devices`.
-
-## Use cvdr with one time execution
-
-Let's assume using the latest Cuttlefish x86_64 image enrolled in
-[ci.android.com](https://ci.android.com/).
-
-Please run:
-```bash
-CVDR_USER_CONFIG_PATH=cvdr.toml \
-./cvdr \
---branch=aosp-main \
---build_target=aosp_cf_x86_64_phone-trunk_staging-userdebug \
-create
-```
-
-Then we expect the result like below.
-```
-Creating Host........................................ OK
-Fetching main bundle artifacts....................... OK
-Starting and waiting for boot complete............... OK
-Connecting to cvd-1.................................. OK
-2e8137432a96f93558c838da5e590ec775a97e5a7bb20e66929d1a59eb337351 (http://localhost:8080/v1/zones/local/hosts/2e8137432a96f93558c838da5e590ec775a97e5a7bb20e66929d1a59eb337351/)
-  cvd/1
-  Status: Running
-  ADB: 127.0.0.1:33975
-  Displays: [720 x 1280 ( 320 )]
-  Logs: http://localhost:8080/v1/zones/local/hosts/2e8137432a96f93558c838da5e590ec775a97e5a7bb20e66929d1a59eb337351/cvds/1/logs/
-```
-If you want to validate, please refer the first provided URL in the output log
-and check if the page seems like below.
-![cvdr_cf_creation](resources/cvdr_cf_creation_example.png)

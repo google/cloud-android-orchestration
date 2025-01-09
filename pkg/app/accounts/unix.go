@@ -17,18 +17,13 @@ package accounts
 import (
 	"net/http"
 	"os"
-
-	"golang.org/x/oauth2"
 )
 
 const UnixAMType AMType = "unix"
 
 // Implements the Manager interface taking the username from the
 // environment and authorizing all requests
-type UnixAccountManager struct {
-	tokenSource oauth2.TokenSource
-	lastState   string
-}
+type UnixAccountManager struct{}
 
 func NewUnixAccountManager() *UnixAccountManager {
 	return &UnixAccountManager{}

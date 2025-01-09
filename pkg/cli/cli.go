@@ -80,8 +80,6 @@ const (
 )
 
 const (
-	acceleratorFlag = "accelerator"
-
 	gcpMachineTypeFlag    = "gcp_machine_type"
 	gcpMinCPUPlatformFlag = "gcp_min_cpu_platform"
 	gcpBootDiskSizeGB     = "gcp_boot_disk_size_gb"
@@ -1600,8 +1598,6 @@ func filterMap[K comparable, T any](m map[K]T, pred func(K, T) bool) map[K]T {
 	}
 	return r
 }
-
-type clientBuilder func(flags *ServiceFlags, c *cobra.Command) (client.Client, error)
 
 const chunkSizeBytes = 16 * 1024 * 1024
 

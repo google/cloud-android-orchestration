@@ -1312,7 +1312,7 @@ func connectADBWebSocketDirect(serviceURL string, device string) (*websocket.Con
 	//   wss://127.0.0.1:1443/devices/cvd-1/adb
 	url, err := url.Parse(serviceURL)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to parse URL %s: %w", serviceURL, err)
+		return nil, fmt.Errorf("failed to parse URL %s: %w", serviceURL, err)
 	}
 	switch p := &url.Scheme; *p {
 	case "https":
@@ -1320,7 +1320,7 @@ func connectADBWebSocketDirect(serviceURL string, device string) (*websocket.Con
 	case "http":
 		*p = "ws"
 	default:
-		return nil, fmt.Errorf("Unknown scheme %s", *p)
+		return nil, fmt.Errorf("unknown scheme %s", *p)
 	}
 	url = url.JoinPath("devices", device, "adb")
 	dialer := websocket.Dialer{
@@ -1330,7 +1330,7 @@ func connectADBWebSocketDirect(serviceURL string, device string) (*websocket.Con
 	}
 	wsConn, _, err := dialer.Dial(url.String(), nil)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to connect WebSocket %s: %w", url.String(), err)
+		return nil, fmt.Errorf("failed to connect WebSocket %s: %w", url.String(), err)
 	}
 	return wsConn, nil
 }

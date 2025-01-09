@@ -646,7 +646,7 @@ func GetHostOutRelativePath(targetArch string) (string, error) {
 	}
 	relativePath, ok := m[targetArch]
 	if !ok {
-		return "", fmt.Errorf("Unexpected target architecture: %q", targetArch)
+		return "", fmt.Errorf("unexpected target architecture: %q", targetArch)
 	}
 	return relativePath, nil
 }

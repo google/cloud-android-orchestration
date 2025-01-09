@@ -1619,7 +1619,7 @@ func newClient(config Config, flags *ServiceFlags, c *cobra.Command) (client.Cli
 	}
 	srvConfig := config.DefaultService()
 	if flags.Service != "" {
-		srvConfig, _ = config.Services[flags.Service]
+		srvConfig = config.Services[flags.Service]
 	}
 	authnConfig := srvConfig.Authn
 	if authnConfig != nil {

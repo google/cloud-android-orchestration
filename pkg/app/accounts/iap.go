@@ -27,7 +27,7 @@ import (
 
 const (
 	IAPType         AMType = "IAP"
-	iapJWTHeaderKey        = "x-goog-iap-jwt-assertion"
+	iapJWTHeaderKey string = "x-goog-iap-jwt-assertion"
 )
 
 type IAPAccountManager struct{}

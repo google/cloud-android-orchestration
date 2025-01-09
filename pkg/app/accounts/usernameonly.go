@@ -22,8 +22,7 @@ import (
 
 const (
 	UsernameOnlyAMType AMType = "username-only"
-
-	unameCookie = "accountUsername"
+	unameCookie        string = "accountUsername"
 )
 
 // Implements the AccountManager interfaces for closed deployed cloud

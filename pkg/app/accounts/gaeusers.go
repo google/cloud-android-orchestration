@@ -21,9 +21,8 @@ import (
 )
 
 const (
-	GAEAMType AMType = "GCP"
-
-	emailHeaderKey = "X-Appengine-User-Email"
+	GAEAMType      AMType = "GCP"
+	emailHeaderKey string = "X-Appengine-User-Email"
 )
 
 type GAEUsersAccountManager struct{}

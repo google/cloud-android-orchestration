@@ -82,7 +82,7 @@ func (m *DockerInstanceManager) CreateHost(zone string, _ *apiv1.CreateHostReque
 	ctx := context.TODO()
 	err := m.downloadDockerImageIfNeeded(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to retrieve docker image name: %w", err)
+		return nil, fmt.Errorf("failed to retrieve docker image name: %w", err)
 	}
 	config := &container.Config{
 		AttachStdin: true,
@@ -98,11 +98,11 @@ func (m *DockerInstanceManager) CreateHost(zone string, _ *apiv1.CreateHostReque
 	}
 	createRes, err := m.Client.ContainerCreate(ctx, config, hostConfig, nil, nil, "")
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create docker container: %w", err)
+		return nil, fmt.Errorf("failed to create docker container: %w", err)
 	}
 	err = m.Client.ContainerStart(ctx, createRes.ID, container.StartOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("Failed to start docker container: %w", err)
+		return nil, fmt.Errorf("failed to start docker container: %w", err)
 	}
 	return &apiv1.Operation{
 		Name: EncodeOperationName(CreateHostOPType, createRes.ID),
@@ -131,13 +131,13 @@ func (m *DockerInstanceManager) ListHosts(zone string, user accounts.User, _ *Li
 		Filters: listFilters,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("Failed to list docker containers: %w", err)
+		return nil, fmt.Errorf("failed to list docker containers: %w", err)
 	}
 	var items []*apiv1.HostInstance
 	for _, container := range listRes {
 		ipAddr, err := m.getIpAddr(&container)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to get IP address of docker instance: %w", err)
+			return nil, fmt.Errorf("failed to get IP address of docker instance: %w", err)
 		}
 		items = append(items, &apiv1.HostInstance{
 			Name: container.ID,
@@ -159,15 +159,15 @@ func (m *DockerInstanceManager) DeleteHost(zone string, user accounts.User, host
 	ctx := context.TODO()
 	owner, _ := m.getContainerLabel(host, dockerLabelCreatedBy)
 	if owner != user.Username() {
-		return nil, fmt.Errorf("User %s cannot delete docker host owned by %s", user.Username(), owner)
+		return nil, fmt.Errorf("user %s cannot delete docker host owned by %s", user.Username(), owner)
 	}
 	err := m.Client.ContainerStop(ctx, host, container.StopOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("Failed to stop docker container: %w", err)
+		return nil, fmt.Errorf("failed to stop docker container: %w", err)
 	}
 	err = m.Client.ContainerRemove(ctx, host, container.RemoveOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("Failed to remove docker container: %w", err)
+		return nil, fmt.Errorf("failed to remove docker container: %w", err)
 	}
 	return &apiv1.Operation{
 		Name: EncodeOperationName(DeleteHostOPType, host),
@@ -198,7 +198,7 @@ func (m *DockerInstanceManager) waitCreateHostOperation(host string) (*apiv1.Hos
 		default:
 			res, err := m.Client.ContainerInspect(ctx, host)
 			if err != nil {
-				return nil, fmt.Errorf("Failed to inspect docker container: %w", err)
+				return nil, fmt.Errorf("failed to inspect docker container: %w", err)
 			}
 			if res.State.Running {
 				return &apiv1.HostInstance{
@@ -218,7 +218,7 @@ func (m *DockerInstanceManager) waitDeleteHostOperation(host string) (*apiv1.Hos
 	case <-ctx.Done():
 		return nil, errors.NewServiceUnavailableError("Wait for operation timed out", nil)
 	case err := <-errCh:
-		return nil, fmt.Errorf("Error is thrown while waiting for deleting host: %w", err)
+		return nil, fmt.Errorf("error is thrown while waiting for deleting host: %w", err)
 	case <-resCh:
 		return &apiv1.HostInstance{
 			Name: host,
@@ -247,7 +247,7 @@ func (m *DockerInstanceManager) WaitOperation(zone string, _ accounts.User, name
 func (m *DockerInstanceManager) getIpAddr(container *types.Container) (string, error) {
 	bridgeNetwork := container.NetworkSettings.Networks["bridge"]
 	if bridgeNetwork == nil {
-		return "", fmt.Errorf("Failed to find network information of docker instance")
+		return "", fmt.Errorf("failed to find network information of docker instance")
 	}
 	return bridgeNetwork.IPAddress, nil
 }
@@ -256,7 +256,7 @@ func (m *DockerInstanceManager) getHostAddr(host string) (string, error) {
 	ctx := context.TODO()
 	listRes, err := m.Client.ContainerList(ctx, container.ListOptions{})
 	if err != nil {
-		return "", fmt.Errorf("Failed to list docker containers: %w", err)
+		return "", fmt.Errorf("failed to list docker containers: %w", err)
 	}
 	var hostContainer *types.Container
 	for _, container := range listRes {
@@ -266,7 +266,7 @@ func (m *DockerInstanceManager) getHostAddr(host string) (string, error) {
 		}
 	}
 	if hostContainer == nil {
-		return "", fmt.Errorf("Failed to find host: %s", host)
+		return "", fmt.Errorf("failed to find host: %s", host)
 	}
 	return m.getIpAddr(hostContainer)
 }
@@ -302,11 +302,11 @@ func (m *DockerInstanceManager) getContainerLabel(host string, key string) (stri
 	ctx := context.TODO()
 	inspect, err := m.Client.ContainerInspect(ctx, host)
 	if err != nil {
-		return "", fmt.Errorf("Failed to inspect container: %w", err)
+		return "", fmt.Errorf("failed to inspect container: %w", err)
 	}
 	value, exist := inspect.Config.Labels[key]
 	if !exist {
-		return "", fmt.Errorf("Failed to find docker label: %s", key)
+		return "", fmt.Errorf("failed to find docker label: %s", key)
 	}
 	return value, nil
 }
@@ -314,7 +314,7 @@ func (m *DockerInstanceManager) getContainerLabel(host string, key string) (stri
 func (m *DockerInstanceManager) downloadDockerImageIfNeeded(ctx context.Context) error {
 	listRes, err := m.Client.ImageList(ctx, image.ListOptions{})
 	if err != nil {
-		return fmt.Errorf("Failed to list docker images: %w", err)
+		return fmt.Errorf("failed to list docker images: %w", err)
 	}
 	for _, image := range listRes {
 		for _, tag := range image.RepoTags {
@@ -326,14 +326,14 @@ func (m *DockerInstanceManager) downloadDockerImageIfNeeded(ctx context.Context)
 
 	reader, err := m.Client.ImagePull(ctx, m.Config.Docker.DockerImageName, image.PullOptions{})
 	if err != nil {
-		return fmt.Errorf("Failed to request pulling docker image %q: %w", m.Config.Docker.DockerImageName, err)
+		return fmt.Errorf("failed to request pulling docker image %q: %w", m.Config.Docker.DockerImageName, err)
 	}
 	defer reader.Close()
 	// Caller of ImagePull should handle its output to complete actual ImagePull operation.
 	// Details in https://pkg.go.dev/github.com/docker/docker/client#Client.ImagePull.
 	_, err = io.Copy(io.Discard, reader)
 	if err != nil {
-		return fmt.Errorf("Failed to pull docker image %q: %w", m.Config.Docker.DockerImageName, err)
+		return fmt.Errorf("failed to pull docker image %q: %w", m.Config.Docker.DockerImageName, err)
 	}
 	log.Println("Downloaded docker image: " + m.Config.Docker.DockerImageName)
 	return nil

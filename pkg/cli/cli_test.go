@@ -19,7 +19,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"reflect"
 	"strings"
 	"testing"
@@ -128,9 +127,9 @@ func TestCommandSucceeds(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
-			io, _, out := newTestIOStreams()
+			ioStreams, _, out := newTestIOStreams()
 			opts := &CommandOptions{
-				IOStreams:      io,
+				IOStreams:      ioStreams,
 				Args:           append(test.Args, "--service_url="+unitTestServiceURL),
 				InitialConfig:  Config{ConnectionControlDir: t.TempDir()},
 				CommandRunner:  &fakeCommandRunner{},
@@ -142,7 +141,7 @@ func TestCommandSucceeds(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			b, _ := ioutil.ReadAll(out)
+			b, _ := io.ReadAll(out)
 			if diff := cmp.Diff(test.ExpOut, string(b)); diff != "" {
 				t.Errorf("standard output mismatch (-want +got):\n%s", diff)
 			}
@@ -212,6 +211,6 @@ func expectedOutput(serviceURL, host string, cvd hoapi.CVD, port int) string {
 	}
 	hosts := []*RemoteHost{{Name: host, CVDs: []*RemoteCVD{remoteCVD}}}
 	WriteListCVDsOutput(out, hosts)
-	b, _ := ioutil.ReadAll(out)
+	b, _ := io.ReadAll(out)
 	return string(b)
 }

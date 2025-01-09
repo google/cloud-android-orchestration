@@ -19,7 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -127,7 +127,7 @@ func TestCreateHostRequestPath(t *testing.T) {
 func TestCreateHostRequestBody(t *testing.T) {
 	var bodySent compute.Instance
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		body, _ := ioutil.ReadAll(r.Body)
+		body, _ := io.ReadAll(r.Body)
 		json.Unmarshal(body, &bodySent)
 		replyJSON(w, &compute.Operation{Name: "operation-1"})
 	}))
@@ -182,7 +182,7 @@ func TestCreateHostRequestBody(t *testing.T) {
 func TestCreateHostExternalIpRequestBody(t *testing.T) {
 	var bodySent compute.Instance
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		body, _ := ioutil.ReadAll(r.Body)
+		body, _ := io.ReadAll(r.Body)
 		json.Unmarshal(body, &bodySent)
 		replyJSON(w, &compute.Operation{Name: "operation-1"})
 	}))
@@ -243,7 +243,7 @@ func TestCreateHostExternalIpRequestBody(t *testing.T) {
 func TestCreateHostAcloudCompatible(t *testing.T) {
 	var postedInstance compute.Instance
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		body, _ := ioutil.ReadAll(r.Body)
+		body, _ := io.ReadAll(r.Body)
 		json.Unmarshal(body, &postedInstance)
 		replyJSON(w, &compute.Operation{Name: "operation-1"})
 	}))

@@ -687,10 +687,7 @@ func (o *CreateCVDLocalOpts) srcs() []string {
 	if o.LocalImagesZipSrc != "" {
 		result = append(result, o.LocalImagesZipSrc)
 	}
-	for _, v := range o.LocalImagesSrcs {
-		result = append(result, v)
-	}
-	return result
+	return append(result, o.LocalImagesSrcs...)
 }
 
 func (o *CreateCVDLocalOpts) empty() bool {

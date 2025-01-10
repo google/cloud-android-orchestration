@@ -124,14 +124,20 @@ func (o *CreateCVDOpts) Update(s *Service) {
 func createCVD(srvClient client.Client, createOpts CreateCVDOpts, statePrinter *statePrinter) ([]*RemoteCVD, error) {
 	creator, err := newCVDCreator(srvClient, createOpts, statePrinter)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create cvd: %w", err)
+		return nil, fmt.Errorf("failed to create cvd creator: %w", err)
 	}
-	cvds, err := creator.Create()
+	req, err := creator.buildCreateCVDRequest()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to build CreateCVDRequest: %w", err)
+	}
+	statePrinter.Print(stateMsgStartCVD)
+	res, err := creator.hostService.CreateCVD(req, creator.credentialsFactory())
+	statePrinter.PrintDone(stateMsgStartCVD, err)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create cvd: %w", err)
 	}
 	result := []*RemoteCVD{}
-	for _, cvd := range cvds {
+	for _, cvd := range res.CVDs {
 		result = append(result, NewRemoteCVD(createOpts.Host, cvd))
 	}
 	return result, nil
@@ -140,7 +146,7 @@ func createCVD(srvClient client.Client, createOpts CreateCVDOpts, statePrinter *
 type CredentialsFactory func() hoclient.BuildAPICreds
 
 type cvdCreator struct {
-	client             client.Client
+	hostService        hoclient.HostOrchestratorService
 	opts               CreateCVDOpts
 	statePrinter       *statePrinter
 	credentialsFactory CredentialsFactory
@@ -152,21 +158,24 @@ func newCVDCreator(srvClient client.Client, opts CreateCVDOpts, statePrinter *st
 		return nil, err
 	}
 	return &cvdCreator{
-		client:             srvClient,
+		hostService:        srvClient.HostService(opts.Host),
 		opts:               opts,
 		statePrinter:       statePrinter,
 		credentialsFactory: cf,
 	}, nil
 }
 
-func (c *cvdCreator) Create() ([]*hoapi.CVD, error) {
+func (c *cvdCreator) buildCreateCVDRequest() (*hoapi.CreateCVDRequest, error) {
 	if c.opts.LocalImage {
-		return c.createCVDFromLocalBuild()
+		return c.buildCreateCVDRequestWithLocalImage()
 	}
 	if !c.opts.CreateCVDLocalOpts.empty() {
-		return c.createCVDFromLocalSrcs()
+		return c.buildCreateCVDRequestWithLocalSrcs()
 	}
-	return c.createCVDFromAndroidCI()
+	if c.opts.EnvConfig != nil {
+		return c.buildCreateCVDRequestWithCanonicalConfig()
+	}
+	return c.buildCreateCVDRequestWithOpts()
 }
 
 const uaEnvConfigTmplStr = `
@@ -217,7 +226,7 @@ func buildUAEnvConfig(data uaEnvConfigTmplData) (map[string]interface{}, error) 
 	return result, nil
 }
 
-func (c *cvdCreator) createCVDFromLocalBuild() ([]*hoapi.CVD, error) {
+func (c *cvdCreator) buildCreateCVDRequestWithLocalImage() (*hoapi.CreateCVDRequest, error) {
 	buildTop, err := envVar(AndroidBuildTopVarName)
 	if err != nil {
 		return nil, err
@@ -243,8 +252,7 @@ func (c *cvdCreator) createCVDFromLocalBuild() ([]*hoapi.CVD, error) {
 		return nil, err
 	}
 	names = append(names, filepath.Join(hostOut, CVDHostPackageName))
-	hostSrv := c.client.HostService(c.opts.Host)
-	uploadDir, err := hostSrv.CreateUploadDir()
+	uploadDir, err := c.hostService.CreateUploadDir()
 	if err != nil {
 		return nil, err
 	}
@@ -252,60 +260,38 @@ func (c *cvdCreator) createCVDFromLocalBuild() ([]*hoapi.CVD, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := uploadFiles(hostSrv, uploadDir, names, c.statePrinter); err != nil {
+	if err := uploadFiles(c.hostService, uploadDir, names, c.statePrinter); err != nil {
 		return nil, err
 	}
-	req := &hoapi.CreateCVDRequest{EnvConfig: envConfig}
-	res, err := hostSrv.CreateCVD(req, c.credentialsFactory())
-	if err != nil {
-		return nil, err
-	}
-	return res.CVDs, nil
+	return &hoapi.CreateCVDRequest{EnvConfig: envConfig}, nil
 }
 
 const (
 	stateMsgFetchMainBundle = "Fetching main bundle artifacts"
 	stateMsgStartCVD        = "Starting and waiting for boot complete"
-	stateMsgFetchAndStart   = "Fetching, starting and waiting for boot complete"
 )
 
-func (c *cvdCreator) createCVDFromAndroidCI() ([]*hoapi.CVD, error) {
-	if c.opts.EnvConfig != nil {
-		return c.createWithCanonicalConfig()
-	}
-	return c.createWithOpts()
-}
-
-func (c *cvdCreator) createWithCanonicalConfig() ([]*hoapi.CVD, error) {
-	hostSrv := c.client.HostService(c.opts.Host)
+func (c *cvdCreator) buildCreateCVDRequestWithCanonicalConfig() (*hoapi.CreateCVDRequest, error) {
 	envConfig := make(map[string]any)
 	if err := deepCopy(c.opts.EnvConfig, &envConfig); err != nil {
 		return nil, fmt.Errorf("deep copying env config failed: %w", err)
 	}
-	if err := c.uploadFilesAndUpdateEnvConfig(hostSrv, envConfig); err != nil {
+	err := c.uploadFilesAndUpdateEnvConfig(envConfig)
+	if err != nil {
 		return nil, fmt.Errorf("failed uploading files from environment config: %w", err)
 	}
-	createReq := &hoapi.CreateCVDRequest{
-		EnvConfig: envConfig,
-	}
-	c.statePrinter.Print(stateMsgFetchAndStart)
-	res, err := hostSrv.CreateCVD(createReq, c.credentialsFactory())
-	c.statePrinter.PrintDone(stateMsgFetchAndStart, err)
-	if err != nil {
-		return nil, err
-	}
-	return res.CVDs, nil
+	return &hoapi.CreateCVDRequest{EnvConfig: envConfig}, nil
 }
 
-func (c *cvdCreator) uploadFilesAndUpdateEnvConfig(hostSrv hoclient.HostOrchestratorService, config map[string]interface{}) error {
-	if err := c.uploadCVDHostPackageAndUpdateEnvConfig(hostSrv, config); err != nil {
+func (c *cvdCreator) uploadFilesAndUpdateEnvConfig(config map[string]interface{}) error {
+	if err := c.uploadCVDHostPackageAndUpdateEnvConfig(config); err != nil {
 		return err
 	}
-	return c.uploadImagesAndUpdateEnvConfig(hostSrv, config)
+	return c.uploadImagesAndUpdateEnvConfig(config)
 }
 
 // TODO(b/378123925) Work with https://github.com/google/android-cuttlefish/blob/main/base/cvd/cuttlefish/host/commands/cvd/cli/parser/load_config.proto
-func (c *cvdCreator) uploadCVDHostPackageAndUpdateEnvConfig(hostSrv hoclient.HostOrchestratorService, config map[string]interface{}) error {
+func (c *cvdCreator) uploadCVDHostPackageAndUpdateEnvConfig(config map[string]interface{}) error {
 	common, ok := config["common"]
 	if !ok {
 		return nil
@@ -326,11 +312,11 @@ func (c *cvdCreator) uploadCVDHostPackageAndUpdateEnvConfig(hostSrv hoclient.Hos
 		if isDir {
 			return fmt.Errorf("uploading directory not supported")
 		}
-		uploadDir, err := hostSrv.CreateUploadDir()
+		uploadDir, err := c.hostService.CreateUploadDir()
 		if err != nil {
 			return fmt.Errorf("failed creating upload dir: %w", err)
 		}
-		if err := uploadFiles(hostSrv, uploadDir, []string{val}, c.statePrinter); err != nil {
+		if err := uploadFiles(c.hostService, uploadDir, []string{val}, c.statePrinter); err != nil {
 			return fmt.Errorf("failed uploading %q: %w", val, err)
 		}
 		commonMap["host_package"] = "@user_artifacts/" + uploadDir
@@ -339,7 +325,7 @@ func (c *cvdCreator) uploadCVDHostPackageAndUpdateEnvConfig(hostSrv hoclient.Hos
 }
 
 // TODO(b/378123925) Work with https://github.com/google/android-cuttlefish/blob/main/base/cvd/cuttlefish/host/commands/cvd/cli/parser/load_config.proto
-func (c *cvdCreator) uploadImagesAndUpdateEnvConfig(hostSrv hoclient.HostOrchestratorService, config map[string]interface{}) error {
+func (c *cvdCreator) uploadImagesAndUpdateEnvConfig(config map[string]interface{}) error {
 	instances, ok := config["instances"]
 	if !ok {
 		return nil
@@ -373,11 +359,11 @@ func (c *cvdCreator) uploadImagesAndUpdateEnvConfig(hostSrv hoclient.HostOrchest
 			if isDir {
 				return fmt.Errorf("uploading directory not supported")
 			}
-			uploadDir, err := hostSrv.CreateUploadDir()
+			uploadDir, err := c.hostService.CreateUploadDir()
 			if err != nil {
 				return fmt.Errorf("failed creating upload dir: %w", err)
 			}
-			if err := uploadFiles(hostSrv, uploadDir, []string{val}, c.statePrinter); err != nil {
+			if err := uploadFiles(c.hostService, uploadDir, []string{val}, c.statePrinter); err != nil {
 				return fmt.Errorf("failed uploading %q: %w", val, err)
 			}
 			diskMap["default_build"] = "@user_artifacts/" + uploadDir
@@ -386,7 +372,7 @@ func (c *cvdCreator) uploadImagesAndUpdateEnvConfig(hostSrv hoclient.HostOrchest
 	return nil
 }
 
-func (c *cvdCreator) createWithOpts() ([]*hoapi.CVD, error) {
+func (c *cvdCreator) buildCreateCVDRequestWithOpts() (*hoapi.CreateCVDRequest, error) {
 	var mainBuild, kernelBuild, bootloaderBuild, systemImageBuild *hoapi.AndroidCIBuild
 	mainBuild = &c.opts.MainBuild
 	if c.opts.KernelBuild != (hoapi.AndroidCIBuild{}) {
@@ -402,12 +388,12 @@ func (c *cvdCreator) createWithOpts() ([]*hoapi.CVD, error) {
 		AndroidCIBundle: &hoapi.AndroidCIBundle{Build: mainBuild, Type: hoapi.MainBundleType},
 	}
 	c.statePrinter.Print(stateMsgFetchMainBundle)
-	fetchMainBuildRes, err := c.client.HostService(c.opts.Host).FetchArtifacts(fetchReq, c.credentialsFactory())
+	fetchMainBuildRes, err := c.hostService.FetchArtifacts(fetchReq, c.credentialsFactory())
 	c.statePrinter.PrintDone(stateMsgFetchMainBundle, err)
 	if err != nil {
 		return nil, err
 	}
-	createReq := &hoapi.CreateCVDRequest{
+	return &hoapi.CreateCVDRequest{
 		CVD: &hoapi.CVD{
 			BuildSource: &hoapi.BuildSource{
 				AndroidCIBuildSource: &hoapi.AndroidCIBuildSource{
@@ -419,21 +405,14 @@ func (c *cvdCreator) createWithOpts() ([]*hoapi.CVD, error) {
 			},
 		},
 		AdditionalInstancesNum: c.opts.AdditionalInstancesNum(),
-	}
-	c.statePrinter.Print(stateMsgStartCVD)
-	res, err := c.client.HostService(c.opts.Host).CreateCVD(createReq, c.credentialsFactory())
-	c.statePrinter.PrintDone(stateMsgStartCVD, err)
-	if err != nil {
-		return nil, err
-	}
-	return res.CVDs, nil
+	}, nil
 }
 
-func (c *cvdCreator) createCVDFromLocalSrcs() ([]*hoapi.CVD, error) {
+func (c *cvdCreator) buildCreateCVDRequestWithLocalSrcs() (*hoapi.CreateCVDRequest, error) {
 	if err := c.opts.CreateCVDLocalOpts.validate(); err != nil {
 		return nil, fmt.Errorf("invalid local source: %w", err)
 	}
-	uploadDir, err := c.client.HostService(c.opts.Host).CreateUploadDir()
+	uploadDir, err := c.hostService.CreateUploadDir()
 	if err != nil {
 		return nil, err
 	}
@@ -441,16 +420,10 @@ func (c *cvdCreator) createCVDFromLocalSrcs() ([]*hoapi.CVD, error) {
 	if err != nil {
 		return nil, err
 	}
-	hostSrv := c.client.HostService(c.opts.Host)
-	if err := uploadFiles(hostSrv, uploadDir, c.opts.CreateCVDLocalOpts.srcs(), c.statePrinter); err != nil {
+	if err := uploadFiles(c.hostService, uploadDir, c.opts.CreateCVDLocalOpts.srcs(), c.statePrinter); err != nil {
 		return nil, err
 	}
-	req := &hoapi.CreateCVDRequest{EnvConfig: envConfig}
-	res, err := hostSrv.CreateCVD(req, c.credentialsFactory())
-	if err != nil {
-		return nil, err
-	}
-	return res.CVDs, nil
+	return &hoapi.CreateCVDRequest{EnvConfig: envConfig}, nil
 }
 
 type coInjectBuildAPICreds struct{}

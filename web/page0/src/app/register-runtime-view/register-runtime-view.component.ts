@@ -43,30 +43,36 @@ export class RegisterRuntimeViewComponent {
     private store: Store,
     private fetchService: FetchService
   ) {
+    this.queryParams$ = this.router.events.pipe(
+      filter(
+        (event: Event): event is NavigationEnd => event instanceof NavigationEnd
+      ),
+      mergeMap(() => this.activatedRoute.queryParams),
+        shareReplay(1)
+    );
+    this.ngUnsubscribe = new Subject<void>();
+    this.previousUrl$ = this.queryParams$.pipe(
+      map((params: Params) => (params['previousUrl'] ?? 'list-runtime') as string)
+    );
+    this.runtimes$ = this.runtimeService.getRuntimes();
+    this.status$ = this.store.select(runtimesLoadStatusSelector);
+    this.runtimeForm = this.formBuilder.group({
+      url: [PLACEHOLDER_RUNTIME_SETTING.url, Validators.required],
+      alias: [PLACEHOLDER_RUNTIME_SETTING.alias, Validators.required],
+    });
     this.queryParams$.pipe(takeUntil(this.ngUnsubscribe)).subscribe();
   }
 
-  queryParams$ = this.router.events.pipe(
-    filter(
-      (event: Event): event is NavigationEnd => event instanceof NavigationEnd
-    ),
-    mergeMap(() => this.activatedRoute.queryParams),
-    shareReplay(1)
-  );
+  queryParams$;
 
-  private ngUnsubscribe = new Subject<void>();
+  private ngUnsubscribe;
 
-  previousUrl$ = this.queryParams$.pipe(
-    map((params: Params) => (params['previousUrl'] ?? 'list-runtime') as string)
-  );
+  previousUrl$;
 
-  runtimes$ = this.runtimeService.getRuntimes();
-  status$ = this.store.select(runtimesLoadStatusSelector);
+  runtimes$;
+  status$;
 
-  runtimeForm = this.formBuilder.group({
-    url: [PLACEHOLDER_RUNTIME_SETTING.url, Validators.required],
-    alias: [PLACEHOLDER_RUNTIME_SETTING.alias, Validators.required],
-  });
+  runtimeForm;
 
   showProgressBar(status: RuntimeViewStatus | null) {
     return status === RuntimeViewStatus.registering;

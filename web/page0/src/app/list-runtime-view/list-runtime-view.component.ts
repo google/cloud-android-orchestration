@@ -12,14 +12,17 @@ import {runtimesLoadStatusSelector} from '../store/selectors';
   styleUrls: ['./list-runtime-view.component.scss'],
 })
 export class ListRuntimeViewComponent {
-  runtimes$ = this.runtimeService.getRuntimes();
-  status$ = this.store.select(runtimesLoadStatusSelector);
+  runtimes$;
+  status$;
 
   constructor(
     private runtimeService: RuntimeService,
     private refreshService: RefreshService,
     private store: Store
-  ) {}
+  ) {
+    this.runtimes$ = this.runtimeService.getRuntimes();
+    this.status$ = this.store.select(runtimesLoadStatusSelector);
+  }
 
   onClickRefresh() {
     this.refreshService.refresh();

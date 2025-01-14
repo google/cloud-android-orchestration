@@ -14,13 +14,16 @@ import {RuntimeViewStatus} from 'src/app/interface/runtime-interface';
   styleUrls: ['./active-env-pane.component.scss'],
 })
 export class ActiveEnvPaneComponent {
-  envs$ = this.store.select(envCardListSelector);
-  status$ = this.store.select(runtimesLoadStatusSelector);
+  envs$;
+  status$;
 
   constructor(
     private refreshService: RefreshService,
     private store: Store
-  ) {}
+  ) {
+    this.envs$ = this.store.select(envCardListSelector);
+    this.status$ = this.store.select(runtimesLoadStatusSelector);
+  }
 
   onClickRefresh() {
     this.refreshService.refresh();

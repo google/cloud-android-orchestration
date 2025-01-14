@@ -14,20 +14,8 @@ import {Runtime, RuntimeViewStatus} from 'src/app/interface/runtime-interface';
   providedIn: 'root',
 })
 export class RuntimeService {
-  private status$ = this.store.select(runtimesLoadStatusSelector);
-
-  private runtimes$: Observable<Runtime[]> = this.store
-    .select<Runtime[]>(runtimeListSelector)
-    .pipe(
-      withLatestFrom(this.status$),
-      map(([runtimes, status]) => {
-        if (status === RuntimeViewStatus.done) {
-          window.localStorage.setItem('runtimes', JSON.stringify(runtimes));
-        }
-
-        return runtimes;
-      })
-    );
+  private status$;
+  private runtimes$: Observable<Runtime[]>;
 
   getRuntimes() {
     return this.runtimes$;
@@ -74,5 +62,19 @@ export class RuntimeService {
   constructor(
     private store: Store,
     private fetchService: FetchService
-  ) {}
+  ) {
+    this.status$ = this.store.select(runtimesLoadStatusSelector);
+    this.runtimes$ = this.store
+    .select<Runtime[]>(runtimeListSelector)
+    .pipe(
+      withLatestFrom(this.status$),
+      map(([runtimes, status]) => {
+        if (status === RuntimeViewStatus.done) {
+          window.localStorage.setItem('runtimes', JSON.stringify(runtimes));
+        }
+
+        return runtimes;
+      })
+    );
+  }
 }

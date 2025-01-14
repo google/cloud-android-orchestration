@@ -40,61 +40,64 @@ export class CreateHostViewComponent {
     private activatedRoute: ActivatedRoute,
     private store: Store
   ) {
+    this.queryParams$ = this.router.events.pipe(
+      filter((event): event is NavigationEnd => event instanceof NavigationEnd),
+        mergeMap(() => this.activatedRoute.queryParams),
+        shareReplay(1)
+    );
+    this.runtime$ = this.queryParams$.pipe(
+      map(params => (params['runtime'] as string) ?? ''),
+        switchMap(alias =>
+                  this.store.select(runtimesLoadStatusSelector).pipe(
+                    filter(status => status === RuntimeViewStatus.done),
+                      switchMap(() =>
+                                this.store.select(runtimeSelectorFactory({alias})).pipe(
+                                  map(runtime => {
+                                    if (!runtime) {
+                                      throw new Error(`No runtime of alias ${alias}`);
+                                    }
+                                    return runtime;
+                                  })
+                                )
+                               )
+                  )
+                 )
+    );
+    this.previousUrl$ = this.queryParams$.pipe(
+      map(params => (params['previousUrl'] as string) ?? 'list-runtime')
+    );
+    this.zones$ = this.runtime$.pipe(
+      map(runtime => runtime.zones),
+        tap(zones => {
+        if (zones?.includes(DEFAULT_ZONE)) {
+          this.hostForm!.controls.zone.setValue(DEFAULT_ZONE);
+        }
+      })
+    );
+    this.status$ = new BehaviorSubject<string>('done');
+    this.hostForm = this.formBuilder.group({
+      zone: ['ap-northeast2-a'],
+      machine_type: [DEFAULT_HOST_SETTING.gcp?.machine_type],
+      min_cpu_platform: [DEFAULT_HOST_SETTING.gcp?.min_cpu_platform],
+    });
     this.queryParams$.pipe(takeUntil(this.ngUnsubscribe)).subscribe();
   }
 
   private ngUnsubscribe = new Subject<void>();
 
-  queryParams$ = this.router.events.pipe(
-    filter((event): event is NavigationEnd => event instanceof NavigationEnd),
-    mergeMap(() => this.activatedRoute.queryParams),
-    shareReplay(1)
-  );
-
-  runtime$ = this.queryParams$.pipe(
-    map(params => (params['runtime'] as string) ?? ''),
-    switchMap(alias =>
-      this.store.select(runtimesLoadStatusSelector).pipe(
-        filter(status => status === RuntimeViewStatus.done),
-        switchMap(() =>
-          this.store.select(runtimeSelectorFactory({alias})).pipe(
-            map(runtime => {
-              if (!runtime) {
-                throw new Error(`No runtime of alias ${alias}`);
-              }
-              return runtime;
-            })
-          )
-        )
-      )
-    )
-  );
-
-  previousUrl$ = this.queryParams$.pipe(
-    map(params => (params['previousUrl'] as string) ?? 'list-runtime')
-  );
-
-  zones$ = this.runtime$.pipe(
-    map(runtime => runtime.zones),
-    tap(zones => {
-      if (zones?.includes(DEFAULT_ZONE)) {
-        this.hostForm!.controls.zone.setValue(DEFAULT_ZONE);
-      }
-    })
-  );
+  queryParams$;
+  runtime$;
+  previousUrl$;
+  zones$;
 
   ngOnDestroy() {
     this.ngUnsubscribe.next();
     this.ngUnsubscribe.complete();
   }
 
-  status$ = new BehaviorSubject<string>('done');
+  status$;
 
-  hostForm = this.formBuilder.group({
-    zone: ['ap-northeast2-a'],
-    machine_type: [DEFAULT_HOST_SETTING.gcp?.machine_type],
-    min_cpu_platform: [DEFAULT_HOST_SETTING.gcp?.min_cpu_platform],
-  });
+  hostForm;
 
   // TODO: refactor with 'host status'
   showProgressBar(status: string | null) {

@@ -12,37 +12,41 @@ interface.
 Please run `cvdr --help` for advanced functionalities of `cvdr` not described
 below, such as launching Cuttlefish with locally built image.
 
-## Build cvdr
+## Download cvdr
 
-Please run:
+Since the Debian package `cuttleifsh-cvdremote` containing `cvdr` is not
+registered in the official Debian repository, we need to enroll JFrog repository
+with commands below. 
 ```bash
-git clone https://github.com/google/cloud-android-orchestration.git
-cd cloud-android-orchestration # Root directory of git repository
-go build ./cmd/cvdr
+sudo apt install wget
+wget -qO- https://artifacts.codelinaro.org/artifactory/linaro-372-googlelt-gigabyte-ampere-cuttlefish-installer/gigabyte-ampere-cuttlefish-installer/latest/debian/linaro-glt-gig-archive-bookworm.asc | sudo tee /etc/apt/trusted.gpg.d/linaro-glt-gig-archive-bookworm.asct
+echo "deb https://artifacts.codelinaro.org/linaro-372-googlelt-gigabyte-ampere-cuttlefish-installer/gigabyte-ampere-cuttlefish-installer/latest/debian bookworm main" | sudo tee /etc/apt/sources.list.d/linaro-glt-gig-archive-bookworm.list
+sudo apt update
 ```
 
-## Find URL of cloud orchestrator
-
-Please read [cloud_orchestrator.md](cloud_orchestrator.md) to know.
-Let's define the URL of Cloud Orchestrator as `SERVICE_URL` for the rest of this
-page.
+Then `cuttlefish-cvdremote` is available to download via `apt install`.
+```base
+sudo apt install cuttlefish-cvdremote
+cvdr --help
+```
 
 ## Configure cvdr
 
-Please check the configuration file(`cvdr.toml`) and set the environment like
-`CVDR_USER_CONFIG_PATH=/path/to/cvdr.toml` while executing `cvdr`.
-See [build/debian/cuttlefish_cvdremote/host/etc/cvdr.toml](/build/debian/cuttlefish_cvdremote/host/etc/cvdr.toml)
-as an example of how to write a configuration file.
+Please check and modify the configuration file(`~/.config/cvdr/cvdr.toml`).
+See either 
+[build/debian/cuttlefish_cvdremote/host/etc/cvdr.toml](/build/debian/cuttlefish_cvdremote/host/etc/cvdr.toml)
+or
+[scripts/on-premises/single-server/cvdr.toml](/scripts/on-premises/single-server/cvdr.toml)
+as examples of how to write a configuration file.
 
-## Use cvdr with one time execution
+## Use cvdr
 
 Let's assume using the latest Cuttlefish x86_64 image enrolled in
 [ci.android.com](https://ci.android.com/).
 
 Please run:
 ```bash
-CVDR_USER_CONFIG_PATH=cvdr.toml \
-./cvdr \
+cvdr \
 --branch=aosp-main \
 --build_target=aosp_cf_x86_64_phone-trunk_staging-userdebug \
 create
@@ -63,62 +67,19 @@ Connecting to cvd-1.................................. OK
 ```
 If you want to validate, please refer the first provided URL in the output log
 and check if the page seems like below.
+Also, you should be able to see the device is enrolled via `adb devices`.
 ![cvdr_cf_creation](resources/cvdr_cf_creation_example.png)
 
-## Use cvdr step-by-step
+## Manually build and run cvdr
 
-### Host creation
-
-Please run:
+To build `cvdr` manually, please run:
 ```bash
-CVDR_USER_CONFIG_PATH=cvdr.toml ./cvdr host create
+git clone https://github.com/google/cloud-android-orchestration.git
+cd cloud-android-orchestration # Root directory of git repository
+go build ./cmd/cvdr
 ```
 
-And we expect the result like below. Let's define this value as `HOST_NAME` from
-now on.
-```
-bcef3e121d23e4958c9fc608966cb01e41ad842385da8d32fc9be4a2a060a580
-```
-
-If you want to validate, please refer to
-`${SERVICE_URL}/v1/zones/local/hosts/${HOST_NAME}/`.
-Then please check if the page seems like below.
-![cvdr_host_creation](resources/cvdr_host_creation_example.png)
-
-### Cuttlefish instance creation
-
-Let's assume using the latest Cuttlefish x86_64 image enrolled in
-[ci.android.com](https://ci.android.com/).
-
-Please run:
+To run `cvdr`, please run:
 ```bash
-CVDR_USER_CONFIG_PATH=cvdr.toml \
-./cvdr \
---host=${HOST_NAME} \
---branch=aosp-main \
---build_target=aosp_cf_x86_64_phone-trunk_staging-userdebug \
---auto_connect=false \
-create
+CVDR_USER_CONFIG_PATH=/path/to/cvdr.toml ./cvdr --help
 ```
-
-If you want to validate, please refer to
-`${SERVICE_URL}/v1/zones/local/hosts/${HOST_NAME}/`.
-Then please check if the page seems like below.
-![cvdr_cf_creation](resources/cvdr_cf_creation_example.png)
-
-### ADB connection to access shell
-
-Please run:
-```bash
-CVDR_USER_CONFIG_PATH=cvdr.toml \
-./cvdr \
---host=${HOST_NAME} \
-connect
-```
-
-Then we expect the result like below.
-```
-bcef3e121d23e4958c9fc608966cb01e41ad842385da8d32fc9be4a2a060a580/cvd-1: 127.0.0.1:41119
-```
-
-You could be able to see the device is enrolled via `adb devices`.

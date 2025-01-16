@@ -39,12 +39,12 @@
 # The host.GCP section provides default configuration values for hosts created
 # using the GCP Cloud Provider. Other providers will have their own
 # host.<Provider> sections when added.
-Host ={
-  GCP = {
-    # MinCPUPlatform = ""
-    # Machine type to use for new hosts when the user doesn't specify one on the
-    # command line. The machine type must support nested virtualization for CVDs to
-    # be hosted on them.
-    MachineType = "e2-standard-4"
-  }
-}
+# Host ={
+#   GCP = {
+#     MinCPUPlatform = ""
+#     Machine type to use for new hosts when the user doesn't specify one on the
+#     command line. The machine type must support nested virtualization for CVDs to
+#     be hosted on them.
+#     MachineType = "e2-standard-4"
+#   }
+# }

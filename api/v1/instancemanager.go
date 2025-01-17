@@ -40,8 +40,7 @@ type GCPInstance struct {
 type AcceleratorConfig struct {
 	// Number of accelerators.
 	AcceleratorCount int64 `json:"accelerator_count,omitempty"`
-	// Full or partial URL of the accelerator type resource.
-	// For example: `projects/my-project/zones/us-central1-c/acceleratorTypes/nvidia-tesla-p100`
+	// Name of the accelerator type (e.g. nvidia-tesla-p100).
 	AcceleratorType string `json:"accelerator_type,omitempty"`
 }
 

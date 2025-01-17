@@ -112,7 +112,7 @@ func (hc *testHostClient) GetReverseProxy() *httputil.ReverseProxy {
 }
 
 func TestListZonesSucceeds(t *testing.T) {
-	controller := NewApp(&testInstanceManager{}, &testAccountManager{}, nil, nil, nil, "", nil, config.WebRTCConfig{}, &config.Config{})
+	controller := NewApp(&testInstanceManager{}, &testAccountManager{}, nil, nil, nil, "", nil, apiv1.InfraConfig{}, &config.Config{})
 	ts := httptest.NewServer(controller.Handler())
 	defer ts.Close()
 
@@ -125,7 +125,7 @@ func TestListZonesSucceeds(t *testing.T) {
 }
 
 func TestCreateHostSucceeds(t *testing.T) {
-	controller := NewApp(&testInstanceManager{}, &testAccountManager{}, nil, nil, nil, "", nil, config.WebRTCConfig{}, &config.Config{})
+	controller := NewApp(&testInstanceManager{}, &testAccountManager{}, nil, nil, nil, "", nil, apiv1.InfraConfig{}, &config.Config{})
 	ts := httptest.NewServer(controller.Handler())
 	defer ts.Close()
 
@@ -139,7 +139,7 @@ func TestCreateHostSucceeds(t *testing.T) {
 }
 
 func TestWaitOperatioSucceeds(t *testing.T) {
-	controller := NewApp(&testInstanceManager{}, &testAccountManager{}, nil, nil, nil, "", nil, config.WebRTCConfig{}, &config.Config{})
+	controller := NewApp(&testInstanceManager{}, &testAccountManager{}, nil, nil, nil, "", nil, apiv1.InfraConfig{}, &config.Config{})
 	ts := httptest.NewServer(controller.Handler())
 	defer ts.Close()
 
@@ -210,7 +210,7 @@ func TestDeleteHostIsHandled(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	controller := NewApp(&testInstanceManager{}, &testAccountManager{}, nil, nil, nil, "", nil, config.WebRTCConfig{}, &config.Config{})
+	controller := NewApp(&testInstanceManager{}, &testAccountManager{}, nil, nil, nil, "", nil, apiv1.InfraConfig{}, &config.Config{})
 
 	makeRequest(rr, req, controller)
 
@@ -220,7 +220,10 @@ func TestDeleteHostIsHandled(t *testing.T) {
 }
 
 func TestInfraConfigRequest(t *testing.T) {
-	controller := NewApp(&testInstanceManager{}, &testAccountManager{}, nil, nil, nil, "", nil, config.WebRTCConfig{STUNServers: []string{"foo.com:12345"}}, &config.Config{})
+	webrtcCfg := apiv1.InfraConfig{
+		IceServers: []apiv1.IceServer{{URLs: []string{"turn:bar.com:22222"}, Username: "alpha", Credential: "bravo"}},
+	}
+	controller := NewApp(&testInstanceManager{}, &testAccountManager{}, nil, nil, nil, "", nil, webrtcCfg, &config.Config{})
 	ts := httptest.NewServer(controller.Handler())
 	defer ts.Close()
 
@@ -238,8 +241,7 @@ func TestInfraConfigRequest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected := buildInfraCfg([]string{"foo.com:12345"})
-	if diff := cmp.Diff(expected, got); diff != "" {
+	if diff := cmp.Diff(webrtcCfg, got); diff != "" {
 		t.Errorf("infra config mismatch (-expected +got):\n%s", diff)
 	}
 }
@@ -277,7 +279,7 @@ func TestHostForwarderRequest(t *testing.T) {
 		hostClientFactory: func(_, _ string) instances.HostClient {
 			return &testHostClient{hostURL}
 		},
-	}, &testAccountManager{}, nil, nil, nil, "", nil, config.WebRTCConfig{}, &config.Config{})
+	}, &testAccountManager{}, nil, nil, nil, "", nil, apiv1.InfraConfig{}, &config.Config{})
 
 	tests := []struct {
 		method  string
@@ -383,7 +385,7 @@ func TestHostForwarderInjectCredentialsUsingHTTPHeader(t *testing.T) {
 		hostClientFactory: func(_, _ string) instances.HostClient {
 			return &testHostClient{hostURL}
 		},
-	}, &testAccountManager{}, nil, encryption.NewFakeEncryptionService(), dbs, "", nil, config.WebRTCConfig{}, &config.Config{})
+	}, &testAccountManager{}, nil, encryption.NewFakeEncryptionService(), dbs, "", nil, apiv1.InfraConfig{}, &config.Config{})
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest(http.MethodGet, reqURL, nil)
 	req.Header.Set(headerNameCOInjectBuildAPICreds, "")
@@ -436,7 +438,7 @@ func TestHostForwarderDoesNotInjectCredentials(t *testing.T) {
 		hostClientFactory: func(_, _ string) instances.HostClient {
 			return &testHostClient{hostURL}
 		},
-	}, &testAccountManager{}, nil, nil, dbs, "", nil, config.WebRTCConfig{}, &config.Config{})
+	}, &testAccountManager{}, nil, nil, dbs, "", nil, apiv1.InfraConfig{}, &config.Config{})
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest(http.MethodPost, reqURL, bytes.NewBuffer(msg))
@@ -462,7 +464,7 @@ func TestBadCSRFTokensInRescindAuth(t *testing.T) {
 				Key:         sessionId,
 				OAuth2State: "righttoken",
 			})
-			controller := NewApp(&testInstanceManager{}, &testAccountManager{}, nil, nil, dbs, "", nil, config.WebRTCConfig{}, &config.Config{})
+			controller := NewApp(&testInstanceManager{}, &testAccountManager{}, nil, nil, dbs, "", nil, apiv1.InfraConfig{}, &config.Config{})
 			ts := httptest.NewServer(controller.Handler())
 			defer ts.Close()
 
@@ -498,7 +500,7 @@ func TestBadCSRFTokensInRescindAuth(t *testing.T) {
 }
 
 func TestGetConfigSucceeds(t *testing.T) {
-	controller := NewApp(&testInstanceManager{}, &testAccountManager{}, nil, nil, nil, "", nil, config.WebRTCConfig{}, &config.Config{})
+	controller := NewApp(&testInstanceManager{}, &testAccountManager{}, nil, nil, nil, "", nil, apiv1.InfraConfig{}, &config.Config{})
 	ts := httptest.NewServer(controller.Handler())
 	defer ts.Close()
 

@@ -29,5 +29,5 @@ AllowSelfSignedHostSSLCertificate = true
 DockerImageName = "cuttlefish-orchestration:latest"
 HostOrchestratorPort = 2080
 
-[WebRTC]
-STUNServers = ["stun:stun.l.google.com:19302"]
+[[WebRTC.IceServers]]
+URLs = ["stun:stun.l.google.com:19302"]

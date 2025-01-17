@@ -70,9 +70,9 @@ func NewApp(
 	dbs database.Service,
 	webStaticFilesPath string,
 	corsAllowedOrigins []string,
-	webRTCConfig config.WebRTCConfig,
+	webRTCConfig apiv1.InfraConfig,
 	config *config.Config) *App {
-	return &App{im, am, oc, es, dbs, webStaticFilesPath, corsAllowedOrigins, buildInfraCfg(webRTCConfig.STUNServers), config}
+	return &App{im, am, oc, es, dbs, webStaticFilesPath, corsAllowedOrigins, webRTCConfig, config}
 }
 
 func (c *App) AddCorsHeaderIfNeeded(w http.ResponseWriter, r *http.Request) {
@@ -645,14 +645,4 @@ func getZone(r *http.Request) string {
 
 func getHost(r *http.Request) string {
 	return mux.Vars(r)["host"]
-}
-
-func buildInfraCfg(servers []string) apiv1.InfraConfig {
-	iceServers := []apiv1.IceServer{}
-	for _, server := range servers {
-		iceServers = append(iceServers, apiv1.IceServer{URLs: []string{server}})
-	}
-	return apiv1.InfraConfig{
-		IceServers: iceServers,
-	}
 }

@@ -29,6 +29,17 @@ docker run \
     -t $DOWNLOAD_LOCATION-docker.pkg.dev/android-cuttlefish-artifacts/cuttlefish-orchestration/cuttlefish-cloud-orchestrator:latest
 ```
 
+To enable TURN server support for WebRTC peer-to-peer connections, configure
+your TURN server settings in the `conf.toml` file before starting the cloud
+orchestrator.
+See the example below.
+```
+[[WebRTC.IceServers]]
+URLs = ["turn:localhost:3478"]
+Username = "username"
+Credential = "credential"
+```
+
 If there's a firewall which blocks accessing cloud orchestrator with HTTP/HTTPS
 requests, please try using SOCKS5 proxy. Establishing SOCKS5 proxy by creating
 SSH dynamic port forwarding is available with following command.

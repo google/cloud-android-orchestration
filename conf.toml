@@ -45,6 +45,5 @@ HostOrchestratorPort = 1080
 [InstanceManager.UNIX]
 HostOrchestratorPort = 2080
 
-[WebRTC]
-STUNServers = ["stun:stun.l.google.com:19302"]
-
+[[WebRTC.IceServers]]
+URLs = ["stun:stun.l.google.com:19302"]

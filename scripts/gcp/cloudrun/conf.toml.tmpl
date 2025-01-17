@@ -49,5 +49,5 @@ Network = "${NETWORK}"
 Subnetwork = "${SUBNETWORK}"
 UseExternalIP = ${USE_EXTERNAL_IP}
 
-[WebRTC]
-STUNServers = ["stun:stun.l.google.com:19302"]
+[[WebRTC.IceServers]]
+URLs = ["stun:stun.l.google.com:19302"]

@@ -63,7 +63,8 @@ Host = {
   GCP = {
     MachineType = "machine_type",
     MinCPUPlatform = "cpu_platform",
-    BootDiskSizeGB = 10
+    BootDiskSizeGB = 10,
+    AcceleratorConfigs = ["type=gpu,count=1"]
   }
 }
 Authn = {

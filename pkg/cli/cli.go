@@ -84,6 +84,7 @@ const (
 	gcpMachineTypeFlag    = "gcp_machine_type"
 	gcpMinCPUPlatformFlag = "gcp_min_cpu_platform"
 	gcpBootDiskSizeGB     = "gcp_boot_disk_size_gb"
+	gcpAcceleratorFlag    = "gcp_accelerator"
 )
 
 const (
@@ -542,6 +543,7 @@ func hostCommand(opts *subCommandOpts) *cobra.Command {
 }
 
 func cvdCommands(opts *subCommandOpts) []*cobra.Command {
+	gcpAcceleratorFlagValues := []string{}
 	// Create command
 	createFlags := &CreateCVDFlags{
 		ServiceFlags:   opts.ServiceFlags,
@@ -553,6 +555,11 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 		Short:   "Creates a CVD",
 		PreRunE: preRunE(createFlags, &opts.ServiceFlags.Service, &opts.InitialConfig),
 		RunE: func(c *cobra.Command, args []string) error {
+			configs, err := parseAcceleratorFlag(gcpAcceleratorFlagValues)
+			if err != nil {
+				return err
+			}
+			createFlags.GCP.AcceleratorConfigs = configs
 			return runCreateCVDCommand(c, args, createFlags, opts)
 		},
 	}
@@ -645,6 +652,8 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 		create.Flags().StringVar(f.ValueRef, name, f.Default, f.Desc)
 		create.MarkFlagsMutuallyExclusive(hostFlag, name)
 	}
+	create.Flags().StringSliceVar(&gcpAcceleratorFlagValues, "host_"+gcpAcceleratorFlag,
+		opts.InitialConfig.DefaultService().Host.GCP.AcceleratorConfigs, acceleratorFlagDesc)
 	// List command
 	listFlags := &ListCVDsFlags{ServiceFlags: opts.ServiceFlags}
 	list := &cobra.Command{
@@ -1728,7 +1737,7 @@ type acceleratorConfig struct {
 	Type  string
 }
 
-// Values should follow the pattern: `type=[TYPE],count=[COUNT]`, i.e: `type=nvidia-tesla-p100,count=1`.
+// Values should follow the pattern: '"type=[TYPE],count=[COUNT]"', i.e: '"type=nvidia-tesla-p100,count=1"'.
 func parseAcceleratorFlag(values []string) ([]acceleratorConfig, error) {
 	singleValueParser := func(value string) (*acceleratorConfig, error) {
 		sanitized := strings.Join(strings.Fields(value), "")

@@ -20,7 +20,7 @@
 # envsubst < app.yaml.tmpl > app.yaml
 
 service: ${SERVICE}
-runtime: go119
+runtime: go122
 main: ./cmd/cloud_orchestrator
 vpc_access_connector:
     name: "projects/${PROJECT_ID}/locations/${SERVERLESS_VPC_REGION}/connectors/co-vpc-connector"

@@ -156,7 +156,7 @@ func (m *GCEInstanceManager) CreateHost(zone string, req *apiv1.CreateHostReques
 		for _, c := range req.HostInstance.GCP.AcceleratorConfigs {
 			configs = append(configs, &compute.AcceleratorConfig{
 				AcceleratorCount: c.AcceleratorCount,
-				AcceleratorType:  c.AcceleratorType,
+				AcceleratorType:  fmt.Sprintf("zones/%s/acceleratorTypes/%s", zone, c.AcceleratorType),
 			})
 		}
 		payload.GuestAccelerators = configs

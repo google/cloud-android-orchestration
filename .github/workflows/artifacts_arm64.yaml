@@ -1,4 +1,4 @@
-name: Artifacts x86_64
+name: Artifacts arm64
 
 on:
   pull_request:

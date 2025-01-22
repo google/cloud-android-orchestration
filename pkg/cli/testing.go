@@ -99,7 +99,9 @@ func (fakeHostService) DownloadRuntimeArtifacts(dst io.Writer) error {
 
 func (fakeHostService) WaitForOperation(string, any) error { return nil }
 
-func (fakeHostService) CreateBugreport(string, io.Writer) error { return nil }
+func (fakeHostService) CreateBugReport(string, hoclient.CreateBugReportOpts, io.Writer) error {
+	return nil
+}
 
 func (fakeHostService) Powerwash(groupName, instanceName string) error { return nil }
 

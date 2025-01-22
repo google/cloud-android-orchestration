@@ -34,6 +34,7 @@ import (
 
 	"github.com/PaesslerAG/jsonpath"
 	hoapi "github.com/google/android-cuttlefish/frontend/src/host_orchestrator/api/v1"
+	hoclient "github.com/google/android-cuttlefish/frontend/src/libhoclient"
 	wclient "github.com/google/android-cuttlefish/frontend/src/libhoclient/webrtcclient"
 	"github.com/gorilla/websocket"
 	"github.com/hashicorp/go-multierror"
@@ -969,7 +970,7 @@ func runBugreportCommand(c *cobra.Command, flags *BugreportFlags, opts *subComma
 	if err != nil {
 		return err
 	}
-	if err := srvClient.HostService(host).CreateBugreport(group, f); err != nil {
+	if err := srvClient.HostService(host).CreateBugReport(group, hoclient.CreateBugReportOpts{}, f); err != nil {
 		return err
 	}
 	if err := f.Close(); err != nil {

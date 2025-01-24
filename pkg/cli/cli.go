@@ -83,7 +83,7 @@ const (
 const (
 	gcpMachineTypeFlag    = "gcp_machine_type"
 	gcpMinCPUPlatformFlag = "gcp_min_cpu_platform"
-	gcpBootDiskSizeGB     = "gcp_boot_disk_size_gb"
+	gcpBootDiskSizeGBFlag = "gcp_boot_disk_size_gb"
 	gcpAcceleratorFlag    = "gcp_accelerator"
 )
 
@@ -514,7 +514,7 @@ func hostCommand(opts *subCommandOpts) *cobra.Command {
 		opts.InitialConfig.DefaultService().Host.GCP.MachineType, gcpMachineTypeFlagDesc)
 	create.Flags().StringVar(&createFlags.GCP.MinCPUPlatform, gcpMinCPUPlatformFlag,
 		opts.InitialConfig.DefaultService().Host.GCP.MinCPUPlatform, gcpMinCPUPlatformFlagDesc)
-	create.Flags().Int64Var(&createFlags.GCP.BootDiskSizeGB, gcpBootDiskSizeGB,
+	create.Flags().Int64Var(&createFlags.GCP.BootDiskSizeGB, gcpBootDiskSizeGBFlag,
 		opts.InitialConfig.DefaultService().Host.GCP.BootDiskSizeGB, gcpBootDiskSizeGBDesc)
 	list := &cobra.Command{
 		Use:     "list",
@@ -652,6 +652,8 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 		create.Flags().StringVar(f.ValueRef, name, f.Default, f.Desc)
 		create.MarkFlagsMutuallyExclusive(hostFlag, name)
 	}
+	create.Flags().Int64Var(&createFlags.GCP.BootDiskSizeGB, "host_"+gcpBootDiskSizeGBFlag,
+		opts.InitialConfig.DefaultService().Host.GCP.BootDiskSizeGB, gcpBootDiskSizeGBDesc)
 	create.Flags().StringSliceVar(&gcpAcceleratorFlagValues, "host_"+gcpAcceleratorFlag,
 		opts.InitialConfig.DefaultService().Host.GCP.AcceleratorConfigs, acceleratorFlagDesc)
 	// List command

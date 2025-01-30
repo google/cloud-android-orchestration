@@ -20,10 +20,6 @@ import (
 
 const InMemoryDBType = "InMemory"
 
-type SpannerConfig struct {
-	DatabaseName string
-}
-
 // Simple in memory database to use for testing or local development.
 type InMemoryDBService struct {
 	credentials map[string][]byte

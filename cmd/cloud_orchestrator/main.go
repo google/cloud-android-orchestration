@@ -16,6 +16,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -144,7 +145,11 @@ func LoadDatabaseService(config *config.Config) database.Service {
 	case database.InMemoryDBType:
 		dbs = database.NewInMemoryDBService()
 	case database.SpannerDBType:
-		dbs = database.NewSpannerDBService(config.DatabaseService.Spanner.DatabaseName)
+		dbResource := fmt.Sprintf("projects/%s/instances/%s/databases/%s",
+			config.DatabaseService.Spanner.ProjectID,
+			config.DatabaseService.Spanner.InstanceName,
+			config.DatabaseService.Spanner.DatabaseName)
+		dbs = database.NewSpannerDBService(dbResource)
 	default:
 		log.Fatal("Unknown database service type: ", config.DatabaseService.Type)
 	}

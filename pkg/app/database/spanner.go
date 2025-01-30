@@ -28,6 +28,12 @@ import (
 
 const SpannerDBType = "Spanner"
 
+type SpannerConfig struct {
+	ProjectID    string
+	InstanceName string
+	DatabaseName string
+}
+
 const (
 	credentialsTable  = "Credentials"
 	usernameColumn    = "username"
@@ -42,16 +48,17 @@ const (
 )
 
 // A database service that works with a Cloud Spanner database with the following schema:
+//	CREATE TABLE Credentials (
+//		username STRING(MAX) NOT NULL,
+//		credentials BYTES(MAX), -- wide enough to store an encrypted JSON-serialized oauth2.Token object
+//	) PRIMARY KEY (username);
 //
-//	table Credentials {
-//	  username string primary key
-//	  credentials byte array # wide enough to store an encrypted JSON-serialized oauth2.Token object
-//	}
-//	table Sessions {
-//	  session_key string primary key
-//	  oauth2_state string
-//	  accessed_at timestamp
-//	}
+//	CREATE TABLE Sessions (
+//		session_key STRING(MAX) NOT NULL,
+//		oauth2_state STRING(MAX),
+//		accessed_at TIMESTAMP,
+//	) PRIMARY KEY (session_key);
+
 type SpannerDBService struct {
 	db string
 }

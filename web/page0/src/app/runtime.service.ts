@@ -1,4 +1,4 @@
-import {Injectable} from '@angular/core';
+import {Injectable, inject} from '@angular/core';
 import {Observable, of} from 'rxjs';
 import {map, tap, withLatestFrom, catchError, switchMap} from 'rxjs/operators';
 import {
@@ -14,8 +14,17 @@ import {Runtime, RuntimeViewStatus} from 'src/app/interface/runtime-interface';
   providedIn: 'root',
 })
 export class RuntimeService {
-  private status$;
-  private runtimes$: Observable<Runtime[]>;
+  private store = inject(Store);
+  private fetchService = inject(FetchService);
+  private status$ = this.store.select(runtimesLoadStatusSelector);
+  private runtimes$: Observable<Runtime[]> = this.store
+  .select<Runtime[]>(runtimeListSelector)
+  .pipe(withLatestFrom(this.status$), map(([runtimes, status]) => {
+    if (status === RuntimeViewStatus.done) {
+      window.localStorage.setItem('runtimes', JSON.stringify(runtimes));
+    }
+    return runtimes;
+  }));
 
   getRuntimes() {
     return this.runtimes$;
@@ -57,24 +66,5 @@ export class RuntimeService {
       type: ActionType.RuntimeUnregister,
       alias,
     });
-  }
-
-  constructor(
-    private store: Store,
-    private fetchService: FetchService
-  ) {
-    this.status$ = this.store.select(runtimesLoadStatusSelector);
-    this.runtimes$ = this.store
-    .select<Runtime[]>(runtimeListSelector)
-    .pipe(
-      withLatestFrom(this.status$),
-      map(([runtimes, status]) => {
-        if (status === RuntimeViewStatus.done) {
-          window.localStorage.setItem('runtimes', JSON.stringify(runtimes));
-        }
-
-        return runtimes;
-      })
-    );
   }
 }

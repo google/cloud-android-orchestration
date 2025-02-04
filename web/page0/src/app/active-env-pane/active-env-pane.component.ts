@@ -1,4 +1,4 @@
-import {Component} from '@angular/core';
+import {Component, inject} from '@angular/core';
 import {
   envCardListSelector,
   runtimesLoadStatusSelector,
@@ -14,16 +14,11 @@ import {RuntimeViewStatus} from 'src/app/interface/runtime-interface';
   styleUrls: ['./active-env-pane.component.scss'],
 })
 export class ActiveEnvPaneComponent {
-  envs$;
-  status$;
+  private refreshService = inject(RefreshService);
+  private store = inject(Store);
 
-  constructor(
-    private refreshService: RefreshService,
-    private store: Store
-  ) {
-    this.envs$ = this.store.select(envCardListSelector);
-    this.status$ = this.store.select(runtimesLoadStatusSelector);
-  }
+  envs$ = this.store.select(envCardListSelector);
+  status$ = this.store.select(runtimesLoadStatusSelector);
 
   onClickRefresh() {
     this.refreshService.refresh();

@@ -1,4 +1,4 @@
-import {Component} from '@angular/core';
+import {Component, inject} from '@angular/core';
 import {Store} from 'src/app/store/store';
 import {RefreshService} from '../refresh.service';
 import {RuntimeViewStatus} from 'src/app/interface/runtime-interface';
@@ -12,17 +12,12 @@ import {runtimesLoadStatusSelector} from '../store/selectors';
   styleUrls: ['./list-runtime-view.component.scss'],
 })
 export class ListRuntimeViewComponent {
-  runtimes$;
-  status$;
+  private runtimeService = inject(RuntimeService);
+  private refreshService = inject(RefreshService);
+  private store = inject(Store);
 
-  constructor(
-    private runtimeService: RuntimeService,
-    private refreshService: RefreshService,
-    private store: Store
-  ) {
-    this.runtimes$ = this.runtimeService.getRuntimes();
-    this.status$ = this.store.select(runtimesLoadStatusSelector);
-  }
+  runtimes$ = this.runtimeService.getRuntimes();
+  status$ = this.store.select(runtimesLoadStatusSelector);
 
   onClickRefresh() {
     this.refreshService.refresh();

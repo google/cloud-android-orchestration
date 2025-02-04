@@ -1,4 +1,4 @@
-import {Component} from '@angular/core';
+import {Component, inject} from '@angular/core';
 import {FormBuilder, Validators} from '@angular/forms';
 import {
   ActivatedRoute,
@@ -34,43 +34,26 @@ import {FetchService} from '../fetch.service';
   styleUrls: ['./register-runtime-view.component.scss'],
 })
 export class RegisterRuntimeViewComponent {
-  constructor(
-    private runtimeService: RuntimeService,
-    private formBuilder: FormBuilder,
-    private router: Router,
-    private snackBar: MatSnackBar,
-    private activatedRoute: ActivatedRoute,
-    private store: Store,
-    private fetchService: FetchService
-  ) {
-    this.queryParams$ = this.router.events.pipe(
-      filter(
-        (event: Event): event is NavigationEnd => event instanceof NavigationEnd
-      ),
-      mergeMap(() => this.activatedRoute.queryParams),
-        shareReplay(1)
-    );
-    this.ngUnsubscribe = new Subject<void>();
-    this.previousUrl$ = this.queryParams$.pipe(
-      map((params: Params) => (params['previousUrl'] ?? 'list-runtime') as string)
-    );
-    this.runtimes$ = this.runtimeService.getRuntimes();
-    this.status$ = this.store.select(runtimesLoadStatusSelector);
+  private runtimeService = inject(RuntimeService);
+  private formBuilder = inject(FormBuilder);
+  private router = inject(Router);
+  private snackBar = inject(MatSnackBar);
+  private activatedRoute = inject(ActivatedRoute);
+  private store = inject(Store);
+  private fetchService = inject(FetchService);
+  queryParams$ = this.router.events.pipe(filter((event: Event): event is NavigationEnd => event instanceof NavigationEnd), mergeMap(() => this.activatedRoute.queryParams), shareReplay(1));
+  private ngUnsubscribe = new Subject<void>();
+  previousUrl$ = this.queryParams$.pipe(map((params: Params) => (params['previousUrl'] ?? 'list-runtime') as string));
+  runtimes$ = this.runtimeService.getRuntimes();
+  status$ = this.store.select(runtimesLoadStatusSelector);
+
+  constructor() {
     this.runtimeForm = this.formBuilder.group({
       url: [PLACEHOLDER_RUNTIME_SETTING.url, Validators.required],
       alias: [PLACEHOLDER_RUNTIME_SETTING.alias, Validators.required],
     });
     this.queryParams$.pipe(takeUntil(this.ngUnsubscribe)).subscribe();
   }
-
-  queryParams$;
-
-  private ngUnsubscribe;
-
-  previousUrl$;
-
-  runtimes$;
-  status$;
 
   runtimeForm;
 

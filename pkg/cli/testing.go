@@ -83,6 +83,18 @@ func (fakeHostService) CreateUploadDir() (string, error) {
 	return "", nil
 }
 
+func (fakeHostService) CreateUploadDirWithName(uploadDir string) (string, error) {
+	return uploadDir, nil
+}
+
+func (fakeHostService) LockUploadDir(uploadDir string) (bool, error) {
+	return false, nil
+}
+
+func (fakeHostService) UnlockUploadDir(uploadDir string) error {
+	return nil
+}
+
 func (fakeHostService) UploadFile(uploadDir string, name string) error {
 	return nil
 }

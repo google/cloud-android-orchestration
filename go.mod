@@ -101,3 +101,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gotest.tools/v3 v3.5.1 // indirect
 )
+
+replace github.com/google/android-cuttlefish/frontend/src/host_orchestrator => ../android-cuttlefish/frontend/src/host_orchestrator
+replace github.com/google/android-cuttlefish/frontend/src/libhoclient => ../android-cuttlefish/frontend/src/libhoclient
+replace github.com/google/android-cuttlefish/frontend/src/liboperator => ../android-cuttlefish/frontend/src/liboperator

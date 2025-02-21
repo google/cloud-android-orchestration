@@ -516,6 +516,8 @@ func hostCommand(opts *subCommandOpts) *cobra.Command {
 		opts.InitialConfig.DefaultService().Host.GCP.MinCPUPlatform, gcpMinCPUPlatformFlagDesc)
 	create.Flags().Int64Var(&createFlags.GCP.BootDiskSizeGB, gcpBootDiskSizeGBFlag,
 		opts.InitialConfig.DefaultService().Host.GCP.BootDiskSizeGB, gcpBootDiskSizeGBDesc)
+	create.Flags().StringSliceVar(&acceleratorFlagValues, gcpAcceleratorFlag,
+		opts.InitialConfig.DefaultService().Host.GCP.AcceleratorConfigs, acceleratorFlagDesc)
 	list := &cobra.Command{
 		Use:     "list",
 		Short:   "Lists hosts.",

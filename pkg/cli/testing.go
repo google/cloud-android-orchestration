@@ -114,3 +114,7 @@ func (fakeHostService) Start(groupName, instanceName string, req *hoapi.StartCVD
 func (fakeHostService) CreateSnapshot(groupName, instanceName string) (*hoapi.CreateSnapshotResponse, error) {
 	return nil, nil
 }
+
+func (fakeHostService) PowerBtn(groupName, instanceName string) error {
+	return nil
+}

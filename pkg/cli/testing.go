@@ -115,6 +115,6 @@ func (fakeHostService) CreateSnapshot(groupName, instanceName string) (*hoapi.Cr
 	return nil, nil
 }
 
-func (fakeHostService) PowerBtn(groupName, instanceName string) error {
+func (fakeHostService) Powerbtn(groupName, instanceName string) error {
 	return nil
 }

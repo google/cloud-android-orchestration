@@ -19,7 +19,7 @@ registered in the official Debian repository, we need to enroll JFrog repository
 with commands below. 
 ```bash
 sudo apt install wget
-wget -qO- https://artifacts.codelinaro.org/artifactory/linaro-372-googlelt-gigabyte-ampere-cuttlefish-installer/gigabyte-ampere-cuttlefish-installer/latest/debian/linaro-glt-gig-archive-bookworm.asc | sudo tee /etc/apt/trusted.gpg.d/linaro-glt-gig-archive-bookworm.asct
+wget -qO- https://artifacts.codelinaro.org/artifactory/linaro-372-googlelt-gigabyte-ampere-cuttlefish-installer/gigabyte-ampere-cuttlefish-installer/latest/debian/linaro-glt-gig-archive-bookworm.asc | sudo tee /etc/apt/trusted.gpg.d/linaro-glt-gig-archive-bookworm.asc
 echo "deb https://artifacts.codelinaro.org/linaro-372-googlelt-gigabyte-ampere-cuttlefish-installer/gigabyte-ampere-cuttlefish-installer/latest/debian bookworm main" | sudo tee /etc/apt/sources.list.d/linaro-glt-gig-archive-bookworm.list
 sudo apt update
 ```

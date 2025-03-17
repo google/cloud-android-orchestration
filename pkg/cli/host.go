@@ -20,7 +20,8 @@ import (
 )
 
 type CreateHostOpts struct {
-	GCP CreateGCPHostOpts
+	NumHosts int
+	GCP      CreateGCPHostOpts
 }
 
 func (f *CreateHostOpts) Update(s *Service) {

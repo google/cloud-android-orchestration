@@ -1365,16 +1365,19 @@ func runConnectionWebSocketAgentCommand(flags *ConnectFlags, c *command, args []
 		return err
 	}
 	adbPort := l.Addr().(*net.TCPAddr).Port
-	go func() {
-		if err := opts.ADBServerProxy.Connect(adbPort); err != nil {
+	adbErrCh := make(chan error)
+	go func(adbErrCh chan error) {
+		err := opts.ADBServerProxy.Connect(adbPort)
+		if err != nil {
 			c.PrintErrf("Failed to connect ADB to device: %v\n", err)
 		}
-	}()
+		adbErrCh <- err
+	}(adbErrCh)
 
 	tcpListener, ok := l.(*net.TCPListener)
 	if !ok {
-		c.PrintErrf("Listener is not a TCPListener\n")
-		return errors.New("Listener is not a TCPListener")
+		<-adbErrCh
+		return errors.New("listener is not a TCPListener")
 	}
 	tcpListener.SetDeadline(time.Now().Add(time.Duration(adbListenTimeoutSec) * time.Second))
 
@@ -1385,7 +1388,13 @@ func runConnectionWebSocketAgentCommand(flags *ConnectFlags, c *command, args []
 		} else {
 			c.PrintErrf("Failed to accept ADB socket: %v", err)
 		}
+		<-adbErrCh
 		return err
+	}
+
+	adbErr := <-adbErrCh
+	if adbErr != nil {
+		return adbErr
 	}
 	defer tcpConn.Close()
 

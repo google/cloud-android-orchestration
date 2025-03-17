@@ -171,6 +171,9 @@ func (f *ServiceFlags) AsArgs() []string {
 	if f.Proxy != "" {
 		args = append(args, "--"+proxyFlag, f.Proxy)
 	}
+	if f.Service != "" {
+		args = append(args, "--"+serviceFlag, f.Service)
+	}
 	if f.Verbose {
 		args = append(args, "-v")
 	}

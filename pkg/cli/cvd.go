@@ -16,13 +16,16 @@ package cli
 
 import (
 	"bytes"
+	"crypto/sha1"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"text/template"
 
@@ -244,15 +247,12 @@ func (c *cvdCreator) createCVDFromLocalBuild() ([]*hoapi.CVD, error) {
 	}
 	names = append(names, filepath.Join(hostOut, CVDHostPackageName))
 	hostSrv := c.client.HostService(c.opts.Host)
-	uploadDir, err := hostSrv.CreateUploadDir()
+	uploadDir, err := uploadFiles(hostSrv, names, c.statePrinter)
 	if err != nil {
 		return nil, err
 	}
 	envConfig, err := buildUAEnvConfig(uaEnvConfigTmplData{ArtifactsDir: uploadDir})
 	if err != nil {
-		return nil, err
-	}
-	if err := uploadFiles(hostSrv, uploadDir, names, c.statePrinter); err != nil {
 		return nil, err
 	}
 	req := &hoapi.CreateCVDRequest{EnvConfig: envConfig}
@@ -326,11 +326,8 @@ func (c *cvdCreator) uploadCVDHostPackageAndUpdateEnvConfig(hostSrv hoclient.Hos
 		if isDir {
 			return fmt.Errorf("uploading directory not supported")
 		}
-		uploadDir, err := hostSrv.CreateUploadDir()
+		uploadDir, err := uploadFiles(hostSrv, []string{val}, c.statePrinter)
 		if err != nil {
-			return fmt.Errorf("failed creating upload dir: %w", err)
-		}
-		if err := uploadFiles(hostSrv, uploadDir, []string{val}, c.statePrinter); err != nil {
 			return fmt.Errorf("failed uploading %q: %w", val, err)
 		}
 		commonMap["host_package"] = "@user_artifacts/" + uploadDir
@@ -373,11 +370,8 @@ func (c *cvdCreator) uploadImagesAndUpdateEnvConfig(hostSrv hoclient.HostOrchest
 			if isDir {
 				return fmt.Errorf("uploading directory not supported")
 			}
-			uploadDir, err := hostSrv.CreateUploadDir()
+			uploadDir, err := uploadFiles(hostSrv, []string{val}, c.statePrinter)
 			if err != nil {
-				return fmt.Errorf("failed creating upload dir: %w", err)
-			}
-			if err := uploadFiles(hostSrv, uploadDir, []string{val}, c.statePrinter); err != nil {
 				return fmt.Errorf("failed uploading %q: %w", val, err)
 			}
 			diskMap["default_build"] = "@user_artifacts/" + uploadDir
@@ -433,16 +427,13 @@ func (c *cvdCreator) createCVDFromLocalSrcs() ([]*hoapi.CVD, error) {
 	if err := c.opts.CreateCVDLocalOpts.validate(); err != nil {
 		return nil, fmt.Errorf("invalid local source: %w", err)
 	}
-	uploadDir, err := c.client.HostService(c.opts.Host).CreateUploadDir()
+	hostSrv := c.client.HostService(c.opts.Host)
+	uploadDir, err := uploadFiles(hostSrv, c.opts.CreateCVDLocalOpts.srcs(), c.statePrinter)
 	if err != nil {
 		return nil, err
 	}
 	envConfig, err := buildUAEnvConfig(uaEnvConfigTmplData{ArtifactsDir: uploadDir})
 	if err != nil {
-		return nil, err
-	}
-	hostSrv := c.client.HostService(c.opts.Host)
-	if err := uploadFiles(hostSrv, uploadDir, c.opts.CreateCVDLocalOpts.srcs(), c.statePrinter); err != nil {
 		return nil, err
 	}
 	req := &hoapi.CreateCVDRequest{EnvConfig: envConfig}
@@ -708,7 +699,33 @@ func envVar(name string) (string, error) {
 	return os.Getenv(name), nil
 }
 
-func uploadFiles(srv hoclient.HostOrchestratorService, uploadDir string, names []string, statePrinter *statePrinter) error {
+func getHashSHA1(files []string) (string, error) {
+	sort.Slice(files, func(x, y int) bool {
+		return filepath.Base(files[x]) < filepath.Base(files[y])
+	})
+	h := sha1.New()
+	for _, path := range files {
+		file, err := os.Open(path)
+		if err != nil {
+			return "", err
+		}
+		defer file.Close()
+		if _, err := io.Copy(h, file); err != nil {
+			return "", err
+		}
+	}
+	return fmt.Sprintf("%x", h.Sum(nil)), nil
+}
+
+func uploadFiles(srv hoclient.HostOrchestratorService, names []string, statePrinter *statePrinter) (string, error) {
+	hash, err := getHashSHA1(names)
+	if err != nil {
+		return "", fmt.Errorf("failed getting hash value for uploading files: %w", err)
+	}
+	uploadDir, err := srv.CreateUploadDirWithName(hash)
+	if err != nil {
+		return "", fmt.Errorf("failed creating upload dir: %w", err)
+	}
 	extractOps := []string{}
 	for _, name := range names {
 		state := fmt.Sprintf("Uploading %q", filepath.Base(name))
@@ -716,22 +733,22 @@ func uploadFiles(srv hoclient.HostOrchestratorService, uploadDir string, names [
 		err := srv.UploadFile(uploadDir, name)
 		statePrinter.PrintDone(state, err)
 		if err != nil {
-			return err
+			return "", err
 		}
 		if strings.HasSuffix(name, ".tar.gz") || strings.HasSuffix(name, ".zip") {
 			op, err := srv.ExtractFile(uploadDir, filepath.Base(name))
 			if err != nil {
-				return fmt.Errorf("failed uploading files: %w", err)
+				return "", fmt.Errorf("failed uploading files: %w", err)
 			}
 			extractOps = append(extractOps, op.Name)
 		}
 	}
 	for _, name := range extractOps {
 		if err := srv.WaitForOperation(name, nil); err != nil {
-			return fmt.Errorf("failed uploading files: %w", err)
+			return "", fmt.Errorf("failed uploading files: %w", err)
 		}
 	}
-	return nil
+	return uploadDir, nil
 }
 
 // Deep copies src to dst using json marshaling.

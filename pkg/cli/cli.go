@@ -140,6 +140,10 @@ const (
 	iceConfigFlagDesc = "Path to file containing the ICE configuration to be used in the underlaying WebRTC connection"
 )
 
+const (
+	adbListenTimeoutSec = 30
+)
+
 type AsArgs interface {
 	AsArgs() []string
 }
@@ -1366,9 +1370,21 @@ func runConnectionWebSocketAgentCommand(flags *ConnectFlags, c *command, args []
 			c.PrintErrf("Failed to connect ADB to device: %v\n", err)
 		}
 	}()
+
+	tcpListener, ok := l.(*net.TCPListener)
+	if !ok {
+		c.PrintErrf("Listener is not a TCPListener\n")
+		return errors.New("Listener is not a TCPListener")
+	}
+	tcpListener.SetDeadline(time.Now().Add(time.Duration(adbListenTimeoutSec) * time.Second))
+
 	tcpConn, err := l.Accept()
 	if err != nil {
-		c.PrintErrf("Failed to accept ADB socket: %v", err)
+		if ne, ok := err.(net.Error); ok && ne.Timeout() {
+			c.PrintErrf("Waiting connection from ADB server timed out: ")
+		} else {
+			c.PrintErrf("Failed to accept ADB socket: %v", err)
+		}
 		return err
 	}
 	defer tcpConn.Close()

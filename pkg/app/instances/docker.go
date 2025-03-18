@@ -31,6 +31,8 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/image"
+	"github.com/docker/docker/api/types/mount"
+	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/client"
 )
 
@@ -45,6 +47,7 @@ const (
 	dockerLabelCreatedBy      = "created_by"
 	dockerLabelKeyManagedBy   = "managed_by"
 	dockerLabelValueManagedBy = "cloud_orchestrator"
+	userArtifactsDirName      = "/var/lib/cuttlefish-common/user_artifacts"
 )
 
 // Docker implementation of the instance manager.
@@ -84,16 +87,35 @@ func (m *DockerInstanceManager) CreateHost(zone string, _ *apiv1.CreateHostReque
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve docker image name: %w", err)
 	}
+	volumeListRes, err := m.Client.VolumeList(ctx, volume.ListOptions{
+		Filters: m.constructDockerFilter(user),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list docker volume: %w", err)
+	}
+	if len(volumeListRes.Volumes) == 0 {
+		_, err := m.Client.VolumeCreate(ctx, volume.CreateOptions{
+			Name: m.getUAVolumeName(user),
+			Labels: m.constructDockerLabel(user),
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create docker volume: %w", err)
+		}
+	}
 	config := &container.Config{
 		AttachStdin: true,
 		Image:       m.Config.Docker.DockerImageName,
 		Tty:         true,
-		Labels: map[string]string{
-			dockerLabelCreatedBy:    user.Username(),
-			dockerLabelKeyManagedBy: dockerLabelValueManagedBy,
-		},
+		Labels: m.constructDockerLabel(user),
 	}
 	hostConfig := &container.HostConfig{
+		Mounts: []mount.Mount{
+			{
+				Type: mount.TypeVolume,
+				Source: m.getUAVolumeName(user),
+				Target: userArtifactsDirName,
+			},
+		},
 		Privileged: true,
 	}
 	createRes, err := m.Client.ContainerCreate(ctx, config, hostConfig, nil, nil, "")
@@ -103,6 +125,20 @@ func (m *DockerInstanceManager) CreateHost(zone string, _ *apiv1.CreateHostReque
 	err = m.Client.ContainerStart(ctx, createRes.ID, container.StartOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to start docker container: %w", err)
+	}
+	execConfig := types.ExecConfig{
+		Cmd:          []string{"chmod", "777", userArtifactsDirName},
+		AttachStdout: false,
+		AttachStderr: false,
+		Tty:          false,
+	}
+	execRes, err := m.Client.ContainerExecCreate(ctx, createRes.ID, execConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to change mode of user_artifacts diferctory: %w", err)
+	}
+	err = m.Client.ContainerExecStart(ctx, execRes.ID, container.ExecStartOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to change mode of user_artifacts diferctory: %w", err)
 	}
 	return &apiv1.Operation{
 		Name: EncodeOperationName(CreateHostOPType, createRes.ID),
@@ -115,20 +151,8 @@ func (m *DockerInstanceManager) ListHosts(zone string, user accounts.User, _ *Li
 		return nil, errors.NewBadRequestError("Invalid zone. It should be 'local'.", nil)
 	}
 	ctx := context.TODO()
-	ownerFilterExpr := fmt.Sprintf("%s=%s", dockerLabelCreatedBy, user.Username())
-	managerFilterExpr := fmt.Sprintf("%s=%s", dockerLabelKeyManagedBy, dockerLabelValueManagedBy)
-	listFilters := filters.NewArgs(
-		filters.KeyValuePair{
-			Key:   "label",
-			Value: ownerFilterExpr,
-		},
-		filters.KeyValuePair{
-			Key:   "label",
-			Value: managerFilterExpr,
-		},
-	)
 	listRes, err := m.Client.ContainerList(ctx, container.ListOptions{
-		Filters: listFilters,
+		Filters: m.constructDockerFilter(user),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list docker containers: %w", err)
@@ -168,6 +192,25 @@ func (m *DockerInstanceManager) DeleteHost(zone string, user accounts.User, host
 	err = m.Client.ContainerRemove(ctx, host, container.RemoveOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to remove docker container: %w", err)
+	}
+	listRes, err := m.Client.ContainerList(ctx, container.ListOptions{
+		Filters: m.constructDockerFilter(user),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list docker containers: %w", err)
+	}
+	if len(listRes) == 0 {
+		volumeListRes, err := m.Client.VolumeList(ctx, volume.ListOptions{
+			Filters: m.constructDockerFilter(user),
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to list docker volume: %w", err)
+		}
+		for _, volume := range volumeListRes.Volumes {
+			if err := m.Client.VolumeRemove(ctx, volume.Name, true); err != nil {
+				return nil, fmt.Errorf("failed to remove docker volume: %w", err)
+			}
+		}
 	}
 	return &apiv1.Operation{
 		Name: EncodeOperationName(DeleteHostOPType, host),
@@ -296,6 +339,32 @@ func (m *DockerInstanceManager) GetHostClient(zone string, host string) (HostCli
 		return nil, err
 	}
 	return NewNetHostClient(url, m.Config.AllowSelfSignedHostSSLCertificate), nil
+}
+
+func (m *DockerInstanceManager) getUAVolumeName(user accounts.User) string {
+	return fmt.Sprintf("user_artifacts_%s", user.Username())
+}
+
+func (m *DockerInstanceManager) constructDockerFilter(user accounts.User) filters.Args {
+	ownerFilterExpr := fmt.Sprintf("%s=%s", dockerLabelCreatedBy, user.Username())
+	managerFilterExpr := fmt.Sprintf("%s=%s", dockerLabelKeyManagedBy, dockerLabelValueManagedBy)
+	return filters.NewArgs(
+		filters.KeyValuePair{
+			Key:   "label",
+			Value: ownerFilterExpr,
+		},
+		filters.KeyValuePair{
+			Key:   "label",
+			Value: managerFilterExpr,
+		},
+	)
+}
+
+func (m *DockerInstanceManager) constructDockerLabel(user accounts.User) map[string]string {
+	return map[string]string{
+		dockerLabelCreatedBy:    user.Username(),
+		dockerLabelKeyManagedBy: dockerLabelValueManagedBy,
+	}
 }
 
 func (m *DockerInstanceManager) getContainerLabel(host string, key string) (string, error) {

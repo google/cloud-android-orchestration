@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"net"
 	"net/http"
 	"net/url"
@@ -28,6 +29,7 @@ import (
 	"os/user"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	client "github.com/google/cloud-android-orchestration/pkg/client"
@@ -1328,34 +1330,6 @@ func runConnectionWebrtcAgentCommand(flags *ConnectFlags, c *command, args []str
 	return nil
 }
 
-func connectADBWebSocketDirect(serviceURL string, device string) (*websocket.Conn, error) {
-	// Connect to ADB proxy WebSocket directly by using serviceURL as Operator URL.
-	//   wss://127.0.0.1:1443/devices/cvd-1/adb
-	url, err := url.Parse(serviceURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse URL %s: %w", serviceURL, err)
-	}
-	switch p := &url.Scheme; *p {
-	case "https":
-		*p = "wss"
-	case "http":
-		*p = "ws"
-	default:
-		return nil, fmt.Errorf("unknown scheme %s", *p)
-	}
-	url = url.JoinPath("devices", device, "adb")
-	dialer := websocket.Dialer{
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: true,
-		},
-	}
-	wsConn, _, err := dialer.Dial(url.String(), nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect WebSocket %s: %w", url.String(), err)
-	}
-	return wsConn, nil
-}
-
 func runConnectionWebSocketAgentCommand(flags *ConnectFlags, c *command, args []string, opts *subCommandOpts) error {
 	// Open local TCP port that ADB server connects to and make ADB server connect
 	// to the port
@@ -1364,95 +1338,162 @@ func runConnectionWebSocketAgentCommand(flags *ConnectFlags, c *command, args []
 		c.PrintErrf("Failed to listen ADB socket: %v", err)
 		return err
 	}
+	device := args[0]
 	adbPort := l.Addr().(*net.TCPAddr).Port
-	adbErrCh := make(chan error)
-	go func(adbErrCh chan error) {
-		err := opts.ADBServerProxy.Connect(adbPort)
-		if err != nil {
-			c.PrintErrf("Failed to connect ADB to device: %v\n", err)
-		}
-		adbErrCh <- err
-	}(adbErrCh)
-
-	tcpListener, ok := l.(*net.TCPListener)
-	if !ok {
-		<-adbErrCh
-		return errors.New("listener is not a TCPListener")
-	}
-	tcpListener.SetDeadline(time.Now().Add(time.Duration(adbListenTimeoutSec) * time.Second))
-
-	tcpConn, err := l.Accept()
+	err = opts.ADBServerProxy.Connect(adbPort)
 	if err != nil {
-		if ne, ok := err.(net.Error); ok && ne.Timeout() {
-			c.PrintErrf("Waiting connection from ADB server timed out: ")
-		} else {
-			c.PrintErrf("Failed to accept ADB socket: %v", err)
-		}
-		<-adbErrCh
-		return err
+		c.PrintErrf("Failed to connect ADB to device: %v\n", err)
 	}
 
-	adbErr := <-adbErrCh
-	if adbErr != nil {
-		return adbErr
+	for {
+		if err := connectAndForwardOnce(flags, c, opts, l, adbPort, device); err != nil {
+			return err
+		}
+	}
+}
+
+func connectAndForwardOnce(
+	flags *ConnectFlags, c *command, opts *subCommandOpts, l net.Listener, adbPort int, device string) error {
+	// Get connection from ADB server
+	tcpConn, tcpErr := acceptADBConnection(opts, c, l, adbPort)
+	if tcpErr != nil {
+		return tcpErr
 	}
 	defer tcpConn.Close()
 
-	device := args[0]
+	const maxRetryCount = 10
+	var retryCount int
+	var devConn io.ReadWriteCloser
+	var devErr error
+
+	// Try connect to remote device's ADB
+	for retryCount = 0; retryCount < maxRetryCount; retryCount++ {
+		devConn, devErr = connectToDeviceADB(flags, c, opts, device)
+		if devErr == nil {
+			break
+		}
+		c.PrintErrf("Failed to connect ADB to device: %v, retrying (%d / %d)\n", devErr, retryCount+1, maxRetryCount)
+		time.Sleep(time.Duration(math.Pow(2, float64(retryCount/2))) * time.Second)
+	}
+	if retryCount == maxRetryCount {
+		return devErr
+	}
+
+	if sendResultErr := sendConnectResult(c, adbPort); sendResultErr != nil {
+		devConn.Close()
+		return sendResultErr
+	}
+
+	forwardCh := make(chan interface{})
+	go func(forwardCh chan interface{}) {
+		io.Copy(devConn, tcpConn)
+		devConn.Close()
+		forwardCh <- nil
+	}(forwardCh)
+	io.Copy(tcpConn, devConn)
+	// Interrupt io.Copy(...) function call in the go routine above to avoid
+	// deadlock while waiting for forwardCh
+	tcpConn.SetDeadline(time.Now())
+	<-forwardCh
+
+	return nil
+}
+
+func acceptADBConnection(opts *subCommandOpts, c *command, l net.Listener, adbPort int) (net.Conn, error) {
+	tcpListener, ok := l.(*net.TCPListener)
+	if !ok {
+		return nil, errors.New("listener is not a TCPListener")
+	}
+	tcpListener.SetDeadline(time.Now().Add(time.Duration(adbListenTimeoutSec) * time.Second))
+
+	tcpConn, tcpErr := l.Accept()
+	if tcpErr != nil {
+		if ne, ok := tcpErr.(net.Error); ok && ne.Timeout() {
+			c.PrintErrf("Waiting connection from ADB server timed out: ")
+		} else {
+			c.PrintErrf("Failed to accept ADB socket: %v", tcpErr)
+		}
+		return nil, tcpErr
+	}
+
+	return tcpConn, nil
+}
+
+func connectToDeviceADB(flags *ConnectFlags, c *command, opts *subCommandOpts, device string) (io.ReadWriteCloser, error) {
 	var wsConn *websocket.Conn
+	serviceURL := flags.ServiceURL
 	if flags.host == "none" {
-		// Connect to the ADB WebSocket directly using ServiceURL and device.
-		// This is for operator only scenario.
-		wsConn, err = connectADBWebSocketDirect(flags.ServiceURL, device)
+		// Connect to ADB proxy WebSocket directly by using serviceURL as Operator URL.
+		//   wss://127.0.0.1:1443/devices/cvd-1/adb
+		url, err := url.Parse(serviceURL)
 		if err != nil {
-			return err
+			return nil, fmt.Errorf("failed to parse URL %s: %w", serviceURL, err)
+		}
+		switch p := &url.Scheme; *p {
+		case "https":
+			*p = "wss"
+		case "http":
+			*p = "ws"
+		default:
+			return nil, fmt.Errorf("unknown scheme %s", *p)
+		}
+		url = url.JoinPath("devices", device, "adb")
+		dialer := websocket.Dialer{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true,
+			},
+		}
+		wsConn, _, err = dialer.Dial(url.String(), nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to connect WebSocket %s: %w", url.String(), err)
 		}
 	} else {
 		// Connect to the ADB WebSocket using Host Orchestrator service client.
 		// This is for normal scenario (HO behind CO).
 		srvClient, err := newClient(opts.InitialConfig, flags.ServiceFlags, c.Command)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		wsConn, err = srvClient.HostService(flags.host).ConnectADBWebSocket(device)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
+	return newWsIoWrapper(c, wsConn), nil
+}
 
-	// Send connect result to the parent
-	result := ConnStatus{
-		ADB: ForwarderState{
-			Port:  adbPort,
-			State: StateAsStr(FwdConnected),
-		},
-	}
-	output, err := json.Marshal(result)
-	if err != nil {
-		return err
-	} else {
-		c.Println(string(output))
-	}
+var sendResultOnce sync.Once
 
-	// Close all standard IOs to make agent as daemon
-	if cin, ok := c.InOrStdin().(io.Closer); ok {
-		cin.Close()
-	}
-	if cout, ok := c.OutOrStdout().(io.Closer); ok {
-		cout.Close()
-	}
-	if cerr, ok := c.ErrOrStderr().(io.Closer); ok {
-		cerr.Close()
-	}
+func sendConnectResult(c *command, adbPort int) error {
+	var sendResultErr error = nil
+	sendResultOnce.Do(func() {
+		// Send connect result to the parent when succeeded to connect first time
+		result := ConnStatus{
+			ADB: ForwarderState{
+				Port:  adbPort,
+				State: StateAsStr(FwdConnected),
+			},
+		}
+		output, err := json.Marshal(result)
+		if err != nil {
+			sendResultErr = err
+			return
+		} else {
+			c.Println(string(output))
+		}
 
-	// Redirect WebSocket to ADB TCP port
-	wsWrapper := newWsIoWrapper(c, wsConn)
-	go func() {
-		io.Copy(wsWrapper, tcpConn)
-		wsWrapper.Close()
-	}()
-	io.Copy(tcpConn, wsWrapper)
-	return nil
+		// Close all standard IOs to make agent as daemon
+		if cin, ok := c.InOrStdin().(io.Closer); ok {
+			cin.Close()
+		}
+		if cout, ok := c.OutOrStdout().(io.Closer); ok {
+			cout.Close()
+		}
+		if cerr, ok := c.ErrOrStderr().(io.Closer); ok {
+			cerr.Close()
+		}
+	})
+	return sendResultErr
 }
 
 type wsPingSender struct {

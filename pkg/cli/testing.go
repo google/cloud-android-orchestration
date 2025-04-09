@@ -111,7 +111,7 @@ func (fakeHostService) Start(groupName, instanceName string, req *hoapi.StartCVD
 	return nil
 }
 
-func (fakeHostService) CreateSnapshot(groupName, instanceName string) (*hoapi.CreateSnapshotResponse, error) {
+func (fakeHostService) CreateSnapshot(groupName, instanceName string, req *hoapi.CreateSnapshotRequest) (*hoapi.CreateSnapshotResponse, error) {
 	return nil, nil
 }
 

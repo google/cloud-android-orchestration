@@ -1041,7 +1041,7 @@ func runSnapshotCVDCommand(c *cobra.Command, args []string, flags *SnapshotCVDFl
 	if err != nil {
 		return err
 	}
-	res, err := srvClient.HostService(flags.Host).CreateSnapshot(flags.Group, flags.Name)
+	res, err := srvClient.HostService(flags.Host).CreateSnapshot(flags.Group, flags.Name, &hoapi.CreateSnapshotRequest{})
 	if err != nil {
 		return err
 	}

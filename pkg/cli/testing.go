@@ -83,6 +83,10 @@ func (fakeHostService) CreateUploadDir() (string, error) {
 	return "", nil
 }
 
+func (fakeHostService) CreateUploadDirWithName(uploadDir string) (string, error) {
+	return uploadDir, nil
+}
+
 func (fakeHostService) UploadFile(uploadDir string, name string) error {
 	return nil
 }

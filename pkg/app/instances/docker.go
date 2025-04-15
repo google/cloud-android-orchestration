@@ -38,13 +38,15 @@ const DockerIMType IMType = "docker"
 
 type DockerIMConfig struct {
 	DockerImageName      string
+	UpdateDebPackages    bool
 	HostOrchestratorPort int
 }
 
 const (
-	dockerLabelCreatedBy      = "created_by"
-	dockerLabelKeyManagedBy   = "managed_by"
-	dockerLabelValueManagedBy = "cloud_orchestrator"
+	dockerLabelCreatedBy           = "created_by"
+	dockerLabelKeyManagedBy        = "managed_by"
+	dockerLabelValueManagedBy      = "cloud_orchestrator"
+	envNameAutoUpdateCFDebPackages = "AUTO_UPDATE_CF_DEBIAN_PACKAGES"
 )
 
 // Docker implementation of the instance manager.
@@ -87,6 +89,7 @@ func (m *DockerInstanceManager) CreateHost(zone string, _ *apiv1.CreateHostReque
 	config := &container.Config{
 		AttachStdin: true,
 		Image:       m.Config.Docker.DockerImageName,
+		Env:         []string{fmt.Sprintf("%s=%t", envNameAutoUpdateCFDebPackages, m.Config.Docker.UpdateDebPackages)},
 		Tty:         true,
 		Labels: map[string]string{
 			dockerLabelCreatedBy:    user.Username(),

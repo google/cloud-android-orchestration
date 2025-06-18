@@ -992,7 +992,7 @@ func runBugreportCommand(c *cobra.Command, flags *BugreportFlags, opts *subComma
 	if err != nil {
 		return err
 	}
-	if err := srvClient.HostService(host).CreateBugReport(group, hoclient.CreateBugReportOpts{}, f); err != nil {
+	if err := srvClient.HostClient(host).CreateBugReport(group, hoclient.CreateBugReportOpts{}, f); err != nil {
 		return err
 	}
 	if err := f.Close(); err != nil {
@@ -1013,7 +1013,7 @@ func runDeleteCVDCommand(c *cobra.Command, args []string, flags *DeleteCVDFlags,
 	if len(args) > 1 {
 		return errors.New("deleting multiple instances is not supported yet")
 	}
-	return srvClient.HostService(flags.Host).DeleteCVD(args[0])
+	return srvClient.HostClient(flags.Host).DeleteCVD(args[0])
 }
 
 func runStopCVDCommand(c *cobra.Command, args []string, flags *StopCVDFlags, opts *subCommandOpts) error {
@@ -1021,7 +1021,7 @@ func runStopCVDCommand(c *cobra.Command, args []string, flags *StopCVDFlags, opt
 	if err != nil {
 		return err
 	}
-	return srvClient.HostService(flags.Host).Stop(flags.Group, flags.Name)
+	return srvClient.HostClient(flags.Host).Stop(flags.Group, flags.Name)
 }
 
 func runStartCVDCommand(c *cobra.Command, args []string, flags *StartCVDFlags, opts *subCommandOpts) error {
@@ -1033,7 +1033,7 @@ func runStartCVDCommand(c *cobra.Command, args []string, flags *StartCVDFlags, o
 	if flags.SnapshotID != "" {
 		req.SnapshotID = flags.SnapshotID
 	}
-	return srvClient.HostService(flags.Host).Start(flags.Group, flags.Name, req)
+	return srvClient.HostClient(flags.Host).Start(flags.Group, flags.Name, req)
 }
 
 func runSnapshotCVDCommand(c *cobra.Command, args []string, flags *SnapshotCVDFlags, opts *subCommandOpts) error {
@@ -1041,7 +1041,7 @@ func runSnapshotCVDCommand(c *cobra.Command, args []string, flags *SnapshotCVDFl
 	if err != nil {
 		return err
 	}
-	res, err := srvClient.HostService(flags.Host).CreateSnapshot(flags.Group, flags.Name, &hoapi.CreateSnapshotRequest{})
+	res, err := srvClient.HostClient(flags.Host).CreateSnapshot(flags.Group, flags.Name, &hoapi.CreateSnapshotRequest{})
 	if err != nil {
 		return err
 	}
@@ -1454,7 +1454,7 @@ func connectToDeviceADB(flags *ConnectFlags, c *command, opts *subCommandOpts, d
 		if err != nil {
 			return nil, err
 		}
-		wsConn, err = srvClient.HostService(flags.host).ConnectADBWebSocket(device)
+		wsConn, err = srvClient.HostClient(flags.host).ConnectADBWebSocket(device)
 		if err != nil {
 			return nil, err
 		}

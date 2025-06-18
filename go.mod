@@ -13,7 +13,7 @@ require (
 	github.com/google/android-cuttlefish/frontend/src/host_orchestrator v0.0.0-20250408215131-62b596e12abb
 	github.com/google/android-cuttlefish/frontend/src/liboperator v0.0.0-20250408215131-62b596e12abb
 	github.com/google/go-cmp v0.6.0
-	github.com/google/uuid v1.3.1
+	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/hashicorp/go-multierror v1.1.1
@@ -53,7 +53,7 @@ require (
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
-	github.com/google/android-cuttlefish/frontend/src/libhoclient v0.0.0-20250408215131-62b596e12abb // indirect
+	github.com/google/android-cuttlefish/frontend/src/libhoclient v0.0.0-20250618121121-082e6c1a7b47 // indirect
 	github.com/google/s2a-go v0.1.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.2.3 // indirect
 	github.com/googleapis/gax-go/v2 v2.8.0 // indirect

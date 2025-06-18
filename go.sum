@@ -134,6 +134,8 @@ github.com/google/android-cuttlefish/frontend/src/libhoclient v0.0.0-20250122015
 github.com/google/android-cuttlefish/frontend/src/libhoclient v0.0.0-20250122015813-1a7b9dc053a4/go.mod h1:HWzt0rfeNpsk1+vy0dJoL5q0wOdcBM1SckwZd4+SyhE=
 github.com/google/android-cuttlefish/frontend/src/libhoclient v0.0.0-20250408215131-62b596e12abb h1:UocqRPBi74Tw/Wa9rcFTOhPLE4QLti+zmrYDP8lBpeQ=
 github.com/google/android-cuttlefish/frontend/src/libhoclient v0.0.0-20250408215131-62b596e12abb/go.mod h1:zlqMPoSdZhzW5iMWRjYXqSe8iaPi2kigRHuDLWk4KtY=
+github.com/google/android-cuttlefish/frontend/src/libhoclient v0.0.0-20250618121121-082e6c1a7b47 h1:2rt6TzEqSO9jLPqbanOWEBOCzvvDFSW19lnHhOgKtOg=
+github.com/google/android-cuttlefish/frontend/src/libhoclient v0.0.0-20250618121121-082e6c1a7b47/go.mod h1:6mij3FVAIDg96EUJgnogUePOBDCTDBJFu0y4Hf7IYeo=
 github.com/google/android-cuttlefish/frontend/src/liboperator v0.0.0-20240822182916-7bea0dafdbde h1:laMjSvqBHvDZ9DB+YaM6I4y5t0a7zYQRorYLM1VJsyM=
 github.com/google/android-cuttlefish/frontend/src/liboperator v0.0.0-20240822182916-7bea0dafdbde/go.mod h1:iA3V13fYW7It3n+LqvgOkXAOhw56XAjS1vH43+kU/4o=
 github.com/google/android-cuttlefish/frontend/src/liboperator v0.0.0-20250408215131-62b596e12abb h1:y5LvPAJGP9N1umhGG1AO+x0nhY+ZjG7z49Umd7Kdn6w=
@@ -156,6 +158,8 @@ github.com/google/uuid v1.3.0 h1:t6JiXgmwXMjEs8VusXIJk2BXHsn+wx8BZdTaoZ5fu7I=
 github.com/google/uuid v1.3.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
 github.com/google/uuid v1.3.1 h1:KjJaJ9iWZ3jOFZIf1Lqf4laDRCasjl0BCmnEGxkdLb4=
 github.com/google/uuid v1.3.1/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
+github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=
+github.com/google/uuid v1.6.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
 github.com/googleapis/enterprise-certificate-proxy v0.2.3 h1:yk9/cqRKtT9wXZSsRH9aurXEpJX+U6FLtpYTdC3R06k=
 github.com/googleapis/enterprise-certificate-proxy v0.2.3/go.mod h1:AwSRAtLfXpU5Nm3pW+v7rGDHp09LsPtGY9MduiEsR9k=
 github.com/googleapis/gax-go/v2 v2.8.0 h1:UBtEZqx1bjXtOQ5BVTkuYghXrr3N4V123VKJK67vJZc=

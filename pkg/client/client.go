@@ -78,7 +78,7 @@ type Client interface {
 
 	DeleteHosts(names []string) error
 
-	HostService(host string) hoclient.HostOrchestratorService
+	HostClient(host string) hoclient.HostOrchestratorClient
 
 	HostServiceURL(host string) (*url.URL, error)
 }
@@ -183,8 +183,8 @@ func (s *clientImpl) RootURI() string {
 	return s.RootEndpoint
 }
 
-func (s *clientImpl) HostService(host string) hoclient.HostOrchestratorService {
-	hs := &hoclient.HostOrchestratorServiceImpl{
+func (s *clientImpl) HostClient(host string) hoclient.HostOrchestratorClient {
+	hs := &hoclient.HostOrchestratorClientImpl{
 		HTTPHelper: s.httpHelper,
 		ProxyURL:   s.ProxyURL,
 	}

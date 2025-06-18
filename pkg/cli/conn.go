@@ -392,7 +392,7 @@ func NewConnController(
 	opts := hoclient.ConnectWebRTCOpts{
 		LocalICEConfig: localICEConfig,
 	}
-	conn, err := srvClient.HostService(cvd.Host).ConnectWebRTC(cvd.WebRTCDeviceID, tc, logger.Writer(), opts)
+	conn, err := srvClient.HostClient(cvd.Host).ConnectWebRTC(cvd.WebRTCDeviceID, tc, logger.Writer(), opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to %q: %w", cvd.WebRTCDeviceID, err)
 	}

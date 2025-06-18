@@ -34,7 +34,7 @@ func (fakeClient) RootURI() string {
 	return unitTestServiceURL + "/v1"
 }
 
-func (fakeClient) HostService(host string) hoclient.HostOrchestratorService {
+func (fakeClient) HostClient(host string) hoclient.HostOrchestratorClient {
 	if host == "" {
 		panic("empty host")
 	}
@@ -116,5 +116,9 @@ func (fakeHostService) CreateSnapshot(groupName, instanceName string, req *hoapi
 }
 
 func (fakeHostService) Powerbtn(groupName, instanceName string) error {
+	return nil
+}
+
+func (fakeHostService) DeleteSnapshot(string) error {
 	return nil
 }

@@ -243,7 +243,7 @@ func (c *cvdCreator) createCVDFromLocalBuild() ([]*hoapi.CVD, error) {
 		return nil, err
 	}
 	names = append(names, filepath.Join(hostOut, CVDHostPackageName))
-	hostSrv := c.client.HostService(c.opts.Host)
+	hostSrv := c.client.HostClient(c.opts.Host)
 	uploadDir, err := hostSrv.CreateUploadDir()
 	if err != nil {
 		return nil, err
@@ -277,7 +277,7 @@ func (c *cvdCreator) createCVDFromAndroidCI() ([]*hoapi.CVD, error) {
 }
 
 func (c *cvdCreator) createWithCanonicalConfig() ([]*hoapi.CVD, error) {
-	hostSrv := c.client.HostService(c.opts.Host)
+	hostSrv := c.client.HostClient(c.opts.Host)
 	envConfig := make(map[string]any)
 	if err := deepCopy(c.opts.EnvConfig, &envConfig); err != nil {
 		return nil, fmt.Errorf("deep copying env config failed: %w", err)
@@ -297,15 +297,15 @@ func (c *cvdCreator) createWithCanonicalConfig() ([]*hoapi.CVD, error) {
 	return res.CVDs, nil
 }
 
-func (c *cvdCreator) uploadFilesAndUpdateEnvConfig(hostSrv hoclient.HostOrchestratorService, config map[string]interface{}) error {
-	if err := c.uploadCVDHostPackageAndUpdateEnvConfig(hostSrv, config); err != nil {
+func (c *cvdCreator) uploadFilesAndUpdateEnvConfig(client hoclient.HostOrchestratorClient, config map[string]interface{}) error {
+	if err := c.uploadCVDHostPackageAndUpdateEnvConfig(client, config); err != nil {
 		return err
 	}
-	return c.uploadImagesAndUpdateEnvConfig(hostSrv, config)
+	return c.uploadImagesAndUpdateEnvConfig(client, config)
 }
 
 // TODO(b/378123925) Work with https://github.com/google/android-cuttlefish/blob/main/base/cvd/cuttlefish/host/commands/cvd/cli/parser/load_config.proto
-func (c *cvdCreator) uploadCVDHostPackageAndUpdateEnvConfig(hostSrv hoclient.HostOrchestratorService, config map[string]interface{}) error {
+func (c *cvdCreator) uploadCVDHostPackageAndUpdateEnvConfig(client hoclient.HostOrchestratorClient, config map[string]interface{}) error {
 	common, ok := config["common"]
 	if !ok {
 		return nil
@@ -326,11 +326,11 @@ func (c *cvdCreator) uploadCVDHostPackageAndUpdateEnvConfig(hostSrv hoclient.Hos
 		if isDir {
 			return fmt.Errorf("uploading directory not supported")
 		}
-		uploadDir, err := hostSrv.CreateUploadDir()
+		uploadDir, err := client.CreateUploadDir()
 		if err != nil {
 			return fmt.Errorf("failed creating upload dir: %w", err)
 		}
-		if err := uploadFiles(hostSrv, uploadDir, []string{val}, c.statePrinter); err != nil {
+		if err := uploadFiles(client, uploadDir, []string{val}, c.statePrinter); err != nil {
 			return fmt.Errorf("failed uploading %q: %w", val, err)
 		}
 		commonMap["host_package"] = "@user_artifacts/" + uploadDir
@@ -339,7 +339,7 @@ func (c *cvdCreator) uploadCVDHostPackageAndUpdateEnvConfig(hostSrv hoclient.Hos
 }
 
 // TODO(b/378123925) Work with https://github.com/google/android-cuttlefish/blob/main/base/cvd/cuttlefish/host/commands/cvd/cli/parser/load_config.proto
-func (c *cvdCreator) uploadImagesAndUpdateEnvConfig(hostSrv hoclient.HostOrchestratorService, config map[string]interface{}) error {
+func (c *cvdCreator) uploadImagesAndUpdateEnvConfig(client hoclient.HostOrchestratorClient, config map[string]interface{}) error {
 	instances, ok := config["instances"]
 	if !ok {
 		return nil
@@ -373,11 +373,11 @@ func (c *cvdCreator) uploadImagesAndUpdateEnvConfig(hostSrv hoclient.HostOrchest
 			if isDir {
 				return fmt.Errorf("uploading directory not supported")
 			}
-			uploadDir, err := hostSrv.CreateUploadDir()
+			uploadDir, err := client.CreateUploadDir()
 			if err != nil {
 				return fmt.Errorf("failed creating upload dir: %w", err)
 			}
-			if err := uploadFiles(hostSrv, uploadDir, []string{val}, c.statePrinter); err != nil {
+			if err := uploadFiles(client, uploadDir, []string{val}, c.statePrinter); err != nil {
 				return fmt.Errorf("failed uploading %q: %w", val, err)
 			}
 			diskMap["default_build"] = "@user_artifacts/" + uploadDir
@@ -402,7 +402,7 @@ func (c *cvdCreator) createWithOpts() ([]*hoapi.CVD, error) {
 		AndroidCIBundle: &hoapi.AndroidCIBundle{Build: mainBuild, Type: hoapi.MainBundleType},
 	}
 	c.statePrinter.Print(stateMsgFetchMainBundle)
-	fetchMainBuildRes, err := c.client.HostService(c.opts.Host).FetchArtifacts(fetchReq, c.credentialsFactory())
+	fetchMainBuildRes, err := c.client.HostClient(c.opts.Host).FetchArtifacts(fetchReq, c.credentialsFactory())
 	c.statePrinter.PrintDone(stateMsgFetchMainBundle, err)
 	if err != nil {
 		return nil, err
@@ -421,7 +421,7 @@ func (c *cvdCreator) createWithOpts() ([]*hoapi.CVD, error) {
 		AdditionalInstancesNum: c.opts.AdditionalInstancesNum(),
 	}
 	c.statePrinter.Print(stateMsgStartCVD)
-	res, err := c.client.HostService(c.opts.Host).CreateCVD(createReq, c.credentialsFactory())
+	res, err := c.client.HostClient(c.opts.Host).CreateCVD(createReq, c.credentialsFactory())
 	c.statePrinter.PrintDone(stateMsgStartCVD, err)
 	if err != nil {
 		return nil, err
@@ -433,7 +433,7 @@ func (c *cvdCreator) createCVDFromLocalSrcs() ([]*hoapi.CVD, error) {
 	if err := c.opts.CreateCVDLocalOpts.validate(); err != nil {
 		return nil, fmt.Errorf("invalid local source: %w", err)
 	}
-	uploadDir, err := c.client.HostService(c.opts.Host).CreateUploadDir()
+	uploadDir, err := c.client.HostClient(c.opts.Host).CreateUploadDir()
 	if err != nil {
 		return nil, err
 	}
@@ -441,7 +441,7 @@ func (c *cvdCreator) createCVDFromLocalSrcs() ([]*hoapi.CVD, error) {
 	if err != nil {
 		return nil, err
 	}
-	hostSrv := c.client.HostService(c.opts.Host)
+	hostSrv := c.client.HostClient(c.opts.Host)
 	if err := uploadFiles(hostSrv, uploadDir, c.opts.CreateCVDLocalOpts.srcs(), c.statePrinter); err != nil {
 		return nil, err
 	}
@@ -580,7 +580,7 @@ func flattenCVDs(hosts []*RemoteHost) []*RemoteCVD {
 
 // Calling listCVDConnectionsByHost is inefficient, this internal function avoids that for listAllCVDs.
 func listHostCVDsInner(srvClient client.Client, host string, statuses map[RemoteCVDLocator]ConnStatus) ([]*RemoteCVD, error) {
-	cvds, err := srvClient.HostService(host).ListCVDs()
+	cvds, err := srvClient.HostClient(host).ListCVDs()
 	if err != nil {
 		return nil, err
 	}
@@ -708,18 +708,18 @@ func envVar(name string) (string, error) {
 	return os.Getenv(name), nil
 }
 
-func uploadFiles(srv hoclient.HostOrchestratorService, uploadDir string, names []string, statePrinter *statePrinter) error {
+func uploadFiles(client hoclient.HostOrchestratorClient, uploadDir string, names []string, statePrinter *statePrinter) error {
 	extractOps := []string{}
 	for _, name := range names {
 		state := fmt.Sprintf("Uploading %q", filepath.Base(name))
 		statePrinter.Print(state)
-		err := srv.UploadFile(uploadDir, name)
+		err := client.UploadFile(uploadDir, name)
 		statePrinter.PrintDone(state, err)
 		if err != nil {
 			return err
 		}
 		if strings.HasSuffix(name, ".tar.gz") || strings.HasSuffix(name, ".zip") {
-			op, err := srv.ExtractFile(uploadDir, filepath.Base(name))
+			op, err := client.ExtractFile(uploadDir, filepath.Base(name))
 			if err != nil {
 				return fmt.Errorf("failed uploading files: %w", err)
 			}
@@ -727,7 +727,7 @@ func uploadFiles(srv hoclient.HostOrchestratorService, uploadDir string, names [
 		}
 	}
 	for _, name := range extractOps {
-		if err := srv.WaitForOperation(name, nil); err != nil {
+		if err := client.WaitForOperation(name, nil); err != nil {
 			return fmt.Errorf("failed uploading files: %w", err)
 		}
 	}

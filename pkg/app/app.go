@@ -37,7 +37,7 @@ import (
 	appOAuth2 "github.com/google/cloud-android-orchestration/pkg/app/oauth2"
 	"github.com/google/cloud-android-orchestration/pkg/app/session"
 
-	"github.com/golang-jwt/jwt"
+	"github.com/golang-jwt/jwt/v4"
 	"github.com/gorilla/mux"
 	"golang.org/x/oauth2"
 )
@@ -620,10 +620,8 @@ func extractIDToken(tk *oauth2.Token) (*jwt.Token, error) {
 		return nil, fmt.Errorf("unexpected id token in oauth2 response")
 	}
 	// No need to verify the JWT here since it came directly from the oauth2 provider.
-	noVerify := func(tk *jwt.Token) (interface{}, error) { return nil, nil }
-	idTk, err := jwt.Parse(tokenString, noVerify)
-	if err != nil && errors.Is(err, jwt.ErrInvalidKeyType) {
-		// The error should be invalid key type because of the nil return in the lambda.
+	idTk, _, err := new(jwt.Parser).ParseUnverified(tokenString, jwt.MapClaims{})
+	if err != nil {
 		return nil, err
 	}
 	return idTk, nil

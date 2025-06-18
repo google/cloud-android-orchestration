@@ -9,7 +9,6 @@ require (
 	github.com/PaesslerAG/jsonpath v0.1.1
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/docker/docker v27.3.1+incompatible
-	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/google/android-cuttlefish/frontend/src/host_orchestrator v0.0.0-20250408215131-62b596e12abb
 	github.com/google/android-cuttlefish/frontend/src/liboperator v0.0.0-20250408215131-62b596e12abb
 	github.com/google/go-cmp v0.6.0
@@ -51,6 +50,7 @@ require (
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
+	github.com/golang-jwt/jwt/v4 v4.5.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/android-cuttlefish/frontend/src/libhoclient v0.0.0-20250618121121-082e6c1a7b47 // indirect

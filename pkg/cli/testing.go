@@ -79,6 +79,10 @@ func (fakeHostService) ListCVDs() ([]*hoapi.CVD, error) {
 	return []*hoapi.CVD{{Name: "cvd-1"}}, nil
 }
 
+func (fakeHostService) UploadArtifact(filename string) error {
+	return nil
+}
+
 func (fakeHostService) CreateUploadDir() (string, error) {
 	return "", nil
 }

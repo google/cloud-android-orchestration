@@ -52,3 +52,43 @@ jobs:
       run: cd build/debian/cuttlefish_cvdremote && dpkg-buildpackage -i -uc -us -b
     - name: Install package
       run: dpkg -i build/debian/cuttlefish-cvdremote_*_*64.deb || apt-get install -f -y
+
+  build-cuttlefish-cloud-orchestrator-x86_64-docker-image:
+    runs-on: ubuntu-22.04
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675 # aka v2
+    - name: Get docker image filename and tag
+      run: |
+        short_sha=$(echo ${{ github.sha }} | cut -c1-8)
+        echo "image_path=cloud-orchestrator-docker-image-x86_64-${short_sha}.tar" >> $GITHUB_ENV
+        echo "image_tag=cuttlefish-cloud-orchestrator:${short_sha}" >> $GITHUB_ENV
+    - name: Build docker image
+      run: docker build --force-rm --no-cache -t ${{ env.image_tag }} .
+    - name: Save docker image
+      run: docker save --output ${{ env.image_path }} ${{ env.image_tag }}
+    - name: Publish docker image
+      uses: actions/upload-artifact@c7d193f32edcb7bfad88892161225aeda64e9392 # aka v4.0.0
+      with:
+        name: docker-image-x86_64
+        path: ${{ env.image_path }}
+
+  e2e-test:
+    runs-on: ubuntu-latest
+    needs: [build-cuttlefish-cloud-orchestrator-x86_64-docker-image]
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675 # aka v2
+    - name: Get docker image filename and tag
+      run: |
+        short_sha=$(echo ${{ github.sha }} | cut -c1-8)
+        echo "image_path=cloud-orchestrator-docker-image-x86_64-${short_sha}.tar" >> $GITHUB_ENV
+        echo "image_tag=cuttlefish-cloud-orchestrator:${short_sha}" >> $GITHUB_ENV
+    - name: Download cloud orchestrator
+      uses: actions/download-artifact@v4
+      with:
+        name: docker-image-x86_64
+        path: ${{ env.image_path }}
+    - name: Run test
+      run: |
+        docker run -d -p 8080:8080 -e CONFIG_FILE="/conf.toml" -v $PWD/conf.toml:/conf.toml -v /var/run/docker.sock:/var/run/docker.sock -t ${{ env.image_tag }}

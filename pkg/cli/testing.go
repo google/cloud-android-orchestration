@@ -83,6 +83,10 @@ func (fakeHostService) UploadArtifact(filename string) error {
 	return nil
 }
 
+func (fakeHostService) ExtractArtifact(filename string) (*hoapi.Operation, error) {
+	return nil, nil
+}
+
 func (fakeHostService) CreateUploadDir() (string, error) {
 	return "", nil
 }

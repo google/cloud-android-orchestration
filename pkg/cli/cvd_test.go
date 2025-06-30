@@ -15,6 +15,9 @@
 package cli
 
 import (
+	"encoding/json"
+	"fmt"
+	"io"
 	"os"
 	"path"
 	"path/filepath"
@@ -93,5 +96,75 @@ func TestGetHostOutRelativePathFailsUnknownTargetArch(t *testing.T) {
 
 	if err == nil {
 		t.Errorf("expected error")
+	}
+}
+
+func TestEnvConfigValidity(t *testing.T) {
+	cf, err := credentialsFactoryFromSource("none", "")
+	if err != nil {
+		t.Fatalf("couldn't make credentials factory")
+	}
+
+	f, err := os.CreateTemp(t.TempDir(), "test")
+	if err != nil {
+		t.Fatalf("couldn't create temp file")
+	}
+	fname := f.Name()
+	f.Close()
+
+	cc := cvdCreator{
+		client:             fakeClient{},
+		statePrinter:       newStatePrinter(io.Discard, false),
+		credentialsFactory: cf,
+		opts: CreateCVDOpts{
+			Host: "foo",
+		},
+	}
+
+	tests := []struct {
+		name      string
+		cfg       string
+		expectErr bool
+	}{
+		{
+			name:      "valid",
+			cfg:       `{"common": {"host_package": "%s"}, "instances": [{"vm": {"cpus": 8}}]}`,
+			expectErr: false,
+		},
+		{
+			name:      "invalid proto field",
+			cfg:       `{"common": {"host_package": "%s"}, "instances": [{"vm": {"cpus": "foobar"}}]}`,
+			expectErr: true,
+		},
+		{
+			name:      "invalid proto message",
+			cfg:       `{"common": {"host_package": "%s"}, "instances": [{"vm": {"cpus": "foobar", "xx": 42}}]}`,
+			expectErr: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			cfg := fmt.Sprintf(test.cfg, fname)
+			ucfg := make(map[string]interface{})
+			if err := json.Unmarshal([]byte(cfg), &ucfg); err != nil {
+				t.Fatalf("config in is not valid JSON: %s", err)
+			}
+
+			cc.opts.EnvConfig = ucfg
+			_, err := cc.createWithCanonicalConfig()
+			if err != nil && !test.expectErr {
+				t.Errorf("unexpected error: got: %s", err)
+			}
+			if err != nil && test.expectErr {
+				t.Logf("success: expected error, got: %s", err)
+			}
+			if err == nil && test.expectErr {
+				t.Errorf("unexpected success: config: %s", cfg)
+			}
+			if err == nil && !test.expectErr {
+				t.Logf("success: expected success")
+			}
+		})
 	}
 }

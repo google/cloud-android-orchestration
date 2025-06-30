@@ -32,6 +32,7 @@ import (
 	hoapi "github.com/google/android-cuttlefish/frontend/src/host_orchestrator/api/v1"
 	hoclient "github.com/google/android-cuttlefish/frontend/src/libhoclient"
 	"github.com/hashicorp/go-multierror"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 type RemoteCVDLocator struct {
@@ -210,6 +211,12 @@ func buildUAEnvConfig(data uaEnvConfigTmplData) (map[string]interface{}, error) 
 	if err := uaEnvConfigTmpl.Execute(&b, uaEnvConfigTmplData{ArtifactsDir: data.ArtifactsDir}); err != nil {
 		return nil, err
 	}
+
+	es := EnvironmentSpecification{}
+	if err := protojson.Unmarshal(b.Bytes(), &es); err != nil {
+		return nil, err
+	}
+
 	result := make(map[string]interface{})
 	if err := json.Unmarshal(b.Bytes(), &result); err != nil {
 		return nil, err
@@ -285,6 +292,13 @@ func (c *cvdCreator) createWithCanonicalConfig() ([]*hoapi.CVD, error) {
 	if err := c.uploadFilesAndUpdateEnvConfig(hostSrv, envConfig); err != nil {
 		return nil, fmt.Errorf("failed uploading files from environment config: %w", err)
 	}
+
+	es := EnvironmentSpecification{}
+	b, err := json.Marshal(envConfig)
+	if err := protojson.Unmarshal(b, &es); err != nil {
+		return nil, fmt.Errorf("config is not convertible to load_config")
+	}
+
 	createReq := &hoapi.CreateCVDRequest{
 		EnvConfig: envConfig,
 	}

@@ -114,6 +114,10 @@ github.com/golang/protobuf v1.5.0/go.mod h1:FsONVRAS9T7sI+LIUmWTfcYkHO4aIWwzhcaS
 github.com/golang/protobuf v1.5.2/go.mod h1:XVQd3VNwM+JqD3oG2Ue2ip4fOMUkwXdXDdiuN0vRsmY=
 github.com/golang/protobuf v1.5.3 h1:KhyjKVUg7Usr/dYsdSqoFveMYd5ko72D+zANwlG1mmg=
 github.com/golang/protobuf v1.5.3/go.mod h1:XVQd3VNwM+JqD3oG2Ue2ip4fOMUkwXdXDdiuN0vRsmY=
+github.com/google/android-cuttlefish/base/cvd/cuttlefish/host/commands/cvd/cli/parser/golang v0.0.0-20250702161553-a4aa4ad95111 h1:0UPWZqmLTPYTQYJgFFK96yJczFR7bHL/C6UFjbkmCUs=
+github.com/google/android-cuttlefish/base/cvd/cuttlefish/host/commands/cvd/cli/parser/golang v0.0.0-20250702161553-a4aa4ad95111/go.mod h1:kwbXNWidCd9PO5n3Hjg1bhekqU5WST8/4A/n9OxrPiI=
+github.com/google/android-cuttlefish/base/cvd/cuttlefish/host/commands/cvd/cli/parser/golang v0.0.0-20250707165013-373c65abbeb6 h1:hn1I2Cc1vy9oucMsCulRtZH3pb6gIVpWD++Ka7u0dQQ=
+github.com/google/android-cuttlefish/base/cvd/cuttlefish/host/commands/cvd/cli/parser/golang v0.0.0-20250707165013-373c65abbeb6/go.mod h1:bvva0dAFlBcp6NJeehOBCmUsBWqN2SBLhGYxKNcamAI=
 github.com/google/android-cuttlefish/frontend/src/host_orchestrator v0.0.0-20240822210212-880a924dd887 h1:8FUb1el9+ZS0qetn5vBazvJzCEsqBjyXBJTWbEUreQ0=
 github.com/google/android-cuttlefish/frontend/src/host_orchestrator v0.0.0-20240822210212-880a924dd887/go.mod h1:jXT8KyxHnr3qWiE+qhZjhcrCquDFdl6h0LBpNoreP1U=
 github.com/google/android-cuttlefish/frontend/src/host_orchestrator v0.0.0-20240830204501-4bffeb28c143 h1:Nob+zxDE1tE5KKqBpwYIdMXwtgek8P7Tof14Z/JgccY=
@@ -526,6 +530,8 @@ google.golang.org/protobuf v1.26.0-rc.1/go.mod h1:jlhhOSvTdKEhbULTjvd4ARK9grFBp0
 google.golang.org/protobuf v1.26.0/go.mod h1:9q0QmTI4eRPtz6boOQmLYwt+qCgq0jsYwAQnmE0givc=
 google.golang.org/protobuf v1.33.0 h1:uNO2rsAINq/JlFpSdYEKIZ0uKD/R9cpdv0T+yoGwGmI=
 google.golang.org/protobuf v1.33.0/go.mod h1:c6P6GXX6sHbq/GpV6MGZEdwhWPcYBgnhAHhKbcUYpos=
+google.golang.org/protobuf v1.36.6 h1:z1NpPI8ku2WgiWnf+t9wTPsn6eP1L7ksHUlkfLvd9xY=
+google.golang.org/protobuf v1.36.6/go.mod h1:jduwjTPXsFjZGTmRluh+L6NjiWu7pchiJ2/5YcXBHnY=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/fsnotify.v1 v1.4.7/go.mod h1:Tz8NjZHkW78fSQdbUxIjBTcgA1z1m8ZHf0WmKUhAMys=

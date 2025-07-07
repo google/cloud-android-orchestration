@@ -16,9 +16,12 @@ package cli
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
@@ -174,7 +177,7 @@ func (c *cvdCreator) Create() ([]*hoapi.CVD, error) {
 const uaEnvConfigTmplStr = `
 {
   "common": {
-    "host_package": "@user_artifacts/{{.ArtifactsDir}}"
+    "host_package": "{{.HostPkg}}"
   },
   "instances": [
     {
@@ -184,7 +187,7 @@ const uaEnvConfigTmplStr = `
         "cpus": 8
       },
       "disk": {
-        "default_build": "@user_artifacts/{{.ArtifactsDir}}"
+        "default_build": "{{.Artifacts}}"
       },
       "streaming": {
         "device_id": "cvd-1"
@@ -204,13 +207,14 @@ func init() {
 }
 
 type uaEnvConfigTmplData struct {
-	ArtifactsDir string
+	Artifacts string
+	HostPkg   string
 }
 
-func buildUAEnvConfig(data uaEnvConfigTmplData) (map[string]interface{}, error) {
+func buildUAEnvConfig(artifacts []string, hostPkg string) (map[string]interface{}, error) {
 	var b bytes.Buffer
-	if err := uaEnvConfigTmpl.Execute(&b, uaEnvConfigTmplData{ArtifactsDir: data.ArtifactsDir}); err != nil {
-		return nil, err
+	if err := uaEnvConfigTmpl.Execute(&b, uaEnvConfigTmplData{Artifacts: strings.Join(artifacts, ","), HostPkg: hostPkg}); err != nil {
+		return nil, fmt.Errorf("failed to fulfill template: %w", err)
 	}
 
 	es := lcpb.EnvironmentSpecification{}
@@ -220,7 +224,7 @@ func buildUAEnvConfig(data uaEnvConfigTmplData) (map[string]interface{}, error) 
 
 	result := make(map[string]interface{})
 	if err := json.Unmarshal(b.Bytes(), &result); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to unmarshal json: %w", err)
 	}
 	return result, nil
 }
@@ -234,7 +238,7 @@ func (c *cvdCreator) createCVDFromLocalBuild() ([]*hoapi.CVD, error) {
 	if err != nil {
 		return nil, err
 	}
-	names, err := ListLocalImageRequiredFiles(buildTop, productOut)
+	artifacts, err := ListLocalImageRequiredFiles(buildTop, productOut)
 	if err != nil {
 		return nil, err
 	}
@@ -250,25 +254,12 @@ func (c *cvdCreator) createCVDFromLocalBuild() ([]*hoapi.CVD, error) {
 	if err := verifyCVDHostPackageTar(hostOut); err != nil {
 		return nil, err
 	}
-	names = append(names, filepath.Join(hostOut, CVDHostPackageName))
-	hostSrv := c.client.HostClient(c.opts.Host)
-	uploadDir, err := hostSrv.CreateUploadDir()
+	envConfig, err := buildUAEnvConfig(artifacts, filepath.Join(hostOut, CVDHostPackageName))
 	if err != nil {
 		return nil, err
 	}
-	envConfig, err := buildUAEnvConfig(uaEnvConfigTmplData{ArtifactsDir: uploadDir})
-	if err != nil {
-		return nil, err
-	}
-	if err := uploadFiles(hostSrv, uploadDir, names, c.statePrinter); err != nil {
-		return nil, err
-	}
-	req := &hoapi.CreateCVDRequest{EnvConfig: envConfig}
-	res, err := hostSrv.CreateCVD(req, c.credentialsFactory())
-	if err != nil {
-		return nil, err
-	}
-	return res.CVDs, nil
+	c.opts.EnvConfig = envConfig
+	return c.createWithCanonicalConfig()
 }
 
 const (
@@ -344,14 +335,11 @@ func (c *cvdCreator) uploadCVDHostPackageAndUpdateEnvConfig(client hoclient.Host
 		if isDir {
 			return fmt.Errorf("uploading directory not supported")
 		}
-		uploadDir, err := client.CreateUploadDir()
+		checksum, err := uploadFile(client, val, c.statePrinter)
 		if err != nil {
-			return fmt.Errorf("failed creating upload dir: %w", err)
-		}
-		if err := uploadFiles(client, uploadDir, []string{val}, c.statePrinter); err != nil {
 			return fmt.Errorf("failed uploading %q: %w", val, err)
 		}
-		commonMap["host_package"] = "@user_artifacts/" + uploadDir
+		commonMap["host_package"] = "@userartifacts/" + checksum
 	}
 	return nil
 }
@@ -384,21 +372,20 @@ func (c *cvdCreator) uploadImagesAndUpdateEnvConfig(client hoclient.HostOrchestr
 			continue
 		}
 		if val, ok := defaultBuild.(string); ok && !strings.HasPrefix(val, "@ab") {
-			isDir, err := isDirectory(val)
-			if err != nil {
-				return fmt.Errorf("directory test for %q failed: %w", val, err)
+			checksums := []string{}
+			for _, build := range strings.Split(val, ",") {
+				if isDir, err := isDirectory(build); err != nil {
+					return fmt.Errorf("directory test for %q failed: %w", build, err)
+				} else if isDir {
+					return fmt.Errorf("uploading directory not supported")
+				}
+				checksum, err := uploadFile(client, build, c.statePrinter)
+				if err != nil {
+					return fmt.Errorf("failed uploading %q: %w", build, err)
+				}
+				checksums = append(checksums, checksum)
 			}
-			if isDir {
-				return fmt.Errorf("uploading directory not supported")
-			}
-			uploadDir, err := client.CreateUploadDir()
-			if err != nil {
-				return fmt.Errorf("failed creating upload dir: %w", err)
-			}
-			if err := uploadFiles(client, uploadDir, []string{val}, c.statePrinter); err != nil {
-				return fmt.Errorf("failed uploading %q: %w", val, err)
-			}
-			diskMap["default_build"] = "@user_artifacts/" + uploadDir
+			diskMap["default_build"] = "@userartifacts/" + strings.Join(checksums, ",")
 		}
 	}
 	return nil
@@ -451,24 +438,12 @@ func (c *cvdCreator) createCVDFromLocalSrcs() ([]*hoapi.CVD, error) {
 	if err := c.opts.CreateCVDLocalOpts.validate(); err != nil {
 		return nil, fmt.Errorf("invalid local source: %w", err)
 	}
-	uploadDir, err := c.client.HostClient(c.opts.Host).CreateUploadDir()
+	envConfig, err := buildUAEnvConfig(c.opts.CreateCVDLocalOpts.artifacts(), c.opts.CreateCVDLocalOpts.LocalCVDHostPkgSrc)
 	if err != nil {
 		return nil, err
 	}
-	envConfig, err := buildUAEnvConfig(uaEnvConfigTmplData{ArtifactsDir: uploadDir})
-	if err != nil {
-		return nil, err
-	}
-	hostSrv := c.client.HostClient(c.opts.Host)
-	if err := uploadFiles(hostSrv, uploadDir, c.opts.CreateCVDLocalOpts.srcs(), c.statePrinter); err != nil {
-		return nil, err
-	}
-	req := &hoapi.CreateCVDRequest{EnvConfig: envConfig}
-	res, err := hostSrv.CreateCVD(req, c.credentialsFactory())
-	if err != nil {
-		return nil, err
-	}
-	return res.CVDs, nil
+	c.opts.EnvConfig = envConfig
+	return c.createWithCanonicalConfig()
 }
 
 type coInjectBuildAPICreds struct{}
@@ -694,13 +669,10 @@ func (o *CreateCVDLocalOpts) validate() error {
 	return nil
 }
 
-func (o *CreateCVDLocalOpts) srcs() []string {
+func (o *CreateCVDLocalOpts) artifacts() []string {
 	result := []string{}
 	if o.LocalBootloaderSrc != "" {
 		result = append(result, o.LocalBootloaderSrc)
-	}
-	if o.LocalCVDHostPkgSrc != "" {
-		result = append(result, o.LocalCVDHostPkgSrc)
 	}
 	if o.LocalImagesZipSrc != "" {
 		result = append(result, o.LocalImagesZipSrc)
@@ -726,30 +698,43 @@ func envVar(name string) (string, error) {
 	return os.Getenv(name), nil
 }
 
-func uploadFiles(client hoclient.HostOrchestratorClient, uploadDir string, names []string, statePrinter *statePrinter) error {
-	extractOps := []string{}
-	for _, name := range names {
-		state := fmt.Sprintf("Uploading %q", filepath.Base(name))
-		statePrinter.Print(state)
-		err := client.UploadFile(uploadDir, name)
-		statePrinter.PrintDone(state, err)
+func sha256Checksum(filename string) (string, error) {
+	f, err := os.Open(filename)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%x", h.Sum(nil)), nil
+}
+
+func uploadFile(client hoclient.HostOrchestratorClient, filename string, statePrinter *statePrinter) (string, error) {
+	state := fmt.Sprintf("Uploading %q", filepath.Base(filename))
+	statePrinter.Print(state)
+	err := client.UploadArtifact(filename)
+	statePrinter.PrintDone(state, err)
+	if err != nil {
+		return "", fmt.Errorf("failed to upload artifact: %w", err)
+	}
+	checksum, err := sha256Checksum(filename)
+	if err != nil {
+		return "", fmt.Errorf("failed to get sha256 checksum: %w", err)
+	}
+	if strings.HasSuffix(filename, ".tar.gz") || strings.HasSuffix(filename, ".zip") {
+		op, err := client.ExtractArtifact(filename)
 		if err != nil {
-			return err
+			return "", fmt.Errorf("failed to extract artifact: %w", err)
 		}
-		if strings.HasSuffix(name, ".tar.gz") || strings.HasSuffix(name, ".zip") {
-			op, err := client.ExtractFile(uploadDir, filepath.Base(name))
-			if err != nil {
-				return fmt.Errorf("failed uploading files: %w", err)
+		if err := client.WaitForOperation(op.Name, nil); err != nil {
+			if apiErr, ok := err.(*hoclient.ApiCallError); !ok || apiErr.HTTPStatusCode != http.StatusConflict {
+				return "", fmt.Errorf("failed to wait for extracting operation: %w", err)
 			}
-			extractOps = append(extractOps, op.Name)
 		}
 	}
-	for _, name := range extractOps {
-		if err := client.WaitForOperation(name, nil); err != nil {
-			return fmt.Errorf("failed uploading files: %w", err)
-		}
-	}
-	return nil
+	return checksum, nil
 }
 
 // Deep copies src to dst using json marshaling.

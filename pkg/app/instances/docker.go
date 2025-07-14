@@ -31,6 +31,8 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/image"
+	"github.com/docker/docker/api/types/mount"
+	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/client"
 )
 
@@ -46,6 +48,8 @@ const (
 	dockerLabelKeyManagedBy   = "managed_by"
 	dockerLabelValueManagedBy = "cloud_orchestrator"
 )
+
+const uaMountTarget = "/var/lib/cuttlefish-common/userartifacts"
 
 // Docker implementation of the instance manager.
 type DockerInstanceManager struct {
@@ -80,20 +84,28 @@ func (m *DockerInstanceManager) CreateHost(zone string, _ *apiv1.CreateHostReque
 		return nil, errors.NewBadRequestError("Invalid zone. It should be 'local'.", nil)
 	}
 	ctx := context.TODO()
-	err := m.downloadDockerImageIfNeeded(ctx)
-	if err != nil {
+	if err := m.downloadDockerImageIfNeeded(ctx); err != nil {
 		return nil, fmt.Errorf("failed to retrieve docker image name: %w", err)
+	}
+	// A docker volume is shared across all hosts under each user. If no volume
+	// exists for given user, create it.
+	if err := m.createDockerVolumeIfNeeded(ctx, user); err != nil {
+		return nil, fmt.Errorf("failed to prepare docker volume: %w", err)
 	}
 	config := &container.Config{
 		AttachStdin: true,
 		Image:       m.Config.Docker.DockerImageName,
 		Tty:         true,
-		Labels: map[string]string{
-			dockerLabelCreatedBy:    user.Username(),
-			dockerLabelKeyManagedBy: dockerLabelValueManagedBy,
-		},
+		Labels:      dockerLabelsDict(user),
 	}
 	hostConfig := &container.HostConfig{
+		Mounts: []mount.Mount{
+			{
+				Type:   mount.TypeVolume,
+				Source: uaVolumeName(user),
+				Target: uaMountTarget,
+			},
+		},
 		Privileged: true,
 	}
 	createRes, err := m.Client.ContainerCreate(ctx, config, hostConfig, nil, nil, "")
@@ -103,6 +115,19 @@ func (m *DockerInstanceManager) CreateHost(zone string, _ *apiv1.CreateHostReque
 	err = m.Client.ContainerStart(ctx, createRes.ID, container.StartOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to start docker container: %w", err)
+	}
+	execConfig := container.ExecOptions{
+		Cmd:          []string{"chown", "httpcvd:httpcvd", uaMountTarget},
+		AttachStdout: false,
+		AttachStderr: false,
+		Tty:          false,
+	}
+	execRes, err := m.Client.ContainerExecCreate(ctx, createRes.ID, execConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create container execution %q: %w", strings.Join(execConfig.Cmd, " "), err)
+	}
+	if err := m.Client.ContainerExecStart(ctx, execRes.ID, container.ExecStartOptions{}); err != nil {
+		return nil, fmt.Errorf("failed to start container execution %q: %w", strings.Join(execConfig.Cmd, " "), err)
 	}
 	return &apiv1.Operation{
 		Name: EncodeOperationName(CreateHostOPType, createRes.ID),
@@ -115,20 +140,8 @@ func (m *DockerInstanceManager) ListHosts(zone string, user accounts.User, _ *Li
 		return nil, errors.NewBadRequestError("Invalid zone. It should be 'local'.", nil)
 	}
 	ctx := context.TODO()
-	ownerFilterExpr := fmt.Sprintf("%s=%s", dockerLabelCreatedBy, user.Username())
-	managerFilterExpr := fmt.Sprintf("%s=%s", dockerLabelKeyManagedBy, dockerLabelValueManagedBy)
-	listFilters := filters.NewArgs(
-		filters.KeyValuePair{
-			Key:   "label",
-			Value: ownerFilterExpr,
-		},
-		filters.KeyValuePair{
-			Key:   "label",
-			Value: managerFilterExpr,
-		},
-	)
 	listRes, err := m.Client.ContainerList(ctx, container.ListOptions{
-		Filters: listFilters,
+		Filters: dockerFilter(user),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list docker containers: %w", err)
@@ -168,6 +181,11 @@ func (m *DockerInstanceManager) DeleteHost(zone string, user accounts.User, host
 	err = m.Client.ContainerRemove(ctx, host, container.RemoveOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to remove docker container: %w", err)
+	}
+	// A docker volume is shared across all hosts under each user. If no host
+	// exists for given user, delete volume afterwards to cleanup.
+	if err := m.deleteDockerVolumeIfNeeded(ctx, user); err != nil {
+		return nil, fmt.Errorf("failed to cleanup docker volume: %w", err)
 	}
 	return &apiv1.Operation{
 		Name: EncodeOperationName(DeleteHostOPType, host),
@@ -298,6 +316,32 @@ func (m *DockerInstanceManager) GetHostClient(zone string, host string) (HostCli
 	return NewNetHostClient(url, m.Config.AllowSelfSignedHostSSLCertificate), nil
 }
 
+func uaVolumeName(user accounts.User) string {
+	return fmt.Sprintf("user_artifacts_%s", user.Username())
+}
+
+func dockerFilter(user accounts.User) filters.Args {
+	ownerFilterExpr := fmt.Sprintf("%s=%s", dockerLabelCreatedBy, user.Username())
+	managerFilterExpr := fmt.Sprintf("%s=%s", dockerLabelKeyManagedBy, dockerLabelValueManagedBy)
+	return filters.NewArgs(
+		filters.KeyValuePair{
+			Key:   "label",
+			Value: ownerFilterExpr,
+		},
+		filters.KeyValuePair{
+			Key:   "label",
+			Value: managerFilterExpr,
+		},
+	)
+}
+
+func dockerLabelsDict(user accounts.User) map[string]string {
+	return map[string]string{
+		dockerLabelCreatedBy:    user.Username(),
+		dockerLabelKeyManagedBy: dockerLabelValueManagedBy,
+	}
+}
+
 func (m *DockerInstanceManager) getContainerLabel(host string, key string) (string, error) {
 	ctx := context.TODO()
 	inspect, err := m.Client.ContainerInspect(ctx, host)
@@ -336,5 +380,46 @@ func (m *DockerInstanceManager) downloadDockerImageIfNeeded(ctx context.Context)
 		return fmt.Errorf("failed to pull docker image %q: %w", m.Config.Docker.DockerImageName, err)
 	}
 	log.Println("Downloaded docker image: " + m.Config.Docker.DockerImageName)
+	return nil
+}
+
+func (m *DockerInstanceManager) createDockerVolumeIfNeeded(ctx context.Context, user accounts.User) error {
+	listOpts := volume.ListOptions{Filters: dockerFilter(user)}
+	volumeListRes, err := m.Client.VolumeList(ctx, listOpts)
+	if err != nil {
+		return fmt.Errorf("failed to list docker volume: %w", err)
+	}
+	if len(volumeListRes.Volumes) > 0 {
+		return nil
+	}
+	createOpts := volume.CreateOptions{
+		Name:   uaVolumeName(user),
+		Labels: dockerLabelsDict(user),
+	}
+	if _, err := m.Client.VolumeCreate(ctx, createOpts); err != nil {
+		return fmt.Errorf("failed to create docker volume: %w", err)
+	}
+	return nil
+}
+
+func (m *DockerInstanceManager) deleteDockerVolumeIfNeeded(ctx context.Context, user accounts.User) error {
+	containerListOpts := container.ListOptions{Filters: dockerFilter(user)}
+	listRes, err := m.Client.ContainerList(ctx, containerListOpts)
+	if err != nil {
+		return fmt.Errorf("failed to list docker containers: %w", err)
+	}
+	if len(listRes) > 0 {
+		return nil
+	}
+	listOpts := volume.ListOptions{Filters: dockerFilter(user)}
+	volumeListRes, err := m.Client.VolumeList(ctx, listOpts)
+	if err != nil {
+		return fmt.Errorf("failed to list docker volume: %w", err)
+	}
+	for _, volume := range volumeListRes.Volumes {
+		if err := m.Client.VolumeRemove(ctx, volume.Name, true); err != nil {
+			return fmt.Errorf("failed to remove docker volume: %w", err)
+		}
+	}
 	return nil
 }

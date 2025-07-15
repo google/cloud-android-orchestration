@@ -101,6 +101,10 @@ func (fakeHostService) UploadFileWithOptions(uploadDir string, name string, opti
 
 func (fakeHostService) ExtractFile(string, string) (*hoapi.Operation, error) { return nil, nil }
 
+func (fakeHostService) CreateImageDirectory() (*hoapi.Operation, error) {
+	return nil, nil
+}
+
 func (fakeHostService) DownloadRuntimeArtifacts(dst io.Writer) error {
 	return nil
 }

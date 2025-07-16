@@ -105,6 +105,10 @@ func (fakeHostService) CreateImageDirectory() (*hoapi.Operation, error) {
 	return nil, nil
 }
 
+func (fakeHostService) UpdateImageDirectoryWithUserArtifact(id, filename string) (*hoapi.Operation, error) {
+	return nil, nil
+}
+
 func (fakeHostService) DownloadRuntimeArtifacts(dst io.Writer) error {
 	return nil
 }

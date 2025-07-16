@@ -1,0 +1,13 @@
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+sh_library(
+    name = "cvdr_common_utils",
+    srcs = ["common_utils.sh"],
+)
+
+sh_test(
+    name = "cvdr_host_create_test",
+    srcs = ["cvdr_host_create_test.sh"],
+    data = [":cvdr_common_utils"],
+)

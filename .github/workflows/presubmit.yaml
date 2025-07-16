@@ -1,0 +1,109 @@
+name: Presubmit
+
+on:
+  pull_request:
+  push:
+    branches-ignore:
+      - main  # push events to main branch occur after PRs are merged, when the same checks were run
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: ['1.23.4']
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675 # aka v2
+    - name: Install dependencies
+      uses: actions/setup-go@v3
+      with:
+        go-version: ${{ matrix.go-version }}
+    - run: go version
+    - name: Build
+      run: go build ./...
+    - name: Test
+      run: go test -v -coverprofile=coverage.out ./...
+    - name: Check format
+      run: if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then exit 1; fi
+    - name: Vet
+      run: go vet ./...
+    - name: Staticcheck
+      uses: dominikh/staticcheck-action@v1.3.1
+      with:
+        version: "latest"
+        install-go: false
+
+  build-cuttlefish-cvdremote-debian-package:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: ['1.23.4']
+    container:
+      image: debian@sha256:6a8bad8d20e1ca5ecbb7a314e51df6fca73fcce19af2778550671bdd1cbe7b43 # aka stable-20211011
+    steps:
+    - name: setup apt
+      run: apt update -y && apt upgrade -y
+    - name: Checkout repository
+      uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675 # aka v2
+    - name: Install dependencies
+      uses: actions/setup-go@v3
+      with:
+        go-version: ${{ matrix.go-version }}
+    - name: install debuild dependencies
+      run: apt install -y git devscripts config-package-dev debhelper-compat golang
+    - name: Build package
+      run: cd build/debian/cuttlefish_cvdremote && dpkg-buildpackage -i -uc -us -b
+    - name: Install package
+      run: dpkg -i build/debian/cuttlefish-cvdremote_*_*64.deb || apt-get install -f -y
+    - name: Upload debian package
+      uses: actions/upload-artifact@c7d193f32edcb7bfad88892161225aeda64e9392 # aka v4.0.0
+      with:
+        name: cuttlefish-cvdremote-x86_64
+        path: build/debian/cuttlefish-cvdremote_*_*64.deb
+
+  build-cuttlefish-cloud-orchestrator-x86_64-docker-image:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675 # aka v2
+    - name: Get docker image filename and tag
+      run: |
+        short_sha=$(echo ${{ github.sha }} | cut -c1-8)
+        echo "image_path=cloud-orchestrator-docker-image-x86_64-${short_sha}.tar" >> $GITHUB_ENV
+        echo "image_tag=cuttlefish-cloud-orchestrator:${short_sha}" >> $GITHUB_ENV
+    - name: Build docker image
+      run: docker build --force-rm --no-cache -t ${{ env.image_tag }} .
+    - name: Save docker image
+      run: docker save --output ${{ env.image_path }} ${{ env.image_tag }}
+    - name: Publish docker image
+      uses: actions/upload-artifact@c7d193f32edcb7bfad88892161225aeda64e9392 # aka v4.0.0
+      with:
+        name: docker-image-x86_64
+        path: ${{ env.image_path }}
+
+  e2e-test-cvdr-with-on-premise-cloud-orchestrator:
+    runs-on: ubuntu-latest
+    needs: [build-cuttlefish-cloud-orchestrator-x86_64-docker-image, build-cuttlefish-cvdremote-debian-package]
+    steps:
+    - name: setup apt-get
+      run: sudo apt-get update && sudo apt-get upgrade -y
+    - name: Checkout repository
+      uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675 # aka v2
+    - name: Download x86_64 docker image 'cuttlefish-cloud-orchestrator'
+      uses: actions/download-artifact@7a1cd3216ca9260cd8022db641d960b1db4d1be4 # aka v4.0.0
+      with:
+        name: docker-image-x86_64
+        path: cuttlefish-cloud-orchestrator
+    - name: Load and run x86_64 docker image 'cuttlefish-cloud-orchestrator'
+      run: |
+        short_sha=$(echo ${{ github.sha }} | cut -c1-8)
+        docker load --input cuttlefish-cloud-orchestrator/cloud-orchestrator-docker-image-x86_64-${short_sha}.tar
+        docker run -d -p 8080:8080 -e CONFIG_FILE="/conf.toml" -v $PWD/scripts/on-premises/single-server/conf.toml:/conf.toml -v /var/run/docker.sock:/var/run/docker.sock -t cuttlefish-cloud-orchestrator:${short_sha}
+    - name: Download x86_64 debian package 'cuttlefish-cvdremote'
+      uses: actions/download-artifact@7a1cd3216ca9260cd8022db641d960b1db4d1be4 # aka v4.0.0
+      with:
+        name: cuttlefish-cvdremote-x86_64
+        path: cuttlefish-cvdremote
+    - name: Install x86_64 debian package 'cuttlefish-cvdremote'
+      run: sudo apt-get install -y ./cuttlefish-cvdremote/cuttlefish-cvdremote_*_*64.deb

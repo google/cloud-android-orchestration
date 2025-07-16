@@ -9,3 +9,7 @@ tags
 *.tfstate
 *.tfstate.*
 *.tfvars
+
+/bazel-*
+/**/bazel-*
+MODULE.bazel.lock

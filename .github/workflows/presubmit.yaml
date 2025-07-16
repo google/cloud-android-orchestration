@@ -56,6 +56,11 @@ jobs:
       run: cd build/debian/cuttlefish_cvdremote && dpkg-buildpackage -i -uc -us -b
     - name: Install package
       run: dpkg -i build/debian/cuttlefish-cvdremote_*_*64.deb || apt-get install -f -y
+    - name: Upload debian package
+      uses: actions/upload-artifact@c7d193f32edcb7bfad88892161225aeda64e9392 # aka v4.0.0
+      with:
+        name: cuttlefish-cvdremote-x86_64
+        path: build/debian/cuttlefish-cvdremote_*_*64.deb
 
   build-cuttlefish-cloud-orchestrator-x86_64-docker-image:
     runs-on: ubuntu-latest
@@ -76,3 +81,29 @@ jobs:
       with:
         name: docker-image-x86_64
         path: ${{ env.image_path }}
+
+  e2e-test-cvdr-with-on-premise-cloud-orchestrator:
+    runs-on: ubuntu-latest
+    needs: [build-cuttlefish-cloud-orchestrator-x86_64-docker-image, build-cuttlefish-cvdremote-debian-package]
+    steps:
+    - name: setup apt-get
+      run: sudo apt-get update && sudo apt-get upgrade -y
+    - name: Checkout repository
+      uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675 # aka v2
+    - name: Download x86_64 docker image 'cuttlefish-cloud-orchestrator'
+      uses: actions/download-artifact@7a1cd3216ca9260cd8022db641d960b1db4d1be4 # aka v4.0.0
+      with:
+        name: docker-image-x86_64
+        path: cuttlefish-cloud-orchestrator
+    - name: Load and run x86_64 docker image 'cuttlefish-cloud-orchestrator'
+      run: |
+        short_sha=$(echo ${{ github.sha }} | cut -c1-8)
+        docker load --input cuttlefish-cloud-orchestrator/cloud-orchestrator-docker-image-x86_64-${short_sha}.tar
+        docker run -d -p 8080:8080 -e CONFIG_FILE="/conf.toml" -v $PWD/scripts/on-premises/single-server/conf.toml:/conf.toml -v /var/run/docker.sock:/var/run/docker.sock -t cuttlefish-cloud-orchestrator:${short_sha}
+    - name: Download x86_64 debian package 'cuttlefish-cvdremote'
+      uses: actions/download-artifact@7a1cd3216ca9260cd8022db641d960b1db4d1be4 # aka v4.0.0
+      with:
+        name: cuttlefish-cvdremote-x86_64
+        path: cuttlefish-cvdremote
+    - name: Install x86_64 debian package 'cuttlefish-cvdremote'
+      run: sudo apt-get install -y ./cuttlefish-cvdremote/cuttlefish-cvdremote_*_*64.deb

@@ -68,7 +68,7 @@ func (fakeHostService) CreateCVD(req *hoapi.CreateCVDRequest, creds hoclient.Bui
 }
 
 func (fakeHostService) CreateCVDOp(req *hoapi.CreateCVDRequest, creds hoclient.BuildAPICreds) (*hoapi.Operation, error) {
-	return nil, nil
+	return &hoapi.Operation{}, nil
 }
 
 func (fakeHostService) DeleteCVD(id string) error {
@@ -84,7 +84,7 @@ func (fakeHostService) UploadArtifact(filename string) error {
 }
 
 func (fakeHostService) ExtractArtifact(filename string) (*hoapi.Operation, error) {
-	return nil, nil
+	return &hoapi.Operation{}, nil
 }
 
 func (fakeHostService) CreateUploadDir() (string, error) {
@@ -99,14 +99,16 @@ func (fakeHostService) UploadFileWithOptions(uploadDir string, name string, opti
 	return nil
 }
 
-func (fakeHostService) ExtractFile(string, string) (*hoapi.Operation, error) { return nil, nil }
+func (fakeHostService) ExtractFile(string, string) (*hoapi.Operation, error) {
+	return &hoapi.Operation{}, nil
+}
 
 func (fakeHostService) CreateImageDirectory() (*hoapi.Operation, error) {
-	return nil, nil
+	return &hoapi.Operation{}, nil
 }
 
 func (fakeHostService) UpdateImageDirectoryWithUserArtifact(id, filename string) (*hoapi.Operation, error) {
-	return nil, nil
+	return &hoapi.Operation{}, nil
 }
 
 func (fakeHostService) DownloadRuntimeArtifacts(dst io.Writer) error {

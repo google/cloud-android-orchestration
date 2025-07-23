@@ -56,6 +56,11 @@ jobs:
       run: cd build/debian/cuttlefish_cvdremote && dpkg-buildpackage -i -uc -us -b
     - name: Install package
       run: dpkg -i build/debian/cuttlefish-cvdremote_*_*64.deb || apt-get install -f -y
+    - name: Upload debian package
+      uses: actions/upload-artifact@c7d193f32edcb7bfad88892161225aeda64e9392 # aka v4.0.0
+      with:
+        name: cuttlefish-cvdremote-x86_64
+        path: build/debian/cuttlefish-cvdremote_*_*64.deb
 
   build-cuttlefish-cloud-orchestrator-x86_64-docker-image:
     runs-on: ubuntu-latest
@@ -76,3 +81,43 @@ jobs:
       with:
         name: docker-image-x86_64
         path: ${{ env.image_path }}
+
+  e2e-test-cvdr-with-on-premise-cloud-orchestrator:
+    runs-on: ubuntu-latest
+    needs: [build-cuttlefish-cloud-orchestrator-x86_64-docker-image, build-cuttlefish-cvdremote-debian-package]
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675 # aka v2
+    - name: Download cuttlefish-orchestration
+      run: |
+        # TODO: Enable E2E test based on ToT image, instead of the latest stable version.
+        docker pull us-docker.pkg.dev/android-cuttlefish-artifacts/cuttlefish-orchestration/cuttlefish-orchestration
+        docker tag us-docker.pkg.dev/android-cuttlefish-artifacts/cuttlefish-orchestration/cuttlefish-orchestration:latest cuttlefish-orchestration:latest
+    - name: Download cuttlefish-cloud-orchestrator
+      uses: actions/download-artifact@7a1cd3216ca9260cd8022db641d960b1db4d1be4 # aka v4.0.0
+      with:
+        name: docker-image-x86_64
+        path: cuttlefish-cloud-orchestrator
+    - name: Load and run cuttlefish-cloud-orchestrator
+      run: |
+        short_sha=$(echo ${{ github.sha }} | cut -c1-8)
+        docker load --input cuttlefish-cloud-orchestrator/cloud-orchestrator-docker-image-x86_64-${short_sha}.tar
+        docker run -d -p 8080:8080 -e CONFIG_FILE="/conf.toml" -v $PWD/scripts/on-premises/single-server/conf.toml:/conf.toml -v /var/run/docker.sock:/var/run/docker.sock -t cuttlefish-cloud-orchestrator:${short_sha}
+    - name: Download cuttlefish-cvdremote
+      uses: actions/download-artifact@7a1cd3216ca9260cd8022db641d960b1db4d1be4 # aka v4.0.0
+      with:
+        name: cuttlefish-cvdremote-x86_64
+        path: cuttlefish-cvdremote
+    - name: Install cuttlefish-cvdremote
+      run: sudo apt-get install -y ./cuttlefish-cvdremote/cuttlefish-cvdremote_*_*64.deb
+    - name: Install bazel
+      run: |
+        sudo apt-get update && sudo apt-get install -y apt-transport-https curl gnupg
+        curl -fsSL https://bazel.build/bazel-release.pub.gpg | gpg --dearmor >bazel-archive-keyring.gpg
+        mv bazel-archive-keyring.gpg /usr/share/keyrings
+        echo "deb [arch=amd64 signed-by=/usr/share/keyrings/bazel-archive-keyring.gpg] https://storage.googleapis.com/bazel-apt stable jdk1.8" | sudo tee /etc/apt/sources.list.d/bazel.list
+        sudo apt-get update && sudo apt-get install -y bazel zip unzip
+    - name: Run E2E tests
+      run: |
+        cd e2etests
+        bazel test //cvdr/... --test_env=CVDR_PATH=$(which cvdr) --test_env=CVDR_CONFIG_PATH=$(realpath -s ../scripts/on-premises/single-server/cvdr.toml) --test_output=errors --show_timestamps

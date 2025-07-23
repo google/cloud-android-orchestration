@@ -30,11 +30,9 @@ import (
 	"github.com/google/cloud-android-orchestration/pkg/cli/authz"
 	"github.com/google/cloud-android-orchestration/pkg/client"
 
-	lcpb "github.com/google/android-cuttlefish/base/cvd/cuttlefish/host/commands/cvd/cli/parser/golang"
 	hoapi "github.com/google/android-cuttlefish/frontend/src/host_orchestrator/api/v1"
 	hoclient "github.com/google/android-cuttlefish/frontend/src/libhoclient"
 	"github.com/hashicorp/go-multierror"
-	"google.golang.org/protobuf/encoding/protojson"
 )
 
 type RemoteCVDLocator struct {
@@ -211,12 +209,6 @@ func buildUAEnvConfig(artifacts []string, hostPkg string) (map[string]interface{
 	if err := uaEnvConfigTmpl.Execute(&b, uaEnvConfigTmplData{Artifacts: strings.Join(artifacts, ","), HostPkg: hostPkg}); err != nil {
 		return nil, fmt.Errorf("failed to fulfill template: %w", err)
 	}
-
-	es := lcpb.EnvironmentSpecification{}
-	if err := protojson.Unmarshal(b.Bytes(), &es); err != nil {
-		return nil, err
-	}
-
 	result := make(map[string]interface{})
 	if err := json.Unmarshal(b.Bytes(), &result); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal json: %w", err)
@@ -279,16 +271,6 @@ func (c *cvdCreator) createWithCanonicalConfig() ([]*hoapi.CVD, error) {
 	if err := c.uploadFilesAndUpdateEnvConfig(hostSrv, envConfig); err != nil {
 		return nil, fmt.Errorf("failed uploading files from environment config: %w", err)
 	}
-
-	es := lcpb.EnvironmentSpecification{}
-	b, err := json.Marshal(envConfig)
-	if err != nil {
-		return nil, fmt.Errorf("config is not convertible to JSON")
-	}
-	if err := protojson.Unmarshal(b, &es); err != nil {
-		return nil, fmt.Errorf("config is not convertible to load_config")
-	}
-
 	createReq := &hoapi.CreateCVDRequest{
 		EnvConfig: envConfig,
 	}

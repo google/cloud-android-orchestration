@@ -17,3 +17,13 @@ sh_test(
     srcs = ["cvdr_create_with_branch_test.sh"],
     data = [":cvdr_common_utils"],
 )
+
+sh_test(
+    name = "cvdr_create_with_local_srcs_test",
+    srcs = ["cvdr_create_with_local_srcs_test.sh"],
+    data = [
+        ":cvdr_common_utils",
+        "@aosp_artifact//:cvd_host_package",
+        "@aosp_artifact//:images_zip",
+    ],
+)

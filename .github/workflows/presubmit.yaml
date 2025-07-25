@@ -137,4 +137,12 @@ jobs:
     - name: Run E2E tests
       run: |
         cd e2etests
-        bazel test //cvdr/... --test_env=CVDR_PATH=$(which cvdr) --test_env=CVDR_CONFIG_PATH=$(realpath -s ../scripts/on-premises/single-server/cvdr.toml) --test_output=errors --show_timestamps
+        # TODO(b/383428636): Running E2E tests in parallel requires enabling
+        # vhost-user-vsock. Though we enabled vhost-user-vsock on ARM64, nested
+        # virtualization is not supported on any ARM64 Github runners.
+        bazel test //cvdr/... \
+          --local_test_jobs=1 \
+          --show_timestamps \
+          --test_env=CVDR_PATH=$(which cvdr) \
+          --test_env=CVDR_CONFIG_PATH=$(realpath -s ../scripts/on-premises/single-server/cvdr.toml) \
+          --test_output=errors

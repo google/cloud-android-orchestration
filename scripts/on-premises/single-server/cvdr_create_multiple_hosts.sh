@@ -33,21 +33,10 @@ while true; do
     esac
 done
 
-echo "Host 1 creation started"
-cvdr create $@
-echo "Succeeded to create host 1"
+cvdr create "$@" 2>&1 | sed "s/^/[Host 1] /"
 if (( $NUM_HOSTS > 1 )); then
-    echo "Creation of other hosts started"
     for i in $(seq 2 $NUM_HOSTS); do
-        cvdr create $@ > /dev/null 2>&1 &
-        PID[i]=$!
+        cvdr create "$@" 2>&1 | sed "s/^/[Host $i] /" &
     done
-    for i in $(seq 2 $NUM_HOSTS); do
-        wait ${PID[i]}
-        if (( $? == 0 )); then
-            echo "Succeeded to create host $i"
-        else
-            echo "Failed to create host $i"
-        fi
-    done
+    wait
 fi

@@ -87,22 +87,6 @@ func (fakeHostService) ExtractArtifact(filename string) (*hoapi.Operation, error
 	return &hoapi.Operation{}, nil
 }
 
-func (fakeHostService) CreateUploadDir() (string, error) {
-	return "", nil
-}
-
-func (fakeHostService) UploadFile(uploadDir string, name string) error {
-	return nil
-}
-
-func (fakeHostService) UploadFileWithOptions(uploadDir string, name string, options hoclient.UploadOptions) error {
-	return nil
-}
-
-func (fakeHostService) ExtractFile(string, string) (*hoapi.Operation, error) {
-	return &hoapi.Operation{}, nil
-}
-
 func (fakeHostService) CreateImageDirectory() (*hoapi.Operation, error) {
 	return &hoapi.Operation{}, nil
 }

@@ -52,6 +52,15 @@ The config file for `cvdr` is located at
 [scripts/on-premises/single-server/cvdr.toml](cvdr.toml).
 Please follow the steps at [cvdr.md](/docs/cvdr.md), to get started with `cvdr`.
 
+### Batch creation by cvdr
+
+Unfortunately, we don't support bulk/batch creation on `cvdr` yet, such as
+creating Cuttlefish instances across multiple hosts.
+Please
+[scripts/on-premises/single-server/cvdr_create_multiple_hosts.sh](cvdr_create_multiple_hosts.sh)
+instead for a moment to create multiple identical hosts with running Cuttlefish
+instances in them.
+
 ## Manually build and run cloud orchestrator
 
 The config file for cloud orchestrator is at

@@ -91,7 +91,15 @@ func (fakeHostService) CreateImageDirectory() (*hoapi.Operation, error) {
 	return &hoapi.Operation{}, nil
 }
 
+func (fakeHostService) ListImageDirectories() (*hoapi.ListImageDirectoriesResponse, error) {
+	return &hoapi.ListImageDirectoriesResponse{}, nil
+}
+
 func (fakeHostService) UpdateImageDirectoryWithUserArtifact(id, filename string) (*hoapi.Operation, error) {
+	return &hoapi.Operation{}, nil
+}
+
+func (fakeHostService) DeleteImageDirectory(id string) (*hoapi.Operation, error) {
 	return &hoapi.Operation{}, nil
 }
 

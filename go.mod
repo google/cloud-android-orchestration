@@ -9,8 +9,8 @@ require (
 	github.com/PaesslerAG/jsonpath v0.1.1
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/docker/docker v27.3.1+incompatible
-	github.com/google/android-cuttlefish/frontend/src/host_orchestrator v0.0.0-20250731225726-21f888f64cef
-	github.com/google/android-cuttlefish/frontend/src/liboperator v0.0.0-20250731225726-21f888f64cef
+	github.com/google/android-cuttlefish/frontend/src/host_orchestrator v0.0.0-20250804003817-9fb5900ade64
+	github.com/google/android-cuttlefish/frontend/src/liboperator v0.0.0-20250804003817-9fb5900ade64
 	github.com/google/go-cmp v0.6.0
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.0
@@ -55,7 +55,7 @@ require (
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/android-cuttlefish/base/cvd/cuttlefish/host/commands/cvd/cli/parser/golang v0.0.0-20250725065612-ef53fac08041 // indirect
-	github.com/google/android-cuttlefish/frontend/src/libhoclient v0.0.0-20250731225726-21f888f64cef // indirect
+	github.com/google/android-cuttlefish/frontend/src/libhoclient v0.0.0-20250804003817-9fb5900ade64 // indirect
 	github.com/google/btree v1.1.3 // indirect
 	github.com/google/s2a-go v0.1.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.2.3 // indirect

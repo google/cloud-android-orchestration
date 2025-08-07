@@ -104,25 +104,39 @@ func TestCommandSucceeds(t *testing.T) {
 			ExpOut: "",
 		},
 		{
-			Name:   "create",
-			Args:   []string{"create", "--build_id=123"},
-			ExpOut: expectedOutput(unitTestServiceURL, "foo", hoapi.CVD{Name: "cvd-1"}, 12345),
+			Name: "create",
+			Args: []string{"create", "--build_id=123"},
+			ExpOut: expectedOutput(unitTestServiceURL, "foo", &hoapi.CVD{
+				Group:          "cvd-1",
+				Name:           "1",
+				Status:         "Running",
+				Displays:       []string{"720 x 1280 (320)"},
+				WebRTCDeviceID: "cvd-1-1",
+				ADBSerial:      "0.0.0.0:6520",
+			}, 12345),
 		},
 		{
-			Name:   "create with --host",
-			Args:   []string{"create", "--host=bar", "--build_id=123"},
-			ExpOut: expectedOutput(unitTestServiceURL, "bar", hoapi.CVD{Name: "cvd-1"}, 12345),
+			Name: "create with --host",
+			Args: []string{"create", "--host=bar", "--build_id=123"},
+			ExpOut: expectedOutput(unitTestServiceURL, "bar", &hoapi.CVD{
+				Group:          "cvd-1",
+				Name:           "1",
+				Status:         "Running",
+				Displays:       []string{"720 x 1280 (320)"},
+				WebRTCDeviceID: "cvd-1-1",
+				ADBSerial:      "0.0.0.0:6520",
+			}, 12345),
 		},
 		{
 			Name: "list",
 			Args: []string{"list"},
-			ExpOut: expectedOutput(unitTestServiceURL, "foo", hoapi.CVD{Name: "cvd-1"}, 0) +
-				expectedOutput(unitTestServiceURL, "bar", hoapi.CVD{Name: "cvd-1"}, 0),
+			ExpOut: expectedOutput(unitTestServiceURL, "foo", nil, 0) +
+				expectedOutput(unitTestServiceURL, "bar", nil, 0),
 		},
 		{
 			Name:   "list with --host",
 			Args:   []string{"list", "--host=bar"},
-			ExpOut: expectedOutput(unitTestServiceURL, "bar", hoapi.CVD{Name: "cvd-1"}, 0),
+			ExpOut: expectedOutput(unitTestServiceURL, "bar", nil, 0),
 		},
 	}
 	for _, test := range tests {
@@ -200,16 +214,20 @@ func newTestIOStreams() (IOStreams, *bytes.Buffer, *bytes.Buffer) {
 	}, in, out
 }
 
-func expectedOutput(serviceURL, host string, cvd hoapi.CVD, port int) string {
+func expectedOutput(serviceURL, host string, cvd *hoapi.CVD, port int) string {
 	out := &bytes.Buffer{}
-	remoteCVD := NewRemoteCVD(host, &cvd)
-	remoteCVD.ConnStatus = &ConnStatus{
-		ADB: ForwarderState{
-			State: "not connected",
-			Port:  port,
-		},
+	cvds := []*RemoteCVD{}
+	if cvd != nil {
+		remoteCVD := NewRemoteCVD(host, cvd)
+		remoteCVD.ConnStatus = &ConnStatus{
+			ADB: ForwarderState{
+				State: "not connected",
+				Port:  port,
+			},
+		}
+		cvds = append(cvds, remoteCVD)
 	}
-	hosts := []*RemoteHost{{Name: host, CVDs: []*RemoteCVD{remoteCVD}}}
+	hosts := []*RemoteHost{{Name: host, CVDs: cvds}}
 	WriteListCVDsOutput(out, hosts)
 	b, _ := io.ReadAll(out)
 	return string(b)

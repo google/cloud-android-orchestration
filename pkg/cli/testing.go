@@ -1,15 +1,11 @@
 package cli
 
 import (
-	"io"
 	"net/url"
 
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
 
-	hoapi "github.com/google/android-cuttlefish/frontend/src/host_orchestrator/api/v1"
 	hoclient "github.com/google/android-cuttlefish/frontend/src/libhoclient"
-	wclient "github.com/google/android-cuttlefish/frontend/src/libhoclient/webrtcclient"
-	"github.com/gorilla/websocket"
 )
 
 const unitTestServiceURL = "test://unit"
@@ -38,97 +34,9 @@ func (fakeClient) HostClient(host string) hoclient.HostOrchestratorClient {
 	if host == "" {
 		panic("empty host")
 	}
-	return &fakeHostService{}
+	return hoclient.NewFakeHostOrchestratorClient()
 }
 
 func (fakeClient) HostServiceURL(host string) (*url.URL, error) {
 	return nil, nil
-}
-
-type fakeHostService struct{}
-
-func (fakeHostService) GetInfraConfig() (*apiv1.InfraConfig, error) {
-	return nil, nil
-}
-
-func (fakeHostService) ConnectWebRTC(device string, observer wclient.Observer, logger io.Writer, opts hoclient.ConnectWebRTCOpts) (*wclient.Connection, error) {
-	return nil, nil
-}
-
-func (fakeHostService) ConnectADBWebSocket(device string) (*websocket.Conn, error) {
-	return nil, nil
-}
-
-func (fakeHostService) FetchArtifacts(req *hoapi.FetchArtifactsRequest, creds hoclient.BuildAPICreds) (*hoapi.FetchArtifactsResponse, error) {
-	return &hoapi.FetchArtifactsResponse{AndroidCIBundle: &hoapi.AndroidCIBundle{}}, nil
-}
-
-func (fakeHostService) CreateCVD(req *hoapi.CreateCVDRequest, creds hoclient.BuildAPICreds) (*hoapi.CreateCVDResponse, error) {
-	return &hoapi.CreateCVDResponse{CVDs: []*hoapi.CVD{{Name: "cvd-1"}}}, nil
-}
-
-func (fakeHostService) CreateCVDOp(req *hoapi.CreateCVDRequest, creds hoclient.BuildAPICreds) (*hoapi.Operation, error) {
-	return &hoapi.Operation{}, nil
-}
-
-func (fakeHostService) DeleteCVD(id string) error {
-	return nil
-}
-
-func (fakeHostService) ListCVDs() ([]*hoapi.CVD, error) {
-	return []*hoapi.CVD{{Name: "cvd-1"}}, nil
-}
-
-func (fakeHostService) UploadArtifact(filename string) error {
-	return nil
-}
-
-func (fakeHostService) ExtractArtifact(filename string) (*hoapi.Operation, error) {
-	return &hoapi.Operation{}, nil
-}
-
-func (fakeHostService) CreateImageDirectory() (*hoapi.Operation, error) {
-	return &hoapi.Operation{}, nil
-}
-
-func (fakeHostService) ListImageDirectories() (*hoapi.ListImageDirectoriesResponse, error) {
-	return &hoapi.ListImageDirectoriesResponse{}, nil
-}
-
-func (fakeHostService) UpdateImageDirectoryWithUserArtifact(id, filename string) (*hoapi.Operation, error) {
-	return &hoapi.Operation{}, nil
-}
-
-func (fakeHostService) DeleteImageDirectory(id string) (*hoapi.Operation, error) {
-	return &hoapi.Operation{}, nil
-}
-
-func (fakeHostService) DownloadRuntimeArtifacts(dst io.Writer) error {
-	return nil
-}
-
-func (fakeHostService) WaitForOperation(string, any) error { return nil }
-
-func (fakeHostService) CreateBugReport(string, hoclient.CreateBugReportOpts, io.Writer) error {
-	return nil
-}
-
-func (fakeHostService) Powerwash(groupName, instanceName string) error { return nil }
-
-func (fakeHostService) Stop(groupName, instanceName string) error { return nil }
-
-func (fakeHostService) Start(groupName, instanceName string, req *hoapi.StartCVDRequest) error {
-	return nil
-}
-
-func (fakeHostService) CreateSnapshot(groupName, instanceName string, req *hoapi.CreateSnapshotRequest) (*hoapi.CreateSnapshotResponse, error) {
-	return nil, nil
-}
-
-func (fakeHostService) Powerbtn(groupName, instanceName string) error {
-	return nil
-}
-
-func (fakeHostService) DeleteSnapshot(string) error {
-	return nil
 }

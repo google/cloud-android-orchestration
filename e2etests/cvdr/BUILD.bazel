@@ -11,3 +11,9 @@ sh_test(
     srcs = ["cvdr_host_create_test.sh"],
     data = [":cvdr_common_utils"],
 )
+
+sh_test(
+    name = "cvdr_create_with_branch_test",
+    srcs = ["cvdr_create_with_branch_test.sh"],
+    data = [":cvdr_common_utils"],
+)

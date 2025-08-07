@@ -117,6 +117,10 @@ jobs:
         mv bazel-archive-keyring.gpg /usr/share/keyrings
         echo "deb [arch=amd64 signed-by=/usr/share/keyrings/bazel-archive-keyring.gpg] https://storage.googleapis.com/bazel-apt stable jdk1.8" | sudo tee /etc/apt/sources.list.d/bazel.list
         sudo apt-get update && sudo apt-get install -y bazel zip unzip
+    - name: Install adb
+      run: |
+        sudo apt-get install adb
+        adb devices
     - name: Run E2E tests
       run: |
         cd e2etests

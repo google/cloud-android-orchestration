@@ -14,5 +14,5 @@ function validate_components() {
 }
 
 function cvdr() {
-    HOME=${PWD} CVDR_USER_CONFIG_PATH=${CVDR_CONFIG_PATH} ${CVDR_PATH} $@
+    HOME=${PWD} CVDR_USER_CONFIG_PATH=${CVDR_CONFIG_PATH} ${CVDR_PATH} "$@"
 }

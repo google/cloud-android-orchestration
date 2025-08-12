@@ -40,7 +40,7 @@ jobs:
       matrix:
         go-version: ['1.23.4']
     container:
-      image: debian@sha256:6a8bad8d20e1ca5ecbb7a314e51df6fca73fcce19af2778550671bdd1cbe7b43 # aka stable-20211011
+      image: debian@sha256:9258a75a7e4323c9e5562b361effc84ee747920116d8adfc98a465a5cdc9150e # debian:bookworm-20250407 (amd64)
     steps:
     - name: setup apt
       run: apt update -y && apt upgrade -y

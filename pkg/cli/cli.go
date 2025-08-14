@@ -1299,6 +1299,7 @@ func runConnectionWebrtcAgentCommand(flags *ConnectFlags, c *command, args []str
 	// Ask ADB server to connect even if the connection to the device already exists.
 	if err := opts.ADBServerProxy.Connect(ret.Status.ADB.Port); err != nil {
 		c.PrintErrf("Failed to connect ADB to device %q: %v\n", device, err)
+		return err
 	}
 
 	if ret.Controller == nil {
@@ -1338,11 +1339,13 @@ func runConnectionWebSocketAgentCommand(flags *ConnectFlags, c *command, args []
 		c.PrintErrf("Failed to listen ADB socket: %v", err)
 		return err
 	}
+	defer l.Close()
 	device := args[0]
 	adbPort := l.Addr().(*net.TCPAddr).Port
 	err = opts.ADBServerProxy.Connect(adbPort)
 	if err != nil {
 		c.PrintErrf("Failed to connect ADB to device: %v\n", err)
+		return err
 	}
 
 	for {

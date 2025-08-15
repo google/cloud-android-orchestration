@@ -510,6 +510,17 @@ func (c *CVDRemoteCommand) Execute() error {
 }
 
 func hostCommand(opts *subCommandOpts) *cobra.Command {
+	host := &cobra.Command{
+		Use:   "host",
+		Short: "Work with hosts",
+	}
+	host.AddCommand(hostCreateCommand(opts))
+	host.AddCommand(hostListCommand(opts))
+	host.AddCommand(hostDeleteCommand(opts))
+	return host
+}
+
+func hostCreateCommand(opts *subCommandOpts) *cobra.Command {
 	acceleratorFlagValues := []string{}
 	createFlags := &CreateHostFlags{ServiceFlags: opts.ServiceFlags, CreateHostOpts: &CreateHostOpts{}}
 	create := &cobra.Command{
@@ -533,6 +544,10 @@ func hostCommand(opts *subCommandOpts) *cobra.Command {
 		opts.InitialConfig.DefaultService().Host.GCP.BootDiskSizeGB, gcpBootDiskSizeGBDesc)
 	create.Flags().StringSliceVar(&acceleratorFlagValues, gcpAcceleratorFlag,
 		opts.InitialConfig.DefaultService().Host.GCP.AcceleratorConfigs, acceleratorFlagDesc)
+	return create
+}
+
+func hostListCommand(opts *subCommandOpts) *cobra.Command {
 	list := &cobra.Command{
 		Use:     "list",
 		Short:   "Lists hosts.",
@@ -541,6 +556,10 @@ func hostCommand(opts *subCommandOpts) *cobra.Command {
 			return runListHostCommand(c, opts.ServiceFlags, opts)
 		},
 	}
+	return list
+}
+
+func hostDeleteCommand(opts *subCommandOpts) *cobra.Command {
 	del := &cobra.Command{
 		Use:     "delete <foo> <bar> <baz>",
 		Short:   "Delete hosts.",
@@ -549,19 +568,24 @@ func hostCommand(opts *subCommandOpts) *cobra.Command {
 			return runDeleteHostsCommand(c, args, opts.ServiceFlags, opts)
 		},
 	}
-	host := &cobra.Command{
-		Use:   "host",
-		Short: "Work with hosts",
-	}
-	host.AddCommand(create)
-	host.AddCommand(list)
-	host.AddCommand(del)
-	return host
+	return del
 }
 
 func cvdCommands(opts *subCommandOpts) []*cobra.Command {
+	return []*cobra.Command{
+		createCommand(opts),
+		listCommand(opts),
+		bugreportCommand(opts),
+		deleteCommand(opts),
+		stopCommand(opts),
+		startCommand(opts),
+		snapshotCommand(opts),
+		resetCommand(opts),
+	}
+}
+
+func createCommand(opts *subCommandOpts) *cobra.Command {
 	gcpAcceleratorFlagValues := []string{}
-	// Create command
 	createFlags := &CreateCVDFlags{
 		ServiceFlags:   opts.ServiceFlags,
 		CreateCVDOpts:  &CreateCVDOpts{},
@@ -673,7 +697,10 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 		opts.InitialConfig.DefaultService().Host.GCP.BootDiskSizeGB, gcpBootDiskSizeGBDesc)
 	create.Flags().StringSliceVar(&gcpAcceleratorFlagValues, "host_"+gcpAcceleratorFlag,
 		opts.InitialConfig.DefaultService().Host.GCP.AcceleratorConfigs, acceleratorFlagDesc)
-	// List command
+	return create
+}
+
+func listCommand(opts *subCommandOpts) *cobra.Command {
 	listFlags := &ListCVDsFlags{ServiceFlags: opts.ServiceFlags}
 	list := &cobra.Command{
 		Use:     "list",
@@ -684,7 +711,10 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 		},
 	}
 	list.Flags().StringVar(&listFlags.Host, hostFlag, "", "Specifies the host")
-	// Bugreport command
+	return list
+}
+
+func bugreportCommand(opts *subCommandOpts) *cobra.Command {
 	brFlags := &BugreportFlags{ServiceFlags: opts.ServiceFlags}
 	br := &cobra.Command{
 		Use:     "bugreport [--host HOST [--group GROUP]]",
@@ -696,7 +726,10 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 	}
 	br.Flags().StringVar(&brFlags.Host, hostFlag, "", "Specifies the host")
 	br.Flags().StringVar(&brFlags.Group, groupFlag, "", "Specifies the group")
-	// Delete command
+	return br
+}
+
+func deleteCommand(opts *subCommandOpts) *cobra.Command {
 	delFlags := &DeleteCVDFlags{ServiceFlags: opts.ServiceFlags}
 	del := &cobra.Command{
 		Use:     "delete [--host=HOST] [id]",
@@ -708,7 +741,10 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 	}
 	del.Flags().StringVar(&delFlags.Host, hostFlag, "", "Specifies the host")
 	del.MarkFlagRequired(hostFlag)
-	// Stop command
+	return del
+}
+
+func stopCommand(opts *subCommandOpts) *cobra.Command {
 	stopFlags := &StopCVDFlags{ServiceFlags: opts.ServiceFlags}
 	stop := &cobra.Command{
 		Use:     "stop --host=HOST --group=GROUP --name=NAME",
@@ -724,7 +760,10 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 	stop.MarkFlagRequired(groupFlag)
 	stop.Flags().StringVar(&stopFlags.Name, nameFlag, "", "Instance name")
 	stop.MarkFlagRequired(nameFlag)
-	// Start command
+	return stop
+}
+
+func startCommand(opts *subCommandOpts) *cobra.Command {
 	startFlags := &StartCVDFlags{ServiceFlags: opts.ServiceFlags}
 	start := &cobra.Command{
 		Use:     "start --host=HOST --group=GROUP --name=NAME",
@@ -741,7 +780,10 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 	start.Flags().StringVar(&startFlags.Name, nameFlag, "", "Instance name")
 	start.MarkFlagRequired(nameFlag)
 	start.Flags().StringVar(&startFlags.SnapshotID, snapshotIDFlag, "", "Snapshot id")
-	// Snapshot command
+	return start
+}
+
+func snapshotCommand(opts *subCommandOpts) *cobra.Command {
 	snapshotFlags := &SnapshotCVDFlags{ServiceFlags: opts.ServiceFlags}
 	snapshot := &cobra.Command{
 		Use:     "snapshot --host=HOST --group=GROUP --name=NAME",
@@ -757,7 +799,10 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 	snapshot.MarkFlagRequired(groupFlag)
 	snapshot.Flags().StringVar(&snapshotFlags.Name, nameFlag, "", "Instance name")
 	snapshot.MarkFlagRequired(nameFlag)
-	// Reset command
+	return snapshot
+}
+
+func resetCommand(opts *subCommandOpts) *cobra.Command {
 	resetFlags := &ResetHostFlags{ServiceFlags: opts.ServiceFlags}
 	reset := &cobra.Command{
 		Use:     "reset --host=HOST [-y]",
@@ -770,12 +815,20 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 	reset.Flags().StringVar(&resetFlags.Host, hostFlag, "", "Host name")
 	reset.MarkFlagRequired(hostFlag)
 	reset.Flags().BoolVarP(&resetFlags.SkipConfirmation, "yes", "y", false, "Skip confirmation")
-
-	return []*cobra.Command{create, list, br, del, stop, start, snapshot, reset}
+	return reset
 }
 
 func connectionCommands(opts *subCommandOpts) []*cobra.Command {
 	connFlags := &ConnectFlags{ServiceFlags: opts.ServiceFlags, host: "", skipConfirmation: false}
+	return []*cobra.Command{
+		connectCommand(connFlags, opts),
+		disconnectCommand(connFlags, opts),
+		webrtcAgentCommand(connFlags, opts),
+		webSocketAgentCommand(connFlags, opts),
+	}
+}
+
+func connectCommand(connFlags *ConnectFlags, opts *subCommandOpts) *cobra.Command {
 	connect := &cobra.Command{
 		Use:     ConnectCommandName,
 		Short:   "(Re)Connects to a CVD and tunnels ADB messages",
@@ -789,6 +842,10 @@ func connectionCommands(opts *subCommandOpts) []*cobra.Command {
 		"Don't ask for confirmation for closing multiple connections.")
 	connect.Flags().StringVar(&connFlags.ice_config, iceConfigFlag, "", iceConfigFlagDesc)
 	connect.Flags().StringVar(&connFlags.connectAgent, connectAgentFlag, opts.InitialConfig.DefaultService().ConnectAgent, "Connect agent type")
+	return connect
+}
+
+func disconnectCommand(connFlags *ConnectFlags, opts *subCommandOpts) *cobra.Command {
 	disconnect := &cobra.Command{
 		Use:     fmt.Sprintf("%s <foo> <bar> <baz>", DisconnectCommandName),
 		Short:   "Disconnect (ADB) from CVD",
@@ -800,6 +857,10 @@ func connectionCommands(opts *subCommandOpts) []*cobra.Command {
 	disconnect.Flags().StringVar(&connFlags.host, hostFlag, "", "Specifies the host")
 	disconnect.Flags().BoolVarP(&connFlags.skipConfirmation, "yes", "y", false,
 		"Don't ask for confirmation for closing multiple connections.")
+	return disconnect
+}
+
+func webrtcAgentCommand(connFlags *ConnectFlags, opts *subCommandOpts) *cobra.Command {
 	webrtcAgent := &cobra.Command{
 		Hidden: true,
 		Use:    ConnectionWebRTCAgentCommandName,
@@ -810,6 +871,10 @@ func connectionCommands(opts *subCommandOpts) []*cobra.Command {
 	webrtcAgent.Flags().StringVar(&connFlags.host, hostFlag, "", "Specifies the host")
 	webrtcAgent.Flags().StringVar(&connFlags.ice_config, iceConfigFlag, "", iceConfigFlagDesc)
 	webrtcAgent.MarkPersistentFlagRequired(hostFlag)
+	return webrtcAgent
+}
+
+func webSocketAgentCommand(connFlags *ConnectFlags, opts *subCommandOpts) *cobra.Command {
 	webSocketAgent := &cobra.Command{
 		Hidden: true,
 		Use:    ConnectionWebSocketAgentCommandName,
@@ -819,7 +884,7 @@ func connectionCommands(opts *subCommandOpts) []*cobra.Command {
 	}
 	webSocketAgent.Flags().StringVar(&connFlags.host, hostFlag, "", "Specifies the host")
 	webSocketAgent.MarkPersistentFlagRequired(hostFlag)
-	return []*cobra.Command{connect, disconnect, webrtcAgent, webSocketAgent}
+	return webSocketAgent
 }
 
 func runCreateHostCommand(c *cobra.Command, flags *CreateHostFlags, opts *subCommandOpts) error {

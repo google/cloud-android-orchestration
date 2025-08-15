@@ -246,6 +246,12 @@ type SnapshotCVDFlags struct {
 	Name  string
 }
 
+type ResetHostFlags struct {
+	*ServiceFlags
+	Host             string
+	SkipConfirmation bool
+}
+
 type subCommandOpts struct {
 	ServiceFlags   *ServiceFlags
 	InitialConfig  Config
@@ -751,7 +757,21 @@ func cvdCommands(opts *subCommandOpts) []*cobra.Command {
 	snapshot.MarkFlagRequired(groupFlag)
 	snapshot.Flags().StringVar(&snapshotFlags.Name, nameFlag, "", "Instance name")
 	snapshot.MarkFlagRequired(nameFlag)
-	return []*cobra.Command{create, list, br, del, stop, start, snapshot}
+	// Reset command
+	resetFlags := &ResetHostFlags{ServiceFlags: opts.ServiceFlags}
+	reset := &cobra.Command{
+		Use:     "reset --host=HOST [-y]",
+		Short:   "Reset all devices in a host",
+		PreRunE: preRunE(resetFlags, &opts.ServiceFlags.Service, &opts.InitialConfig),
+		RunE: func(c *cobra.Command, args []string) error {
+			return runResetHostCommand(c, args, resetFlags, opts)
+		},
+	}
+	reset.Flags().StringVar(&resetFlags.Host, hostFlag, "", "Host name")
+	reset.MarkFlagRequired(hostFlag)
+	reset.Flags().BoolVarP(&resetFlags.SkipConfirmation, "yes", "y", false, "Skip confirmation")
+
+	return []*cobra.Command{create, list, br, del, stop, start, snapshot, reset}
 }
 
 func connectionCommands(opts *subCommandOpts) []*cobra.Command {
@@ -1047,6 +1067,29 @@ func runSnapshotCVDCommand(c *cobra.Command, args []string, flags *SnapshotCVDFl
 	}
 	c.Println(res.SnapshotID)
 	return nil
+}
+
+func runResetHostCommand(c *cobra.Command, args []string, flags *ResetHostFlags, opts *subCommandOpts) error {
+	if !flags.SkipConfirmation {
+		c.PrintErrf("Are you sure you want to reset all devices and runtime files in the host %s? [y/n]: ", flags.Host)
+		answer := "n"
+		_, err := fmt.Fscanln(c.InOrStdin(), &answer)
+		if err != nil {
+			return fmt.Errorf("failed to read choice: %w", err)
+		}
+		answer = strings.ToLower(answer)
+		if answer == "n" || answer == "no" {
+			return nil
+		}
+		if answer != "y" && answer != "yes" {
+			return fmt.Errorf("can't understand %q, please answer 'yes' or 'no'", answer)
+		}
+	}
+	srvClient, err := newClient(opts.InitialConfig, flags.ServiceFlags, c)
+	if err != nil {
+		return err
+	}
+	return srvClient.HostClient(flags.Host).Reset()
 }
 
 // Returns empty string if there was no host.

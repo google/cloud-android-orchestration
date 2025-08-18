@@ -12,7 +12,7 @@ on:
 
 jobs:
   build-cuttlefish-cloud-orchestrator-arm64-docker-image:
-    runs-on: arm-ubuntu-arm-22.04-4core
+    runs-on: ubuntu-24.04-arm
     steps:
     - name: Checkout repository
       uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675 # aka v2

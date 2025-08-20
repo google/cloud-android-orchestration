@@ -1860,6 +1860,7 @@ type statePrinter struct {
 
 	// If true, visual features like colors and animations won't be displayed.
 	visualsOn bool
+	mu        sync.Mutex
 }
 
 func newStatePrinter(out io.Writer, verbose bool) *statePrinter {
@@ -1901,6 +1902,8 @@ func (p *statePrinter) print(msg string, state statePrinterState) {
 	if !p.visualsOn || state.Done {
 		result += "\n"
 	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	fmt.Fprint(p.Out, result)
 }
 

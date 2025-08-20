@@ -19,12 +19,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"text/template"
 
 	"github.com/google/cloud-android-orchestration/pkg/cli/authz"
@@ -693,17 +693,14 @@ func envVar(name string) (string, error) {
 }
 
 func uploadFilesAndCreateImageDir(client hoclient.HostOrchestratorClient, filenames []string, statePrinter *statePrinter) (string, error) {
-	op, err := client.CreateImageDirectory()
+	res, err := client.CreateImageDirectory()
 	if err != nil {
 		return "", fmt.Errorf("failed to create image directory: %w", err)
 	}
-	res := &hoapi.CreateImageDirectoryResponse{}
-	if err := client.WaitForOperation(op.Name, &res); err != nil {
-		return "", fmt.Errorf("failed to create image directory: %w", err)
-	}
 	imageDirID := res.ID
-	extractOps := make(map[string]string)
-	updateImageDirOpNames := []string{}
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	var merr error
 	for _, filename := range filenames {
 		state := fmt.Sprintf("Uploading %q", filepath.Base(filename))
 		statePrinter.Print(state)
@@ -712,46 +709,39 @@ func uploadFilesAndCreateImageDir(client hoclient.HostOrchestratorClient, filena
 		if err != nil {
 			return "", fmt.Errorf("failed to upload artifact: %w", err)
 		}
-		if strings.HasSuffix(filename, ".tar.gz") || strings.HasSuffix(filename, ".zip") {
-			op, err := client.ExtractArtifact(filename)
-			if err != nil {
-				return "", fmt.Errorf("failed to extract artifact: %w", err)
+		wg.Add(1)
+		go func(filename string) {
+			defer wg.Done()
+			if strings.HasSuffix(filename, ".tar.gz") || strings.HasSuffix(filename, ".zip") {
+				state := fmt.Sprintf("Extracting %q", filepath.Base(filename))
+				statePrinter.Print(state)
+				if err := client.ExtractArtifact(filename); err != nil {
+					mu.Lock()
+					defer mu.Unlock()
+					merr = multierror.Append(merr, fmt.Errorf("failed to extract artifact: %w", err))
+					statePrinter.PrintDone(state, err)
+					return
+				}
+				statePrinter.PrintDone(state, nil)
 			}
-			extractOps[op.Name] = filename
-		} else {
-			op, err := client.UpdateImageDirectoryWithUserArtifact(imageDirID, filename)
-			if err != nil {
-				return "", fmt.Errorf("failed to update image directory: %w", err)
-			}
-			updateImageDirOpNames = append(updateImageDirOpNames, op.Name)
-		}
-	}
-	for extractOpName, filename := range extractOps {
-		state := fmt.Sprintf("Extracting %q", filepath.Base(filename))
-		statePrinter.Print(state)
-		err := client.WaitForOperation(extractOpName, nil)
-		if err != nil {
-			if apiErr, ok := err.(*hoclient.ApiCallError); !ok || apiErr.HTTPStatusCode != http.StatusConflict {
+			state := fmt.Sprintf("Updating image directory with %q", filename)
+			statePrinter.Print(state)
+			if err := client.UpdateImageDirectoryWithUserArtifact(imageDirID, filename); err != nil {
+				mu.Lock()
+				defer mu.Unlock()
+				merr = multierror.Append(merr, fmt.Errorf("failed to update image directory: %w", err))
 				statePrinter.PrintDone(state, err)
-				return "", fmt.Errorf("failed to wait for extracting operation: %w", err)
+				return
 			}
-		}
-		statePrinter.PrintDone(state, nil)
-		updateImageDirOp, err := client.UpdateImageDirectoryWithUserArtifact(imageDirID, filename)
-		if err != nil {
-			return "", fmt.Errorf("failed to update image directory: %w", err)
-		}
-		updateImageDirOpNames = append(updateImageDirOpNames, updateImageDirOp.Name)
+			statePrinter.PrintDone(state, nil)
+		}(filename)
 	}
-	state := "Preparing image directory"
-	statePrinter.Print(state)
-	for _, opName := range updateImageDirOpNames {
-		if err := client.WaitForOperation(opName, nil); err != nil {
-			statePrinter.PrintDone(state, err)
-			return "", fmt.Errorf("failed to update image directory: %w", err)
-		}
+	wg.Wait()
+
+	if merr != nil {
+		return "", err
 	}
-	statePrinter.PrintDone(state, nil)
+
 	return imageDirID, nil
 }
 

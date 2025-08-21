@@ -702,10 +702,10 @@ func uploadFilesAndCreateImageDir(client hoclient.HostOrchestratorClient, filena
 	var mu sync.Mutex
 	var merr error
 	for _, filename := range filenames {
-		state := fmt.Sprintf("Uploading %q", filepath.Base(filename))
-		statePrinter.Print(state)
+		msg := fmt.Sprintf("Uploading %q", filepath.Base(filename))
+		statePrinter.Print(msg)
 		err := client.UploadArtifact(filename)
-		statePrinter.PrintDone(state, err)
+		statePrinter.PrintDone(msg, err)
 		if err != nil {
 			return "", fmt.Errorf("failed to upload artifact: %w", err)
 		}
@@ -713,30 +713,25 @@ func uploadFilesAndCreateImageDir(client hoclient.HostOrchestratorClient, filena
 		go func(filename string) {
 			defer wg.Done()
 			if strings.HasSuffix(filename, ".tar.gz") || strings.HasSuffix(filename, ".zip") {
-				state := fmt.Sprintf("Extracting %q", filepath.Base(filename))
-				statePrinter.Print(state)
 				if err := client.ExtractArtifact(filename); err != nil {
 					mu.Lock()
 					defer mu.Unlock()
 					merr = multierror.Append(merr, fmt.Errorf("failed to extract artifact: %w", err))
-					statePrinter.PrintDone(state, err)
 					return
 				}
-				statePrinter.PrintDone(state, nil)
 			}
-			state := fmt.Sprintf("Updating image directory with %q", filename)
-			statePrinter.Print(state)
 			if err := client.UpdateImageDirectoryWithUserArtifact(imageDirID, filename); err != nil {
 				mu.Lock()
 				defer mu.Unlock()
 				merr = multierror.Append(merr, fmt.Errorf("failed to update image directory: %w", err))
-				statePrinter.PrintDone(state, err)
 				return
 			}
-			statePrinter.PrintDone(state, nil)
 		}(filename)
 	}
+	msg := "Extracting archives and preparing image directory"
+	statePrinter.Print(msg)
 	wg.Wait()
+	statePrinter.PrintDone(msg, merr)
 
 	if merr != nil {
 		return "", err

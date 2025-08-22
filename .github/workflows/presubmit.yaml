@@ -31,30 +31,17 @@ jobs:
         version: "latest"
         install-go: false
 
-  build-cuttlefish-cvdremote-debian-package:
+  build-cuttlefish-cvdremote-x86_64-debian-package:
     runs-on: ubuntu-24.04
     container:
       image: debian@sha256:9258a75a7e4323c9e5562b361effc84ee747920116d8adfc98a465a5cdc9150e # debian:bookworm-20250407 (amd64)
     steps:
-    - name: setup apt
-      run: apt update -y && apt upgrade -y
     - name: Checkout repository
       uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675 # aka v2
-    - name: Install dependencies
-      uses: actions/setup-go@v3
+    - name: Build debian package cuttlefish-cvdremote
+      uses: ./.github/actions/build-cuttlefish-cvdremote-debian-package
       with:
-        go-version: 1.23.4
-    - name: install debuild dependencies
-      run: apt install -y git devscripts config-package-dev debhelper-compat golang
-    - name: Build package
-      run: cd build/debian/cuttlefish_cvdremote && dpkg-buildpackage -i -uc -us -b
-    - name: Install package
-      run: dpkg -i build/debian/cuttlefish-cvdremote_*_*64.deb || apt-get install -f -y
-    - name: Upload debian package
-      uses: actions/upload-artifact@c7d193f32edcb7bfad88892161225aeda64e9392 # aka v4.0.0
-      with:
-        name: cuttlefish-cvdremote-x86_64
-        path: build/debian/cuttlefish-cvdremote_*_*64.deb
+        arch: x86_64
 
   build-cuttlefish-cloud-orchestrator-x86_64-docker-image:
     runs-on: ubuntu-24.04
@@ -78,7 +65,7 @@ jobs:
 
   e2e-test-cvdr-with-on-premise-cloud-orchestrator:
     runs-on: ubuntu-24.04
-    needs: [build-cuttlefish-cloud-orchestrator-x86_64-docker-image, build-cuttlefish-cvdremote-debian-package]
+    needs: [build-cuttlefish-cloud-orchestrator-x86_64-docker-image, build-cuttlefish-cvdremote-x86_64-debian-package]
     steps:
     - name: Checkout repository
       uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675 # aka v2

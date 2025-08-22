@@ -43,6 +43,18 @@ jobs:
       with:
         arch: x86_64
 
+  build-cuttlefish-cvdremote-arm64-debian-package:
+    runs-on: ubuntu-24.04-arm
+    container:
+      image: debian@sha256:00cd074b40c4d99ff0c24540bdde0533ca3791edcdac0de36d6b9fb3260d89e2 # debian:bookworm-20250407 (arm64/v8)
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675 # aka v2
+    - name: Build debian package cuttlefish-cvdremote
+      uses: ./.github/actions/build-cuttlefish-cvdremote-debian-package
+      with:
+        arch: arm64
+
   build-cuttlefish-cloud-orchestrator-x86_64-docker-image:
     runs-on: ubuntu-24.04
     steps:

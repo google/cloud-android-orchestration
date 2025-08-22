@@ -9,16 +9,13 @@ on:
 jobs:
   build-test:
     runs-on: ubuntu-24.04
-    strategy:
-      matrix:
-        go-version: ['1.23.4']
     steps:
     - name: Checkout repository
       uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675 # aka v2
     - name: Install dependencies
       uses: actions/setup-go@v3
       with:
-        go-version: ${{ matrix.go-version }}
+        go-version: 1.23.4
     - run: go version
     - name: Build
       run: go build ./...
@@ -36,9 +33,6 @@ jobs:
 
   build-cuttlefish-cvdremote-debian-package:
     runs-on: ubuntu-24.04
-    strategy:
-      matrix:
-        go-version: ['1.23.4']
     container:
       image: debian@sha256:9258a75a7e4323c9e5562b361effc84ee747920116d8adfc98a465a5cdc9150e # debian:bookworm-20250407 (amd64)
     steps:
@@ -49,7 +43,7 @@ jobs:
     - name: Install dependencies
       uses: actions/setup-go@v3
       with:
-        go-version: ${{ matrix.go-version }}
+        go-version: 1.23.4
     - name: install debuild dependencies
       run: apt install -y git devscripts config-package-dev debhelper-compat golang
     - name: Build package

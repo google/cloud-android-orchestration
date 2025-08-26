@@ -1,0 +1,54 @@
+name: Deploy artifacts
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-cuttlefish-cvdremote-amd64-debian-package:
+    if: ${{ github.repository_owner == 'google' }}
+    environment: deployment
+    runs-on: ubuntu-24.04
+    container:
+      image: debian@sha256:9258a75a7e4323c9e5562b361effc84ee747920116d8adfc98a465a5cdc9150e # debian:bookworm-20250407 (amd64)
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675 # aka v2
+    - name: Build debian package cuttlefish-cvdremote
+      uses: ./.github/actions/build-cuttlefish-cvdremote-debian-package
+    - name: Get exact filename
+      run: echo "path=$(find . -name cuttlefish-cvdremote_*.deb)" >> $GITHUB_ENV
+    - name: Authentication on GCP project android-cuttlefish-artifacts
+      uses: 'google-github-actions/auth@v2'
+      with:
+        credentials_json: '${{ secrets.ARTIFACT_REGISTRY_UPLOADER }}'
+    - name: Deploy debian package cuttlefish-cvdremote
+      uses: ./.github/actions/deploy-cuttlefish-cvdremote-debian-package
+      with:
+        path: ${{ env.path }}
+
+  deploy-cuttlefish-cvdremote-arm64-debian-package:
+    if: ${{ github.repository_owner == 'google' }}
+    environment: deployment
+    runs-on: ubuntu-24.04-arm
+    container:
+      image: debian@sha256:00cd074b40c4d99ff0c24540bdde0533ca3791edcdac0de36d6b9fb3260d89e2 # debian:bookworm-20250407 (arm64/v8)
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675 # aka v2
+    - name: Build debian package cuttlefish-cvdremote
+      uses: ./.github/actions/build-cuttlefish-cvdremote-debian-package
+    - name: Get exact filename
+      run: echo "path=$(find . -name cuttlefish-cvdremote_*.deb)" >> $GITHUB_ENV
+    - name: Authentication on GCP project android-cuttlefish-artifacts
+      uses: 'google-github-actions/auth@v2'
+      with:
+        credentials_json: '${{ secrets.ARTIFACT_REGISTRY_UPLOADER }}'
+    - name: Deploy debian package cuttlefish-cvdremote
+      uses: ./.github/actions/deploy-cuttlefish-cvdremote-debian-package
+      with:
+        path: ${{ env.path }}

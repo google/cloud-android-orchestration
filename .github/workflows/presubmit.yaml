@@ -31,7 +31,7 @@ jobs:
         version: "latest"
         install-go: false
 
-  build-cuttlefish-cvdremote-x86_64-debian-package:
+  build-cuttlefish-cvdremote-amd64-debian-package:
     runs-on: ubuntu-24.04
     container:
       image: debian@sha256:9258a75a7e4323c9e5562b361effc84ee747920116d8adfc98a465a5cdc9150e # debian:bookworm-20250407 (amd64)
@@ -40,8 +40,11 @@ jobs:
       uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675 # aka v2
     - name: Build debian package cuttlefish-cvdremote
       uses: ./.github/actions/build-cuttlefish-cvdremote-debian-package
+    - name: Upload debian package
+      uses: actions/upload-artifact@c7d193f32edcb7bfad88892161225aeda64e9392 # aka v4.0.0
       with:
-        arch: x86_64
+        name: cuttlefish-cvdremote-amd64
+        path: cuttlefish-cvdremote_*.deb
 
   build-cuttlefish-cvdremote-arm64-debian-package:
     runs-on: ubuntu-24.04-arm
@@ -52,8 +55,11 @@ jobs:
       uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675 # aka v2
     - name: Build debian package cuttlefish-cvdremote
       uses: ./.github/actions/build-cuttlefish-cvdremote-debian-package
+    - name: Upload debian package
+      uses: actions/upload-artifact@c7d193f32edcb7bfad88892161225aeda64e9392 # aka v4.0.0
       with:
-        arch: arm64
+        name: cuttlefish-cvdremote-arm64
+        path: cuttlefish-cvdremote_*.deb
 
   build-cuttlefish-cloud-orchestrator-x86_64-docker-image:
     runs-on: ubuntu-24.04
@@ -77,7 +83,7 @@ jobs:
 
   e2e-test-cvdr-with-on-premise-cloud-orchestrator:
     runs-on: ubuntu-24.04
-    needs: [build-cuttlefish-cloud-orchestrator-x86_64-docker-image, build-cuttlefish-cvdremote-x86_64-debian-package]
+    needs: [build-cuttlefish-cloud-orchestrator-x86_64-docker-image, build-cuttlefish-cvdremote-amd64-debian-package]
     steps:
     - name: Checkout repository
       uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675 # aka v2
@@ -99,7 +105,7 @@ jobs:
     - name: Download cuttlefish-cvdremote
       uses: actions/download-artifact@7a1cd3216ca9260cd8022db641d960b1db4d1be4 # aka v4.0.0
       with:
-        name: cuttlefish-cvdremote-x86_64
+        name: cuttlefish-cvdremote-amd64
         path: cuttlefish-cvdremote
     - name: Install cuttlefish-cvdremote
       run: sudo apt-get install -y ./cuttlefish-cvdremote/cuttlefish-cvdremote_*_*64.deb

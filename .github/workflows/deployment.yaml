@@ -1,0 +1,36 @@
+name: Deployment
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-cuttlefish-cvdremote-x86_64-debian-package:
+    if: ${{ github.repository_owner == 'google' }}
+    environment: deployment
+    runs-on: ubuntu-24.04
+    container:
+      image: debian@sha256:9258a75a7e4323c9e5562b361effc84ee747920116d8adfc98a465a5cdc9150e # debian:bookworm-20250407 (amd64)
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675 # aka v2
+    - name: Build debian package cuttlefish-cvdremote
+      uses: ./.github/actions/build-cuttlefish-cvdremote-debian-package
+    - name: Authentication on GCP project android-cuttlefish-artifacts
+      uses: 'google-github-actions/auth@v2'
+      with:
+        credentials_json: '${{ secrets.ARTIFACT_REGISTRY_UPLOADER }}'
+    - name: 'Set up Cloud SDK'
+      uses: 'google-github-actions/setup-gcloud@v3.0.0'
+      with:
+        version: '>= 363.0.0'
+    - name: Deploy deb package into Artifact Registry
+      if: ${{ github.repository_owner == 'google' }}
+      run: |
+        gcloud --project=android-cuttlefish-artifacts \
+          artifacts apt upload \
+          android-cuttlefish-nightly \
+          --location=us \
+          --source=$(find . -name cuttlefish-cvdremote_*.deb)

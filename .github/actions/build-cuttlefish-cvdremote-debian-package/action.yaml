@@ -1,7 +1,4 @@
 name: 'Build debian package cuttlefish-cvdremote'
-inputs:
-  arch:
-    required: true
 runs:
   using: "composite"
   steps:
@@ -16,13 +13,12 @@ runs:
     run: apt install -y config-package-dev debhelper-compat devscripts git golang
     shell: bash
   - name: Build package
-    run: cd build/debian/cuttlefish_cvdremote && dpkg-buildpackage -i -uc -us -b
+    run: |
+      pushd build/debian/cuttlefish_cvdremote
+      dpkg-buildpackage -i -uc -us -b
+      popd
+      mv build/debian/cuttlefish-cvdremote_*.deb .
     shell: bash
   - name: Install package
-    run: dpkg -i build/debian/cuttlefish-cvdremote_*.deb || apt install -y
+    run: dpkg -i cuttlefish-cvdremote_*.deb || apt install -y
     shell: bash
-  - name: Upload debian package
-    uses: actions/upload-artifact@c7d193f32edcb7bfad88892161225aeda64e9392 # aka v4.0.0
-    with:
-      name: cuttlefish-cvdremote-${{ inputs.arch }}
-      path: build/debian/cuttlefish-cvdremote_*.deb

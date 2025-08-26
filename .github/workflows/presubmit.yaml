@@ -40,8 +40,11 @@ jobs:
       uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675 # aka v2
     - name: Build debian package cuttlefish-cvdremote
       uses: ./.github/actions/build-cuttlefish-cvdremote-debian-package
+    - name: Upload debian package
+      uses: actions/upload-artifact@c7d193f32edcb7bfad88892161225aeda64e9392 # aka v4.0.0
       with:
-        arch: x86_64
+        name: cuttlefish-cvdremote-x86_64
+        path: ./cuttlefish-cvdremote_*.deb
 
   build-cuttlefish-cvdremote-arm64-debian-package:
     runs-on: ubuntu-24.04-arm
@@ -52,8 +55,11 @@ jobs:
       uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675 # aka v2
     - name: Build debian package cuttlefish-cvdremote
       uses: ./.github/actions/build-cuttlefish-cvdremote-debian-package
+    - name: Upload debian package
+      uses: actions/upload-artifact@c7d193f32edcb7bfad88892161225aeda64e9392 # aka v4.0.0
       with:
-        arch: arm64
+        name: cuttlefish-cvdremote-arm64
+        path: ./cuttlefish-cvdremote_*.deb
 
   build-cuttlefish-cloud-orchestrator-x86_64-docker-image:
     runs-on: ubuntu-24.04

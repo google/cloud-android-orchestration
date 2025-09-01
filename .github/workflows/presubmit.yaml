@@ -61,29 +61,39 @@ jobs:
         name: cuttlefish-cvdremote-arm64
         path: cuttlefish-cvdremote_*.deb
 
-  build-cuttlefish-cloud-orchestrator-x86_64-docker-image:
+  build-cuttlefish-cloud-orchestrator-amd64-docker-image:
     runs-on: ubuntu-24.04
     steps:
     - name: Checkout repository
       uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675 # aka v2
-    - name: Get docker image filename and tag
-      run: |
-        short_sha=$(echo ${{ github.sha }} | cut -c1-8)
-        echo "image_path=cloud-orchestrator-docker-image-x86_64-${short_sha}.tar" >> $GITHUB_ENV
-        echo "image_tag=cuttlefish-cloud-orchestrator:${short_sha}" >> $GITHUB_ENV
     - name: Build docker image
-      run: docker build --force-rm --no-cache -t ${{ env.image_tag }} .
+      run: docker build -t cuttlefish-cloud-orchestrator .
     - name: Save docker image
-      run: docker save --output ${{ env.image_path }} ${{ env.image_tag }}
+      run: docker save --output cuttlefish-cloud-orchestrator.tar cuttlefish-cloud-orchestrator
     - name: Publish docker image
       uses: actions/upload-artifact@c7d193f32edcb7bfad88892161225aeda64e9392 # aka v4.0.0
       with:
-        name: docker-image-x86_64
-        path: ${{ env.image_path }}
+        name: cuttlefish-cloud-orchestrator-amd64
+        path: cuttlefish-cloud-orchestrator.tar
+
+  build-cuttlefish-cloud-orchestrator-arm64-docker-image:
+    runs-on: ubuntu-24.04-arm
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675 # aka v2
+    - name: Build docker image
+      run: docker build -t cuttlefish-cloud-orchestrator .
+    - name: Save docker image
+      run: docker save --output cuttlefish-cloud-orchestrator.tar cuttlefish-cloud-orchestrator
+    - name: Publish docker image
+      uses: actions/upload-artifact@c7d193f32edcb7bfad88892161225aeda64e9392 # aka v4.0.0
+      with:
+        name: cuttlefish-cloud-orchestrator-arm64
+        path: cuttlefish-cloud-orchestrator.tar
 
   e2e-test-cvdr-with-on-premise-cloud-orchestrator:
     runs-on: ubuntu-24.04
-    needs: [build-cuttlefish-cloud-orchestrator-x86_64-docker-image, build-cuttlefish-cvdremote-amd64-debian-package]
+    needs: [build-cuttlefish-cloud-orchestrator-amd64-docker-image, build-cuttlefish-cvdremote-amd64-debian-package]
     steps:
     - name: Checkout repository
       uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675 # aka v2
@@ -95,20 +105,17 @@ jobs:
     - name: Download cuttlefish-cloud-orchestrator
       uses: actions/download-artifact@7a1cd3216ca9260cd8022db641d960b1db4d1be4 # aka v4.0.0
       with:
-        name: docker-image-x86_64
-        path: cuttlefish-cloud-orchestrator
+        name: cuttlefish-cloud-orchestrator-amd64
     - name: Load and run cuttlefish-cloud-orchestrator
       run: |
-        short_sha=$(echo ${{ github.sha }} | cut -c1-8)
-        docker load --input cuttlefish-cloud-orchestrator/cloud-orchestrator-docker-image-x86_64-${short_sha}.tar
-        docker run -d -p 8080:8080 -e CONFIG_FILE="/conf.toml" -v $PWD/scripts/on-premises/single-server/conf.toml:/conf.toml -v /var/run/docker.sock:/var/run/docker.sock -t cuttlefish-cloud-orchestrator:${short_sha}
+        docker load --input cuttlefish-cloud-orchestrator.tar
+        docker run -d -p 8080:8080 -e CONFIG_FILE="/conf.toml" -v $PWD/scripts/on-premises/single-server/conf.toml:/conf.toml -v /var/run/docker.sock:/var/run/docker.sock -t cuttlefish-cloud-orchestrator
     - name: Download cuttlefish-cvdremote
       uses: actions/download-artifact@7a1cd3216ca9260cd8022db641d960b1db4d1be4 # aka v4.0.0
       with:
         name: cuttlefish-cvdremote-amd64
-        path: cuttlefish-cvdremote
     - name: Install cuttlefish-cvdremote
-      run: sudo apt-get install -y ./cuttlefish-cvdremote/cuttlefish-cvdremote_*_*64.deb
+      run: sudo apt-get install -y ./cuttlefish-cvdremote_*.deb
     - name: Install bazel
       run: |
         sudo apt-get update && sudo apt-get install -y apt-transport-https curl gnupg

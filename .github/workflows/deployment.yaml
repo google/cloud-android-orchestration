@@ -52,3 +52,39 @@ jobs:
       uses: ./.github/actions/deploy-cuttlefish-cvdremote-debian-package
       with:
         path: ${{ env.path }}
+
+  deploy-cuttlefish-cloud-orchestrator-amd64-docker-image:
+    if: github.repository_owner == 'google'
+    environment: deployment
+    runs-on: ubuntu-24.04
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675 # aka v2
+    - name: Build docker image
+      run: docker build -t cuttlefish-cloud-orchestrator .
+    - name: Authentication on GCP project android-cuttlefish-artifacts
+      uses: 'google-github-actions/auth@v2'
+      with:
+        credentials_json: '${{ secrets.ARTIFACT_REGISTRY_UPLOADER }}'
+    - name: Deploy docker image
+      uses: ./.github/actions/deploy-cuttlefish-cloud-orchestrator-docker-image
+      with:
+        arch: amd64
+
+  deploy-cuttlefish-cloud-orchestrator-arm64-docker-image:
+    if: github.repository_owner == 'google'
+    environment: deployment
+    runs-on: ubuntu-24.04-arm
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675 # aka v2
+    - name: Build docker image
+      run: docker build -t cuttlefish-cloud-orchestrator .
+    - name: Authentication on GCP project android-cuttlefish-artifacts
+      uses: 'google-github-actions/auth@v2'
+      with:
+        credentials_json: '${{ secrets.ARTIFACT_REGISTRY_UPLOADER }}'
+    - name: Deploy docker image
+      uses: ./.github/actions/deploy-cuttlefish-cloud-orchestrator-docker-image
+      with:
+        arch: arm64

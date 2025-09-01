@@ -14,18 +14,13 @@ below, such as launching Cuttlefish with locally built image.
 
 ## Download cvdr
 
-Since the Debian package `cuttleifsh-cvdremote` containing `cvdr` is not
-registered in the official Debian repository, we need to enroll JFrog repository
-with commands below. 
+`cuttlefish-cvdremote` is available to download via `apt install` with adding
+the apt repository at Artifact Registry.
 ```bash
-sudo apt install wget
-wget -qO- https://artifacts.codelinaro.org/artifactory/linaro-372-googlelt-gigabyte-ampere-cuttlefish-installer/gigabyte-ampere-cuttlefish-installer/latest/debian/linaro-glt-gig-archive-bookworm.asc | sudo tee /etc/apt/trusted.gpg.d/linaro-glt-gig-archive-bookworm.asc
-echo "deb https://artifacts.codelinaro.org/linaro-372-googlelt-gigabyte-ampere-cuttlefish-installer/gigabyte-ampere-cuttlefish-installer/latest/debian bookworm main" | sudo tee /etc/apt/sources.list.d/linaro-glt-gig-archive-bookworm.list
+curl https://us-apt.pkg.dev/doc/repo-signing-key.gpg | sudo apt-key add -
+echo 'deb https://us-apt.pkg.dev/projects/android-cuttlefish-artifacts android-cuttlefish-nightly main' | \
+  sudo tee -a /etc/apt/sources.list.d/artifact-registry.list
 sudo apt update
-```
-
-Then `cuttlefish-cvdremote` is available to download via `apt install`.
-```base
 sudo apt install cuttlefish-cvdremote
 cvdr --help
 ```

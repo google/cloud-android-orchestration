@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   deploy-cuttlefish-cvdremote-amd64-debian-package:
-    if: ${{ github.repository_owner == 'google' }}
+    if: github.repository_owner == 'google'
     environment: deployment
     runs-on: ubuntu-24.04
     container:
@@ -32,7 +32,7 @@ jobs:
         path: ${{ env.path }}
 
   deploy-cuttlefish-cvdremote-arm64-debian-package:
-    if: ${{ github.repository_owner == 'google' }}
+    if: github.repository_owner == 'google'
     environment: deployment
     runs-on: ubuntu-24.04-arm
     container:

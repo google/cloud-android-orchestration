@@ -1,4 +1,4 @@
-import {NgModule} from '@angular/core';
+import {NgModule, provideZoneChangeDetection} from '@angular/core';
 import {BrowserModule} from '@angular/platform-browser';
 import {FormsModule, ReactiveFormsModule} from '@angular/forms';
 
@@ -39,6 +39,10 @@ import {MatSnackBarModule} from '@angular/material/snack-bar';
 import {DeviceFormComponent} from './device-form/device-form.component';
 import {SafeUrlPipe} from './safe-url.pipe';
 import {HTTP_INTERCEPTOR_PROVIDERS} from '../http_interceptors';
+
+@NgModule({providers: [provideZoneChangeDetection()]})
+export class ZoneChangeDetectionModule {
+}
 
 @NgModule({
   declarations: [
@@ -84,6 +88,7 @@ import {HTTP_INTERCEPTOR_PROVIDERS} from '../http_interceptors';
       {path: 'create-host', component: CreateHostViewComponent},
       {path: 'register-runtime', component: RegisterRuntimeViewComponent},
     ]),
+    ZoneChangeDetectionModule,
   ],
   providers: [
     HTTP_INTERCEPTOR_PROVIDERS,

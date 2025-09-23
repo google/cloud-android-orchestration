@@ -1,0 +1,15 @@
+name: Postsubmit
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    if: github.repository_owner == 'google'
+    uses: ./.github/workflows/deployment.yaml
+    with:
+      deploy-channel: nightly
+    secrets:
+      artifact-registry-uploader-json-creds: ${{ secrets.ARTIFACT_REGISTRY_UPLOADER }}

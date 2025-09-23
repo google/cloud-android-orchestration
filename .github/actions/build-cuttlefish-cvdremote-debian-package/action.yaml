@@ -1,4 +1,7 @@
 name: 'Build debian package cuttlefish-cvdremote'
+inputs:
+  version:
+    required: false
 runs:
   using: "composite"
   steps:
@@ -12,19 +15,10 @@ runs:
   - name: install debuild dependencies
     run: apt install -y config-package-dev debhelper-compat devscripts git golang
     shell: bash
-  - name: Setup nightly version
+  - name: Modify version format
+    if: inputs.version != ''
     run: |
-      # TODO(b/440196950): Setup condition on this step when we build
-      # stable/unstable versions here too.
-
-      # Modify debian/changelog to build debian package with desired version
-      # format.
-      # Stable/Unstable version format : X.Y.Z
-      # Nightly version format         : X.Y.Z~gitYYYYMMDD.<Github SHA 8 digit>
-      DATE=$(date -u +'%Y%m%d')
-      SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-8)
-      SUFFIX="~git${DATE}.${SHORT_SHA}"
-      sed -i "1s/(\([0-9]\+.[0-9]\+.[0-9]\+\))/(\1${SUFFIX})/g" \
+      sed -i "1s/(\([0-9]\+.[0-9]\+.[0-9]\+\))/(${{ inputs.version }})/g" \
         build/debian/cuttlefish_cvdremote/debian/changelog
     shell: bash
   - name: Build package

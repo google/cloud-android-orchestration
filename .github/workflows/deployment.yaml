@@ -167,3 +167,52 @@ jobs:
             --amend ${IMAGE}:${VERSION}-arm64
           docker manifest push ${IMAGE}:${MANIFEST_TAG}
         done
+
+  deploy-cuttlefish-cloud-orchestrator-on-premise-config:
+    needs: [set-variables]
+    environment: deployment
+    runs-on: ubuntu-24.04
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675 # aka v2
+    - name: Authentication on GCP project android-cuttlefish-artifacts
+      uses: 'google-github-actions/auth@v2'
+      with:
+        credentials_json: '${{ secrets.artifact-registry-uploader-json-creds }}'
+    - name: 'Set up Cloud SDK'
+      uses: 'google-github-actions/setup-gcloud@v3.0.0'
+      with:
+        version: '>= 363.0.0'
+    - name: Deploy conf.toml
+      run: |
+        # Retrieve conf.toml with substituting proper version of docker image.
+        ORCHESTRATION_IMAGE="us-docker.pkg.dev/android-cuttlefish-artifacts/cuttlefish-orchestration/cuttlefish-orchestration"
+        ORCHESTRATION_IMAGE_VERSION=$(gcloud artifacts docker tags list ${ORCHESTRATION_IMAGE} \
+          --filter "tag ~ \".*${{ inputs.deploy-channel }}\$\"" \
+          --format json \
+          | jq '.[0].version'
+        )
+        ORCHESTRATION_TAG=$(gcloud artifacts docker tags list ${ORCHESTRATION_IMAGE} \
+          --filter "(version=${ORCHESTRATION_IMAGE_VERSION}) AND NOT (tag ~ \".*${{ inputs.deploy-channel }}\$\" OR  tag ~ \".*latest\$\")" \
+          --format json \
+          | jq -r '.[0].tag | split("/") | last'
+        )
+        wget -O conf.toml "https://raw.githubusercontent.com/google/cloud-android-orchestration/${{ github.sha }}/scripts/on-premises/single-server/conf.toml"
+        sed -i "s|DockerImageName = .*|DockerImageName = \"${ORCHESTRATION_IMAGE}:${ORCHESTRATION_TAG}\"|g" conf.toml
+
+        # Update conf.toml on Artifact Registry
+        gcloud artifacts versions delete ${{ inputs.deploy-channel }} \
+          --location="us" \
+          --package="on-premise-single-server" \
+          --project="android-cuttlefish-artifacts" \
+          --quiet \
+          --repository="cloud-orchestrator-config"
+        for VERSION in ${{ needs.set-variables.outputs.version }} ${{ inputs.deploy-channel }}; do
+          gcloud artifacts generic upload \
+            --location="us" \
+            --package="on-premise-single-server" \
+            --project="android-cuttlefish-artifacts" \
+            --repository="cloud-orchestrator-config" \
+            --source="conf.toml" \
+            --version="${VERSION}"
+        done

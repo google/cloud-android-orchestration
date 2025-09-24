@@ -26,15 +26,15 @@ jobs:
         # TODO(b/440196950): Setup condition for stable channel.
         case "${{ inputs.deploy-channel }}" in
           unstable)
-            # Unstable version format : X.Y-gitYYYYMMDDHHMM-<Github SHA 8 digit>
+            # Unstable version format : X.Y~gitYYYYMMDDHHMM-<Github SHA 8 digit>
             SEMVER=$(echo ${{ github.ref_name }} | grep -oE '[0-9]+.[0-9]+')
             SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-8)
-            VERSION="${SEMVER}-git${TIME}-${SHORT_SHA}"
+            VERSION="${SEMVER}~git${TIME}-${SHORT_SHA}"
             ;;
           nightly)
-            # Nightly version format : gitYYYYMMDDHHMM-<Github SHA 8 digit>
+            # Nightly version format : 0~gitYYYYMMDDHHMM-<Github SHA 8 digit>
             SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-8)
-            VERSION="git${TIME}-${SHORT_SHA}"
+            VERSION="0~git${TIME}-${SHORT_SHA}"
             ;;
           *)
             exit 1

@@ -160,6 +160,7 @@ jobs:
         password: '${{ secrets.artifact-registry-uploader-json-creds }}'
     - name: Deploy manifests
       run: |
+        IMAGE=us-docker.pkg.dev/android-cuttlefish-artifacts/cuttlefish-orchestration/cuttlefish-cloud-orchestrator
         VERSION=${{ needs.set-variables.outputs.version }}
         for MANIFEST_TAG in ${VERSION} ${{ inputs.deploy-channel }}; do
           docker manifest create ${IMAGE}:${MANIFEST_TAG} \

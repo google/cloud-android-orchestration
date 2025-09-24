@@ -17,7 +17,8 @@ jobs:
   set-variables:
     runs-on: ubuntu-24.04
     outputs:
-      version: ${{ steps.define-version.outputs.version }}
+      debian-version: ${{ steps.define-version.outputs.debian_version }}
+      docker-version: ${{ steps.define-version.outputs.docker_version }}
     steps:
     - name: Define version
       id: define-version
@@ -26,22 +27,28 @@ jobs:
         # TODO(b/440196950): Setup condition for stable channel.
         case "${{ inputs.deploy-channel }}" in
           unstable)
-            # Unstable version format : X.Y~gitYYYYMMDDHHMM-<Github SHA 8 digit>
+            # Debian package format : X.Y~gitYYYYMMDDHHMM-<Github SHA 8 digit>
+            # Docker tag format     : X.Y-gitYYYYMMDDHHMM-<Github SHA 8 digit>
             SEMVER=$(echo ${{ github.ref_name }} | grep -oE '[0-9]+.[0-9]+')
             SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-8)
-            VERSION="${SEMVER}~git${TIME}-${SHORT_SHA}"
+            DEBIAN_VERSION="${SEMVER}~git${TIME}-${SHORT_SHA}"
+            DOCKER_VERSION="${SEMVER}-git${TIME}-${SHORT_SHA}"
             ;;
           nightly)
-            # Nightly version format : 0~gitYYYYMMDDHHMM-<Github SHA 8 digit>
+            # Debian package format : 0~gitYYYYMMDDHHMM-<Github SHA 8 digit>
+            # Docker tag format     : gitYYYYMMDDHHMM-<Github SHA 8 digit>
             SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-8)
-            VERSION="0~git${TIME}-${SHORT_SHA}"
+            DEBIAN_VERSION="0~git${TIME}-${SHORT_SHA}"
+            DOCKER_VERSION="git${TIME}-${SHORT_SHA}"
             ;;
           *)
             exit 1
             ;;
         esac
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
-        echo "Version is $VERSION"
+        echo "debian_version=$DEBIAN_VERSION" >> $GITHUB_OUTPUT
+        echo "docker_version=$DOCKER_VERSION" >> $GITHUB_OUTPUT
+        echo "Debian package version is $DEBIAN_VERSION"
+        echo "Docker tag version is $DOCKER_VERSION"
 
   deploy-cuttlefish-cvdremote-amd64-debian-package:
     needs: [set-variables]
@@ -55,7 +62,7 @@ jobs:
     - name: Build debian package cuttlefish-cvdremote
       uses: ./.github/actions/build-cuttlefish-cvdremote-debian-package
       with:
-        version: ${{ needs.set-variables.outputs.version }}
+        version: ${{ needs.set-variables.outputs.debian-version }}
     - name: Get exact filename
       run: echo "path=$(find . -name cuttlefish-cvdremote_*.deb)" >> $GITHUB_ENV
     - name: Authentication on GCP project android-cuttlefish-artifacts
@@ -79,7 +86,7 @@ jobs:
     - name: Build debian package cuttlefish-cvdremote
       uses: ./.github/actions/build-cuttlefish-cvdremote-debian-package
       with:
-        version: ${{ needs.set-variables.outputs.version }}
+        version: ${{ needs.set-variables.outputs.debian-version }}
     - name: Get exact filename
       run: echo "path=$(find . -name cuttlefish-cvdremote_*.deb)" >> $GITHUB_ENV
     - name: Authentication on GCP project android-cuttlefish-artifacts
@@ -114,7 +121,7 @@ jobs:
       uses: ./.github/actions/deploy-cuttlefish-cloud-orchestrator-docker-image
       with:
         arch: amd64
-        version: ${{ needs.set-variables.outputs.version }}
+        version: ${{ needs.set-variables.outputs.docker-version }}
 
   deploy-cuttlefish-cloud-orchestrator-arm64-docker-image:
     needs: [set-variables]
@@ -139,7 +146,7 @@ jobs:
       uses: ./.github/actions/deploy-cuttlefish-cloud-orchestrator-docker-image
       with:
         arch: arm64
-        version: ${{ needs.set-variables.outputs.version }}
+        version: ${{ needs.set-variables.outputs.docker-version }}
 
   deploy-cuttlefish-cloud-orchestrator-docker-manifest:
     needs: [deploy-cuttlefish-cloud-orchestrator-amd64-docker-image, deploy-cuttlefish-cloud-orchestrator-arm64-docker-image, set-variables]
@@ -161,7 +168,7 @@ jobs:
     - name: Deploy manifests
       run: |
         IMAGE=us-docker.pkg.dev/android-cuttlefish-artifacts/cuttlefish-orchestration/cuttlefish-cloud-orchestrator
-        VERSION=${{ needs.set-variables.outputs.version }}
+        VERSION=${{ needs.set-variables.outputs.docker-version }}
         for MANIFEST_TAG in ${VERSION} ${{ inputs.deploy-channel }}; do
           docker manifest create ${IMAGE}:${MANIFEST_TAG} \
             --amend ${IMAGE}:${VERSION}-amd64 \
@@ -208,7 +215,7 @@ jobs:
           --project="android-cuttlefish-artifacts" \
           --quiet \
           --repository="cloud-orchestrator-config"
-        for VERSION in ${{ needs.set-variables.outputs.version }} ${{ inputs.deploy-channel }}; do
+        for VERSION in ${{ needs.set-variables.outputs.docker-version }} ${{ inputs.deploy-channel }}; do
           gcloud artifacts generic upload \
             --location="us" \
             --package="on-premise-single-server" \

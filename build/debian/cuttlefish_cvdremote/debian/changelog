@@ -1,3 +1,307 @@
+cuttlefish-cvdremote (0.3.0) unstable; urgency=medium
+
+  * Define distinguished version format between debs & docker imgs by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/477
+  * Fix bugs for deployment procedure by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/476
+  * Make deployment.yaml as reusable workflow, for several deploy channels. by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/474
+  * Add explicit `provideZoneChangeDetection` to providers by @k311093 in https://github.com/google/cloud-android-orchestration/pull/472
+  * Fix typo around postsubmit GH workflow by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/471
+  * Deploy docker manifest of cuttlefish-cloud-orchestrator for nightly by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/470
+  * Login to Artifact Registry when deploying docker image by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/469
+  * Deploy cuttlefish-cloud-orchestrator docker image to Artifact Registry, for nightly versions by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/468
+  * Update docs/cvdr.md to follow AR instead JFrog for installing cvdr by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/467
+  * Modify debian/control in GH workflow to inject nightly version on deb. by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/466
+  * Bump up modules from github.com/google/android-cuttlefish by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/465
+  * Deploy cuttlefish-cvdremote into Artifact Registry by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/464
+  * Build cuttlefish-cvdremote for ARM64 on presubmit by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/463
+  * Don't use statePrinter inside goroutines by @jemoreira in https://github.com/google/cloud-android-orchestration/pull/462
+  * Upgrade libhoclient dependency by @jemoreira in https://github.com/google/cloud-android-orchestration/pull/461
+  * Implement `cvdr reset --host={host}` by @jemoreira in https://github.com/google/cloud-android-orchestration/pull/460
+  * Use standard Github-hosted ARM runner by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/459
+  * Update used container image on build-cuttlefish-cvdremote-debian-package by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/458
+  * Fix e2etests/cvdr/common_utils.sh by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/456
+  * Use hoclient.FakeHostOrchestrationClient for testing by @jemoreira in https://github.com/google/cloud-android-orchestration/pull/454
+  * Introduce cvdr_create_with_branch_test by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/453
+  * Bump up modules from google/android-cuttlefish by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/452
+  * Add documentation explaining cvdr_create_multiple_hosts.sh by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/451
+  * Bump up modules from google/android-cuttlefish by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/450
+  * Refactor cvdr_create_multiple_hosts.sh by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/449
+  * Introduce a script for creating multiple CF hosts via cvdr by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/448
+  * Re-land #437 "Check that EnvConfig is convertible to proto." by @3405691582 in https://github.com/google/cloud-android-orchestration/pull/446
+  * Bump up modules from gooogle/android-cuttlefish by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/445
+  * Revert "Check that EnvConfig is convertible to proto." by @jemoreira in https://github.com/google/cloud-android-orchestration/pull/443
+  * Presubmit check executes cvdr E2E tests with CO(on-premise configuration) by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/441
+  * Bump up modules from github.com/google/android-cuttlefish by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/440
+  * Bumpup modules from github.com/google/android-cuttlefish by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/439
+  * Check that EnvConfig is convertible to proto. by @3405691582 in https://github.com/google/cloud-android-orchestration/pull/437
+  * DockerIM shares volume per-user for user artifact dir by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/436
+  * cvdr create uses new HO APIs for dealing with user artifact & image dir by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/435
+  * Bump up modules from github.com/google/android-cuttlefish by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/433
+  * Add missing ExtractArtifact method by @jemoreira in https://github.com/google/cloud-android-orchestration/pull/431
+  * Define cvdr E2E test by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/430
+  * Add missing function by @jemoreira in https://github.com/google/cloud-android-orchestration/pull/429
+  * Bump jwt by @ser-io in https://github.com/google/cloud-android-orchestration/pull/428
+  * Bump github.com/google/android-cuttlefish/frontend/src/libhoclient by @ser-io in https://github.com/google/cloud-android-orchestration/pull/427
+  * Bump the npm_and_yarn group across 1 directory with 2 updates by @app/dependabot in https://github.com/google/cloud-android-orchestration/pull/426
+  * Bump github.com/google/android-cuttlefish/frontend/src/liboperator by @ser-io in https://github.com/google/cloud-android-orchestration/pull/424
+  * Add reconnection logic when connection is closed at ADB WebSocket agent by @k311093 in https://github.com/google/cloud-android-orchestration/pull/423
+  * Service flag should be passed in ServiceFlags.AsArgs() by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/422
+  * Add timeout for Listen() while waiting for connection from ADB server. by @k311093 in https://github.com/google/cloud-android-orchestration/pull/421
+  * Fix to support Angular 19 by @k311093 in https://github.com/google/cloud-android-orchestration/pull/419
+  * Bump the npm_and_yarn group across 1 directory with 3 updates by @app/dependabot in https://github.com/google/cloud-android-orchestration/pull/417
+  * Rebased PR for Pr #414 Fix typo in cvdr installation docs + fix version for angular dev dependency in web-UI by @k311093 in https://github.com/google/cloud-android-orchestration/pull/416
+  * Bump the npm_and_yarn group across 1 directory with 7 updates by @app/dependabot in https://github.com/google/cloud-android-orchestration/pull/415
+  * Correct spelling of Powerbtn function by @jemoreira in https://github.com/google/cloud-android-orchestration/pull/413
+  * Implement PowerBtn in fakeHostService by @jemoreira in https://github.com/google/cloud-android-orchestration/pull/412
+  * Send `gcp_accelerator` parameter on `host create` by @kunzese in https://github.com/google/cloud-android-orchestration/pull/411
+  * Bump serialize-javascript from 6.0.1 to 6.0.2 in /web/page0 in the npm_and_yarn group by @app/dependabot in https://github.com/google/cloud-android-orchestration/pull/409
+  * Change classes with parameter property to use inject(). by @k311093 in https://github.com/google/cloud-android-orchestration/pull/407
+  * Use full Spanner resource path in database service by @yippyyipyip in https://github.com/google/cloud-android-orchestration/pull/406
+  * Added boot disk size to cli create command by @yippyyipyip in https://github.com/google/cloud-android-orchestration/pull/405
+  * Bump github.com/google/android-cuttlefish/frontend/src/libhoclient by @ser-io in https://github.com/google/cloud-android-orchestration/pull/404
+  * Support accelerator flag in cli and cvdr.toml by @yippyyipyip in https://github.com/google/cloud-android-orchestration/pull/403
+  * Fixed acceleratorType value by @yippyyipyip in https://github.com/google/cloud-android-orchestration/pull/402
+  * Configure VM to use external IP by @yippyyipyip in https://github.com/google/cloud-android-orchestration/pull/401
+  * Updated GAE Go runtime to 1.22 by @yippyyipyip in https://github.com/google/cloud-android-orchestration/pull/400
+  * Fix improper github workflow name by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/399
+  * Rewriting docs/cvdr.md with supporting downloading cuttlefish-cvdremote by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/398
+  * Comment all configuration in cvdr.toml for cuttlefish-cvdremote by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/397
+  * Move the initializer into the constructor by @k311093 in https://github.com/google/cloud-android-orchestration/pull/396
+  * Add TURN server support into Cloud Orchestrator by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/395
+  * Enable using staticcheck in this repository by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/394
+  * Change the order of section in docs/cvdr.md by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/392
+  * Support connect agent configuration in cvdr.toml by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/390
+  * Update docs for on-premise case, for guiding how to download from AR by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/389
+  * Avoid double close of wsWrapper by @jemoreira in https://github.com/google/cloud-android-orchestration/pull/385
+  * Cloud Orchestrator can download docker image from Artifact Registry by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/384
+  * Write ping message for preventing idle timeout for ADB websocket by @k311093 in https://github.com/google/cloud-android-orchestration/pull/383
+  * Add client.WithAPIVersionNegotiation() option for Docker client by @k311093 in https://github.com/google/cloud-android-orchestration/pull/381
+  * Bump go version to 1.23.4 in presubmit. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/380
+  * Bump docker dependency. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/379
+  * Stop, Start and Snapshot commands by @ser-io in https://github.com/google/cloud-android-orchestration/pull/378
+  * Allow to specify boot disk size for GCE instances and auto delete boot disk by @gleichda in https://github.com/google/cloud-android-orchestration/pull/377
+  * feat: add Cloud Run deployment by @kunzese in https://github.com/google/cloud-android-orchestration/pull/376
+  * Bump github.com/google/android-cuttlefish/frontend/src/libhoclient by @ser-io in https://github.com/google/cloud-android-orchestration/pull/375
+  * Create remote devices using environment configs pointing to local art… by @ser-io in https://github.com/google/cloud-android-orchestration/pull/374
+  * Remove webrtcclient. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/373
+  * Bump libhoclient version. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/372
+  * [Code Health] Rename and cleanup. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/371
+  * Mention cvdr --help in docs/cvdr.md by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/369
+  * Add more logging for cvdr connection agent by @jemoreira in https://github.com/google/cloud-android-orchestration/pull/368
+  * Remove ho client. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/367
+  * Bump the npm_and_yarn group in /web/page0 with 3 updates by @app/dependabot in https://github.com/google/cloud-android-orchestration/pull/366
+  * Use build api credentials source from config by @ser-io in https://github.com/google/cloud-android-orchestration/pull/365
+  * Bump rollup from 3.29.4 to 3.29.5 in /web/page0 in the npm_and_yarn group by @app/dependabot in https://github.com/google/cloud-android-orchestration/pull/363
+  * Set `standalone: false` to prepare for Angular v19 by @Databean in https://github.com/google/cloud-android-orchestration/pull/362
+  * Bump the npm_and_yarn group in /web/page0 with 2 updates by @app/dependabot in https://github.com/google/cloud-android-orchestration/pull/361
+  * Fixes logs url. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/360
+  * Fixes null pointer dereference. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/359
+  * Align WebSocket connection request with normal HTTP request at cvdr by @k311093 in https://github.com/google/cloud-android-orchestration/pull/358
+  * Bump github.com/google/android-cuttlefish/frontend/src/host_orchestrator by @ser-io in https://github.com/google/cloud-android-orchestration/pull/357
+  * Deploy docker image wrapping cloud orchestrator by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/356
+  * Support user project override by @chyijia in https://github.com/google/cloud-android-orchestration/pull/355
+  * Change cvdr websocket connect agent to follow cvdr command scheme by @k311093 in https://github.com/google/cloud-android-orchestration/pull/354
+  * Introduce docker image name filter for cvdr host list by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/353
+  * Get access token for Build API via 3LO OAuth flow by @chyijia in https://github.com/google/cloud-android-orchestration/pull/352
+  * Import github.com/google/android-cuttlefish/frontend/src/host_orchest… by @ser-io in https://github.com/google/cloud-android-orchestration/pull/350
+  * Env config user artifacts by @ser-io in https://github.com/google/cloud-android-orchestration/pull/349
+  * Support JWT auth flow that access tokens are managed by cvdr by @chyijia in https://github.com/google/cloud-android-orchestration/pull/348
+  * Add an aria-label to progress-bars by @k311093 in https://github.com/google/cloud-android-orchestration/pull/347
+  * Fixes nil pointer dereference. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/345
+  * Logs request path on proxy errors. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/342
+  * Add bugreport command. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/341
+  * Smalls improvements in flags structures. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/340
+  * Default to empty host config. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/338
+  * Use relevant authn config when `-s` flag is used. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/337
+  * Select service flag by @ser-io in https://github.com/google/cloud-android-orchestration/pull/336
+  * Parse system and user configuration files independently. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/335
+  * Try to connect WebSocket and return error before send result to parent by @k311093 in https://github.com/google/cloud-android-orchestration/pull/333
+  * Websocket by @k311093 in https://github.com/google/cloud-android-orchestration/pull/332
+  * feat: make network and subnetwork configurable by @kunzese in https://github.com/google/cloud-android-orchestration/pull/331
+  * Revise docs around executing CO and cvdr. by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/330
+  * Add `CreateCVDOp` method to host orchestrator service client. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/329
+  * Bump the npm_and_yarn group across 1 directory with 5 updates by @app/dependabot in https://github.com/google/cloud-android-orchestration/pull/328
+  * Update FullConfig test by @ser-io in https://github.com/google/cloud-android-orchestration/pull/327
+  * Rename `cuttlefish-cvdremote` to `cuttlefish_cvdremote`. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/326
+  * Use a max wait threshold in retry logic rather than number of retries. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/325
+  * Restructure build directory. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/324
+  * Provide more info when json decoding fails. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/323
+  * Update documents for UsernameOnlyAccountManager. by @denniscy1993 in https://github.com/google/cloud-android-orchestration/pull/322
+  * Paraphrase markdown documents by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/321
+  * Rename HTTPProxy as Proxy in cvdr by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/320
+  * Accelerators by @ser-io in https://github.com/google/cloud-android-orchestration/pull/319
+  * Write documentation about definition of Cloud Orchestrator and cvdr. by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/318
+  * Redirect to the `/username` endpoint on authentication failure. by @denniscy1993 in https://github.com/google/cloud-android-orchestration/pull/317
+  * Multi service by @ser-io in https://github.com/google/cloud-android-orchestration/pull/315
+  * Rename HTTPBasicAccountManager to UsernameOnlyAccountManager. by @denniscy1993 in https://github.com/google/cloud-android-orchestration/pull/314
+  * Retry on 504 (StatusGatewayTimeout) status code. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/313
+  * Elaborate on using SOCKS5 proxy in docs/docker.md by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/312
+  * scripts/docker/run.sh uses go run. by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/311
+  * Add /username endpoint for UsernameOnlyAccountManager to log username. by @denniscy1993 in https://github.com/google/cloud-android-orchestration/pull/309
+  * Update documentation to run cloud orchestrator with dockerIMType. by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/308
+  * Introduce --connect_agent with the new type(proxy_agent) into cvdr connect by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/307
+  * Expose IP Address of docker instance via ListHosts by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/306
+  * Change host address of docker instance by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/305
+  * Bump golang.org/x/net from 0.17.0 to 0.23.0 by @app/dependabot in https://github.com/google/cloud-android-orchestration/pull/303
+  * Implement http basic auth for cvdr. by @denniscy1993 in https://github.com/google/cloud-android-orchestration/pull/301
+  * Upload -imgs-.zip as local artifact. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/300
+  * Print state when uploading local artifacts. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/299
+  * Use the new `/:extract` endpoint when uploading compressed files. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/298
+  * Remove AndroidEnvVars struct. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/297
+  * Bump express from 4.18.2 to 4.19.2 in /web/page0 by @app/dependabot in https://github.com/google/cloud-android-orchestration/pull/296
+  * Change HostOut path for ARM64 during cvdr create by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/295
+  * Show the docker image name by the ListHosts command. by @denniscy1993 in https://github.com/google/cloud-android-orchestration/pull/294
+  * Refactor OAuth2Callback for HTTPBasicAccountManager by @denniscy1993 in https://github.com/google/cloud-android-orchestration/pull/293
+  * Create instances with local artifacts. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/292
+  * Fix: Change error message in TestInfraConfigRequest by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/290
+  * Refactor OAuth2Callback logic. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/289
+  * Bump webpack-dev-middleware from 5.3.3 to 5.3.4 in /web/page0 by @app/dependabot in https://github.com/google/cloud-android-orchestration/pull/288
+  * Implement http basic account manager by @denniscy1993 in https://github.com/google/cloud-android-orchestration/pull/287
+  * Implement WaitOperation of dockerIMType by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/286
+  * Bump follow-redirects from 1.15.4 to 1.15.6 in /web/page0 by @app/dependabot in https://github.com/google/cloud-android-orchestration/pull/285
+  * Bump google.golang.org/protobuf from 1.30.0 to 1.33.0 by @app/dependabot in https://github.com/google/cloud-android-orchestration/pull/284
+  * Avoid dump operations when using io.Discard logs dumpster by @ser-io in https://github.com/google/cloud-android-orchestration/pull/283
+  * Fixes  http: read on closed response body error. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/282
+  * Make available handling /v1/zones/{zone}/hosts/{host}/infra_config by CO by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/281
+  * Grant compute admin role to GAE service account. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/280
+  * Split `gae/main.sh` script. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/279
+  * Sanitize auth token value. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/278
+  * Enable compute.googleapis.com. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/277
+  * Implement dockerIMType by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/276
+  * Fix image family name. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/275
+  * Let the script create and cleanup the upload bucket. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/274
+  * Tool to export CF host images to GCE. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/273
+  * Bump ip from 2.0.0 to 2.0.1 in /web/page0 by @app/dependabot in https://github.com/google/cloud-android-orchestration/pull/272
+  * Implement ListZones for DockerInstanceManager by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/271
+  * Add Code Owners by @rmuthiah in https://github.com/google/cloud-android-orchestration/pull/270
+  * Create skeleton code for IM(InstanceManager) Type - docker by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/269
+  * Enable IAP. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/268
+  * Handles "europe-west" and "us-central" GAE region names. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/267
+  * Use OIDC token in file upload requests.  by @ser-io in https://github.com/google/cloud-android-orchestration/pull/266
+  * Script to generate oidc tokens for service accounts with local key. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/265
+  * Use OIDC tokens in cvdr. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/264
+  * Set EnableNestedVirtualization in insert request.  by @ser-io in https://github.com/google/cloud-android-orchestration/pull/263
+  * Fix vpc connector region name. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/262
+  * Do not fail if vpc access connector does not exist. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/261
+  * Set service name in GAE deploy tool. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/260
+  * Tool to deploy orchestration service into GCP/GAE by @ser-io in https://github.com/google/cloud-android-orchestration/pull/259
+  * Bump follow-redirects from 1.15.2 to 1.15.4 in /web/page0 by @app/dependabot in https://github.com/google/cloud-android-orchestration/pull/258
+  * Adds `cvdr delete` subcommand. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/257
+  * Bump vite and @angular-devkit/build-angular in /web/page0 by @app/dependabot in https://github.com/google/cloud-android-orchestration/pull/256
+  * Bump golang.org/x/crypto from 0.14.0 to 0.17.0 by @app/dependabot in https://github.com/google/cloud-android-orchestration/pull/255
+  * Print cvd id when listing cvds. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/254
+  * move metrics to internal repo only by @Mahmod in https://github.com/google/cloud-android-orchestration/pull/253
+  * Fix typo in NewHostOrchestratorService by @jemoreira in https://github.com/google/cloud-android-orchestration/pull/252
+  * Pass parameters to listCVDsSingleHost in the right order by @jemoreira in https://github.com/google/cloud-android-orchestration/pull/251
+  * Require login. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/250
+  * Fixes nil pointer dereference. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/249
+  * Adds `get_config` command. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/247
+  * Prompt acloud config import when running on terminal only. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/246
+  * Address issues reported by `go vet` by @jemoreira in https://github.com/google/cloud-android-orchestration/pull/245
+  * Make running the cloud and host orchestrators locally easy and convenient. by @jemoreira in https://github.com/google/cloud-android-orchestration/pull/244
+  * Add Script for Running Locally Developed Presubmit Health Checks by @Mahmod in https://github.com/google/cloud-android-orchestration/pull/243
+  * Enhance action flows and optimize CI process by @Mahmod in https://github.com/google/cloud-android-orchestration/pull/242
+  * ⬆️ Upgrade Go Language Version to Address Compatibility Issues by @Mahmod in https://github.com/google/cloud-android-orchestration/pull/240
+  * Eliminate Typos and Misspellings for Enhanced Readability by @Mahmod in https://github.com/google/cloud-android-orchestration/pull/237
+  * Fix Developer Instructions: Building the Host Orchestrator Binary by @Mahmod in https://github.com/google/cloud-android-orchestration/pull/236
+  * Fix Staticcheck Linter Issues for Improved Code Quality by @Mahmod in https://github.com/google/cloud-android-orchestration/pull/235
+  * Apply staticchecker linter and resolve styling  issues. by @Mahmod in https://github.com/google/cloud-android-orchestration/pull/234
+  * METRICS: Add client for tracking launch command usage by @Mahmod in https://github.com/google/cloud-android-orchestration/pull/232
+  * Create user config directory first. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/231
+  * Prevent infinite loading when runtimes length is 0 by @k311093 in https://github.com/google/cloud-android-orchestration/pull/230
+  * Edit default and placeholder runtime settings by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/229
+  * Add API to provide hint to expect messages soon by @jmacnak in https://github.com/google/cloud-android-orchestration/pull/228
+  * Improve error message. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/226
+  * Fixes prompt message. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/225
+  * Refactor communication between Page0 and orchestrator by @k311093 in https://github.com/google/cloud-android-orchestration/pull/224
+  * Make host orchestrator client usable outside of the cloud orchestrator context by @jemoreira in https://github.com/google/cloud-android-orchestration/pull/223
+  * Default to yes in yes/no prompt logic. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/222
+  * Bump google.golang.org/grpc from 1.55.0 to 1.56.3 by @app/dependabot in https://github.com/google/cloud-android-orchestration/pull/221
+  * Adds `--auto_connect` flag. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/220
+  * Separate cloud and host orchestrator clients by @jemoreira in https://github.com/google/cloud-android-orchestration/pull/219
+  * Bump @babel/traverse from 7.22.8 to 7.23.2 in /web/page0 by @app/dependabot in https://github.com/google/cloud-android-orchestration/pull/218
+  * Import relevant acloud configuration values. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/217
+  * Add more logging to cvdr agents by @jemoreira in https://github.com/google/cloud-android-orchestration/pull/216
+  * Don't panic from connection agent processes by @jemoreira in https://github.com/google/cloud-android-orchestration/pull/215
+  * Print non-critical errors as warnings by @jemoreira in https://github.com/google/cloud-android-orchestration/pull/214
+  * Do not show "All" option when there's only 1 option. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/213
+  * Prompt host selection when no host name was passed. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/212
+  * Fix error messages. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/210
+  * Bump golang.org/x/net from 0.10.0 to 0.17.0 by @app/dependabot in https://github.com/google/cloud-android-orchestration/pull/209
+  * Revert "README updates and copyright headers." by @ser-io in https://github.com/google/cloud-android-orchestration/pull/208
+  * Use system config and user config. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/207
+  * Page0 host "auto create" option for Create Env view by @k311093 in https://github.com/google/cloud-android-orchestration/pull/206
+  * Page0 canonical config by @k311093 in https://github.com/google/cloud-android-orchestration/pull/205
+  * README updates and copyright headers. by @Mahmod in https://github.com/google/cloud-android-orchestration/pull/203
+  * Use `WebRTCDeviceID` to handle adb connections. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/202
+  * cvdr flag rename: `target` --> `build_target`. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/201
+  * Display hierarchical view when listing cvds. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/200
+  * Change http-interceptors to http_interceptors by @k311093 in https://github.com/google/cloud-android-orchestration/pull/198
+  * [cvdr] Create cvds using canonical configurations. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/196
+  * Page0 long polling for hosts and environments by @retroinspect in https://github.com/google/cloud-android-orchestration/pull/195
+  * [cvdr] Rename `cvd` related structs. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/194
+  * [cvdr] Update default branch/target values. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/193
+  * Remove injecting credentials in create cvd request. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/192
+  * Refactor Page 0 with redux-like features by @retroinspect in https://github.com/google/cloud-android-orchestration/pull/191
+  * Page0 Handler for failed authentication request by @retroinspect in https://github.com/google/cloud-android-orchestration/pull/190
+  * Format Page0 web src by @retroinspect in https://github.com/google/cloud-android-orchestration/pull/188
+  * Add additional settings to handle CORS by @retroinspect in https://github.com/google/cloud-android-orchestration/pull/187
+  * [cvdr] Use specific build id of previously fetched bundle when creating. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/186
+  * Add missing APIs to retrieve cloud orchestration info for Page 0 by @retroinspect in https://github.com/google/cloud-android-orchestration/pull/185
+  * Update package.json and package-lock.json by @k311093 in https://github.com/google/cloud-android-orchestration/pull/184
+  * [cvdr] Adds more granular state messages in `cvdr create`. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/183
+  * [cvdr] Split create logic into fetch and start. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/182
+  * Flask mock server for development by @retroinspect in https://github.com/google/cloud-android-orchestration/pull/181
+  * Page 0 env management features by @retroinspect in https://github.com/google/cloud-android-orchestration/pull/180
+  * Page 0 host management features by @retroinspect in https://github.com/google/cloud-android-orchestration/pull/179
+  * Page 0 runtime management features by @retroinspect in https://github.com/google/cloud-android-orchestration/pull/178
+  * Use inject build api credentials header in create cvd requests. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/177
+  * Inject build api creds in relevant http header. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/176
+  * Bump github.com/pion/dtls/v2 from 2.1.5 to 2.2.4 by @app/dependabot in https://github.com/google/cloud-android-orchestration/pull/175
+  * Add CORS origin allow config by @k311093 in https://github.com/google/cloud-android-orchestration/pull/174
+  * Skeleton implementation with hardcoded states by @retroinspect in https://github.com/google/cloud-android-orchestration/pull/173
+  * Init Page 0 web ui by @retroinspect in https://github.com/google/cloud-android-orchestration/pull/172
+  * Add instructions to create the secrets.json file by @jemoreira in https://github.com/google/cloud-android-orchestration/pull/171
+  * Close the Forwarder's ready channel only once by @jemoreira in https://github.com/google/cloud-android-orchestration/pull/170
+  * Use local ICE config. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/169
+  * Fix typo by @ser-io in https://github.com/google/cloud-android-orchestration/pull/168
+  * Show error in case cvd-host_package.tar.gz does not exist. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/167
+  * Update polled_connection endpoints. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/166
+  * Add instructions for local development by @jemoreira in https://github.com/google/cloud-android-orchestration/pull/165
+  * Use `/usr/local/libexec/cvdr` for macos installations. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/164
+  * [cli] cvdr pull by @ser-io in https://github.com/google/cloud-android-orchestration/pull/163
+  * Allow users to rescind authorization to access build api by @jemoreira in https://github.com/google/cloud-android-orchestration/pull/162
+  * Make OAuth2 mandatory for access to build api by @jemoreira in https://github.com/google/cloud-android-orchestration/pull/161
+  * Forward all host/{id}/* requests to host orchestrator by @jemoreira in https://github.com/google/cloud-android-orchestration/pull/160
+  * Use OK/Failed tokens rather than generic Done. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/159
+  * [cli] Adds --num_instances flag by @ser-io in https://github.com/google/cloud-android-orchestration/pull/158
+  * Update acloud setup to latest changes in host orchestrator. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/157
+  * [cli] Updated to the latest changes in Host Orchestrator web API. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/156
+  * Use the correct package name in pkg/app by @jemoreira in https://github.com/google/cloud-android-orchestration/pull/155
+  * Finish refactoring packages under pkg/app by @jemoreira in https://github.com/google/cloud-android-orchestration/pull/154
+  * Refactor packages under pkg/app by @jemoreira in https://github.com/google/cloud-android-orchestration/pull/153
+  * Fix session cookie for oauth by @jemoreira in https://github.com/google/cloud-android-orchestration/pull/152
+  * Print state changes when creating cvd. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/151
+  * Inject build api credentials on create cvd requests by @jemoreira in https://github.com/google/cloud-android-orchestration/pull/150
+  * Authenticate host orchestrator endpoints by @jemoreira in https://github.com/google/cloud-android-orchestration/pull/149
+  * Don't use actual encryption algorithms for local development by @jemoreira in https://github.com/google/cloud-android-orchestration/pull/148
+  * persist build api credentials by @jemoreira in https://github.com/google/cloud-android-orchestration/pull/147
+  * Use image families for declaring host image source. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/146
+  * [orchestrator] Supports `acloud restart` by @ser-io in https://github.com/google/cloud-android-orchestration/pull/145
+  * Add OAuth flow to Cloud Orchestrator by @jemoreira in https://github.com/google/cloud-android-orchestration/pull/144
+  * Don't copy http.DefaultTransport by @jemoreira in https://github.com/google/cloud-android-orchestration/pull/143
+  * Make host instances visible to `acloud CLI` if AcloudCompatible is true. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/142
+  * Allow https communication between cloud and host orchestrator by @jemoreira in https://github.com/google/cloud-android-orchestration/pull/141
+  * [orchestrator] Supports `acloud pull` by @ser-io in https://github.com/google/cloud-android-orchestration/pull/140
+  * [orchestrator] Logs GCP Project Id if set. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/139
+  * [orchestrator] Makes the web static files path configurable. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/138
+  * [cvdr] Adds system image build flags. by @ser-io in https://github.com/google/cloud-android-orchestration/pull/137
+  * [cvdr] Adds bootloader build flags by @ser-io in https://github.com/google/cloud-android-orchestration/pull/136
+  * [cvdr] Adds kernel build flags by @ser-io in https://github.com/google/cloud-android-orchestration/pull/135
+  * Create connection directories before using them by @jemoreira in https://github.com/google/cloud-android-orchestration/pull/134
+  * Use DefaultConfFile const in config.go by @lexgrezlak in https://github.com/google/cloud-android-orchestration/pull/133
+
+ -- Seungjae Yoo <seungjaeyoo@google.com>  Fri, 26 Sep 2025 14:30:38 +0900
+
 cuttlefish-cvdremote (0.2.0) unstable; urgency=medium
 
   [Jorge E. Moreira]

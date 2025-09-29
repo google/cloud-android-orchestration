@@ -99,9 +99,9 @@ jobs:
       uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675 # aka v2
     - name: Download cuttlefish-orchestration
       run: |
-        # TODO: Enable E2E test based on ToT image, instead of the latest stable version.
-        docker pull us-docker.pkg.dev/android-cuttlefish-artifacts/cuttlefish-orchestration/cuttlefish-orchestration
-        docker tag us-docker.pkg.dev/android-cuttlefish-artifacts/cuttlefish-orchestration/cuttlefish-orchestration:latest cuttlefish-orchestration:latest
+        IMAGE_TAG="us-docker.pkg.dev/android-cuttlefish-artifacts/cuttlefish-orchestration/cuttlefish-orchestration:nightly"
+        docker pull ${IMAGE_TAG}
+        echo "orchestration_image_tag=${IMAGE_TAG}" >> $GITHUB_ENV
     - name: Download cuttlefish-cloud-orchestrator
       uses: actions/download-artifact@7a1cd3216ca9260cd8022db641d960b1db4d1be4 # aka v4.0.0
       with:
@@ -109,7 +109,14 @@ jobs:
     - name: Load and run cuttlefish-cloud-orchestrator
       run: |
         docker load --input cuttlefish-cloud-orchestrator.tar
-        docker run -d -p 8080:8080 -e CONFIG_FILE="/conf.toml" -v $PWD/scripts/on-premises/single-server/conf.toml:/conf.toml -v /var/run/docker.sock:/var/run/docker.sock -t cuttlefish-cloud-orchestrator
+        sed -i "s|DockerImageName = .*|DockerImageName = \"${{ env.orchestration_image_tag }}\"|g" \
+          scripts/on-premises/single-server/conf.toml
+        docker run -d \
+          -p 8080:8080 \
+          -e CONFIG_FILE="/conf.toml" \
+          -v $PWD/scripts/on-premises/single-server/conf.toml:/conf.toml \
+          -v /var/run/docker.sock:/var/run/docker.sock \
+          -t cuttlefish-cloud-orchestrator
     - name: Download cuttlefish-cvdremote
       uses: actions/download-artifact@7a1cd3216ca9260cd8022db641d960b1db4d1be4 # aka v4.0.0
       with:

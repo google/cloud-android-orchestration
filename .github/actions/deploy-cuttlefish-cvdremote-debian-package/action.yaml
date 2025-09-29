@@ -1,5 +1,7 @@
 name: 'Deploy debian package cuttlefish-cvdremote'
 inputs:
+  deploy-channel:
+    required: true
   path:
     required: true
 runs:
@@ -11,9 +13,15 @@ runs:
       version: '>= 363.0.0'
   - name: Deploy deb package into Artifact Registry
     run: |
+      if [[ ${{ inputs.deploy-channel }} == "stable" ]]; then
+        REPO=android-cuttlefish
+      else
+        REPO=android-cuttlefish-${{ inputs.deploy-channel }}
+      fi
+
       gcloud --project=android-cuttlefish-artifacts \
         artifacts apt upload \
-        android-cuttlefish-nightly \
+        ${REPO} \
         --location=us \
         --source=${{ inputs.path }}
     shell: bash

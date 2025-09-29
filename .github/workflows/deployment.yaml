@@ -72,6 +72,7 @@ jobs:
     - name: Deploy debian package cuttlefish-cvdremote
       uses: ./.github/actions/deploy-cuttlefish-cvdremote-debian-package
       with:
+        deploy-channel: ${{ inputs.deploy-channel }}
         path: ${{ env.path }}
 
   deploy-cuttlefish-cvdremote-arm64-debian-package:
@@ -96,6 +97,7 @@ jobs:
     - name: Deploy debian package cuttlefish-cvdremote
       uses: ./.github/actions/deploy-cuttlefish-cvdremote-debian-package
       with:
+        deploy-channel: ${{ inputs.deploy-channel }}
         path: ${{ env.path }}
 
   deploy-cuttlefish-cloud-orchestrator-amd64-docker-image:

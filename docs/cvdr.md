@@ -17,9 +17,13 @@ below, such as launching Cuttlefish with locally built image.
 `cuttlefish-cvdremote` is available to download via `apt install` with adding
 the apt repository at Artifact Registry.
 ```bash
-curl https://us-apt.pkg.dev/doc/repo-signing-key.gpg | sudo apt-key add -
-echo 'deb https://us-apt.pkg.dev/projects/android-cuttlefish-artifacts android-cuttlefish-nightly main' | \
-  sudo tee -a /etc/apt/sources.list.d/artifact-registry.list
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://us-apt.pkg.dev/doc/repo-signing-key.gpg -o /etc/apt/keyrings/android-cuttlefish-artifacts.asc
+sudo chmod a+r /etc/apt/keyrings/android-cuttlefish-artifacts.asc
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/android-cuttlefish-artifacts.asc] \
+  https://us-apt.pkg.dev/projects/android-cuttlefish-artifacts android-cuttlefish-nightly main" | \
+  sudo tee /etc/apt/sources.list.d/android-cuttlefish-artifacts.list > /dev/null
 sudo apt update
 sudo apt install cuttlefish-cvdremote
 cvdr --help

@@ -3,9 +3,6 @@
 This page describes how to run cloud orchestrator at on-premise server, which
 manages docker instances containing the host orchestrator inside.
 
-Note that this is under development, some features may be broken yet.
-Please let us know if you faced at any bugs.
-
 ## Try cloud orchestrator
 
 Currently we're hosting docker images and its configuration files in Artifact
@@ -13,20 +10,15 @@ Registry.
 Please execute the commands below if you want to download and run the cloud
 orchestrator.
 
-Also, please choose one location among `us`, `europe`, or `asia`.
-It's available to download artifacts from any location, but download latency is
-different based on your location.
-
 ```bash
-DOWNLOAD_LOCATION=us # Choose one among us, europe, or asia.
-docker pull $DOWNLOAD_LOCATION-docker.pkg.dev/android-cuttlefish-artifacts/cuttlefish-orchestration/cuttlefish-cloud-orchestrator
-wget -O conf.toml https://artifactregistry.googleapis.com/download/v1/projects/android-cuttlefish-artifacts/locations/$DOWNLOAD_LOCATION/repositories/cloud-orchestrator-config/files/on-premise-single-server:main:conf.toml:download?alt=media
-docker run \
+sudo docker pull us-docker.pkg.dev/android-cuttlefish-artifacts/cuttlefish-orchestration/cuttlefish-cloud-orchestrator:unstable
+wget -O conf.toml https://artifactregistry.googleapis.com/download/v1/projects/android-cuttlefish-artifacts/locations/us/repositories/cloud-orchestrator-config/files/on-premise-single-server:unstable:conf.toml:download?alt=media
+sudo docker run -d \
     -p 8080:8080 \
     -e CONFIG_FILE="/conf.toml" \
     -v $PWD/conf.toml:/conf.toml \
     -v /var/run/docker.sock:/var/run/docker.sock \
-    -t $DOWNLOAD_LOCATION-docker.pkg.dev/android-cuttlefish-artifacts/cuttlefish-orchestration/cuttlefish-cloud-orchestrator:latest
+    -t us-docker.pkg.dev/android-cuttlefish-artifacts/cuttlefish-orchestration/cuttlefish-cloud-orchestrator:unstable
 ```
 
 To enable TURN server support for WebRTC peer-to-peer connections, configure

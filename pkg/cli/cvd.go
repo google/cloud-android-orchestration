@@ -553,7 +553,15 @@ func listCVDsSingleHost(srvClient client.Client, controlDir, host string) ([]*Re
 	if err != nil {
 		merr = multierror.Append(merr, err)
 	}
-	result := []*RemoteHost{{Name: host, CVDs: cvds}}
+	srvURL, err := srvClient.HostServiceURL(host)
+	if err != nil {
+		merr = multierror.Append(merr, fmt.Errorf("failed getting host service url: %w", err))
+	}
+	result := []*RemoteHost{{
+		ServiceURL: srvURL,
+		Name:       host,
+		CVDs:       cvds,
+	}}
 	return result, merr
 }
 

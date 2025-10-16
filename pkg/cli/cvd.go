@@ -41,13 +41,9 @@ type RemoteCVDLocator struct {
 	Host string `json:"host"`
 	// Identifier within the whole fleet.
 	ID string `json:"id"`
-	// Identifier within a group.
-	Name string `json:"name"`
-	// Instead of `Name`, `WebRTCDeviceID` is the identifier used for setting up the adb connections. It
+	// `WebRTCDeviceID` is the identifier used for setting up the adb connections. It
 	// contains the group name and the device name, eg: "cvd-1_1".
 	WebRTCDeviceID string `json:"webrtc_device_id"`
-	// ADB port of Cuttlefish instance.
-	ADBSerial string `json:"adb_serial"`
 }
 
 func (l *RemoteCVDLocator) Group() string {
@@ -72,9 +68,7 @@ func NewRemoteCVD(host string, cvd *hoapi.CVD) *RemoteCVD {
 		RemoteCVDLocator: RemoteCVDLocator{
 			Host:           host,
 			ID:             cvd.ID(),
-			Name:           cvd.Name,
 			WebRTCDeviceID: cvd.WebRTCDeviceID,
-			ADBSerial:      cvd.ADBSerial,
 		},
 		Status:   cvd.Status,
 		Displays: cvd.Displays,

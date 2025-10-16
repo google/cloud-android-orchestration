@@ -377,7 +377,7 @@ func NewConnController(
 	if err != nil {
 		return nil, err
 	}
-	logger.Printf("Connecting to %s in host %s", cvd.Name, cvd.Host)
+	logger.Printf("Connecting to %s in host %s", cvd.ID, cvd.Host)
 	f, err := NewForwarder(logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate ADB forwarder for %q: %w", cvd.WebRTCDeviceID, err)

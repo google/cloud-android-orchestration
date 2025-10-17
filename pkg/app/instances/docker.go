@@ -137,16 +137,8 @@ func (m *DockerInstanceManager) DeleteHost(zone string, user accounts.User, host
 		return nil, errors.NewBadRequestError("Invalid zone. It should be 'local'.", nil)
 	}
 	ctx := context.TODO()
-	if owner, err := m.getContainerLabel(host, dockerLabelCreatedBy); err != nil {
-		return nil, fmt.Errorf("failed to get container label: %w", err)
-	} else if owner != user.Username() {
-		return nil, fmt.Errorf("user %s cannot delete docker host owned by %s", user.Username(), owner)
-	}
-	if err := m.Client.ContainerStop(ctx, host, container.StopOptions{}); err != nil {
-		return nil, fmt.Errorf("failed to stop docker container: %w", err)
-	}
-	if err := m.Client.ContainerRemove(ctx, host, container.RemoveOptions{}); err != nil {
-		return nil, fmt.Errorf("failed to remove docker container: %w", err)
+	if err := m.deleteDockerContainer(ctx, user, host); err != nil {
+		return nil, fmt.Errorf("failed to delete docker container: %w", err)
 	}
 	// A docker volume is shared across all hosts under each user. If no host
 	// exists for given user, delete volume afterwards to cleanup.
@@ -405,6 +397,21 @@ func (m *DockerInstanceManager) createDockerContainer(ctx context.Context, user 
 		return "", fmt.Errorf("failed to start container execution %q: %w", strings.Join(execConfig.Cmd, " "), err)
 	}
 	return createRes.ID, nil
+}
+
+func (m *DockerInstanceManager) deleteDockerContainer(ctx context.Context, user accounts.User, host string) error {
+	if owner, err := m.getContainerLabel(host, dockerLabelCreatedBy); err != nil {
+		return fmt.Errorf("failed to get container label: %w", err)
+	} else if owner != user.Username() {
+		return fmt.Errorf("user %s cannot delete docker host owned by %s", user.Username(), owner)
+	}
+	if err := m.Client.ContainerStop(ctx, host, container.StopOptions{}); err != nil {
+		return fmt.Errorf("failed to stop docker container: %w", err)
+	}
+	if err := m.Client.ContainerRemove(ctx, host, container.RemoveOptions{}); err != nil {
+		return fmt.Errorf("failed to remove docker container: %w", err)
+	}
+	return nil
 }
 
 func (m *DockerInstanceManager) deleteDockerVolumeIfNeeded(ctx context.Context, user accounts.User) error {

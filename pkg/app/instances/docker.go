@@ -112,8 +112,7 @@ func (m *DockerInstanceManager) CreateHost(zone string, _ *apiv1.CreateHostReque
 	if err != nil {
 		return nil, fmt.Errorf("failed to create docker container: %w", err)
 	}
-	err = m.Client.ContainerStart(ctx, createRes.ID, container.StartOptions{})
-	if err != nil {
+	if err := m.Client.ContainerStart(ctx, createRes.ID, container.StartOptions{}); err != nil {
 		return nil, fmt.Errorf("failed to start docker container: %w", err)
 	}
 	execConfig := container.ExecOptions{
@@ -170,16 +169,15 @@ func (m *DockerInstanceManager) DeleteHost(zone string, user accounts.User, host
 		return nil, errors.NewBadRequestError("Invalid zone. It should be 'local'.", nil)
 	}
 	ctx := context.TODO()
-	owner, _ := m.getContainerLabel(host, dockerLabelCreatedBy)
-	if owner != user.Username() {
+	if owner, err := m.getContainerLabel(host, dockerLabelCreatedBy); err != nil {
+		return nil, fmt.Errorf("failed to get container label: %w", err)
+	} else if owner != user.Username() {
 		return nil, fmt.Errorf("user %s cannot delete docker host owned by %s", user.Username(), owner)
 	}
-	err := m.Client.ContainerStop(ctx, host, container.StopOptions{})
-	if err != nil {
+	if err := m.Client.ContainerStop(ctx, host, container.StopOptions{}); err != nil {
 		return nil, fmt.Errorf("failed to stop docker container: %w", err)
 	}
-	err = m.Client.ContainerRemove(ctx, host, container.RemoveOptions{})
-	if err != nil {
+	if err := m.Client.ContainerRemove(ctx, host, container.RemoveOptions{}); err != nil {
 		return nil, fmt.Errorf("failed to remove docker container: %w", err)
 	}
 	// A docker volume is shared across all hosts under each user. If no host
@@ -375,8 +373,7 @@ func (m *DockerInstanceManager) downloadDockerImageIfNeeded(ctx context.Context)
 	defer reader.Close()
 	// Caller of ImagePull should handle its output to complete actual ImagePull operation.
 	// Details in https://pkg.go.dev/github.com/docker/docker/client#Client.ImagePull.
-	_, err = io.Copy(io.Discard, reader)
-	if err != nil {
+	if _, err := io.Copy(io.Discard, reader); err != nil {
 		return fmt.Errorf("failed to pull docker image %q: %w", m.Config.Docker.DockerImageName, err)
 	}
 	log.Println("Downloaded docker image: " + m.Config.Docker.DockerImageName)

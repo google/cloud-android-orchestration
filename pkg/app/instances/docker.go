@@ -92,44 +92,12 @@ func (m *DockerInstanceManager) CreateHost(zone string, _ *apiv1.CreateHostReque
 	if err := m.createDockerVolumeIfNeeded(ctx, user); err != nil {
 		return nil, fmt.Errorf("failed to prepare docker volume: %w", err)
 	}
-	config := &container.Config{
-		AttachStdin: true,
-		Image:       m.Config.Docker.DockerImageName,
-		Tty:         true,
-		Labels:      dockerLabelsDict(user),
-	}
-	hostConfig := &container.HostConfig{
-		Mounts: []mount.Mount{
-			{
-				Type:   mount.TypeVolume,
-				Source: uaVolumeName(user),
-				Target: uaMountTarget,
-			},
-		},
-		Privileged: true,
-	}
-	createRes, err := m.Client.ContainerCreate(ctx, config, hostConfig, nil, nil, "")
+	host, err := m.createDockerContainer(ctx, user)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create docker container: %w", err)
-	}
-	if err := m.Client.ContainerStart(ctx, createRes.ID, container.StartOptions{}); err != nil {
-		return nil, fmt.Errorf("failed to start docker container: %w", err)
-	}
-	execConfig := container.ExecOptions{
-		Cmd:          []string{"chown", "httpcvd:httpcvd", uaMountTarget},
-		AttachStdout: false,
-		AttachStderr: false,
-		Tty:          false,
-	}
-	execRes, err := m.Client.ContainerExecCreate(ctx, createRes.ID, execConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create container execution %q: %w", strings.Join(execConfig.Cmd, " "), err)
-	}
-	if err := m.Client.ContainerExecStart(ctx, execRes.ID, container.ExecStartOptions{}); err != nil {
-		return nil, fmt.Errorf("failed to start container execution %q: %w", strings.Join(execConfig.Cmd, " "), err)
+		return nil, fmt.Errorf("failed to prepare docker container: %w", err)
 	}
 	return &apiv1.Operation{
-		Name: EncodeOperationName(CreateHostOPType, createRes.ID),
+		Name: EncodeOperationName(CreateHostOPType, host),
 		Done: true,
 	}, nil
 }
@@ -397,6 +365,46 @@ func (m *DockerInstanceManager) createDockerVolumeIfNeeded(ctx context.Context, 
 		return fmt.Errorf("failed to create docker volume: %w", err)
 	}
 	return nil
+}
+
+func (m *DockerInstanceManager) createDockerContainer(ctx context.Context, user accounts.User) (string, error) {
+	config := &container.Config{
+		AttachStdin: true,
+		Image:       m.Config.Docker.DockerImageName,
+		Tty:         true,
+		Labels:      dockerLabelsDict(user),
+	}
+	hostConfig := &container.HostConfig{
+		Mounts: []mount.Mount{
+			{
+				Type:   mount.TypeVolume,
+				Source: uaVolumeName(user),
+				Target: uaMountTarget,
+			},
+		},
+		Privileged: true,
+	}
+	createRes, err := m.Client.ContainerCreate(ctx, config, hostConfig, nil, nil, "")
+	if err != nil {
+		return "", fmt.Errorf("failed to create docker container: %w", err)
+	}
+	if err := m.Client.ContainerStart(ctx, createRes.ID, container.StartOptions{}); err != nil {
+		return "", fmt.Errorf("failed to start docker container: %w", err)
+	}
+	execConfig := container.ExecOptions{
+		Cmd:          []string{"chown", "httpcvd:httpcvd", uaMountTarget},
+		AttachStdout: false,
+		AttachStderr: false,
+		Tty:          false,
+	}
+	execRes, err := m.Client.ContainerExecCreate(ctx, createRes.ID, execConfig)
+	if err != nil {
+		return "", fmt.Errorf("failed to create container execution %q: %w", strings.Join(execConfig.Cmd, " "), err)
+	}
+	if err := m.Client.ContainerExecStart(ctx, execRes.ID, container.ExecStartOptions{}); err != nil {
+		return "", fmt.Errorf("failed to start container execution %q: %w", strings.Join(execConfig.Cmd, " "), err)
+	}
+	return createRes.ID, nil
 }
 
 func (m *DockerInstanceManager) deleteDockerVolumeIfNeeded(ctx context.Context, user accounts.User) error {

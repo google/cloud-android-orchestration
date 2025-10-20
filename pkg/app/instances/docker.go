@@ -362,6 +362,7 @@ func (m *DockerInstanceManager) createDockerVolumeIfNeeded(ctx context.Context, 
 func (m *DockerInstanceManager) createDockerContainer(ctx context.Context, user accounts.User) (string, error) {
 	config := &container.Config{
 		AttachStdin: true,
+		Env:         []string{"HANDLED_BY_CLOUD_ORCHESTRATOR=true"},
 		Image:       m.Config.Docker.DockerImageName,
 		Tty:         true,
 		Labels:      dockerLabelsDict(user),

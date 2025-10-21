@@ -21,6 +21,7 @@ import (
 	"log"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
@@ -53,8 +54,9 @@ const uaMountTarget = "/var/lib/cuttlefish-common/userartifacts"
 
 // Docker implementation of the instance manager.
 type DockerInstanceManager struct {
-	Config Config
-	Client *client.Client
+	Config  Config
+	Client  *client.Client
+	mutexes sync.Map
 }
 
 type OPType string
@@ -83,6 +85,9 @@ func (m *DockerInstanceManager) CreateHost(zone string, _ *apiv1.CreateHostReque
 	if zone != "local" {
 		return nil, errors.NewBadRequestError("Invalid zone. It should be 'local'.", nil)
 	}
+	mu := m.getRWMutex(user)
+	mu.RLock()
+	defer mu.RUnlock()
 	ctx := context.TODO()
 	if err := m.downloadDockerImageIfNeeded(ctx); err != nil {
 		return nil, fmt.Errorf("failed to retrieve docker image name: %w", err)
@@ -423,6 +428,15 @@ func (m *DockerInstanceManager) deleteDockerVolumeIfNeeded(ctx context.Context, 
 	if len(listRes) > 0 {
 		return nil
 	}
+
+	mu := m.getRWMutex(user)
+	if locked := mu.TryLock(); !locked {
+		// If it can't acquire lock on this mutex, there's ongoing host
+		// creation with this volume or deletion of this volume. For these
+		// cases, it doesn't need to delete docker volume here.
+		return nil
+	}
+	defer mu.Unlock()
 	listOpts := volume.ListOptions{Filters: dockerFilter(user)}
 	volumeListRes, err := m.Client.VolumeList(ctx, listOpts)
 	if err != nil {
@@ -434,4 +448,9 @@ func (m *DockerInstanceManager) deleteDockerVolumeIfNeeded(ctx context.Context, 
 		}
 	}
 	return nil
+}
+
+func (m *DockerInstanceManager) getRWMutex(user accounts.User) *sync.RWMutex {
+	mu, _ := m.mutexes.LoadOrStore(user.Username(), &sync.RWMutex{})
+	return mu.(*sync.RWMutex)
 }

@@ -1380,14 +1380,24 @@ func runConnectionWebrtcAgentCommand(flags *ConnectFlags, c *command, args []str
 	if err != nil {
 		return err
 	}
-
-	devSpec := RemoteCVDLocator{
-		Host:           flags.host,
-		WebRTCDeviceID: device,
+	controlDir := opts.InitialConfig.ConnectionControlDirExpanded()
+	hosts, err := listCVDsSingleHost(srvClient, opts.InitialConfig.ConnectionControlDirExpanded(), flags.host)
+	if err != nil {
+		return fmt.Errorf("failed to list cvds from host %q: %w", flags.host, err)
+	}
+	cvds := flattenCVDs(hosts)
+	var connectionCVD *RemoteCVDLocator
+	for _, cvd := range cvds {
+		if cvd.RemoteCVDLocator.WebRTCDeviceID == device {
+			connectionCVD = &cvd.RemoteCVDLocator
+			break
+		}
+	}
+	if connectionCVD == nil {
+		return fmt.Errorf("failed to find %q from host %q", device, flags.host)
 	}
 
-	controlDir := opts.InitialConfig.ConnectionControlDirExpanded()
-	ret, err := FindOrConnect(controlDir, devSpec, srvClient, localICEConfig)
+	ret, err := FindOrConnect(controlDir, *connectionCVD, srvClient, localICEConfig)
 	if err != nil {
 		return err
 	}

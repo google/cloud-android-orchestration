@@ -16,6 +16,7 @@ package cli
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -24,6 +25,15 @@ import (
 	"time"
 
 	toml "github.com/pelletier/go-toml"
+	"golang.org/x/term"
+)
+
+const (
+	envVarSystemConfigPath = "CVDR_SYSTEM_CONFIG_PATH"
+	// User config values overrides system config values.
+	envVarUserConfigPath = "CVDR_USER_CONFIG_PATH"
+	// It may ask for importing acloud config if cvdr user config is empty.
+	acloudConfigPath = "~/.config/acloud/acloud.config"
 )
 
 type GCPHostConfig struct {
@@ -84,42 +94,32 @@ func (c *Config) DefaultService() *Service {
 }
 
 func (c *Config) ConnectionControlDirExpanded() string {
-	return ExpandPath(c.ConnectionControlDir)
+	return expandPath(c.ConnectionControlDir)
 }
 
 func (c *Config) LogFilesDeleteThreshold() time.Duration {
 	return time.Duration(c.KeepLogFilesDays*24) * time.Hour
 }
 
-func BaseConfig() *Config {
-	return &Config{
-		ConnectionControlDir: "~/.cvdr/connections",
-		KeepLogFilesDays:     30, // A default is needed to not keep forever
+func LoadInitialConfig() (*Config, error) {
+	config := baseConfig()
+	sysConfigSrc, userConfigSrc := "", ""
+	if path, ok := os.LookupEnv(envVarSystemConfigPath); ok {
+		sysConfigSrc = expandPath(path)
 	}
+	if path, ok := os.LookupEnv(envVarUserConfigPath); ok {
+		userConfigSrc = expandPath(path)
+		if err := createUserConfigIfNeeded(userConfigSrc); err != nil {
+			return nil, err
+		}
+	}
+	if err := loadConfigs(sysConfigSrc, userConfigSrc, config); err != nil {
+		return nil, err
+	}
+	return config, nil
 }
 
-func LoadConfig(sysSrc, userSrc string, c *Config) error {
-	// Load system configuration
-	if err := loadConfig(sysSrc, c); err != nil {
-		return fmt.Errorf("error loading system configuration: %w", err)
-	}
-	if userSrc == "" {
-		return nil
-	}
-	sysSrvcs := c.Services
-	c.Services = make(map[string]*Service)
-	// Load user configuration
-	if err := loadConfig(userSrc, c); err != nil {
-		return fmt.Errorf("error loading user configuration: %w", err)
-	}
-	// Combine services configurations.
-	for k, v := range sysSrvcs {
-		c.Services[k] = v
-	}
-	return nil
-}
-
-func ExpandPath(path string) string {
+func expandPath(path string) string {
 	if !strings.Contains(path, "~") {
 		return path
 	}
@@ -130,12 +130,63 @@ func ExpandPath(path string) string {
 	return strings.ReplaceAll(path, "~", home)
 }
 
+func createUserConfigIfNeeded(path string) error {
+	if _, err := os.Stat(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("invalid user config file path: %w", err)
+	} else if err == nil {
+		return nil
+	}
+	imported, err := createUserConfigWithAcloudConfig(path)
+	if err != nil {
+		return fmt.Errorf("failed creating user config file with acloud config:%w", err)
+	}
+	if imported {
+		return nil
+	}
+	// Create empty user configuration file.
+	if err := os.MkdirAll(filepath.Dir(path), 0750); err != nil {
+		return fmt.Errorf("failed creating user config directory: %w", err)
+	}
+	f, err := os.Create(path)
+	if err != nil {
+		return fmt.Errorf("failed creating user config file: %w", err)
+	}
+	f.Close()
+	return nil
+}
+
+func createUserConfigWithAcloudConfig(ucPath string) (bool, error) {
+	// Create a new user configuration file importing existing acloud configuration.
+	acPath := expandPath(acloudConfigPath)
+	if _, err := os.Stat(acPath); errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	} else if err != nil {
+		return false, fmt.Errorf("failed to stat acloud config file: %w", err)
+	}
+	// It doesn't import acloud config when user says no via prompt.
+	if term.IsTerminal(int(os.Stdout.Fd())) {
+		const p = "No user configuration found, would you like to generate it by importing " +
+			"your acloud configuration?"
+		yes, err := PromptYesOrNo(os.Stdout, os.Stdin, p)
+		if err != nil {
+			return false, err
+		}
+		if !yes {
+			return false, nil
+		}
+	}
+	if err := importAcloudConfig(acPath, ucPath); err != nil {
+		return false, fmt.Errorf("failed importing acloud config file: %w", err)
+	}
+	return true, nil
+}
+
 type AcloudConfig struct {
 	Zone        string
 	MachineType string
 }
 
-func ImportAcloudConfig(src, dst string) error {
+func importAcloudConfig(src, dst string) error {
 	b, err := os.ReadFile(src)
 	if err != nil {
 		return fmt.Errorf("error reading %q: %w", src, err)
@@ -214,4 +265,32 @@ func loadConfig(src string, out *Config) error {
 		return err
 	}
 	return nil
+}
+
+func loadConfigs(sysSrc, userSrc string, c *Config) error {
+	// Load system configuration
+	if err := loadConfig(sysSrc, c); err != nil {
+		return fmt.Errorf("error loading system configuration: %w", err)
+	}
+	if userSrc == "" {
+		return nil
+	}
+	sysSrvcs := c.Services
+	c.Services = make(map[string]*Service)
+	// Load user configuration
+	if err := loadConfig(userSrc, c); err != nil {
+		return fmt.Errorf("error loading user configuration: %w", err)
+	}
+	// Combine services configurations.
+	for k, v := range sysSrvcs {
+		c.Services[k] = v
+	}
+	return nil
+}
+
+func baseConfig() *Config {
+	return &Config{
+		ConnectionControlDir: "~/.cvdr/connections",
+		KeepLogFilesDays:     30, // A default is needed to not keep forever
+	}
 }

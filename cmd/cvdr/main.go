@@ -15,85 +15,13 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
-	"path/filepath"
 
 	"github.com/google/cloud-android-orchestration/pkg/cli"
-	"golang.org/x/term"
 )
-
-const (
-	envVarSystemConfigPath = "CVDR_SYSTEM_CONFIG_PATH"
-	// User config values overrieds system config values.
-	envVarUserConfigPath = "CVDR_USER_CONFIG_PATH"
-)
-
-func loadInitialConfig() (*cli.Config, error) {
-	config := cli.BaseConfig()
-	sysConfigSrc, userConfigSrc := "", ""
-	if path, ok := os.LookupEnv(envVarSystemConfigPath); ok {
-		sysConfigSrc = cli.ExpandPath(path)
-	}
-	if path, ok := os.LookupEnv(envVarUserConfigPath); ok {
-		path = cli.ExpandPath(path)
-		_, statErr := os.Stat(path)
-		if errors.Is(statErr, os.ErrNotExist) {
-			imported, err := importAcloudConfig(path)
-			if err != nil {
-				return nil, err
-			}
-			if !imported {
-				// Create empty user configuration file.
-				dir := filepath.Dir(path)
-				if err := os.MkdirAll(dir, 0750); err != nil {
-					return nil, fmt.Errorf("failed creating user config directory: %w", err)
-				}
-				f, err := os.Create(path)
-				if err != nil {
-					return nil, fmt.Errorf("failed creating user config file: %w", err)
-				}
-				f.Close()
-			}
-			statErr = nil
-		}
-		if statErr != nil {
-			return nil, fmt.Errorf("invalid user config file path: %w", statErr)
-		}
-		userConfigSrc = path
-	}
-	if err := cli.LoadConfig(sysConfigSrc, userConfigSrc, config); err != nil {
-		return nil, err
-	}
-	return config, nil
-}
-
-func importAcloudConfig(dst string) (bool, error) {
-	// Create a new user configuration file importing existing acloud configuration.
-	acPath := cli.ExpandPath("~/.config/acloud/acloud.config")
-	if _, err := os.Stat(acPath); err == nil {
-		yes := true
-		// Prompt only on terminal.
-		if term.IsTerminal(int(os.Stdout.Fd())) {
-			const p = "No user configuration found, would you like to generate it by importing " +
-				"your acloud configuration?"
-			yes, err = cli.PromptYesOrNo(os.Stdout, os.Stdin, p)
-			if err != nil {
-				return false, err
-			}
-		}
-		if yes {
-			if err := cli.ImportAcloudConfig(acPath, dst); err != nil {
-				return false, fmt.Errorf("failed importing acloud config file: %w", err)
-			}
-			return true, nil
-		}
-	}
-	return false, nil
-}
 
 type cmdRunner struct{}
 
@@ -118,7 +46,7 @@ func (*cmdRunner) StartBgCommand(args ...string) ([]byte, error) {
 }
 
 func main() {
-	config, err := loadInitialConfig()
+	config, err := cli.LoadInitialConfig()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)

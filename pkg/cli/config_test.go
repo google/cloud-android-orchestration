@@ -33,11 +33,11 @@ Proxy = "proxy"
 Host = { GCP = { MinCPUPlatform = "cpu_platform" } }
 `
 	fname := tempFile(t, config)
-	c := BaseConfig()
+	c := baseConfig()
 	// This test is little more than a change detector, however it's still
 	// useful to detect config parsing errors early, such as those introduced by
 	// a rename of the config properties.
-	err := LoadConfig(fname, "", c)
+	err := loadConfig(fname, c)
 
 	if err != nil {
 		t.Errorf("failed to parse config: %v", err)
@@ -74,9 +74,9 @@ Authn = {
 }
 `
 	fname := tempFile(t, fullConfig)
-	c := BaseConfig()
+	c := baseConfig()
 
-	err := LoadConfig(fname, "", c)
+	err := loadConfig(fname, c)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,9 +92,9 @@ Authn = {
 func TestLoadConfigFileInvalidConfig(t *testing.T) {
 	const config = "foo_bar_baz  \"unknown field\""
 	fname := tempFile(t, config)
-	c := BaseConfig()
+	c := baseConfig()
 
-	err := LoadConfig(fname, "", c)
+	err := loadConfig(fname, c)
 
 	if err == nil {
 		t.Errorf("expected unknown config property to produce an error")
@@ -130,9 +130,9 @@ ServiceURL = "bar.com"
 			},
 		},
 	}
-	c := BaseConfig()
+	c := baseConfig()
 
-	err := LoadConfig(scf, ucf, c)
+	err := loadConfigs(scf, ucf, c)
 
 	if err != nil {
 		t.Fatal(err)
@@ -171,9 +171,9 @@ UserDefaultService = "bar"
 			},
 		},
 	}
-	c := BaseConfig()
+	c := baseConfig()
 
-	err := LoadConfig(scf, ucf, c)
+	err := loadConfigs(scf, ucf, c)
 
 	if err != nil {
 		t.Fatal(err)
@@ -237,13 +237,13 @@ machine_type: "foo-standard-4"
 		dstDir := t.TempDir()
 		dst := path.Join(dstDir, "config")
 
-		err := ImportAcloudConfig(source, dst)
+		err := importAcloudConfig(source, dst)
 
 		if err != nil {
 			t.Fatal(err)
 		}
 		c := &Config{}
-		if err := LoadConfig(dst, "", c); err != nil {
+		if err := loadConfig(dst, c); err != nil {
 			t.Fatal(err)
 		}
 		if diff := cmp.Diff(expected, c); diff != "" {
@@ -263,7 +263,7 @@ machine_type: "foo-standard-4"
 	dstDir := t.TempDir()
 	dst := path.Join(dstDir, "config")
 
-	err := ImportAcloudConfig(source, dst)
+	err := importAcloudConfig(source, dst)
 
 	if err == nil {
 		t.Errorf("expected error")

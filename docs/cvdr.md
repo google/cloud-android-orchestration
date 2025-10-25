@@ -90,6 +90,7 @@ For this to work, you have to build the .zip images using `m dist` in AOSP root 
 
 <br>
 On success, we expect the result like below.
+
 ```
 Creating Host........................................ OK
 Fetching main bundle artifacts....................... OK

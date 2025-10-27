@@ -7,7 +7,7 @@ validate_components
 cleanup() {
     cvdr host delete ${HOSTNAME[@]}
 }
-trap cleanup EXIT ERR
+trap cleanup EXIT
 for i in $(seq 0 1); do
     HOSTNAME[i]=$(cvdr host create)
     if [[ ! $(cvdr host list) =~ ${HOSTNAME[i]} ]]; then

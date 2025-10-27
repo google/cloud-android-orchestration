@@ -19,7 +19,7 @@ HOSTNAME=$(cvdr host create)
 cleanup() {
     cvdr host delete ${HOSTNAME}
 }
-trap cleanup EXIT ERR
+trap cleanup EXIT
 
 cvdr create \
     --host=${HOSTNAME} \

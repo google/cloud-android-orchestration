@@ -367,6 +367,7 @@ func (m *DockerInstanceManager) createDockerVolumeIfNeeded(ctx context.Context, 
 func (m *DockerInstanceManager) createDockerContainer(ctx context.Context, user accounts.User) (string, error) {
 	config := &container.Config{
 		AttachStdin: true,
+		Env:         []string{"NVIDIA_DRIVER_CAPABILITIES=all"},
 		Image:       m.Config.Docker.DockerImageName,
 		Tty:         true,
 		Labels:      dockerLabelsDict(user),
@@ -380,6 +381,15 @@ func (m *DockerInstanceManager) createDockerContainer(ctx context.Context, user 
 			},
 		},
 		Privileged: true,
+		Resources: container.Resources{
+			DeviceRequests: []container.DeviceRequest{
+				{
+					Count:        -1,
+					Capabilities: [][]string{{"gpu"}},
+				},
+			},
+		},
+		Runtime: "nvidia",
 	}
 	createRes, err := m.Client.ContainerCreate(ctx, config, hostConfig, nil, nil, "")
 	if err != nil {

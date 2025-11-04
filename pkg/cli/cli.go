@@ -313,34 +313,35 @@ func (c *command) Parent() *command {
 
 func WriteListCVDsOutput(w io.Writer, hosts []*RemoteHost) {
 	for _, host := range hosts {
-		fmt.Fprintln(w, hostOutput(host))
-		if len(host.CVDs) == 0 {
-			fmt.Fprintln(w, " ~~Empty~~ ")
-			fmt.Fprintln(w, "")
-			continue
-		}
+		hostOutput(w, host)
+		cvdMap := make(map[string][]*RemoteCVD)
 		for _, cvd := range host.CVDs {
-			lines := cvdOutput(host, cvd)
-			for _, l := range lines {
-				fmt.Fprintln(w, "  "+l)
+			cvdMap[cvd.Group] = append(cvdMap[cvd.Group], cvd)
+		}
+		for group, cvds := range cvdMap {
+			groupOutput(w, group)
+			for _, cvd := range cvds {
+				cvdOutput(w, host, cvd)
 			}
-			fmt.Fprintln(w)
 		}
 	}
 }
 
-func hostOutput(h *RemoteHost) string {
-	return fmt.Sprintf("%s (%s/)", h.Name, h.ServiceURL)
+func hostOutput(w io.Writer, h *RemoteHost) {
+	fmt.Fprintf(w, "Host: %s\n", h.Name)
+	fmt.Fprintf(w, "  WebUI: %s/\n", h.ServiceURL)
 }
 
-func cvdOutput(h *RemoteHost, c *RemoteCVD) []string {
-	return []string{
-		fmt.Sprintf("%s/%s", c.Group, c.Name),
-		"Status: " + c.Status,
-		"ADB: " + adbStateStr(c),
-		"Displays: " + fmt.Sprintf("%v", c.Displays),
-		"Logs: " + fmt.Sprintf("%s/cvds/%s/%s/logs/", h.ServiceURL, c.Group, c.Name),
-	}
+func groupOutput(w io.Writer, group string) {
+	fmt.Fprintf(w, "  Group: %s\n", group)
+}
+
+func cvdOutput(w io.Writer, h *RemoteHost, c *RemoteCVD) {
+	fmt.Fprintf(w, "    Instance: %s\n", c.Name)
+	fmt.Fprintf(w, "      Status: %s\n", c.Status)
+	fmt.Fprintf(w, "      ADB: %s\n", adbStateStr(c))
+	fmt.Fprintf(w, "      Displays: %v\n", c.Displays)
+	fmt.Fprintf(w, "      Logs: %s/cvds/%s/%s/logs/\n", h.ServiceURL, c.Group, c.Name)
 }
 
 func adbStateStr(c *RemoteCVD) string {

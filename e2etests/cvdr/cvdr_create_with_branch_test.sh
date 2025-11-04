@@ -18,12 +18,14 @@ cvdr create \
 # Check the output of cvdr list
 # TODO(b/448209030): cvdr list should print proper ADB connection status.
 ACTUAL_OUTPUT=$(cvdr list --host ${HOSTNAME})
-EXPECTED_OUTPUT="${HOSTNAME} (http://localhost:8080/v1/zones/local/hosts/${HOSTNAME}/)
-  cvd/1
-  Status: Running
-  ADB: not connected
-  Displays: [720 x 1280 ( 320 )]
-  Logs: http://localhost:8080/v1/zones/local/hosts/${HOSTNAME}/cvds/cvd/1/logs/"
+EXPECTED_OUTPUT="Host: ${HOSTNAME}
+  WebUI: http://localhost:8080/v1/zones/local/hosts/${HOSTNAME}/
+  Group: cvd
+    Instance: 1
+      Status: Running
+      ADB: not connected
+      Displays: [720 x 1280 ( 320 )]
+      Logs: http://localhost:8080/v1/zones/local/hosts/${HOSTNAME}/cvds/cvd/1/logs/"
 diff <(echo ${EXPECTED_OUTPUT}) <(echo ${ACTUAL_OUTPUT})
 
 # Check ADB connection

@@ -38,16 +38,12 @@ import (
 )
 
 type RemoteCVDLocator struct {
-	Host string `json:"host"`
-	// Identifier within the whole fleet.
-	ID string `json:"id"`
+	Host  string `json:"host"`
+	Group string `json:"group"`
+	Name  string `json:"name"`
 	// `WebRTCDeviceID` is the identifier used for setting up the adb connections. It
 	// contains the group name and the device name, eg: "cvd-1_1".
 	WebRTCDeviceID string `json:"webrtc_device_id"`
-}
-
-func (l *RemoteCVDLocator) Group() string {
-	return strings.Split(l.ID, "/")[0]
 }
 
 type RemoteCVD struct {
@@ -67,7 +63,8 @@ func NewRemoteCVD(host string, cvd *hoapi.CVD) *RemoteCVD {
 	return &RemoteCVD{
 		RemoteCVDLocator: RemoteCVDLocator{
 			Host:           host,
-			ID:             cvd.ID(),
+			Group:          cvd.Group,
+			Name:           cvd.Name,
 			WebRTCDeviceID: cvd.WebRTCDeviceID,
 		},
 		Status:   cvd.Status,

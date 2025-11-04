@@ -335,11 +335,11 @@ func hostOutput(h *RemoteHost) string {
 
 func cvdOutput(h *RemoteHost, c *RemoteCVD) []string {
 	return []string{
-		c.ID,
+		fmt.Sprintf("%s/%s", c.Group, c.Name),
 		"Status: " + c.Status,
 		"ADB: " + adbStateStr(c),
 		"Displays: " + fmt.Sprintf("%v", c.Displays),
-		"Logs: " + fmt.Sprintf("%s/cvds/%s/logs/", h.ServiceURL, c.ID),
+		"Logs: " + fmt.Sprintf("%s/cvds/%s/%s/logs/", h.ServiceURL, c.Group, c.Name),
 	}
 }
 
@@ -1190,7 +1190,7 @@ func promptSingleGroupNameSelection(c *command, srvClient client.Client, control
 	cvds := flattenCVDs(hosts)
 	names := []string{}
 	for _, e := range cvds {
-		names = append(names, e.Group())
+		names = append(names, e.Group)
 	}
 	sel, err := PromptSelectionFromSliceString(c, names, Single)
 	if err != nil {

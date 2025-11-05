@@ -128,8 +128,6 @@ const (
 )
 
 const (
-	ConnectCommandName                  = "connect"
-	DisconnectCommandName               = "disconnect"
 	ConnectionWebRTCAgentCommandName    = "webrtc"
 	ConnectionWebSocketAgentCommandName = "websocket"
 )
@@ -446,7 +444,7 @@ func NewCVDRemoteCommand(o *CommandOptions) *CVDRemoteCommand {
 	flags := &ServiceFlags{RootFlags: &RootFlags{}}
 	rootCmd := &cobra.Command{
 		Use:               "cvdr",
-		Short:             "Manages Cuttlefish Virtual Devices (CVDs) in the cloud.",
+		Short:             "Manage Cuttlefish Virtual Devices (CVDs) remotely.",
 		SilenceUsage:      true,
 		SilenceErrors:     true,
 		CompletionOptions: cobra.CompletionOptions{DisableDefaultCmd: true},
@@ -513,7 +511,7 @@ func (c *CVDRemoteCommand) Execute() error {
 func hostCommand(opts *subCommandOpts) *cobra.Command {
 	host := &cobra.Command{
 		Use:   "host",
-		Short: "Work with hosts",
+		Short: "Manage hosts",
 	}
 	host.AddCommand(hostCreateCommand(opts))
 	host.AddCommand(hostListCommand(opts))
@@ -526,7 +524,7 @@ func hostCreateCommand(opts *subCommandOpts) *cobra.Command {
 	createFlags := &CreateHostFlags{ServiceFlags: opts.ServiceFlags, CreateHostOpts: &CreateHostOpts{}}
 	create := &cobra.Command{
 		Use:     "create",
-		Short:   "Creates a host.",
+		Short:   "Create a host",
 		PreRunE: preRunE(createFlags, &opts.ServiceFlags.Service, &opts.InitialConfig),
 		RunE: func(c *cobra.Command, args []string) error {
 			configs, err := parseAcceleratorFlag(acceleratorFlagValues)
@@ -551,7 +549,7 @@ func hostCreateCommand(opts *subCommandOpts) *cobra.Command {
 func hostListCommand(opts *subCommandOpts) *cobra.Command {
 	list := &cobra.Command{
 		Use:     "list",
-		Short:   "Lists hosts.",
+		Short:   "List hosts",
 		PreRunE: preRunE(opts.ServiceFlags, &opts.ServiceFlags.Service, &opts.InitialConfig),
 		RunE: func(c *cobra.Command, args []string) error {
 			return runListHostCommand(c, opts.ServiceFlags, opts)
@@ -562,8 +560,8 @@ func hostListCommand(opts *subCommandOpts) *cobra.Command {
 
 func hostDeleteCommand(opts *subCommandOpts) *cobra.Command {
 	del := &cobra.Command{
-		Use:     "delete <foo> <bar> <baz>",
-		Short:   "Delete hosts.",
+		Use:     "delete [HOST...]",
+		Short:   "Delete hosts",
 		PreRunE: preRunE(opts.ServiceFlags, &opts.ServiceFlags.Service, &opts.InitialConfig),
 		RunE: func(c *cobra.Command, args []string) error {
 			return runDeleteHostsCommand(c, args, opts.ServiceFlags, opts)
@@ -594,7 +592,7 @@ func createCommand(opts *subCommandOpts) *cobra.Command {
 	}
 	create := &cobra.Command{
 		Use:     "create [config.json]",
-		Short:   "Creates a CVD",
+		Short:   "Create a CVD group with CVD instances",
 		PreRunE: preRunE(createFlags, &opts.ServiceFlags.Service, &opts.InitialConfig),
 		RunE: func(c *cobra.Command, args []string) error {
 			configs, err := parseAcceleratorFlag(gcpAcceleratorFlagValues)
@@ -705,7 +703,7 @@ func listCommand(opts *subCommandOpts) *cobra.Command {
 	listFlags := &ListCVDsFlags{ServiceFlags: opts.ServiceFlags}
 	list := &cobra.Command{
 		Use:     "list",
-		Short:   "List CVDs",
+		Short:   "List CVD groups and their instances",
 		PreRunE: preRunE(listFlags, &opts.ServiceFlags.Service, &opts.InitialConfig),
 		RunE: func(c *cobra.Command, args []string) error {
 			return runListCVDsCommand(c, listFlags, opts)
@@ -719,7 +717,7 @@ func bugreportCommand(opts *subCommandOpts) *cobra.Command {
 	brFlags := &BugreportFlags{ServiceFlags: opts.ServiceFlags}
 	br := &cobra.Command{
 		Use:     "bugreport [--host HOST [--group GROUP]]",
-		Short:   "Pull cvd runtime artifacts",
+		Short:   "Pull runtime artifacts of a CVD group",
 		PreRunE: preRunE(opts.ServiceFlags, &opts.ServiceFlags.Service, &opts.InitialConfig),
 		RunE: func(c *cobra.Command, args []string) error {
 			return runBugreportCommand(c, brFlags, opts)
@@ -733,8 +731,8 @@ func bugreportCommand(opts *subCommandOpts) *cobra.Command {
 func deleteCommand(opts *subCommandOpts) *cobra.Command {
 	delFlags := &DeleteCVDFlags{ServiceFlags: opts.ServiceFlags}
 	del := &cobra.Command{
-		Use:     "delete [--host=HOST] [id]",
-		Short:   "Deletes cvd instance",
+		Use:     "delete --host=HOST GROUP",
+		Short:   "Delete a CVD group",
 		PreRunE: preRunE(delFlags, &opts.ServiceFlags.Service, &opts.InitialConfig),
 		RunE: func(c *cobra.Command, args []string) error {
 			return runDeleteCVDCommand(c, args, delFlags, opts)
@@ -748,8 +746,8 @@ func deleteCommand(opts *subCommandOpts) *cobra.Command {
 func stopCommand(opts *subCommandOpts) *cobra.Command {
 	stopFlags := &StopCVDFlags{ServiceFlags: opts.ServiceFlags}
 	stop := &cobra.Command{
-		Use:     "stop --host=HOST --group=GROUP --name=NAME",
-		Short:   "Stops a running instance",
+		Use:     "stop --host=HOST --group=GROUP --name=INSTANCE",
+		Short:   "Stop a running CVD instance",
 		PreRunE: preRunE(stopFlags, &opts.ServiceFlags.Service, &opts.InitialConfig),
 		RunE: func(c *cobra.Command, args []string) error {
 			return runStopCVDCommand(c, args, stopFlags, opts)
@@ -767,8 +765,8 @@ func stopCommand(opts *subCommandOpts) *cobra.Command {
 func startCommand(opts *subCommandOpts) *cobra.Command {
 	startFlags := &StartCVDFlags{ServiceFlags: opts.ServiceFlags}
 	start := &cobra.Command{
-		Use:     "start --host=HOST --group=GROUP --name=NAME",
-		Short:   "Start a stopped instance",
+		Use:     "start --host=HOST --group=GROUP --name=INSTANCE",
+		Short:   "Start a stopped CVD instance",
 		PreRunE: preRunE(startFlags, &opts.ServiceFlags.Service, &opts.InitialConfig),
 		RunE: func(c *cobra.Command, args []string) error {
 			return runStartCVDCommand(c, args, startFlags, opts)
@@ -787,8 +785,8 @@ func startCommand(opts *subCommandOpts) *cobra.Command {
 func snapshotCommand(opts *subCommandOpts) *cobra.Command {
 	snapshotFlags := &SnapshotCVDFlags{ServiceFlags: opts.ServiceFlags}
 	snapshot := &cobra.Command{
-		Use:     "snapshot --host=HOST --group=GROUP --name=NAME",
-		Short:   "Snapshot a device",
+		Use:     "snapshot --host=HOST --group=GROUP --name=INSTANCE",
+		Short:   "Snapshot a CVD instance",
 		PreRunE: preRunE(snapshotFlags, &opts.ServiceFlags.Service, &opts.InitialConfig),
 		RunE: func(c *cobra.Command, args []string) error {
 			return runSnapshotCVDCommand(c, args, snapshotFlags, opts)
@@ -806,8 +804,8 @@ func snapshotCommand(opts *subCommandOpts) *cobra.Command {
 func resetCommand(opts *subCommandOpts) *cobra.Command {
 	resetFlags := &ResetHostFlags{ServiceFlags: opts.ServiceFlags}
 	reset := &cobra.Command{
-		Use:     "reset --host=HOST [-y]",
-		Short:   "Reset all devices in a host",
+		Use:     "reset --host=HOST",
+		Short:   "Reset all CVD instances and CVD groups in a host",
 		PreRunE: preRunE(resetFlags, &opts.ServiceFlags.Service, &opts.InitialConfig),
 		RunE: func(c *cobra.Command, args []string) error {
 			return runResetHostCommand(c, args, resetFlags, opts)
@@ -831,8 +829,8 @@ func connectionCommands(opts *subCommandOpts) []*cobra.Command {
 
 func connectCommand(connFlags *ConnectFlags, opts *subCommandOpts) *cobra.Command {
 	connect := &cobra.Command{
-		Use:     ConnectCommandName,
-		Short:   "(Re)Connects to a CVD and tunnels ADB messages",
+		Use:     "connect",
+		Short:   "Establish ADB connections to CVD instances",
 		PreRunE: preRunE(connFlags, &opts.ServiceFlags.Service, &opts.InitialConfig),
 		RunE: func(c *cobra.Command, args []string) error {
 			return runConnectCommand(connFlags, &command{c, &connFlags.Verbose}, args, opts)
@@ -848,8 +846,8 @@ func connectCommand(connFlags *ConnectFlags, opts *subCommandOpts) *cobra.Comman
 
 func disconnectCommand(connFlags *ConnectFlags, opts *subCommandOpts) *cobra.Command {
 	disconnect := &cobra.Command{
-		Use:     fmt.Sprintf("%s <foo> <bar> <baz>", DisconnectCommandName),
-		Short:   "Disconnect (ADB) from CVD",
+		Use:     "disconnect",
+		Short:   "Terminate established ADB connections to CVD instances",
 		PreRunE: preRunE(connFlags, &opts.ServiceFlags.Service, &opts.InitialConfig),
 		RunE: func(c *cobra.Command, args []string) error {
 			return runDisconnectCommand(connFlags, &command{c, &connFlags.Verbose}, args, opts)
@@ -1094,7 +1092,7 @@ func runDeleteCVDCommand(c *cobra.Command, args []string, flags *DeleteCVDFlags,
 		return err
 	}
 	if len(args) == 0 {
-		return errors.New("missing id")
+		return errors.New("missing group")
 	}
 	if len(args) > 1 {
 		return errors.New("deleting multiple instances is not supported yet")

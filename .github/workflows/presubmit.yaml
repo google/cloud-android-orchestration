@@ -135,6 +135,8 @@ jobs:
         sudo apt-get install adb
         adb devices
     - name: Run E2E tests
+      id: run_e2e_tests
+      continue-on-error: true
       run: |
         cd e2etests
         # TODO(b/383428636): Running E2E tests in parallel requires enabling
@@ -146,3 +148,6 @@ jobs:
           --test_env=CVDR_PATH=$(which cvdr) \
           --test_env=CVDR_CONFIG_PATH=$(realpath -s ../scripts/on-premises/single-server/cvdr.toml) \
           --test_output=errors
+    - name: Log of cloud orchestrator
+      if: ${{ steps.run_e2e_tests.outcome == 'failure' }}
+      run: docker logs $(docker ps -q --filter ancestor=cuttlefish-cloud-orchestrator)

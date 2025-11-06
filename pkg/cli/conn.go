@@ -70,11 +70,11 @@ func EnsureConnDirsExist(controlDir string) error {
 func DisconnectCVD(controlDir string, cvd RemoteCVDLocator, status ConnStatus) error {
 	conn, err := net.Dial("unixpacket", fmt.Sprintf("%s/%s", controlDir, ControlSocketName(cvd, status)))
 	if err != nil {
-		return fmt.Errorf("failed to connect to %s/%s's agent: %w", cvd.Host, cvd.WebRTCDeviceID, err)
+		return fmt.Errorf("failed to connect to %s/%s/%s's agent: %w", cvd.Host, cvd.Group, cvd.Name, err)
 	}
 	_, err = conn.Write([]byte(stopCmd))
 	if err != nil {
-		return fmt.Errorf("failed to send stop command to %s/%s: %w", cvd.Host, cvd.WebRTCDeviceID, err)
+		return fmt.Errorf("failed to send stop command to %s/%s/%s: %w", cvd.Host, cvd.Group, cvd.Name, err)
 	}
 	return nil
 }
@@ -380,7 +380,7 @@ func NewConnController(
 	logger.Printf("Connecting to instance %s of group %s in host %s", cvd.Name, cvd.Group, cvd.Host)
 	f, err := NewForwarder(logger)
 	if err != nil {
-		return nil, fmt.Errorf("failed to instantiate ADB forwarder for %q: %w", cvd.WebRTCDeviceID, err)
+		return nil, fmt.Errorf("failed to instantiate ADB forwarder for %s/%s: %w", cvd.Group, cvd.Name, err)
 	}
 
 	tc := &ConnController{
@@ -394,7 +394,7 @@ func NewConnController(
 	}
 	conn, err := srvClient.HostClient(cvd.Host).ConnectWebRTC(cvd.WebRTCDeviceID, tc, logger.Writer(), opts)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to %q: %w", cvd.WebRTCDeviceID, err)
+		return nil, fmt.Errorf("failed to connect to %s/%s: %w", cvd.Group, cvd.Name, err)
 	}
 	tc.webrtcConn = conn
 	// TODO(jemoreira): close everything except the relevant data channels.
@@ -408,7 +408,7 @@ func NewConnController(
 	if err != nil {
 		f.StopForwarding(FwdFailed)
 		tc.webrtcConn.Close()
-		return nil, fmt.Errorf("control socket creation failed for %q: %w", cvd.WebRTCDeviceID, err)
+		return nil, fmt.Errorf("control socket creation failed for %s/%s: %w", cvd.Group, cvd.Name, err)
 	}
 	tc.control = control
 
@@ -416,23 +416,23 @@ func NewConnController(
 }
 
 func (tc *ConnController) OnADBDataChannel(dc *webrtc.DataChannel) {
-	tc.logger.Printf("ADB data channel to %q changed state: %v\n", tc.cvd.WebRTCDeviceID, dc.ReadyState())
+	tc.logger.Printf("ADB data channel to %s/%s changed state: %v\n", tc.cvd.Group, tc.cvd.Name, dc.ReadyState())
 	tc.adbForwarder.OnDataChannel(dc)
 }
 
 func (tc *ConnController) OnError(err error) {
 	tc.adbForwarder.StopForwarding(FwdFailed)
-	tc.logger.Printf("Error on webrtc connection to %q: %v\n", tc.cvd.WebRTCDeviceID, err)
+	tc.logger.Printf("Error on webrtc connection to %s/%s: %v\n", tc.cvd.Group, tc.cvd.Name, err)
 }
 
 func (tc *ConnController) OnFailure() {
 	tc.adbForwarder.StopForwarding(FwdFailed)
-	tc.logger.Printf("WebRTC connection to %q set to failed state", tc.cvd.WebRTCDeviceID)
+	tc.logger.Printf("WebRTC connection to %s/%s set to failed state", tc.cvd.Group, tc.cvd.Name)
 }
 
 func (tc *ConnController) OnClose() {
 	tc.adbForwarder.StopForwarding(FwdStopped)
-	tc.logger.Printf("WebRTC connection to %q closed", tc.cvd.WebRTCDeviceID)
+	tc.logger.Printf("WebRTC connection to %s/%s closed", tc.cvd.Group, tc.cvd.Name)
 }
 
 func (tc *ConnController) Stop() {
@@ -556,7 +556,7 @@ func logsDir(controlDir string) string {
 func createLogger(controlDir string, dev RemoteCVDLocator) (*log.Logger, error) {
 	logsDir := logsDir(controlDir)
 	// The name looks like 123456_us-central1-c_cf-12345-12345_cvd-1.log
-	path := fmt.Sprintf("%s/%d_%s_%s.log", logsDir, time.Now().Unix(), dev.Host, dev.WebRTCDeviceID)
+	path := fmt.Sprintf("%s/%d_%s_%s_%s.log", logsDir, time.Now().Unix(), dev.Host, dev.Group, dev.Name)
 	logsFile, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0660)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create log file: %w", err)

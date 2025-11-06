@@ -41,8 +41,7 @@ type RemoteCVDLocator struct {
 	Host  string `json:"host"`
 	Group string `json:"group"`
 	Name  string `json:"name"`
-	// `WebRTCDeviceID` is the identifier used for setting up the adb connections. It
-	// contains the group name and the device name, eg: "cvd-1_1".
+	// It contains the group name and the device name, eg: "cvd-1_1".
 	WebRTCDeviceID string `json:"webrtc_device_id"`
 }
 

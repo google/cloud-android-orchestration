@@ -15,7 +15,6 @@
 package cli
 
 import (
-	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -24,7 +23,6 @@ import (
 	"math"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"os/user"
 	"strconv"
@@ -1537,44 +1535,13 @@ func acceptADBConnection(opts *subCommandOpts, c *command, l net.Listener, adbPo
 }
 
 func connectToDeviceADB(flags *ConnectFlags, c *command, opts *subCommandOpts, device string) (io.ReadWriteCloser, error) {
-	var wsConn *websocket.Conn
-	serviceURL := flags.ServiceURL
-	if flags.host == "none" {
-		// Connect to ADB proxy WebSocket directly by using serviceURL as Operator URL.
-		//   wss://127.0.0.1:1443/devices/cvd-1/adb
-		url, err := url.Parse(serviceURL)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse URL %s: %w", serviceURL, err)
-		}
-		switch p := &url.Scheme; *p {
-		case "https":
-			*p = "wss"
-		case "http":
-			*p = "ws"
-		default:
-			return nil, fmt.Errorf("unknown scheme %s", *p)
-		}
-		url = url.JoinPath("devices", device, "adb")
-		dialer := websocket.Dialer{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
-			},
-		}
-		wsConn, _, err = dialer.Dial(url.String(), nil)
-		if err != nil {
-			return nil, fmt.Errorf("failed to connect WebSocket %s: %w", url.String(), err)
-		}
-	} else {
-		// Connect to the ADB WebSocket using Host Orchestrator service client.
-		// This is for normal scenario (HO behind CO).
-		srvClient, err := newClient(opts.InitialConfig, flags.ServiceFlags, c.Command)
-		if err != nil {
-			return nil, err
-		}
-		wsConn, err = srvClient.HostClient(flags.host).ConnectADBWebSocket(device)
-		if err != nil {
-			return nil, err
-		}
+	srvClient, err := newClient(opts.InitialConfig, flags.ServiceFlags, c.Command)
+	if err != nil {
+		return nil, err
+	}
+	wsConn, err := srvClient.HostClient(flags.host).ConnectADBWebSocket(device)
+	if err != nil {
+		return nil, err
 	}
 	return newWsIoWrapper(c, wsConn), nil
 }

@@ -148,6 +148,11 @@ jobs:
           --test_env=CVDR_PATH=$(which cvdr) \
           --test_env=CVDR_CONFIG_PATH=$(realpath -s ../scripts/on-premises/single-server/cvdr.toml) \
           --test_output=errors
-    - name: Log of cloud orchestrator
+    - name: Log of cloud orchestrator with error
       if: ${{ steps.run_e2e_tests.outcome == 'failure' }}
-      run: docker logs $(docker ps -q --filter ancestor=cuttlefish-cloud-orchestrator)
+      run: |
+        docker logs $(docker ps -q --filter ancestor=cuttlefish-cloud-orchestrator)
+        # Make this job as failure, when this job executes this step. This step
+        # exists for printing error logs of Cloud Orchestrator when E2E tests
+        # are failed.
+        exit 1

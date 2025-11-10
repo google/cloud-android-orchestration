@@ -387,16 +387,9 @@ func (m *DockerInstanceManager) deleteDockerContainer(ctx context.Context, user 
 	return nil
 }
 
-func (m *DockerInstanceManager) deleteDockerVolumeIfNeeded(ctx context.Context, user accounts.User) error {
-	containerListOpts := container.ListOptions{Filters: dockerFilter(user)}
-	listRes, err := m.Client.ContainerList(ctx, containerListOpts)
-	if err != nil {
-		return fmt.Errorf("failed to list docker containers: %w", err)
-	}
-	if len(listRes) > 0 {
-		return nil
-	}
+const volumeInspectRetryCount = 3
 
+func (m *DockerInstanceManager) deleteDockerVolumeIfNeeded(ctx context.Context, user accounts.User) error {
 	mu := m.getRWMutex(user)
 	if locked := mu.TryLock(); !locked {
 		// If it can't acquire lock on this mutex, there's ongoing host
@@ -405,6 +398,15 @@ func (m *DockerInstanceManager) deleteDockerVolumeIfNeeded(ctx context.Context, 
 		return nil
 	}
 	defer mu.Unlock()
+
+	containerListOpts := container.ListOptions{Filters: dockerFilter(user)}
+	listRes, err := m.Client.ContainerList(ctx, containerListOpts)
+	if err != nil {
+		return fmt.Errorf("failed to list docker containers: %w", err)
+	}
+	if len(listRes) > 0 {
+		return nil
+	}
 	listOpts := volume.ListOptions{Filters: dockerFilter(user)}
 	volumeListRes, err := m.Client.VolumeList(ctx, listOpts)
 	if err != nil {
@@ -415,7 +417,14 @@ func (m *DockerInstanceManager) deleteDockerVolumeIfNeeded(ctx context.Context, 
 			return fmt.Errorf("failed to remove docker volume: %w", err)
 		}
 	}
-	return nil
+	// Ensure the deletion of docker volumes
+	for i := 0; i < volumeInspectRetryCount; i++ {
+		volumeListRes, err := m.Client.VolumeList(ctx, listOpts)
+		if err == nil && len(volumeListRes.Volumes) == 0 {
+			return nil
+		}
+	}
+	return fmt.Errorf("removed docker volume but still exists")
 }
 
 func (m *DockerInstanceManager) getRWMutex(user accounts.User) *sync.RWMutex {

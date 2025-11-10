@@ -72,12 +72,13 @@ type CVDRemoteCommand struct {
 }
 
 const (
-	serviceFlag    = "service"
-	hostFlag       = "host"
-	serviceURLFlag = "service_url"
-	zoneFlag       = "zone"
-	proxyFlag      = "proxy"
-	verboseFlag    = "verbose"
+	serviceFlag          = "service"
+	hostFlag             = "host"
+	serviceURLFlag       = "service_url"
+	zoneFlag             = "zone"
+	proxyFlag            = "proxy"
+	verboseFlag          = "verbose"
+	skipConfirmationFlag = "yes"
 )
 
 const (
@@ -147,8 +148,9 @@ type AsArgs interface {
 }
 
 type RootFlags struct {
-	Service string
-	Verbose bool
+	Service          string
+	Verbose          bool
+	SkipConfirmation bool
 }
 
 type ServiceFlags struct {
@@ -244,8 +246,7 @@ type SnapshotCVDFlags struct {
 
 type ResetHostFlags struct {
 	*ServiceFlags
-	Host             string
-	SkipConfirmation bool
+	Host string
 }
 
 type subCommandOpts struct {
@@ -257,9 +258,8 @@ type subCommandOpts struct {
 
 type ConnectFlags struct {
 	*ServiceFlags
-	host             string
-	group            string
-	skipConfirmation bool
+	host  string
+	group string
 	// Path to file containing the ICE configuration to be used in the underlaying WebRTC connection.
 	ice_config   string
 	connectAgent string
@@ -467,6 +467,7 @@ func NewCVDRemoteCommand(o *CommandOptions) *CVDRemoteCommand {
 	// Do not show a `help` command, users have always the `-h` and `--help` flags for help purpose.
 	rootCmd.SetHelpCommand(&cobra.Command{Hidden: true})
 	rootCmd.PersistentFlags().BoolVarP(&flags.Verbose, verboseFlag, "v", false, "Be verbose.")
+	rootCmd.PersistentFlags().BoolVarP(&flags.SkipConfirmation, skipConfirmationFlag, "y", false, "Skip confirmation")
 	subCmdOpts := &subCommandOpts{
 		ServiceFlags:   flags,
 		InitialConfig:  o.InitialConfig,
@@ -815,12 +816,11 @@ func resetCommand(opts *subCommandOpts) *cobra.Command {
 	}
 	reset.Flags().StringVar(&resetFlags.Host, hostFlag, "", "Host name")
 	reset.MarkFlagRequired(hostFlag)
-	reset.Flags().BoolVarP(&resetFlags.SkipConfirmation, "yes", "y", false, "Skip confirmation")
 	return reset
 }
 
 func connectionCommands(opts *subCommandOpts) []*cobra.Command {
-	connFlags := &ConnectFlags{ServiceFlags: opts.ServiceFlags, host: "", skipConfirmation: false}
+	connFlags := &ConnectFlags{ServiceFlags: opts.ServiceFlags, host: ""}
 	return []*cobra.Command{
 		connectCommand(connFlags, opts),
 		disconnectCommand(connFlags, opts),
@@ -840,8 +840,6 @@ func connectCommand(connFlags *ConnectFlags, opts *subCommandOpts) *cobra.Comman
 	}
 	connect.Flags().StringVar(&connFlags.host, hostFlag, "", "Specifies the host")
 	connect.Flags().StringVar(&connFlags.group, groupFlag, "", "Instances group name")
-	connect.Flags().BoolVarP(&connFlags.skipConfirmation, "yes", "y", false,
-		"Don't ask for confirmation for closing multiple connections.")
 	connect.Flags().StringVar(&connFlags.ice_config, iceConfigFlag, "", iceConfigFlagDesc)
 	connect.Flags().StringVar(&connFlags.connectAgent, connectAgentFlag, opts.InitialConfig.DefaultService().ConnectAgent, "Connect agent type")
 	return connect
@@ -858,8 +856,6 @@ func disconnectCommand(connFlags *ConnectFlags, opts *subCommandOpts) *cobra.Com
 	}
 	disconnect.Flags().StringVar(&connFlags.host, hostFlag, "", "Specifies the host")
 	disconnect.Flags().StringVar(&connFlags.group, groupFlag, "", "Instances group name")
-	disconnect.Flags().BoolVarP(&connFlags.skipConfirmation, "yes", "y", false,
-		"Don't ask for confirmation for closing multiple connections.")
 	return disconnect
 }
 
@@ -1290,7 +1286,7 @@ func runConnectCommand(flags *ConnectFlags, c *command, args []string, opts *sub
 		selectList := flattenCVDs(hosts)
 		selectList = filterSlice(selectList, func(cvd *RemoteCVD) bool { return cvd.ConnStatus == nil })
 		// Confirmation is only necessary when the user didn't specify devices.
-		if len(selectList) > 1 && !flags.skipConfirmation {
+		if len(selectList) > 1 && !flags.SkipConfirmation {
 			toStr := func(c *RemoteCVD) string {
 				return fmt.Sprintf("%s/%s/%s", c.Host, c.Group, c.Name)
 			}
@@ -1738,7 +1734,7 @@ func runDisconnectCommand(flags *ConnectFlags, c *command, args []string, opts *
 			merr = multierror.Append(merr, fmt.Errorf("connection not found for %s/%s/%s", flags.host, flags.group, name))
 		}
 	}
-	if len(statuses) > 1 && !flags.skipConfirmation {
+	if len(statuses) > 1 && !flags.SkipConfirmation {
 		var err error
 		statuses, err = promptConnectionSelection(statuses, c)
 		if err != nil {

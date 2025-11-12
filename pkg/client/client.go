@@ -158,7 +158,15 @@ func (c *clientImpl) DeleteHosts(names []string) error {
 		wg.Add(1)
 		go func(name string) {
 			defer wg.Done()
-			if err := c.httpHelper.NewDeleteRequest("/hosts/" + name).JSONResDo(nil); err != nil {
+			var op apiv1.Operation
+			if err := c.httpHelper.NewDeleteRequest("/hosts/" + name).JSONResDo(&op); err != nil {
+				mu.Lock()
+				defer mu.Unlock()
+				merr = multierror.Append(merr, fmt.Errorf("delete host %q failed: %w", name, err))
+				return
+			}
+			ins := &apiv1.HostInstance{}
+			if err := c.waitForOperation(&op, ins); err != nil {
 				mu.Lock()
 				defer mu.Unlock()
 				merr = multierror.Append(merr, fmt.Errorf("delete host %q failed: %w", name, err))

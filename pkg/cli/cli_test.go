@@ -173,14 +173,14 @@ func TestBuildAgentCmdline(t *testing.T) {
 	flags := ConnectFlags{
 		ServiceFlags: &ServiceFlags{
 			RootFlags: &RootFlags{
-				Verbose: true, // verbose
+				SkipConfirmation: false,
+				Verbose:          true, // verbose
 			},
 			ServiceURL: "service url",
 			Zone:       "zone",
 			Proxy:      "http proxy",
 		},
-		host:             "host",
-		skipConfirmation: false,
+		host: "host",
 	}
 	device := "device"
 	args := buildAgentCmdArgs(&flags, device, ConnectionWebRTCAgentCommandName)

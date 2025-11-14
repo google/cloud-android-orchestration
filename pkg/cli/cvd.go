@@ -176,6 +176,9 @@ const uaEnvConfigTmplStr = `
       },
       "disk": {
         "default_build": "{{.Artifacts}}"
+      },
+      "graphics": {
+        "gpu_mode": "gfxstream"
       }
     }
   ]

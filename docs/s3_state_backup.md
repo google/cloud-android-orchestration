@@ -2,6 +2,59 @@
 
 This guide explains how to implement automatic S3 backup and restore of Cuttlefish device state using Host Orchestrator lifecycle hooks.
 
+## Implementation Options
+
+There are **two implementation approaches** available:
+
+### 1. **Go Implementation** (Recommended for Production)
+
+**Location:** `examples/s3-state-backup/go-implementation/`
+
+✅ **Pros:**
+- Type-safe, compile-time error checking
+- Fully unit testable with mock S3
+- Better error handling and retry logic
+- No AWS CLI dependency (smaller Docker image)
+- Built-in AWS SDK features (multipart upload, retries)
+- Production-grade performance and reliability
+
+❌ **Cons:**
+- Requires modifying Host Orchestrator source code
+- Needs Go compilation
+- More upfront development time
+
+**Best for:** Production deployments, long-term maintenance, high reliability requirements
+
+📖 **Documentation:** See `examples/s3-state-backup/go-implementation/README.md`
+
+### 2. **Bash Script Implementation** (Quick Prototyping)
+
+**Location:** `examples/s3-state-backup/hooks/`
+
+✅ **Pros:**
+- Simple, easy to understand
+- No recompilation needed
+- Quick to prototype and iterate
+- Familiar to most sysadmins
+
+❌ **Cons:**
+- Requires AWS CLI in Docker image
+- Error handling is clunky
+- Not unit testable
+- String manipulation is fragile
+
+**Best for:** MVPs, prototypes, proof-of-concepts, learning the architecture
+
+📖 **Documentation:** See this document below
+
+### Recommendation
+
+- **Start with bash** if you want to validate the concept quickly
+- **Migrate to Go** for production deployments
+- **Use Go from the start** if you have Go expertise and want production quality immediately
+
+---
+
 ## Architecture Overview
 
 ```

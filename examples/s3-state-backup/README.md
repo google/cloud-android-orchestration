@@ -1,12 +1,39 @@
 # S3 State Backup Example
 
-This directory contains example files for implementing S3 state backup for Cuttlefish devices.
+This directory contains example implementations for S3 state backup for Cuttlefish devices.
+
+## Implementation Choices
+
+### **Go Implementation** (Production-Ready) ⭐ Recommended
+
+**Location:** `go-implementation/`
+
+Production-quality Go implementation with:
+- Type-safe lifecycle hooks system
+- S3 state manager with AWS SDK v2
+- Unit tests and integration examples
+- No external dependencies (no AWS CLI needed)
+
+👉 **See: [go-implementation/README.md](go-implementation/README.md)**
+
+### **Bash Script Implementation** (Quick Prototyping)
+
+**Location:** `hooks/` + `conf.toml`
+
+Simple bash scripts for rapid prototyping:
+- Easy to understand and modify
+- Requires AWS CLI in Docker image
+- Good for learning the architecture
+
+👉 **Continue reading below**
+
+---
 
 ## Overview
 
 These examples demonstrate how to automatically backup and restore Cuttlefish device state (userdata, apps, settings) to Amazon S3 using lifecycle hooks in the Host Orchestrator.
 
-## Files
+## Bash Implementation Files
 
 - `hooks/cvd-hook-pre-create.sh` - Downloads device state from S3 before CVD creation
 - `hooks/cvd-hook-pre-delete.sh` - Uploads device state to S3 before CVD deletion

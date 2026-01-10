@@ -20,6 +20,7 @@ import (
 	"io"
 	"log"
 	"net/url"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -42,6 +43,15 @@ const DockerIMType IMType = "docker"
 type DockerIMConfig struct {
 	DockerImageName      string
 	HostOrchestratorPort int
+	// S3 State Backup Configuration (optional)
+	S3StateBackup *S3StateBackupConfig
+}
+
+type S3StateBackupConfig struct {
+	Enabled   bool
+	Bucket    string
+	Prefix    string
+	AWSRegion string
 }
 
 const (
@@ -365,11 +375,15 @@ func (m *DockerInstanceManager) createDockerVolumeIfNeeded(ctx context.Context, 
 }
 
 func (m *DockerInstanceManager) createDockerContainer(ctx context.Context, user accounts.User) (string, error) {
+	// Build environment variables
+	env := m.buildContainerEnv(user)
+
 	config := &container.Config{
 		AttachStdin: true,
 		Image:       m.Config.Docker.DockerImageName,
 		Tty:         true,
 		Labels:      dockerLabelsDict(user),
+		Env:         env,
 	}
 	hostConfig := &container.HostConfig{
 		Mounts: []mount.Mount{
@@ -402,6 +416,42 @@ func (m *DockerInstanceManager) createDockerContainer(ctx context.Context, user 
 		return "", fmt.Errorf("failed to start container execution %q: %w", strings.Join(execConfig.Cmd, " "), err)
 	}
 	return createRes.ID, nil
+}
+
+// buildContainerEnv creates environment variables for the host container
+func (m *DockerInstanceManager) buildContainerEnv(user accounts.User) []string {
+	env := []string{
+		fmt.Sprintf("CVD_USERNAME=%s", user.Username()),
+	}
+
+	// Add S3 state backup configuration if enabled
+	if m.Config.Docker.S3StateBackup != nil && m.Config.Docker.S3StateBackup.Enabled {
+		s3Config := m.Config.Docker.S3StateBackup
+		env = append(env,
+			fmt.Sprintf("CVD_S3_BUCKET=%s", s3Config.Bucket),
+			fmt.Sprintf("CVD_S3_PREFIX=%s", s3Config.Prefix),
+			fmt.Sprintf("AWS_REGION=%s", s3Config.AWSRegion),
+		)
+
+		// Pass AWS credentials from environment if available
+		// In production, use IAM roles instead of credentials
+		if awsAccessKey := getEnvOrEmpty("AWS_ACCESS_KEY_ID"); awsAccessKey != "" {
+			env = append(env, fmt.Sprintf("AWS_ACCESS_KEY_ID=%s", awsAccessKey))
+		}
+		if awsSecretKey := getEnvOrEmpty("AWS_SECRET_ACCESS_KEY"); awsSecretKey != "" {
+			env = append(env, fmt.Sprintf("AWS_SECRET_ACCESS_KEY=%s", awsSecretKey))
+		}
+		if awsSessionToken := getEnvOrEmpty("AWS_SESSION_TOKEN"); awsSessionToken != "" {
+			env = append(env, fmt.Sprintf("AWS_SESSION_TOKEN=%s", awsSessionToken))
+		}
+	}
+
+	return env
+}
+
+// getEnvOrEmpty returns the value of the environment variable or empty string if not set
+func getEnvOrEmpty(key string) string {
+	return os.Getenv(key)
 }
 
 func (m *DockerInstanceManager) deleteDockerContainer(ctx context.Context, user accounts.User, host string) error {

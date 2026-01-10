@@ -1,0 +1,43 @@
+# Example Cloud Orchestrator configuration with S3 state backup enabled
+# Copyright 2024 Google LLC
+
+WebStaticFilesPath = "web"
+CORSAllowedOrigins = []
+
+[AccountManager]
+Type = "unix"
+
+[SecretManager]
+Type = ""
+
+[EncryptionService]
+Type = "Fake"
+
+[DatabaseService]
+Type = "InMemory"
+
+[InstanceManager]
+Type = "docker"
+HostOrchestratorProtocol = "http"
+AllowSelfSignedHostSSLCertificate = true
+
+[InstanceManager.Docker]
+# Use your custom Docker image with lifecycle hooks
+DockerImageName = "myregistry.com/cuttlefish-orchestration-s3:latest"
+HostOrchestratorPort = 2080
+
+# S3 State Backup Configuration
+[InstanceManager.Docker.S3StateBackup]
+Enabled = true
+Bucket = "cuttlefish-device-states"
+Prefix = "states"
+AWSRegion = "us-west-2"
+
+# Note: AWS credentials should be provided via environment variables:
+# export AWS_ACCESS_KEY_ID="your-access-key"
+# export AWS_SECRET_ACCESS_KEY="your-secret-key"
+#
+# Or better yet, use IAM instance roles for production deployments
+
+[[WebRTC.IceServers]]
+URLs = ["stun:stun.l.google.com:19302"]

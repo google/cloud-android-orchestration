@@ -372,6 +372,7 @@ func (m *DockerInstanceManager) createDockerContainer(ctx context.Context, user 
 		Labels:      dockerLabelsDict(user),
 	}
 	hostConfig := &container.HostConfig{
+		CapAdd: []string{"NET_ADMIN"},
 		Mounts: []mount.Mount{
 			{
 				Type:   mount.TypeVolume,
@@ -379,7 +380,31 @@ func (m *DockerInstanceManager) createDockerContainer(ctx context.Context, user 
 				Target: uaMountTarget,
 			},
 		},
-		Privileged: true,
+		Resources: container.Resources{
+			Devices: []container.DeviceMapping{
+				{
+					PathOnHost:        "/dev/kvm",
+					PathInContainer:   "/dev/kvm",
+					CgroupPermissions: "rwm",
+				},
+				{
+					PathOnHost:        "/dev/net/tun",
+					PathInContainer:   "/dev/net/tun",
+					CgroupPermissions: "rwm",
+				},
+				{
+					PathOnHost:        "/dev/vhost-net",
+					PathInContainer:   "/dev/vhost-net",
+					CgroupPermissions: "rwm",
+				},
+				{
+					PathOnHost:        "/dev/vhost-vsock",
+					PathInContainer:   "/dev/vhost-vsock",
+					CgroupPermissions: "rwm",
+				},
+			},
+		},
+		SecurityOpt: []string{"seccomp=unconfined"},
 	}
 	createRes, err := m.Client.ContainerCreate(ctx, config, hostConfig, nil, nil, "")
 	if err != nil {

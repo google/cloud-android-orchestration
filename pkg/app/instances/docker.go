@@ -404,6 +404,7 @@ func (m *DockerInstanceManager) createDockerContainer(ctx context.Context, user 
 				},
 			},
 		},
+		// Without this option, an error occurs while launching Cuttlefish on docker instance.
 		SecurityOpt: []string{"seccomp=unconfined"},
 	}
 	createRes, err := m.Client.ContainerCreate(ctx, config, hostConfig, nil, nil, "")

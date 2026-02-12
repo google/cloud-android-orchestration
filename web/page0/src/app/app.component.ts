@@ -1,9 +1,10 @@
-import {Component, Injectable} from '@angular/core';
+import {Component, Injectable, ChangeDetectionStrategy} from '@angular/core';
 import {BUILD_VERSION} from '../version';
 import {RefreshService} from './refresh.service';
 
 @Injectable()
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   standalone: false,
   selector: 'app-root',
   templateUrl: './app.component.html',

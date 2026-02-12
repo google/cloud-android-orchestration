@@ -1,4 +1,4 @@
-import {Component, inject} from '@angular/core';
+import {Component, inject, ChangeDetectionStrategy} from '@angular/core';
 import {MatSnackBar} from '@angular/material/snack-bar';
 import {Router} from '@angular/router';
 import {BehaviorSubject} from 'rxjs';
@@ -10,6 +10,7 @@ import {validRuntimeListSelector} from '../store/selectors';
 import {Store} from '../store/store';
 import {AUTO_CREATE_HOST} from '../utils';
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   standalone: false,
   selector: 'app-create-env-view',
   templateUrl: './create-env-view.component.html',

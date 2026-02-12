@@ -1,4 +1,4 @@
-import {Component, inject} from '@angular/core';
+import {Component, inject, ChangeDetectionStrategy} from '@angular/core';
 import {FormBuilder, Validators} from '@angular/forms';
 import {
   ActivatedRoute,
@@ -28,6 +28,7 @@ import {runtimesLoadStatusSelector} from 'src/app/store/selectors';
 import {FetchService} from '../fetch.service';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   standalone: false,
   selector: 'app-register-runtime-view',
   templateUrl: './register-runtime-view.component.html',

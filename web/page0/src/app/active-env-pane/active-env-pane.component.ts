@@ -1,4 +1,4 @@
-import {Component, inject} from '@angular/core';
+import {Component, inject, ChangeDetectionStrategy} from '@angular/core';
 import {
   envCardListSelector,
   runtimesLoadStatusSelector,
@@ -8,6 +8,7 @@ import {RefreshService} from '../refresh.service';
 import {RuntimeViewStatus} from 'src/app/interface/runtime-interface';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   standalone: false,
   selector: 'app-active-env-pane',
   templateUrl: './active-env-pane.component.html',

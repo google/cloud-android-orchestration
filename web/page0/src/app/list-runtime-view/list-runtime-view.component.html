@@ -10,7 +10,7 @@
         routerLink="/register-runtime"
         matTooltip="Register a new runtime"
         class="view-action"
-      >
+        >
         Register
       </button>
       <button mat-button class="view-action" (click)="onClickRefresh()">
@@ -20,21 +20,26 @@
   </div>
 
   <mat-divider></mat-divider>
-  <mat-progress-bar
-    *ngIf="showProgressBar(status$ | async)"
-    mode="indeterminate"
-    aria-label="Loading runtimes data"
-  ></mat-progress-bar>
+  @if (showProgressBar(status$ | async)) {
+    <mat-progress-bar
+      mode="indeterminate"
+      aria-label="Loading runtimes data"
+    ></mat-progress-bar>
+  }
 
-  <div *ngIf="runtimes$ | async; let runtimeList">
-    <div *ngIf="runtimeList.length > 0; else none">
-      <li *ngFor="let runtime of runtimeList">
-        <app-runtime-card [runtimeAlias]="runtime.alias"></app-runtime-card>
-      </li>
+  @if (runtimes$ | async; as runtimeList) {
+    <div>
+      @if (runtimeList.length > 0) {
+        <div>
+          @for (runtime of runtimeList; track runtime) {
+            <li>
+              <app-runtime-card [runtimeAlias]="runtime.alias"></app-runtime-card>
+            </li>
+          }
+        </div>
+      } @else {
+        <h3>No runtime registered</h3>
+      }
     </div>
-
-    <ng-template #none>
-      <h3>No runtime registered</h3>
-    </ng-template>
-  </div>
+  }
 </section>

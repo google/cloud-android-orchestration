@@ -19,7 +19,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"regexp"
 	"testing"
 
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
@@ -28,19 +27,17 @@ import (
 )
 
 func TestDeleteHosts(t *testing.T) {
-	existingNames := map[string]struct{}{"bar": {}, "baz": {}}
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "DELETE" {
-			panic("unexpected method: " + r.Method)
-		}
-		re := regexp.MustCompile(`^/hosts/(.*)$`)
-		matches := re.FindStringSubmatch(r.URL.Path)
-		if len(matches) != 2 {
-			panic("unexpected path: " + r.URL.Path)
-		}
-		if _, ok := existingNames[matches[1]]; ok {
-			writeOK(w, "")
-		} else {
+		switch ep := r.Method + " " + r.URL.Path; ep {
+		case "DELETE /hosts/bar":
+			writeOK(w, apiv1.Operation{Name: "deletingbar"})
+		case "DELETE /hosts/baz":
+			writeOK(w, apiv1.Operation{Name: "deletingbaz"})
+		case "POST /operations/deletingbar/:wait":
+			writeOK(w, apiv1.HostInstance{Name: "bar"})
+		case "POST /operations/deletingbaz/:wait":
+			writeOK(w, apiv1.HostInstance{Name: "baz"})
+		default:
 			writeErr(w, 404)
 		}
 	}))

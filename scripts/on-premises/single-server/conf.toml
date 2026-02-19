@@ -26,7 +26,7 @@ HostOrchestratorProtocol = "http"
 AllowSelfSignedHostSSLCertificate = true
 
 [InstanceManager.Docker]
-DockerImageName = "cuttlefish-orchestration:latest"
+DockerImageName = "us-docker.pkg.dev/android-cuttlefish-artifacts/cuttlefish-orchestration/cuttlefish-orchestration:latest"
 HostOrchestratorPort = 2080
 
 [[WebRTC.IceServers]]

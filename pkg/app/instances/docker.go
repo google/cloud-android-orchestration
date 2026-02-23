@@ -42,6 +42,8 @@ const DockerIMType IMType = "docker"
 type DockerIMConfig struct {
 	DockerImageName      string
 	HostOrchestratorPort int
+	Cmd                  []string
+	Mounts               [][]string
 }
 
 const (
@@ -364,22 +366,64 @@ func (m *DockerInstanceManager) createDockerVolumeIfNeeded(ctx context.Context, 
 	return nil
 }
 
+func (m *DockerInstanceManager) setConfigMounts() ([]mount.Mount, error) {
+	// Config specifies no mounts. Caller should use default behavior.
+	if m.Config.Docker.Mounts == nil {
+		return nil, nil
+	}
+
+	mounts := []mount.Mount{}
+	for _, m := range m.Config.Docker.Mounts {
+		mounts = append(mounts, mount.Mount{
+			Type:   mount.TypeBind,
+			Source: m[0],
+			Target: m[1],
+		})
+	}
+
+	return mounts, nil
+}
+
 func (m *DockerInstanceManager) createDockerContainer(ctx context.Context, user accounts.User) (string, error) {
+	var entrypoint []string
+	cmd := m.Config.Docker.Cmd
+	// When the config specifies an explicit command, the entrypoint in the
+	// container should be suppressed, since we want to run the given
+	// command instead.
+	if cmd != nil {
+		entrypoint = []string{""}
+	}
 	config := &container.Config{
 		AttachStdin: true,
 		Image:       m.Config.Docker.DockerImageName,
 		Tty:         true,
 		Labels:      dockerLabelsDict(user),
+		Entrypoint:  entrypoint,
+		Cmd:         cmd,
 	}
-	hostConfig := &container.HostConfig{
-		CapAdd: []string{"NET_ADMIN"},
-		Mounts: []mount.Mount{
+
+	mounts, err := m.setConfigMounts()
+	if err != nil {
+		return "", err
+	}
+	if mounts == nil {
+		mounts = []mount.Mount{
 			{
 				Type:   mount.TypeVolume,
 				Source: uaVolumeName(user),
 				Target: uaMountTarget,
 			},
+		}
+	}
+
+	hostConfig := &container.HostConfig{
+		CapAdd: []string{
+			"NET_ADMIN",
+			"NET_RAW",
+			"NET_BIND_SERVICE",
 		},
+		Mounts:          mounts,
+		PublishAllPorts: true,
 		Resources: container.Resources{
 			Devices: []container.DeviceMapping{
 				{
@@ -414,6 +458,15 @@ func (m *DockerInstanceManager) createDockerContainer(ctx context.Context, user 
 	if err := m.Client.ContainerStart(ctx, createRes.ID, container.StartOptions{}); err != nil {
 		return "", fmt.Errorf("failed to start docker container: %w", err)
 	}
+
+	// TODO: configure the container to set chown on the mountpoint; don't
+	// exec to do it here.
+	// This doesn't make sense to do if we have our own set of mountpoints,
+	// so just stop here if we have mountpoints specified.
+	if m.Config.Docker.Mounts != nil {
+		return createRes.ID, nil
+	}
+
 	execConfig := container.ExecOptions{
 		Cmd:          []string{"chown", "httpcvd:httpcvd", uaMountTarget},
 		AttachStdout: false,

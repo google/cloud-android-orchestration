@@ -35,6 +35,7 @@ import (
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/client"
+	"github.com/docker/docker/errdefs"
 )
 
 const DockerIMType IMType = "docker"
@@ -470,6 +471,12 @@ func (m *DockerInstanceManager) deleteDockerVolumeIfNeeded(ctx context.Context, 
 	}
 	for _, volume := range volumeListRes.Volumes {
 		if err := m.Client.VolumeRemove(ctx, volume.Name, true); err != nil {
+			if errdefs.IsConflict(err) {
+				// Bypass conflict error when the volume is in use, as there's
+				// a race for deleting volume when deleting multiple hosts
+				// simultaneously.
+				continue
+			}
 			return fmt.Errorf("failed to remove docker volume: %w", err)
 		}
 	}

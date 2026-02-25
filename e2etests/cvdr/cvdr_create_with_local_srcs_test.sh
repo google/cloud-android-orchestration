@@ -4,12 +4,12 @@ set -e -x
 source ${TEST_SRCDIR}/_main/cvdr/common_utils.sh
 validate_components
 
-CVD_HOST_PKG=${TEST_SRCDIR}/+_repo_rules+aosp_artifact/cvd-host_package.tar.gz
+CVD_HOST_PKG="${TEST_SRCDIR}/+git_repository+aosp_artifact/cvd-host_package.tar.gz"
 if [ ! -f ${CVD_HOST_PKG} ]; then
     echo "Cannot find CVD host package from ${CVD_HOST_PKG}"
     exit 1
 fi
-IMAGE_ZIP=${TEST_SRCDIR}/+_repo_rules+aosp_artifact/images.zip
+IMAGE_ZIP="${TEST_SRCDIR}/+git_repository+aosp_artifact/images.zip"
 if [ ! -f "${IMAGE_ZIP}" ]; then
     echo "Cannot find image zip file from ${IMAGE_ZIP}"
     exit 1

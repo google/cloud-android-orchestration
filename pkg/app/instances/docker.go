@@ -40,6 +40,11 @@ import (
 
 const DockerIMType IMType = "docker"
 
+// A DockerIMConfig contains configuration needs for Docker instance manager.
+//
+// While the container image name is configurable, we do not intend or want to
+// support other containers or alternative command execution in the
+// `cuttlefish-orchestration` container.
 type DockerIMConfig struct {
 	DockerImageName      string
 	HostOrchestratorPort int
@@ -269,6 +274,8 @@ func (m *DockerInstanceManager) getHostURL(host string) (*url.URL, error) {
 	return url.Parse(fmt.Sprintf("%s://%s:%d", m.Config.HostOrchestratorProtocol, addr, port))
 }
 
+// When creating docker instances as default, docker instance gets belonged
+// to the default network named 'bridge' with getting an assigned IP.
 func (m *DockerInstanceManager) GetHostClient(zone string, host string) (HostClient, error) {
 	if zone != "local" {
 		return nil, errors.NewBadRequestError("Invalid zone. It should be 'local'.", nil)
@@ -365,6 +372,12 @@ func (m *DockerInstanceManager) createDockerVolumeIfNeeded(ctx context.Context, 
 	return nil
 }
 
+// The container is expected to have:
+//   - An entrypoint starting cuttlefish-host_orchestrator service and its
+//     dependencies.
+//   - Network access through default docker0 bridge interface.
+//   - A volume named with `user_artifacts_<username>` for sharing user
+//     artifacts across containers.
 func (m *DockerInstanceManager) createDockerContainer(ctx context.Context, user accounts.User) (string, error) {
 	config := &container.Config{
 		AttachStdin: true,

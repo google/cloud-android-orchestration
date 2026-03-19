@@ -152,6 +152,20 @@ func TestWaitOperatioSucceeds(t *testing.T) {
 	}
 }
 
+func TestWaitOperationUrlEncodedSucceeds(t *testing.T) {
+	controller := NewApp(&testInstanceManager{}, &testAccountManager{}, nil, nil, nil, "", nil, apiv1.InfraConfig{}, &config.Config{})
+	ts := httptest.NewServer(controller.Handler())
+	defer ts.Close()
+
+	res, _ := http.Post(
+		ts.URL+"/v1/zones/us-central1-a/operations/foo/%3Await", "application/json", strings.NewReader("{}"))
+
+	expected := http.StatusOK
+	if res.StatusCode != expected {
+		t.Errorf("unexpected status code <<%d>>, want: %d", res.StatusCode, expected)
+	}
+}
+
 func TestBuildListHostsRequest(t *testing.T) {
 
 	t.Run("default", func(t *testing.T) {

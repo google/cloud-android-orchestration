@@ -1,8 +1,28 @@
-cuttlefish-cvdremote (0.5.0) UNRELEASED; urgency=medium
+cuttlefish-cvdremote (0.5.0) unstable; urgency=medium
 
-  * 
+  * Update changelog for cuttlefish-cvdremote on 0.4.0 by @0405ysj in
+    https://github.com/google/cloud-android-orchestration/pull/517
+  * Test to ensure url-encoded paths are handled. by @3405691582 in
+    https://github.com/google/cloud-android-orchestration/pull/516
+  * Support `cvdr create --num_instances=N` with local source flags by
+    @0405ysj in https://github.com/google/cloud-android-
+    orchestration/pull/513
+  * Fix cvdr e2etests to be working by @0405ysj in
+    https://github.com/google/cloud-android-orchestration/pull/512
+  * Add comment around default network of docker on getIpAddr of
+    docker.go by @0405ysj in https://github.com/google/cloud-android-
+    orchestration/pull/511
+  * Update Angular to 21, Add explicit `changeDetection:
+    ChangeDetectionStrategy.Default` by @k311093 in
+    https://github.com/google/cloud-android-orchestration/pull/506
+  * Add a comment around the background of adding seccomp=unconfined
+    option. by @0405ysj in https://github.com/google/cloud-android-
+    orchestration/pull/504
+  * Replace privileged into other options for creating hosts via
+    DockerIM by @0405ysj in https://github.com/google/cloud-android-
+    orchestration/pull/503
 
- -- Seungjae Yoo <seungjaeyoo@google.com>  Mon, 30 Mar 2026 11:05:17 +0900
+ -- Seungjae Yoo <seungjaeyoo@google.com>  Mon, 30 Mar 2026 14:28:20 +0900
 
 cuttlefish-cvdremote (0.4.0) unstable; urgency=medium
 

@@ -1,3 +1,26 @@
+cuttlefish-cvdremote (0.4.0) unstable; urgency=medium
+
+  * E2E test in presubmit should be failed when printing CO error log by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/500
+  * Host, group, instance names are selector of cvdr connect/disconnect by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/497
+  * Use cvdr get_config for retrieving service URL from E2E test by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/496
+  * Retrieve cloud orchestrator log from e2etest running on presubmit by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/495
+  * Make cvdr help message clear by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/493
+  * Output of cvdr list is clear to know the name of host, group, instance by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/492
+  * E2E tests does cleanup only once for error by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/490
+  * Refactor implementation dealing with cvdr configuration by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/489
+  * Fix `cvdr list` to print proper ADB connection status for WebRTC agent by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/488
+  * DockerIM in CO deletes volume only once for concurrent host deletions. by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/487
+  * Refactor pkg/app/instances/docker.go by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/485
+  * Cleanup unused fields in RemoteCVDLocator by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/484
+  * `cvdr list --host ${HOST}` prints valid service URL by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/482
+  * Update cvdr installation instructions by @peterschen in https://github.com/google/cloud-android-orchestration/pull/481
+  * Update documentation around deployment of debs & docker images by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/480
+  * Enhance E2E testing of cvdr with on-premise configuration by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/479
+  * Propagate deploy channel information to deploy-cvdremote-debian-package by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/478
+  * Mark 0.3.0 as unstable version by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/475
+
+ -- Seungjae Yoo <seungjaeyoo@google.com>  Mon, 30 Mar 2026 11:00:23 +0900
+
 cuttlefish-cvdremote (0.3.0) unstable; urgency=medium
 
   * Define distinguished version format between debs & docker imgs by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/477

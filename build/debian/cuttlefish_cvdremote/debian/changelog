@@ -1,3 +1,9 @@
+cuttlefish-cvdremote (0.5.0) UNRELEASED; urgency=medium
+
+  * 
+
+ -- Seungjae Yoo <seungjaeyoo@google.com>  Mon, 30 Mar 2026 11:05:17 +0900
+
 cuttlefish-cvdremote (0.4.0) unstable; urgency=medium
 
   * E2E test in presubmit should be failed when printing CO error log by @0405ysj in https://github.com/google/cloud-android-orchestration/pull/500

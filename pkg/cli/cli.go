@@ -605,7 +605,7 @@ func createCommand(opts *subCommandOpts) *cobra.Command {
 			return runCreateCVDCommand(c, args, createFlags, opts)
 		},
 	}
-	create.Flags().StringVar(&createFlags.Host, hostFlag, "", "Specifies the host")
+	create.Flags().StringVar(&createFlags.Host, hostFlag, "", "Specifies the host. Creates a new host when it's not specified")
 	// Main build flags.
 	create.Flags().StringVar(&createFlags.MainBuild.Branch, branchFlag, "aosp-main", "The branch name")
 	create.Flags().StringVar(&createFlags.MainBuild.BuildID, buildIDFlag, "", "Android build identifier")

@@ -78,28 +78,40 @@ func (m *GCEInstanceManager) ListZones() (*apiv1.ListZonesResponse, error) {
 	}, nil
 }
 
-func (m *GCEInstanceManager) GetHostAddr(zone string, host string) (string, error) {
-	instance, err := m.getHostInstance(zone, host)
-	if err != nil {
-		return "", err
-	}
-	ilen := len(instance.NetworkInterfaces)
+func getHostAddrWithIns(ins *compute.Instance) (string, error) {
+	ilen := len(ins.NetworkInterfaces)
 	if ilen == 0 {
-		log.Printf("host instance %s in zone %s is missing a network interface", host, zone)
+		log.Printf("host instance %s in zone %s is missing a network interface", ins.Name, ins.Zone)
 		return "", errors.NewInternalError("host instance missing a network interface", nil)
 	}
 	if ilen > 1 {
-		log.Printf("host instance %s in zone %s has %d network interfaces", host, zone, ilen)
+		log.Printf("host instance %s in zone %s has %d network interfaces", ins.Name, ins.Zone, ilen)
 	}
-	return instance.NetworkInterfaces[0].NetworkIP, nil
+	return ins.NetworkInterfaces[0].NetworkIP, nil
 }
 
-func (m *GCEInstanceManager) GetHostURL(zone string, host string) (*url.URL, error) {
-	addr, err := m.GetHostAddr(zone, host)
+func (m *GCEInstanceManager) GetHostAddr(zone string, host string) (string, error) {
+	ins, err := m.getHostInstance(zone, host)
+	if err != nil {
+		return "", err
+	}
+	return getHostAddrWithIns(ins)
+}
+
+func getHostURLWithIns(ins *compute.Instance, config *Config) (*url.URL, error) {
+	addr, err := getHostAddrWithIns(ins)
 	if err != nil {
 		return nil, err
 	}
-	return url.Parse(fmt.Sprintf("%s://%s:%d", m.Config.HostOrchestratorProtocol, addr, m.Config.GCP.HostOrchestratorPort))
+	return url.Parse(fmt.Sprintf("%s://%s:%d", config.HostOrchestratorProtocol, addr, config.GCP.HostOrchestratorPort))
+}
+
+func (m *GCEInstanceManager) GetHostURL(zone string, host string) (*url.URL, error) {
+	ins, err := m.getHostInstance(zone, host)
+	if err != nil {
+		return nil, err
+	}
+	return getHostURLWithIns(ins, &m.Config)
 }
 
 const operationStatusDone = "DONE"
@@ -253,16 +265,28 @@ func (m *GCEInstanceManager) WaitOperation(zone string, user accounts.User, name
 	if op.Status != operationStatusDone {
 		return nil, errors.NewServiceUnavailableError("Wait for operation timed out", nil)
 	}
-	getter := opResultGetter{Service: m.Service, Op: op}
+	getter := opResultGetter{
+		Service: m.Service,
+		Op:      op,
+		Config:  &m.Config,
+	}
 	return getter.Get()
 }
 
-func (m *GCEInstanceManager) GetHostClient(zone string, host string) (HostClient, error) {
-	url, err := m.GetHostURL(zone, host)
+func getHostClientWithIns(ins *compute.Instance, config *Config) (HostClient, error) {
+	url, err := getHostURLWithIns(ins, config)
 	if err != nil {
 		return nil, err
 	}
-	return NewNetHostClient(url, m.Config.AllowSelfSignedHostSSLCertificate), nil
+	return NewNetHostClient(url, config.AllowSelfSignedHostSSLCertificate), nil
+}
+
+func (m *GCEInstanceManager) GetHostClient(zone string, host string) (HostClient, error) {
+	ins, err := m.getHostInstance(zone, host)
+	if err != nil {
+		return nil, err
+	}
+	return getHostClientWithIns(ins, &m.Config)
 }
 
 func (m *GCEInstanceManager) getHostInstance(zone string, host string) (*compute.Instance, error) {
@@ -326,6 +350,7 @@ var (
 type opResultGetter struct {
 	Service *compute.Service
 	Op      *compute.Operation
+	Config  *Config
 }
 
 func (g *opResultGetter) Get() (any, error) {
@@ -362,7 +387,19 @@ func (g *opResultGetter) buildCreateInstanceResult() (*apiv1.HostInstance, error
 	if err != nil {
 		return nil, toAppError(err)
 	}
-	return BuildHostInstance(ins)
+
+	host, err := BuildHostInstance(ins)
+	if err != nil {
+		return nil, err
+	}
+	client, err := getHostClientWithIns(ins, g.Config)
+	if err != nil {
+		return nil, err
+	}
+	if err := client.WaitForHostReady(); err != nil {
+		return nil, err
+	}
+	return host, nil
 }
 
 // Converts compute API errors to AppError if relevant, return the same error otherwise

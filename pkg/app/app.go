@@ -106,6 +106,7 @@ func (c *App) Handler() http.Handler {
 	// `Get`/`Create`/`Update`, the response should be the relevant resource.
 	router.Handle("/v1/zones/{zone}/operations/{operation}/:wait", c.Authenticate(c.waitOperation)).Methods("POST")
 	router.Handle("/v1/zones/{zone}/hosts/{host}", c.Authenticate(c.deleteHost)).Methods("DELETE")
+	router.Handle("/v1/zones/{zone}/hosts/{host}/:wait-host-availability", c.Authenticate(c.waitCreateHost)).Methods("POST")
 
 	// Infra route
 	router.HandleFunc("/v1/zones/{zone}/hosts/{host}/infra_config", func(w http.ResponseWriter, r *http.Request) {
@@ -247,6 +248,16 @@ func (c *App) waitOperation(w http.ResponseWriter, r *http.Request, user account
 		return err
 	}
 	replyJSON(w, op, http.StatusOK)
+	return nil
+}
+
+func (c *App) waitCreateHost(w http.ResponseWriter, r *http.Request, user accounts.User) error {
+	name := mux.Vars(r)["host"]
+	res, err := c.instanceManager.WaitHostAvailability(getZone(r), user, name)
+	if err != nil {
+		return err
+	}
+	replyJSON(w, res, http.StatusOK)
 	return nil
 }
 

@@ -34,6 +34,8 @@ type Manager interface {
 	// original method returns no data on success, such as `Delete`, response will be empty. If the original method
 	// is standard `Get`/`Create`/`Update`, the response should be the relevant resource.
 	WaitOperation(zone string, user accounts.User, name string) (any, error)
+	// Waits for the host to be ready after creation.
+	WaitHostAvailability(zone string, user accounts.User, host string) (*apiv1.HostInstance, error)
 	// Creates a connector to the given host.
 	GetHostClient(zone string, host string) (HostClient, error)
 }
@@ -44,6 +46,7 @@ type HostClient interface {
 	Get(URLPath, URLQuery string, res *HostResponse) (int, error)
 	Post(URLPath, URLQuery string, bodyJSON any, res *HostResponse) (int, error)
 	GetReverseProxy() *httputil.ReverseProxy
+	WaitForHostReady() error
 }
 
 type HostResponse struct {

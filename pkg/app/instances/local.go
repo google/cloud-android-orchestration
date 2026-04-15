@@ -84,6 +84,12 @@ func (m *LocalInstanceManager) WaitOperation(zone string, user accounts.User, na
 	return nil, fmt.Errorf("%T#WaitOperation is not implemented", *m)
 }
 
+func (m *LocalInstanceManager) WaitHostAvailability(zone string, user accounts.User, host string) (*apiv1.HostInstance, error) {
+	return &apiv1.HostInstance{
+		Name: host,
+	}, nil
+}
+
 func (m *LocalInstanceManager) GetHostClient(zone string, host string) (HostClient, error) {
 	url, err := m.GetHostURL(zone, host)
 	if err != nil {

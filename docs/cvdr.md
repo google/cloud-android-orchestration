@@ -48,7 +48,7 @@ or
 [scripts/on-premises/single-server/cvdr.toml](/scripts/on-premises/single-server/cvdr.toml)
 as examples of how to write a configuration file.
 
-## Create CVD examples
+## Create CVD
 
 ### Latest Cuttlefish x86_64 Image
 
@@ -99,4 +99,4 @@ and check if the page seems like below.
 Also, you should be able to see the device is enrolled via `adb devices`.
 ![cvdr_cf_creation](resources/cvdr_cf_creation_example.png)
 
-Please run `cvdr --help` for advanced functionalities of `cvdr`, including individual commands and their flags.
+Please run `cvdr --help` for advanced functionalities of `cvdr`, including individual commands and their flags, including how to manage or delete CVDs.

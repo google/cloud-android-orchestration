@@ -79,10 +79,9 @@ CVDR_USER_CONFIG_PATH=/path/to/cvdr.toml ./cvdr --local_cvd_host_pkg_src="${ANDR
 
 For this to work, you have to build the .zip images using `m dist` in AOSP root beforehand.
 
-<br>
 On success, we expect the result like below.
 
-```
+```text
 Creating Host........................................ OK
 Fetching main bundle artifacts....................... OK
 Starting and waiting for boot complete............... OK

@@ -65,16 +65,16 @@ create
 
 Assuming you build AOSP from scratch, ensure you run `lunch $MY_BUILD_TARGET` with your target before proceeding, see [Build Android](https://source.android.com/docs/setup/build/building) for more details.
 
-To create an instance using the [build artifacts](https://cs.android.com/android/platform/superproject/+/master:device/google/cuttlefish/required_images) from your local AOSP repo, please run:
+To create an instance using the [build artifacts](https://cs.android.com/android/platform/superproject/+/master:device/google/cuttlefish/required_images) from your local AOSP repo, please run with your working directory being your AOSP root:
 
 ```bash
-CVDR_USER_CONFIG_PATH=/path/to/cvdr.toml ./cvdr create --local_image
+CVDR_USER_CONFIG_PATH=/path/to/cvdr.toml cvdr create --local_image
 ```
 
 Alternatively, manually specify the images and create an instance:
 
 ```bash
-CVDR_USER_CONFIG_PATH=/path/to/cvdr.toml ./cvdr --local_cvd_host_pkg_src="${ANDROID_PRODUCT_OUT}/dist/cvd-host_package.tar.gz --local_images_zip_src=${ANDROID_PRODUCT_OUT}/dist/your-target-img.zip"
+CVDR_USER_CONFIG_PATH=/path/to/cvdr.toml cvdr --local_cvd_host_pkg_src="${ANDROID_PRODUCT_OUT}/dist/cvd-host_package.tar.gz --local_images_zip_src=${ANDROID_PRODUCT_OUT}/dist/your-target-img.zip"
 ```
 
 For this to work, you have to build the .zip images using `m dist` in AOSP root beforehand.

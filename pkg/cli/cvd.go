@@ -38,20 +38,11 @@ import (
 )
 
 type RemoteCVDLocator struct {
-	Host string `json:"host"`
-	// Identifier within the whole fleet.
-	ID string `json:"id"`
-	// Identifier within a group.
-	Name string `json:"name"`
-	// Instead of `Name`, `WebRTCDeviceID` is the identifier used for setting up the adb connections. It
-	// contains the group name and the device name, eg: "cvd-1_1".
+	Host  string `json:"host"`
+	Group string `json:"group"`
+	Name  string `json:"name"`
+	// It contains the group name and the device name, eg: "cvd-1_1".
 	WebRTCDeviceID string `json:"webrtc_device_id"`
-	// ADB port of Cuttlefish instance.
-	ADBSerial string `json:"adb_serial"`
-}
-
-func (l *RemoteCVDLocator) Group() string {
-	return strings.Split(l.ID, "/")[0]
 }
 
 type RemoteCVD struct {
@@ -71,10 +62,9 @@ func NewRemoteCVD(host string, cvd *hoapi.CVD) *RemoteCVD {
 	return &RemoteCVD{
 		RemoteCVDLocator: RemoteCVDLocator{
 			Host:           host,
-			ID:             cvd.ID(),
+			Group:          cvd.Group,
 			Name:           cvd.Name,
 			WebRTCDeviceID: cvd.WebRTCDeviceID,
-			ADBSerial:      cvd.ADBSerial,
 		},
 		Status:   cvd.Status,
 		Displays: cvd.Displays,
@@ -172,43 +162,53 @@ func (c *cvdCreator) Create() ([]*hoapi.CVD, error) {
 	return c.createCVDFromAndroidCI()
 }
 
-const uaEnvConfigTmplStr = `
-{
-  "common": {
-    "host_package": "{{.HostPkg}}"
-  },
-  "instances": [
-    {
-      "vm": {
-        "memory_mb": 8192,
-        "setupwizard_mode": "OPTIONAL",
-        "cpus": 8
-      },
-      "disk": {
-        "default_build": "{{.Artifacts}}"
-      }
-    }
-  ]
-}
-`
-
 var uaEnvConfigTmpl *template.Template
 
 func init() {
-	var err error
-	if uaEnvConfigTmpl, err = template.New("").Parse(uaEnvConfigTmplStr); err != nil {
-		panic(err)
+	const uaEnvConfigTmplStr = `
+	{
+		"common": {
+			"host_package": "{{.HostPkg}}"
+		},
+		"instances": [
+			{{range $idx, $_ := .Instances}}{{if gt $idx 0}}, {{end}}{{template "uaInstanceConfig" .}}{{end}}
+		]
 	}
+	`
+	const uaInstanceConfigTmplStr = `
+	{
+		"vm": {
+			"memory_mb": 8192,
+			"setupwizard_mode": "OPTIONAL",
+			"cpus": 8
+		},
+		"disk": {
+			"default_build": "{{.Artifacts}}"
+		}
+	}
+	`
+	uaEnvConfigTmpl = template.Must(template.New("").Parse(uaEnvConfigTmplStr))
+	template.Must(uaEnvConfigTmpl.New("uaInstanceConfig").Parse(uaInstanceConfigTmplStr))
+}
+
+type uaInstanceConfigTmplData struct {
+	Artifacts string
 }
 
 type uaEnvConfigTmplData struct {
-	Artifacts string
+	Instances []*uaInstanceConfigTmplData
 	HostPkg   string
 }
 
-func buildUAEnvConfig(artifacts []string, hostPkg string) (map[string]interface{}, error) {
+func buildUAEnvConfig(artifacts []string, hostPkg string, numInstance int) (map[string]interface{}, error) {
 	var b bytes.Buffer
-	if err := uaEnvConfigTmpl.Execute(&b, uaEnvConfigTmplData{Artifacts: strings.Join(artifacts, ","), HostPkg: hostPkg}); err != nil {
+	instance := uaInstanceConfigTmplData{Artifacts: strings.Join(artifacts, ",")}
+	instances := make([]*uaInstanceConfigTmplData, numInstance)
+	for idx := 0; idx < numInstance; idx++ {
+		instances[idx] = &instance
+	}
+	config := uaEnvConfigTmplData{Instances: instances, HostPkg: hostPkg}
+	if err := uaEnvConfigTmpl.Execute(&b, config); err != nil {
 		return nil, fmt.Errorf("failed to fulfill template: %w", err)
 	}
 
@@ -249,7 +249,7 @@ func (c *cvdCreator) createCVDFromLocalBuild() ([]*hoapi.CVD, error) {
 	if err := verifyCVDHostPackageTar(hostOut); err != nil {
 		return nil, err
 	}
-	envConfig, err := buildUAEnvConfig(artifacts, filepath.Join(hostOut, CVDHostPackageName))
+	envConfig, err := buildUAEnvConfig(artifacts, filepath.Join(hostOut, CVDHostPackageName), c.opts.NumInstances)
 	if err != nil {
 		return nil, err
 	}
@@ -432,7 +432,7 @@ func (c *cvdCreator) createCVDFromLocalSrcs() ([]*hoapi.CVD, error) {
 	if err := c.opts.CreateCVDLocalOpts.validate(); err != nil {
 		return nil, fmt.Errorf("invalid local source: %w", err)
 	}
-	envConfig, err := buildUAEnvConfig(c.opts.CreateCVDLocalOpts.artifacts(), c.opts.CreateCVDLocalOpts.LocalCVDHostPkgSrc)
+	envConfig, err := buildUAEnvConfig(c.opts.CreateCVDLocalOpts.artifacts(), c.opts.CreateCVDLocalOpts.LocalCVDHostPkgSrc, c.opts.NumInstances)
 	if err != nil {
 		return nil, err
 	}
@@ -553,7 +553,15 @@ func listCVDsSingleHost(srvClient client.Client, controlDir, host string) ([]*Re
 	if err != nil {
 		merr = multierror.Append(merr, err)
 	}
-	result := []*RemoteHost{{Name: host, CVDs: cvds}}
+	srvURL, err := srvClient.HostServiceURL(host)
+	if err != nil {
+		merr = multierror.Append(merr, fmt.Errorf("failed getting host service url: %w", err))
+	}
+	result := []*RemoteHost{{
+		ServiceURL: srvURL,
+		Name:       host,
+		CVDs:       cvds,
+	}}
 	return result, merr
 }
 

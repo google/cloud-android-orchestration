@@ -4,22 +4,25 @@ set -e -x
 source ${TEST_SRCDIR}/_main/cvdr/common_utils.sh
 validate_components
 
-CVD_HOST_PKG=${TEST_SRCDIR}/+_repo_rules+aosp_artifact/cvd-host_package.tar.gz
+CVD_HOST_PKG="${TEST_SRCDIR}/+git_repository+aosp_artifact/cvd-host_package.tar.gz"
 if [ ! -f ${CVD_HOST_PKG} ]; then
     echo "Cannot find CVD host package from ${CVD_HOST_PKG}"
     exit 1
 fi
-IMAGE_ZIP=${TEST_SRCDIR}/+_repo_rules+aosp_artifact/images.zip
+IMAGE_ZIP="${TEST_SRCDIR}/+git_repository+aosp_artifact/images.zip"
 if [ ! -f "${IMAGE_ZIP}" ]; then
     echo "Cannot find image zip file from ${IMAGE_ZIP}"
     exit 1
 fi
 
+SERVICE=$(cvdr get_config user_default_service || cvdr get_config system_default_service)
+SERVICE_URL=$(cvdr get_config "services[\"$SERVICE\"].service_url")
+
 HOSTNAME=$(cvdr host create)
 cleanup() {
     cvdr host delete ${HOSTNAME}
 }
-trap cleanup EXIT ERR
+trap cleanup EXIT
 
 cvdr create \
     --host=${HOSTNAME} \
@@ -27,17 +30,18 @@ cvdr create \
     --local_images_zip_src=${IMAGE_ZIP}
 
 # Check the output of cvdr list
-# TODO(b/448007486): cvdr list should print proper URL instead of showing <nil>.
-# TODO(b/448007486): cvdr list should print proper ADB connection status.
+# TODO(b/448209030): cvdr list should print proper ADB connection status.
 ACTUAL_OUTPUT=$(cvdr list --host ${HOSTNAME})
-EXPECTED_OUTPUT="${HOSTNAME} (<nil>/)
-  cvd_1/1
-  Status: Running
-  ADB: not connected
-  Displays: [720 x 1280 ( 320 )]
-  Logs: <nil>/cvds/cvd_1/1/logs/"
+EXPECTED_OUTPUT="Host: ${HOSTNAME}
+  WebUI: $SERVICE_URL/v1/zones/local/hosts/${HOSTNAME}/
+  Group: cvd_1
+    Instance: 1
+      Status: Running
+      ADB: not connected
+      Displays: [720 x 1280 ( 320 )]
+      Logs: $SERVICE_URL/v1/zones/local/hosts/${HOSTNAME}/cvds/cvd_1/1/logs/"
 diff <(echo ${EXPECTED_OUTPUT}) <(echo ${ACTUAL_OUTPUT})
 
 # Check ADB connection
-# TODO(b/448007486): Retrieve serial of the device from the output of cvdr list.
+# TODO(b/448209030): Retrieve serial of the device from the output of cvdr list.
 adb shell uptime

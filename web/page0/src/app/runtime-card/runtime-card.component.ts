@@ -1,4 +1,4 @@
-import {Component, Input} from '@angular/core';
+import {Component, Input, ChangeDetectionStrategy} from '@angular/core';
 import {MatSnackBar} from '@angular/material/snack-bar';
 import {Router} from '@angular/router';
 import {runtimeCardSelectorFactory} from 'src/app/store/selectors';
@@ -8,6 +8,7 @@ import {HostService} from '../host.service';
 import {RuntimeService} from '../runtime.service';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   standalone: false,
   selector: 'app-runtime-card',
   templateUrl: './runtime-card.component.html',

@@ -1,4 +1,4 @@
-import {Component, Input} from '@angular/core';
+import {Component, Input, ChangeDetectionStrategy} from '@angular/core';
 import {Environment, EnvStatus} from '../interface/env-interface';
 import {HostService} from '../host.service';
 import {MatSnackBar} from '@angular/material/snack-bar';
@@ -18,6 +18,7 @@ const icons = {
 };
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   standalone: false,
   selector: 'app-env-card',
   templateUrl: './env-card.component.html',

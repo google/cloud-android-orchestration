@@ -30,6 +30,8 @@ const (
 	envVarSystemConfigPath = "CVDR_SYSTEM_CONFIG_PATH"
 	// User config values overrieds system config values.
 	envVarUserConfigPath = "CVDR_USER_CONFIG_PATH"
+	// It may ask for importing acloud config if cvdr user config is empty.
+	acloudConfigPath = "~/.config/acloud/acloud.config"
 )
 
 func loadInitialConfig() (*cli.Config, error) {
@@ -39,31 +41,10 @@ func loadInitialConfig() (*cli.Config, error) {
 		sysConfigSrc = cli.ExpandPath(path)
 	}
 	if path, ok := os.LookupEnv(envVarUserConfigPath); ok {
-		path = cli.ExpandPath(path)
-		_, statErr := os.Stat(path)
-		if errors.Is(statErr, os.ErrNotExist) {
-			imported, err := importAcloudConfig(path)
-			if err != nil {
-				return nil, err
-			}
-			if !imported {
-				// Create empty user configuration file.
-				dir := filepath.Dir(path)
-				if err := os.MkdirAll(dir, 0750); err != nil {
-					return nil, fmt.Errorf("failed creating user config directory: %w", err)
-				}
-				f, err := os.Create(path)
-				if err != nil {
-					return nil, fmt.Errorf("failed creating user config file: %w", err)
-				}
-				f.Close()
-			}
-			statErr = nil
+		userConfigSrc = cli.ExpandPath(path)
+		if err := createUserConfigIfNeeded(userConfigSrc); err != nil {
+			return nil, err
 		}
-		if statErr != nil {
-			return nil, fmt.Errorf("invalid user config file path: %w", statErr)
-		}
-		userConfigSrc = path
 	}
 	if err := cli.LoadConfig(sysConfigSrc, userConfigSrc, config); err != nil {
 		return nil, err
@@ -71,28 +52,55 @@ func loadInitialConfig() (*cli.Config, error) {
 	return config, nil
 }
 
-func importAcloudConfig(dst string) (bool, error) {
+func createUserConfigIfNeeded(dst string) error {
+	if _, err := os.Stat(dst); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("invalid user config file path: %w", err)
+	} else if err == nil {
+		return nil
+	}
+	imported, err := importAcloudConfig(dst)
+	if err != nil {
+		return fmt.Errorf("failed creating user config file with acloud config:%w", err)
+	}
+	if imported {
+		return nil
+	}
+	// Create empty user configuration file.
+	if err := os.MkdirAll(filepath.Dir(dst), 0750); err != nil {
+		return fmt.Errorf("failed creating user config directory: %w", err)
+	}
+	f, err := os.Create(dst)
+	if err != nil {
+		return fmt.Errorf("failed creating user config file: %w", err)
+	}
+	f.Close()
+	return nil
+}
+
+func importAcloudConfig(ucPath string) (bool, error) {
 	// Create a new user configuration file importing existing acloud configuration.
-	acPath := cli.ExpandPath("~/.config/acloud/acloud.config")
-	if _, err := os.Stat(acPath); err == nil {
-		yes := true
-		// Prompt only on terminal.
-		if term.IsTerminal(int(os.Stdout.Fd())) {
-			const p = "No user configuration found, would you like to generate it by importing " +
-				"your acloud configuration?"
-			yes, err = cli.PromptYesOrNo(os.Stdout, os.Stdin, p)
-			if err != nil {
-				return false, err
-			}
+	acPath := cli.ExpandPath(acloudConfigPath)
+	if _, err := os.Stat(acPath); errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	} else if err != nil {
+		return false, fmt.Errorf("failed to stat acloud config file: %w", err)
+	}
+	// It doesn't import acloud config when user says no via prompt.
+	if term.IsTerminal(int(os.Stdout.Fd())) {
+		const p = "No user configuration found, would you like to generate it by importing " +
+			"your acloud configuration?"
+		yes, err := cli.PromptYesOrNo(os.Stdout, os.Stdin, p)
+		if err != nil {
+			return false, err
 		}
-		if yes {
-			if err := cli.ImportAcloudConfig(acPath, dst); err != nil {
-				return false, fmt.Errorf("failed importing acloud config file: %w", err)
-			}
-			return true, nil
+		if !yes {
+			return false, nil
 		}
 	}
-	return false, nil
+	if err := cli.ImportAcloudConfig(acPath, ucPath); err != nil {
+		return false, fmt.Errorf("failed importing acloud config file: %w", err)
+	}
+	return true, nil
 }
 
 type cmdRunner struct{}

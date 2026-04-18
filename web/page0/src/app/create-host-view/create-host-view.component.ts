@@ -1,4 +1,4 @@
-import {Component, inject} from '@angular/core';
+import {Component, inject, ChangeDetectionStrategy} from '@angular/core';
 import {FormBuilder} from '@angular/forms';
 import {ActivatedRoute, NavigationEnd, Router} from '@angular/router';
 import {HostService} from '../host.service';
@@ -26,6 +26,7 @@ import {DEFAULT_HOST_SETTING, DEFAULT_ZONE} from '../settings';
 import {ResultType} from '../interface/result-interface';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Default,
   standalone: false,
   selector: 'app-create-host-view',
   templateUrl: './create-host-view.component.html',

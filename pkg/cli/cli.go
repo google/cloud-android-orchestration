@@ -15,7 +15,6 @@
 package cli
 
 import (
-	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -24,7 +23,6 @@ import (
 	"math"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"os/user"
 	"strconv"
@@ -128,8 +126,6 @@ const (
 )
 
 const (
-	ConnectCommandName                  = "connect"
-	DisconnectCommandName               = "disconnect"
 	ConnectionWebRTCAgentCommandName    = "webrtc"
 	ConnectionWebSocketAgentCommandName = "websocket"
 )
@@ -262,6 +258,7 @@ type subCommandOpts struct {
 type ConnectFlags struct {
 	*ServiceFlags
 	host             string
+	group            string
 	skipConfirmation bool
 	// Path to file containing the ICE configuration to be used in the underlaying WebRTC connection.
 	ice_config   string
@@ -277,6 +274,9 @@ func (f *ConnectFlags) AsArgs() []string {
 	args := f.ServiceFlags.AsArgs()
 	if f.host != "" {
 		args = append(args, "--"+hostFlag, f.host)
+	}
+	if f.group != "" {
+		args = append(args, "--"+groupFlag, f.group)
 	}
 	if f.ice_config != "" {
 		args = append(args, "--"+iceConfigFlag, f.ice_config)
@@ -313,34 +313,35 @@ func (c *command) Parent() *command {
 
 func WriteListCVDsOutput(w io.Writer, hosts []*RemoteHost) {
 	for _, host := range hosts {
-		fmt.Fprintln(w, hostOutput(host))
-		if len(host.CVDs) == 0 {
-			fmt.Fprintln(w, " ~~Empty~~ ")
-			fmt.Fprintln(w, "")
-			continue
-		}
+		hostOutput(w, host)
+		cvdMap := make(map[string][]*RemoteCVD)
 		for _, cvd := range host.CVDs {
-			lines := cvdOutput(host, cvd)
-			for _, l := range lines {
-				fmt.Fprintln(w, "  "+l)
+			cvdMap[cvd.Group] = append(cvdMap[cvd.Group], cvd)
+		}
+		for group, cvds := range cvdMap {
+			groupOutput(w, group)
+			for _, cvd := range cvds {
+				cvdOutput(w, host, cvd)
 			}
-			fmt.Fprintln(w)
 		}
 	}
 }
 
-func hostOutput(h *RemoteHost) string {
-	return fmt.Sprintf("%s (%s/)", h.Name, h.ServiceURL)
+func hostOutput(w io.Writer, h *RemoteHost) {
+	fmt.Fprintf(w, "Host: %s\n", h.Name)
+	fmt.Fprintf(w, "  WebUI: %s/\n", h.ServiceURL)
 }
 
-func cvdOutput(h *RemoteHost, c *RemoteCVD) []string {
-	return []string{
-		c.ID,
-		"Status: " + c.Status,
-		"ADB: " + adbStateStr(c),
-		"Displays: " + fmt.Sprintf("%v", c.Displays),
-		"Logs: " + fmt.Sprintf("%s/cvds/%s/logs/", h.ServiceURL, c.ID),
-	}
+func groupOutput(w io.Writer, group string) {
+	fmt.Fprintf(w, "  Group: %s\n", group)
+}
+
+func cvdOutput(w io.Writer, h *RemoteHost, c *RemoteCVD) {
+	fmt.Fprintf(w, "    Instance: %s\n", c.Name)
+	fmt.Fprintf(w, "      Status: %s\n", c.Status)
+	fmt.Fprintf(w, "      ADB: %s\n", adbStateStr(c))
+	fmt.Fprintf(w, "      Displays: %v\n", c.Displays)
+	fmt.Fprintf(w, "      Logs: %s/cvds/%s/%s/logs/\n", h.ServiceURL, c.Group, c.Name)
 }
 
 func adbStateStr(c *RemoteCVD) string {
@@ -445,7 +446,7 @@ func NewCVDRemoteCommand(o *CommandOptions) *CVDRemoteCommand {
 	flags := &ServiceFlags{RootFlags: &RootFlags{}}
 	rootCmd := &cobra.Command{
 		Use:               "cvdr",
-		Short:             "Manages Cuttlefish Virtual Devices (CVDs) in the cloud.",
+		Short:             "Manage Cuttlefish Virtual Devices (CVDs) remotely.",
 		SilenceUsage:      true,
 		SilenceErrors:     true,
 		CompletionOptions: cobra.CompletionOptions{DisableDefaultCmd: true},
@@ -512,7 +513,7 @@ func (c *CVDRemoteCommand) Execute() error {
 func hostCommand(opts *subCommandOpts) *cobra.Command {
 	host := &cobra.Command{
 		Use:   "host",
-		Short: "Work with hosts",
+		Short: "Manage hosts",
 	}
 	host.AddCommand(hostCreateCommand(opts))
 	host.AddCommand(hostListCommand(opts))
@@ -525,7 +526,7 @@ func hostCreateCommand(opts *subCommandOpts) *cobra.Command {
 	createFlags := &CreateHostFlags{ServiceFlags: opts.ServiceFlags, CreateHostOpts: &CreateHostOpts{}}
 	create := &cobra.Command{
 		Use:     "create",
-		Short:   "Creates a host.",
+		Short:   "Create a host",
 		PreRunE: preRunE(createFlags, &opts.ServiceFlags.Service, &opts.InitialConfig),
 		RunE: func(c *cobra.Command, args []string) error {
 			configs, err := parseAcceleratorFlag(acceleratorFlagValues)
@@ -550,7 +551,7 @@ func hostCreateCommand(opts *subCommandOpts) *cobra.Command {
 func hostListCommand(opts *subCommandOpts) *cobra.Command {
 	list := &cobra.Command{
 		Use:     "list",
-		Short:   "Lists hosts.",
+		Short:   "List hosts",
 		PreRunE: preRunE(opts.ServiceFlags, &opts.ServiceFlags.Service, &opts.InitialConfig),
 		RunE: func(c *cobra.Command, args []string) error {
 			return runListHostCommand(c, opts.ServiceFlags, opts)
@@ -561,8 +562,8 @@ func hostListCommand(opts *subCommandOpts) *cobra.Command {
 
 func hostDeleteCommand(opts *subCommandOpts) *cobra.Command {
 	del := &cobra.Command{
-		Use:     "delete <foo> <bar> <baz>",
-		Short:   "Delete hosts.",
+		Use:     "delete [HOST...]",
+		Short:   "Delete hosts",
 		PreRunE: preRunE(opts.ServiceFlags, &opts.ServiceFlags.Service, &opts.InitialConfig),
 		RunE: func(c *cobra.Command, args []string) error {
 			return runDeleteHostsCommand(c, args, opts.ServiceFlags, opts)
@@ -593,7 +594,7 @@ func createCommand(opts *subCommandOpts) *cobra.Command {
 	}
 	create := &cobra.Command{
 		Use:     "create [config.json]",
-		Short:   "Creates a CVD",
+		Short:   "Create a CVD group with CVD instances",
 		PreRunE: preRunE(createFlags, &opts.ServiceFlags.Service, &opts.InitialConfig),
 		RunE: func(c *cobra.Command, args []string) error {
 			configs, err := parseAcceleratorFlag(gcpAcceleratorFlagValues)
@@ -604,7 +605,7 @@ func createCommand(opts *subCommandOpts) *cobra.Command {
 			return runCreateCVDCommand(c, args, createFlags, opts)
 		},
 	}
-	create.Flags().StringVar(&createFlags.Host, hostFlag, "", "Specifies the host")
+	create.Flags().StringVar(&createFlags.Host, hostFlag, "", "Specifies the host. Creates a new host when it's not specified")
 	// Main build flags.
 	create.Flags().StringVar(&createFlags.MainBuild.Branch, branchFlag, "aosp-main", "The branch name")
 	create.Flags().StringVar(&createFlags.MainBuild.BuildID, buildIDFlag, "", "Android build identifier")
@@ -704,7 +705,7 @@ func listCommand(opts *subCommandOpts) *cobra.Command {
 	listFlags := &ListCVDsFlags{ServiceFlags: opts.ServiceFlags}
 	list := &cobra.Command{
 		Use:     "list",
-		Short:   "List CVDs",
+		Short:   "List CVD groups and their instances",
 		PreRunE: preRunE(listFlags, &opts.ServiceFlags.Service, &opts.InitialConfig),
 		RunE: func(c *cobra.Command, args []string) error {
 			return runListCVDsCommand(c, listFlags, opts)
@@ -718,7 +719,7 @@ func bugreportCommand(opts *subCommandOpts) *cobra.Command {
 	brFlags := &BugreportFlags{ServiceFlags: opts.ServiceFlags}
 	br := &cobra.Command{
 		Use:     "bugreport [--host HOST [--group GROUP]]",
-		Short:   "Pull cvd runtime artifacts",
+		Short:   "Pull runtime artifacts of a CVD group",
 		PreRunE: preRunE(opts.ServiceFlags, &opts.ServiceFlags.Service, &opts.InitialConfig),
 		RunE: func(c *cobra.Command, args []string) error {
 			return runBugreportCommand(c, brFlags, opts)
@@ -732,8 +733,8 @@ func bugreportCommand(opts *subCommandOpts) *cobra.Command {
 func deleteCommand(opts *subCommandOpts) *cobra.Command {
 	delFlags := &DeleteCVDFlags{ServiceFlags: opts.ServiceFlags}
 	del := &cobra.Command{
-		Use:     "delete [--host=HOST] [id]",
-		Short:   "Deletes cvd instance",
+		Use:     "delete --host=HOST GROUP",
+		Short:   "Delete a CVD group",
 		PreRunE: preRunE(delFlags, &opts.ServiceFlags.Service, &opts.InitialConfig),
 		RunE: func(c *cobra.Command, args []string) error {
 			return runDeleteCVDCommand(c, args, delFlags, opts)
@@ -747,8 +748,8 @@ func deleteCommand(opts *subCommandOpts) *cobra.Command {
 func stopCommand(opts *subCommandOpts) *cobra.Command {
 	stopFlags := &StopCVDFlags{ServiceFlags: opts.ServiceFlags}
 	stop := &cobra.Command{
-		Use:     "stop --host=HOST --group=GROUP --name=NAME",
-		Short:   "Stops a running instance",
+		Use:     "stop --host=HOST --group=GROUP --name=INSTANCE",
+		Short:   "Stop a running CVD instance",
 		PreRunE: preRunE(stopFlags, &opts.ServiceFlags.Service, &opts.InitialConfig),
 		RunE: func(c *cobra.Command, args []string) error {
 			return runStopCVDCommand(c, args, stopFlags, opts)
@@ -766,8 +767,8 @@ func stopCommand(opts *subCommandOpts) *cobra.Command {
 func startCommand(opts *subCommandOpts) *cobra.Command {
 	startFlags := &StartCVDFlags{ServiceFlags: opts.ServiceFlags}
 	start := &cobra.Command{
-		Use:     "start --host=HOST --group=GROUP --name=NAME",
-		Short:   "Start a stopped instance",
+		Use:     "start --host=HOST --group=GROUP --name=INSTANCE",
+		Short:   "Start a stopped CVD instance",
 		PreRunE: preRunE(startFlags, &opts.ServiceFlags.Service, &opts.InitialConfig),
 		RunE: func(c *cobra.Command, args []string) error {
 			return runStartCVDCommand(c, args, startFlags, opts)
@@ -786,8 +787,8 @@ func startCommand(opts *subCommandOpts) *cobra.Command {
 func snapshotCommand(opts *subCommandOpts) *cobra.Command {
 	snapshotFlags := &SnapshotCVDFlags{ServiceFlags: opts.ServiceFlags}
 	snapshot := &cobra.Command{
-		Use:     "snapshot --host=HOST --group=GROUP --name=NAME",
-		Short:   "Snapshot a device",
+		Use:     "snapshot --host=HOST --group=GROUP --name=INSTANCE",
+		Short:   "Snapshot a CVD instance",
 		PreRunE: preRunE(snapshotFlags, &opts.ServiceFlags.Service, &opts.InitialConfig),
 		RunE: func(c *cobra.Command, args []string) error {
 			return runSnapshotCVDCommand(c, args, snapshotFlags, opts)
@@ -805,8 +806,8 @@ func snapshotCommand(opts *subCommandOpts) *cobra.Command {
 func resetCommand(opts *subCommandOpts) *cobra.Command {
 	resetFlags := &ResetHostFlags{ServiceFlags: opts.ServiceFlags}
 	reset := &cobra.Command{
-		Use:     "reset --host=HOST [-y]",
-		Short:   "Reset all devices in a host",
+		Use:     "reset --host=HOST",
+		Short:   "Reset all CVD instances and CVD groups in a host",
 		PreRunE: preRunE(resetFlags, &opts.ServiceFlags.Service, &opts.InitialConfig),
 		RunE: func(c *cobra.Command, args []string) error {
 			return runResetHostCommand(c, args, resetFlags, opts)
@@ -830,14 +831,15 @@ func connectionCommands(opts *subCommandOpts) []*cobra.Command {
 
 func connectCommand(connFlags *ConnectFlags, opts *subCommandOpts) *cobra.Command {
 	connect := &cobra.Command{
-		Use:     ConnectCommandName,
-		Short:   "(Re)Connects to a CVD and tunnels ADB messages",
+		Use:     "connect [--host=HOST --group=GROUP INSTANCE [INSTANCE...]]",
+		Short:   "Establish ADB connections to CVD instances",
 		PreRunE: preRunE(connFlags, &opts.ServiceFlags.Service, &opts.InitialConfig),
 		RunE: func(c *cobra.Command, args []string) error {
 			return runConnectCommand(connFlags, &command{c, &connFlags.Verbose}, args, opts)
 		},
 	}
 	connect.Flags().StringVar(&connFlags.host, hostFlag, "", "Specifies the host")
+	connect.Flags().StringVar(&connFlags.group, groupFlag, "", "Instances group name")
 	connect.Flags().BoolVarP(&connFlags.skipConfirmation, "yes", "y", false,
 		"Don't ask for confirmation for closing multiple connections.")
 	connect.Flags().StringVar(&connFlags.ice_config, iceConfigFlag, "", iceConfigFlagDesc)
@@ -847,14 +849,15 @@ func connectCommand(connFlags *ConnectFlags, opts *subCommandOpts) *cobra.Comman
 
 func disconnectCommand(connFlags *ConnectFlags, opts *subCommandOpts) *cobra.Command {
 	disconnect := &cobra.Command{
-		Use:     fmt.Sprintf("%s <foo> <bar> <baz>", DisconnectCommandName),
-		Short:   "Disconnect (ADB) from CVD",
+		Use:     "disconnect [--host=HOST --group=GROUP INSTANCE [INSTANCE...]]",
+		Short:   "Terminate established ADB connections to CVD instances",
 		PreRunE: preRunE(connFlags, &opts.ServiceFlags.Service, &opts.InitialConfig),
 		RunE: func(c *cobra.Command, args []string) error {
 			return runDisconnectCommand(connFlags, &command{c, &connFlags.Verbose}, args, opts)
 		},
 	}
 	disconnect.Flags().StringVar(&connFlags.host, hostFlag, "", "Specifies the host")
+	disconnect.Flags().StringVar(&connFlags.group, groupFlag, "", "Instances group name")
 	disconnect.Flags().BoolVarP(&connFlags.skipConfirmation, "yes", "y", false,
 		"Don't ask for confirmation for closing multiple connections.")
 	return disconnect
@@ -869,6 +872,7 @@ func webrtcAgentCommand(connFlags *ConnectFlags, opts *subCommandOpts) *cobra.Co
 		},
 	}
 	webrtcAgent.Flags().StringVar(&connFlags.host, hostFlag, "", "Specifies the host")
+	webrtcAgent.Flags().StringVar(&connFlags.group, groupFlag, "", "Instances group name")
 	webrtcAgent.Flags().StringVar(&connFlags.ice_config, iceConfigFlag, "", iceConfigFlagDesc)
 	webrtcAgent.MarkPersistentFlagRequired(hostFlag)
 	return webrtcAgent
@@ -883,6 +887,7 @@ func webSocketAgentCommand(connFlags *ConnectFlags, opts *subCommandOpts) *cobra
 		},
 	}
 	webSocketAgent.Flags().StringVar(&connFlags.host, hostFlag, "", "Specifies the host")
+	webSocketAgent.Flags().StringVar(&connFlags.group, groupFlag, "", "Instances group name")
 	webSocketAgent.MarkPersistentFlagRequired(hostFlag)
 	return webSocketAgent
 }
@@ -945,7 +950,7 @@ func disconnectDevicesByHost(host string, opts *subCommandOpts) error {
 	var merr error
 	for cvd, status := range statuses {
 		if err := DisconnectCVD(controlDir, cvd, status); err != nil {
-			merr = multierror.Append(merr, fmt.Errorf("failed to disconnect from %s: %w", cvd.WebRTCDeviceID, err))
+			merr = multierror.Append(merr, fmt.Errorf("failed to disconnect from %s/%s: %w", cvd.Group, cvd.Name, err))
 		}
 	}
 	return merr
@@ -953,7 +958,7 @@ func disconnectDevicesByHost(host string, opts *subCommandOpts) error {
 
 const (
 	createHostStateMsg    = "Creating Host"
-	connectCVDStateMsgFmt = "Connecting to %s"
+	connectCVDStateMsgFmt = "Connecting to %s/%s"
 )
 
 func runCreateCVDCommand(c *cobra.Command, args []string, flags *CreateCVDFlags, opts *subCommandOpts) error {
@@ -1002,9 +1007,9 @@ func runCreateCVDCommand(c *cobra.Command, args []string, flags *CreateCVDFlags,
 			connectAgent = flags.CreateCVDOpts.ConnectAgent
 		}
 		for _, cvd := range cvds {
-			statePrinter.Print(fmt.Sprintf(connectCVDStateMsgFmt, cvd.WebRTCDeviceID))
-			cvd.ConnStatus, err = ConnectDevice(flags.CreateCVDOpts.Host, cvd.WebRTCDeviceID, "", connectAgent, &command{c, &flags.Verbose}, opts)
-			statePrinter.PrintDone(fmt.Sprintf(connectCVDStateMsgFmt, cvd.WebRTCDeviceID), err)
+			statePrinter.Print(fmt.Sprintf(connectCVDStateMsgFmt, cvd.Group, cvd.Name))
+			cvd.ConnStatus, err = ConnectDevice(flags.CreateCVDOpts.Host, cvd.Group, cvd.Name, "", connectAgent, &command{c, &flags.Verbose}, opts)
+			statePrinter.PrintDone(fmt.Sprintf(connectCVDStateMsgFmt, cvd.Group, cvd.Name), err)
 			if err != nil {
 				merr = multierror.Append(merr, fmt.Errorf("failed to connect to device: %w", err))
 			}
@@ -1093,7 +1098,7 @@ func runDeleteCVDCommand(c *cobra.Command, args []string, flags *DeleteCVDFlags,
 		return err
 	}
 	if len(args) == 0 {
-		return errors.New("missing id")
+		return errors.New("missing group")
 	}
 	if len(args) > 1 {
 		return errors.New("deleting multiple instances is not supported yet")
@@ -1190,7 +1195,7 @@ func promptSingleGroupNameSelection(c *command, srvClient client.Client, control
 	cvds := flattenCVDs(hosts)
 	names := []string{}
 	for _, e := range cvds {
-		names = append(names, e.Group())
+		names = append(names, e.Group)
 	}
 	sel, err := PromptSelectionFromSliceString(c, names, Single)
 	if err != nil {
@@ -1204,7 +1209,7 @@ func promptSingleGroupNameSelection(c *command, srvClient client.Client, control
 
 // Starts a connection agent process and waits for it to report the connection was
 // successfully created or an error occurred.
-func ConnectDevice(host, device, ice_config, agent string, c *command, opts *subCommandOpts) (*ConnStatus, error) {
+func ConnectDevice(host, group, name, ice_config, agent string, c *command, opts *subCommandOpts) (*ConnStatus, error) {
 	// Clean old logs files as we are about to create new ones.
 	go func() {
 		minAge := opts.InitialConfig.LogFilesDeleteThreshold()
@@ -1219,9 +1224,10 @@ func ConnectDevice(host, device, ice_config, agent string, c *command, opts *sub
 	flags := &ConnectFlags{
 		ServiceFlags: opts.ServiceFlags,
 		host:         host,
+		group:        group,
 		ice_config:   ice_config,
 	}
-	cmdArgs := buildAgentCmdArgs(flags, device, agent)
+	cmdArgs := buildAgentCmdArgs(flags, name, agent)
 
 	output, err := opts.CommandRunner.StartBgCommand(cmdArgs...)
 	if err != nil {
@@ -1248,18 +1254,24 @@ func runConnectCommand(flags *ConnectFlags, c *command, args []string, opts *sub
 	if _, err := verifyICEConfigFlag(flags.ice_config); err != nil {
 		return err
 	}
-	if len(args) > 0 && flags.host == "" {
-		return fmt.Errorf("missing host for devices: %v", args)
+	if len(args) > 0 {
+		if flags.host == "" {
+			return fmt.Errorf("missing host for devices: %v", args)
+		}
+		if flags.group == "" {
+			return fmt.Errorf("missing group for devices: %v", args)
+		}
 	}
 	srvClient, err := newClient(opts.InitialConfig, flags.ServiceFlags, c.Command)
 	if err != nil {
 		return err
 	}
 	var cvds []RemoteCVDLocator
-	for _, d := range args {
+	for _, name := range args {
 		cvds = append(cvds, RemoteCVDLocator{
-			Host:           flags.host,
-			WebRTCDeviceID: d,
+			Host:  flags.host,
+			Group: flags.group,
+			Name:  name,
 		})
 	}
 	// Find the user's cvds if they didn't specify any.
@@ -1280,7 +1292,7 @@ func runConnectCommand(flags *ConnectFlags, c *command, args []string, opts *sub
 		// Confirmation is only necessary when the user didn't specify devices.
 		if len(selectList) > 1 && !flags.skipConfirmation {
 			toStr := func(c *RemoteCVD) string {
-				return fmt.Sprintf("%s/%s", c.Host, c.WebRTCDeviceID)
+				return fmt.Sprintf("%s/%s/%s", c.Host, c.Group, c.Name)
 			}
 			selectList, err = PromptSelectionFromSlice(c, selectList, toStr, AllowAll)
 			if err != nil {
@@ -1312,9 +1324,9 @@ func runConnectCommand(flags *ConnectFlags, c *command, args []string, opts *sub
 		go func(connCh chan ConnStatus, errCh chan error, cvd RemoteCVDLocator) {
 			defer close(connCh)
 			defer close(errCh)
-			status, err := ConnectDevice(cvd.Host, cvd.WebRTCDeviceID, flags.ice_config, connectAgent, c, opts)
+			status, err := ConnectDevice(cvd.Host, cvd.Group, cvd.Name, flags.ice_config, connectAgent, c, opts)
 			if err != nil {
-				errCh <- fmt.Errorf("failed to connect to %q on %q: %w", cvd.WebRTCDeviceID, cvd.Host, err)
+				errCh <- fmt.Errorf("failed to connect to %s/%s/%s: %w", cvd.Host, cvd.Group, cvd.Name, err)
 			} else {
 				connCh <- *status
 			}
@@ -1348,11 +1360,11 @@ func printConnection(c *command, cvd RemoteCVDLocator, status ConnStatus) {
 	if status.ADB.Port > 0 {
 		state = fmt.Sprintf("127.0.0.1:%d", status.ADB.Port)
 	}
-	c.Printf("%s/%s: %s\n", cvd.Host, cvd.WebRTCDeviceID, state)
+	c.Printf("%s/%s/%s: %s\n", cvd.Host, cvd.Group, cvd.Name, state)
 }
 
-func buildAgentCmdArgs(flags *ConnectFlags, device string, connectAgent string) []string {
-	args := []string{connectAgent, device}
+func buildAgentCmdArgs(flags *ConnectFlags, name string, connectAgent string) []string {
+	args := []string{connectAgent, name}
 	return append(args, flags.AsArgs()...)
 }
 
@@ -1375,19 +1387,32 @@ func runConnectionWebrtcAgentCommand(flags *ConnectFlags, c *command, args []str
 	if len(args) == 0 {
 		return fmt.Errorf("missing device")
 	}
-	device := args[0]
+	name := args[0]
 	srvClient, err := newClient(opts.InitialConfig, flags.ServiceFlags, c.Command)
 	if err != nil {
 		return err
 	}
-
-	devSpec := RemoteCVDLocator{
-		Host:           flags.host,
-		WebRTCDeviceID: device,
+	controlDir := opts.InitialConfig.ConnectionControlDirExpanded()
+	hosts, err := listCVDsSingleHost(srvClient, opts.InitialConfig.ConnectionControlDirExpanded(), flags.host)
+	if err != nil {
+		return fmt.Errorf("failed to list cvds from host %q: %w", flags.host, err)
+	}
+	cvds := flattenCVDs(hosts)
+	var connectionCVD *RemoteCVDLocator
+	for _, cvd := range cvds {
+		if cvd.RemoteCVDLocator.Group != flags.group {
+			continue
+		}
+		if cvd.RemoteCVDLocator.Name == name {
+			connectionCVD = &cvd.RemoteCVDLocator
+			break
+		}
+	}
+	if connectionCVD == nil {
+		return fmt.Errorf("failed to find %q from host %q", name, flags.host)
 	}
 
-	controlDir := opts.InitialConfig.ConnectionControlDirExpanded()
-	ret, err := FindOrConnect(controlDir, devSpec, srvClient, localICEConfig)
+	ret, err := FindOrConnect(controlDir, *connectionCVD, srvClient, localICEConfig)
 	if err != nil {
 		return err
 	}
@@ -1406,7 +1431,7 @@ func runConnectionWebrtcAgentCommand(flags *ConnectFlags, c *command, args []str
 
 	// Ask ADB server to connect even if the connection to the device already exists.
 	if err := opts.ADBServerProxy.Connect(ret.Status.ADB.Port); err != nil {
-		c.PrintErrf("Failed to connect ADB to device %q: %v\n", device, err)
+		c.PrintErrf("Failed to connect ADB to device %s/%s: %v\n", flags.group, name, err)
 	}
 
 	if ret.Controller == nil {
@@ -1446,7 +1471,7 @@ func runConnectionWebSocketAgentCommand(flags *ConnectFlags, c *command, args []
 		c.PrintErrf("Failed to listen ADB socket: %v", err)
 		return err
 	}
-	device := args[0]
+	name := args[0]
 	adbPort := l.Addr().(*net.TCPAddr).Port
 	err = opts.ADBServerProxy.Connect(adbPort)
 	if err != nil {
@@ -1454,14 +1479,14 @@ func runConnectionWebSocketAgentCommand(flags *ConnectFlags, c *command, args []
 	}
 
 	for {
-		if err := connectAndForwardOnce(flags, c, opts, l, adbPort, device); err != nil {
+		if err := connectAndForwardOnce(flags, c, opts, l, adbPort, name); err != nil {
 			return err
 		}
 	}
 }
 
 func connectAndForwardOnce(
-	flags *ConnectFlags, c *command, opts *subCommandOpts, l net.Listener, adbPort int, device string) error {
+	flags *ConnectFlags, c *command, opts *subCommandOpts, l net.Listener, adbPort int, name string) error {
 	// Get connection from ADB server
 	tcpConn, tcpErr := acceptADBConnection(opts, c, l, adbPort)
 	if tcpErr != nil {
@@ -1476,7 +1501,7 @@ func connectAndForwardOnce(
 
 	// Try connect to remote device's ADB
 	for retryCount = 0; retryCount < maxRetryCount; retryCount++ {
-		devConn, devErr = connectToDeviceADB(flags, c, opts, device)
+		devConn, devErr = connectToDeviceADB(flags, c, opts, name)
 		if devErr == nil {
 			break
 		}
@@ -1527,45 +1552,32 @@ func acceptADBConnection(opts *subCommandOpts, c *command, l net.Listener, adbPo
 	return tcpConn, nil
 }
 
-func connectToDeviceADB(flags *ConnectFlags, c *command, opts *subCommandOpts, device string) (io.ReadWriteCloser, error) {
-	var wsConn *websocket.Conn
-	serviceURL := flags.ServiceURL
-	if flags.host == "none" {
-		// Connect to ADB proxy WebSocket directly by using serviceURL as Operator URL.
-		//   wss://127.0.0.1:1443/devices/cvd-1/adb
-		url, err := url.Parse(serviceURL)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse URL %s: %w", serviceURL, err)
+func connectToDeviceADB(flags *ConnectFlags, c *command, opts *subCommandOpts, name string) (io.ReadWriteCloser, error) {
+	srvClient, err := newClient(opts.InitialConfig, flags.ServiceFlags, c.Command)
+	if err != nil {
+		return nil, err
+	}
+	hosts, err := listCVDsSingleHost(srvClient, opts.InitialConfig.ConnectionControlDirExpanded(), flags.host)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list cvds from host %q: %w", flags.host, err)
+	}
+	cvds := flattenCVDs(hosts)
+	var connectionCVD *RemoteCVDLocator
+	for _, cvd := range cvds {
+		if cvd.RemoteCVDLocator.Group != flags.group {
+			continue
 		}
-		switch p := &url.Scheme; *p {
-		case "https":
-			*p = "wss"
-		case "http":
-			*p = "ws"
-		default:
-			return nil, fmt.Errorf("unknown scheme %s", *p)
+		if cvd.RemoteCVDLocator.Name == name {
+			connectionCVD = &cvd.RemoteCVDLocator
+			break
 		}
-		url = url.JoinPath("devices", device, "adb")
-		dialer := websocket.Dialer{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
-			},
-		}
-		wsConn, _, err = dialer.Dial(url.String(), nil)
-		if err != nil {
-			return nil, fmt.Errorf("failed to connect WebSocket %s: %w", url.String(), err)
-		}
-	} else {
-		// Connect to the ADB WebSocket using Host Orchestrator service client.
-		// This is for normal scenario (HO behind CO).
-		srvClient, err := newClient(opts.InitialConfig, flags.ServiceFlags, c.Command)
-		if err != nil {
-			return nil, err
-		}
-		wsConn, err = srvClient.HostClient(flags.host).ConnectADBWebSocket(device)
-		if err != nil {
-			return nil, err
-		}
+	}
+	if connectionCVD == nil {
+		return nil, fmt.Errorf("failed to find %s/%s/%s", flags.host, flags.group, name)
+	}
+	wsConn, err := srvClient.HostClient(flags.host).ConnectADBWebSocket(connectionCVD.WebRTCDeviceID)
+	if err != nil {
+		return nil, err
 	}
 	return newWsIoWrapper(c, wsConn), nil
 }
@@ -1690,8 +1702,13 @@ func (w *wsIoWrapper) Close() error {
 }
 
 func runDisconnectCommand(flags *ConnectFlags, c *command, args []string, opts *subCommandOpts) error {
-	if len(args) > 0 && flags.host == "" {
-		return fmt.Errorf("missing host for devices: %v", args)
+	if len(args) > 0 {
+		if flags.host == "" {
+			return fmt.Errorf("missing host for devices: %v", args)
+		}
+		if flags.group == "" {
+			return fmt.Errorf("missing group for devices: %v", args)
+		}
 	}
 	controlDir := opts.InitialConfig.ConnectionControlDirExpanded()
 	var statuses map[RemoteCVDLocator]ConnStatus
@@ -1706,19 +1723,19 @@ func runDisconnectCommand(flags *ConnectFlags, c *command, args []string, opts *
 	}
 	// Restrict the list of connections to those specified as arguments
 	if len(args) > 0 {
-		devices := make(map[string]bool)
+		names := make(map[string]bool)
 		for _, a := range args {
-			devices[a] = true
+			names[a] = true
 		}
 		statuses = filterMap(statuses, func(cvd RemoteCVDLocator, s ConnStatus) bool {
-			if devices[cvd.WebRTCDeviceID] {
-				delete(devices, cvd.WebRTCDeviceID)
+			if names[cvd.Name] {
+				delete(names, cvd.Name)
 				return true
 			}
 			return false
 		})
-		for device := range devices {
-			merr = multierror.Append(merr, fmt.Errorf("connection not found for %q", device))
+		for name := range names {
+			merr = multierror.Append(merr, fmt.Errorf("connection not found for %s/%s/%s", flags.host, flags.group, name))
 		}
 	}
 	if len(statuses) > 1 && !flags.skipConfirmation {
@@ -1734,7 +1751,7 @@ func runDisconnectCommand(flags *ConnectFlags, c *command, args []string, opts *
 			multierror.Append(merr, err)
 			continue
 		}
-		c.Printf("%s/%s: disconnected\n", cvd.Host, cvd.WebRTCDeviceID)
+		c.Printf("%s/%s/%s: disconnected\n", cvd.Host, cvd.Group, cvd.Name)
 	}
 	return merr
 }
@@ -1765,7 +1782,7 @@ func runGetConfigCommand(c *cobra.Command, args []string, cfg Config) error {
 func promptConnectionSelection(devices map[RemoteCVDLocator]ConnStatus, c *command) (map[RemoteCVDLocator]ConnStatus, error) {
 	c.PrintErrln("Multiple connections match:")
 	toStr := func(cvd RemoteCVDLocator, d ConnStatus) string {
-		return fmt.Sprintf("%s %s", cvd.Host, cvd.WebRTCDeviceID)
+		return fmt.Sprintf("%s/%s/%s", cvd.Host, cvd.Group, cvd.Name)
 	}
 	return PromptSelectionFromMap(c, devices, toStr, AllowAll)
 }

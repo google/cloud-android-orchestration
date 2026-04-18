@@ -21,6 +21,7 @@ import (
 	"log"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
@@ -34,10 +35,16 @@ import (
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/client"
+	"github.com/docker/docker/errdefs"
 )
 
 const DockerIMType IMType = "docker"
 
+// A DockerIMConfig contains configuration needs for Docker instance manager.
+//
+// While the container image name is configurable, we do not intend or want to
+// support other containers or alternative command execution in the
+// `cuttlefish-orchestration` container.
 type DockerIMConfig struct {
 	DockerImageName      string
 	HostOrchestratorPort int
@@ -53,8 +60,9 @@ const uaMountTarget = "/var/lib/cuttlefish-common/userartifacts"
 
 // Docker implementation of the instance manager.
 type DockerInstanceManager struct {
-	Config Config
-	Client *client.Client
+	Config  Config
+	Client  *client.Client
+	mutexes sync.Map
 }
 
 type OPType string
@@ -83,6 +91,9 @@ func (m *DockerInstanceManager) CreateHost(zone string, _ *apiv1.CreateHostReque
 	if zone != "local" {
 		return nil, errors.NewBadRequestError("Invalid zone. It should be 'local'.", nil)
 	}
+	mu := m.getRWMutex(user)
+	mu.RLock()
+	defer mu.RUnlock()
 	ctx := context.TODO()
 	if err := m.downloadDockerImageIfNeeded(ctx); err != nil {
 		return nil, fmt.Errorf("failed to retrieve docker image name: %w", err)
@@ -92,45 +103,12 @@ func (m *DockerInstanceManager) CreateHost(zone string, _ *apiv1.CreateHostReque
 	if err := m.createDockerVolumeIfNeeded(ctx, user); err != nil {
 		return nil, fmt.Errorf("failed to prepare docker volume: %w", err)
 	}
-	config := &container.Config{
-		AttachStdin: true,
-		Image:       m.Config.Docker.DockerImageName,
-		Tty:         true,
-		Labels:      dockerLabelsDict(user),
-	}
-	hostConfig := &container.HostConfig{
-		Mounts: []mount.Mount{
-			{
-				Type:   mount.TypeVolume,
-				Source: uaVolumeName(user),
-				Target: uaMountTarget,
-			},
-		},
-		Privileged: true,
-	}
-	createRes, err := m.Client.ContainerCreate(ctx, config, hostConfig, nil, nil, "")
+	host, err := m.createDockerContainer(ctx, user)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create docker container: %w", err)
-	}
-	err = m.Client.ContainerStart(ctx, createRes.ID, container.StartOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("failed to start docker container: %w", err)
-	}
-	execConfig := container.ExecOptions{
-		Cmd:          []string{"chown", "httpcvd:httpcvd", uaMountTarget},
-		AttachStdout: false,
-		AttachStderr: false,
-		Tty:          false,
-	}
-	execRes, err := m.Client.ContainerExecCreate(ctx, createRes.ID, execConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create container execution %q: %w", strings.Join(execConfig.Cmd, " "), err)
-	}
-	if err := m.Client.ContainerExecStart(ctx, execRes.ID, container.ExecStartOptions{}); err != nil {
-		return nil, fmt.Errorf("failed to start container execution %q: %w", strings.Join(execConfig.Cmd, " "), err)
+		return nil, fmt.Errorf("failed to prepare docker container: %w", err)
 	}
 	return &apiv1.Operation{
-		Name: EncodeOperationName(CreateHostOPType, createRes.ID),
+		Name: EncodeOperationName(CreateHostOPType, host),
 		Done: true,
 	}, nil
 }
@@ -170,17 +148,8 @@ func (m *DockerInstanceManager) DeleteHost(zone string, user accounts.User, host
 		return nil, errors.NewBadRequestError("Invalid zone. It should be 'local'.", nil)
 	}
 	ctx := context.TODO()
-	owner, _ := m.getContainerLabel(host, dockerLabelCreatedBy)
-	if owner != user.Username() {
-		return nil, fmt.Errorf("user %s cannot delete docker host owned by %s", user.Username(), owner)
-	}
-	err := m.Client.ContainerStop(ctx, host, container.StopOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("failed to stop docker container: %w", err)
-	}
-	err = m.Client.ContainerRemove(ctx, host, container.RemoveOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("failed to remove docker container: %w", err)
+	if err := m.deleteDockerContainer(ctx, user, host); err != nil {
+		return nil, fmt.Errorf("failed to delete docker container: %w", err)
 	}
 	// A docker volume is shared across all hosts under each user. If no host
 	// exists for given user, delete volume afterwards to cleanup.
@@ -305,6 +274,8 @@ func (m *DockerInstanceManager) getHostURL(host string) (*url.URL, error) {
 	return url.Parse(fmt.Sprintf("%s://%s:%d", m.Config.HostOrchestratorProtocol, addr, port))
 }
 
+// When creating docker instances as default, docker instance gets belonged
+// to the default network named 'bridge' with getting an assigned IP.
 func (m *DockerInstanceManager) GetHostClient(zone string, host string) (HostClient, error) {
 	if zone != "local" {
 		return nil, errors.NewBadRequestError("Invalid zone. It should be 'local'.", nil)
@@ -375,8 +346,7 @@ func (m *DockerInstanceManager) downloadDockerImageIfNeeded(ctx context.Context)
 	defer reader.Close()
 	// Caller of ImagePull should handle its output to complete actual ImagePull operation.
 	// Details in https://pkg.go.dev/github.com/docker/docker/client#Client.ImagePull.
-	_, err = io.Copy(io.Discard, reader)
-	if err != nil {
+	if _, err := io.Copy(io.Discard, reader); err != nil {
 		return fmt.Errorf("failed to pull docker image %q: %w", m.Config.Docker.DockerImageName, err)
 	}
 	log.Println("Downloaded docker image: " + m.Config.Docker.DockerImageName)
@@ -402,6 +372,93 @@ func (m *DockerInstanceManager) createDockerVolumeIfNeeded(ctx context.Context, 
 	return nil
 }
 
+// The container is expected to have:
+//   - An entrypoint starting cuttlefish-host_orchestrator service and its
+//     dependencies.
+//   - Network access through default docker0 bridge interface.
+//   - A volume named with `user_artifacts_<username>` for sharing user
+//     artifacts across containers.
+func (m *DockerInstanceManager) createDockerContainer(ctx context.Context, user accounts.User) (string, error) {
+	config := &container.Config{
+		AttachStdin: true,
+		Image:       m.Config.Docker.DockerImageName,
+		Tty:         true,
+		Labels:      dockerLabelsDict(user),
+	}
+	hostConfig := &container.HostConfig{
+		CapAdd: []string{"NET_ADMIN"},
+		Mounts: []mount.Mount{
+			{
+				Type:   mount.TypeVolume,
+				Source: uaVolumeName(user),
+				Target: uaMountTarget,
+			},
+		},
+		Resources: container.Resources{
+			Devices: []container.DeviceMapping{
+				{
+					PathOnHost:        "/dev/kvm",
+					PathInContainer:   "/dev/kvm",
+					CgroupPermissions: "rwm",
+				},
+				{
+					PathOnHost:        "/dev/net/tun",
+					PathInContainer:   "/dev/net/tun",
+					CgroupPermissions: "rwm",
+				},
+				{
+					PathOnHost:        "/dev/vhost-net",
+					PathInContainer:   "/dev/vhost-net",
+					CgroupPermissions: "rwm",
+				},
+				{
+					PathOnHost:        "/dev/vhost-vsock",
+					PathInContainer:   "/dev/vhost-vsock",
+					CgroupPermissions: "rwm",
+				},
+			},
+		},
+		// Without this option, an error occurs while launching Cuttlefish on docker instance.
+		SecurityOpt: []string{"seccomp=unconfined"},
+	}
+	createRes, err := m.Client.ContainerCreate(ctx, config, hostConfig, nil, nil, "")
+	if err != nil {
+		return "", fmt.Errorf("failed to create docker container: %w", err)
+	}
+	if err := m.Client.ContainerStart(ctx, createRes.ID, container.StartOptions{}); err != nil {
+		return "", fmt.Errorf("failed to start docker container: %w", err)
+	}
+	execConfig := container.ExecOptions{
+		Cmd:          []string{"chown", "httpcvd:httpcvd", uaMountTarget},
+		AttachStdout: false,
+		AttachStderr: false,
+		Tty:          false,
+	}
+	execRes, err := m.Client.ContainerExecCreate(ctx, createRes.ID, execConfig)
+	if err != nil {
+		return "", fmt.Errorf("failed to create container execution %q: %w", strings.Join(execConfig.Cmd, " "), err)
+	}
+	if err := m.Client.ContainerExecStart(ctx, execRes.ID, container.ExecStartOptions{}); err != nil {
+		return "", fmt.Errorf("failed to start container execution %q: %w", strings.Join(execConfig.Cmd, " "), err)
+	}
+	return createRes.ID, nil
+}
+
+func (m *DockerInstanceManager) deleteDockerContainer(ctx context.Context, user accounts.User, host string) error {
+	if owner, err := m.getContainerLabel(host, dockerLabelCreatedBy); err != nil {
+		return fmt.Errorf("failed to get container label: %w", err)
+	} else if owner != user.Username() {
+		return fmt.Errorf("user %s cannot delete docker host owned by %s", user.Username(), owner)
+	}
+	if err := m.Client.ContainerStop(ctx, host, container.StopOptions{}); err != nil {
+		return fmt.Errorf("failed to stop docker container: %w", err)
+	}
+	if err := m.Client.ContainerRemove(ctx, host, container.RemoveOptions{}); err != nil {
+		return fmt.Errorf("failed to remove docker container: %w", err)
+	}
+	return nil
+}
+
 func (m *DockerInstanceManager) deleteDockerVolumeIfNeeded(ctx context.Context, user accounts.User) error {
 	containerListOpts := container.ListOptions{Filters: dockerFilter(user)}
 	listRes, err := m.Client.ContainerList(ctx, containerListOpts)
@@ -411,6 +468,15 @@ func (m *DockerInstanceManager) deleteDockerVolumeIfNeeded(ctx context.Context, 
 	if len(listRes) > 0 {
 		return nil
 	}
+
+	mu := m.getRWMutex(user)
+	if locked := mu.TryLock(); !locked {
+		// If it can't acquire lock on this mutex, there's ongoing host
+		// creation with this volume or deletion of this volume. For these
+		// cases, it doesn't need to delete docker volume here.
+		return nil
+	}
+	defer mu.Unlock()
 	listOpts := volume.ListOptions{Filters: dockerFilter(user)}
 	volumeListRes, err := m.Client.VolumeList(ctx, listOpts)
 	if err != nil {
@@ -418,8 +484,19 @@ func (m *DockerInstanceManager) deleteDockerVolumeIfNeeded(ctx context.Context, 
 	}
 	for _, volume := range volumeListRes.Volumes {
 		if err := m.Client.VolumeRemove(ctx, volume.Name, true); err != nil {
+			if errdefs.IsConflict(err) {
+				// Bypass conflict error when the volume is in use, as there's
+				// a race for deleting volume when deleting multiple hosts
+				// simultaneously.
+				continue
+			}
 			return fmt.Errorf("failed to remove docker volume: %w", err)
 		}
 	}
 	return nil
+}
+
+func (m *DockerInstanceManager) getRWMutex(user accounts.User) *sync.RWMutex {
+	mu, _ := m.mutexes.LoadOrStore(user.Username(), &sync.RWMutex{})
+	return mu.(*sync.RWMutex)
 }

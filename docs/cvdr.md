@@ -1,6 +1,6 @@
 # cvdr
 
-This page describes about `cvdr` and its usage.
+This page describes `cvdr` and its usage.
 
 ## What's cvdr?
 
@@ -9,13 +9,13 @@ remotely.
 It wraps [Cloud Orchestrator](cloud_orchestrator.md), to provide user-friendly
 interface.
 
-Please run `cvdr --help` for advanced functionalities of `cvdr` not described
-below, such as launching Cuttlefish with locally built image.
+## Install and Configure cvdr
 
-## Download cvdr
+### Debian Prebuilt Packages
 
 `cuttlefish-cvdremote` is available to download via `apt install` with adding
-the apt repository at Artifact Registry.
+the apt repository at Artifact Registry:
+
 ```bash
 sudo install -m 0755 -d /etc/apt/keyrings
 sudo curl -fsSL https://us-apt.pkg.dev/doc/repo-signing-key.gpg -o /etc/apt/keyrings/android-cuttlefish-artifacts.asc
@@ -29,21 +29,48 @@ sudo apt install cuttlefish-cvdremote
 cvdr --help
 ```
 
-## Configure cvdr
+To configure, modify the configuration file:
 
-Please check and modify the configuration file(`~/.config/cvdr/cvdr.toml`).
-See either 
+- System-level configuration is defined in `/etc/cvdr.toml`
+
+- User-level configuration is defined in `~/.config/cvdr/cvdr.toml` and takes precedence
+
+### Manual Build
+
+To build `cvdr` manually, please run:
+
+```bash
+git clone https://github.com/google/cloud-android-orchestration.git
+cd cloud-android-orchestration # Root directory of git repository
+go build ./cmd/cvdr
+```
+
+The `cvdr` binary will be produced in the cloned repository.
+
+To configure `cvdr`, you have to provide a configuration file by setting
+either `CVDR_SYSTEM_CONFIG_PATH` or `CVDR_USER_CONFIG_PATH` environment variable.
+
+To create a convenient alias, please run or add to `~/.bashrc`:
+
+```text
+export CVDR_USER_CONFIG_PATH=/path/to/cvdr.toml
+alias cvdr="$(realpath ./cvdr)"
+```
+
+### Examples
+
+See either
 [build/debian/cuttlefish_cvdremote/host/etc/cvdr.toml](/build/debian/cuttlefish_cvdremote/host/etc/cvdr.toml)
 or
 [scripts/on-premises/single-server/cvdr.toml](/scripts/on-premises/single-server/cvdr.toml)
 as examples of how to write a configuration file.
 
-## Use cvdr
+## Create CVD
 
-Let's assume using the latest Cuttlefish x86_64 image enrolled in
-[ci.android.com](https://ci.android.com/).
+### Latest Cuttlefish x86_64 Image
 
-Please run:
+To launch with the latest image enrolled in [ci.android.com](https://ci.android.com/), please run:
+
 ```bash
 cvdr \
 --branch=aosp-main \
@@ -51,8 +78,27 @@ cvdr \
 create
 ```
 
-Then we expect the result like below.
+### Custom AOSP build
+
+Assuming you build AOSP from scratch, ensure you run `lunch $MY_BUILD_TARGET` with your target before proceeding, see [Build Android](https://source.android.com/docs/setup/build/building) for more details.
+
+To create an instance using the [build artifacts](https://cs.android.com/android/platform/superproject/+/master:device/google/cuttlefish/required_images) from your local AOSP repo, please run with your working directory being your AOSP root:
+
+```bash
+cvdr create --local_image
 ```
+
+Alternatively, manually specify the images and create an instance:
+
+```bash
+cvdr --local_cvd_host_pkg_src="${ANDROID_PRODUCT_OUT}/dist/cvd-host_package.tar.gz --local_images_zip_src=${ANDROID_PRODUCT_OUT}/dist/your-target-img.zip"
+```
+
+For this to work, you have to build the .zip images using `m dist` in AOSP root beforehand.
+
+On success, we expect the result like below.
+
+```text
 Creating Host........................................ OK
 Fetching main bundle artifacts....................... OK
 Starting and waiting for boot complete............... OK
@@ -64,21 +110,10 @@ Connecting to cvd-1.................................. OK
   Displays: [720 x 1280 ( 320 )]
   Logs: http://localhost:8080/v1/zones/local/hosts/2e8137432a96f93558c838da5e590ec775a97e5a7bb20e66929d1a59eb337351/cvds/1/logs/
 ```
+
 If you want to validate, please refer the first provided URL in the output log
 and check if the page seems like below.
 Also, you should be able to see the device is enrolled via `adb devices`.
 ![cvdr_cf_creation](resources/cvdr_cf_creation_example.png)
 
-## Manually build and run cvdr
-
-To build `cvdr` manually, please run:
-```bash
-git clone https://github.com/google/cloud-android-orchestration.git
-cd cloud-android-orchestration # Root directory of git repository
-go build ./cmd/cvdr
-```
-
-To run `cvdr`, please run:
-```bash
-CVDR_USER_CONFIG_PATH=/path/to/cvdr.toml ./cvdr --help
-```
+Please run `cvdr --help` for advanced functionalities of `cvdr`, including individual commands and their flags, including how to manage or delete CVDs.

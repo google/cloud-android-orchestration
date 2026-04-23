@@ -9,12 +9,12 @@ remotely.
 It wraps [Cloud Orchestrator](cloud_orchestrator.md), to provide user-friendly
 interface.
 
-## Install cvdr
+## Install and Configure cvdr
 
-### Debian prebuilt packages
+### Debian Prebuilt Packages
 
 `cuttlefish-cvdremote` is available to download via `apt install` with adding
-the apt repository at Artifact Registry.
+the apt repository at Artifact Registry:
 
 ```bash
 sudo install -m 0755 -d /etc/apt/keyrings
@@ -29,7 +29,13 @@ sudo apt install cuttlefish-cvdremote
 cvdr --help
 ```
 
-### Manual build
+To configure, modify the configuration file:
+
+- System-level configuration is defined in `/etc/cvdr.toml`
+
+- User-level configuration is defined in `~/.config/cvdr/cvdr.toml` and takes precedence
+
+### Manual Build
 
 To build `cvdr` manually, please run:
 
@@ -39,9 +45,20 @@ cd cloud-android-orchestration # Root directory of git repository
 go build ./cmd/cvdr
 ```
 
-## Configure cvdr
+The `cvdr` binary will be produced in the cloned repository.
 
-Please check and modify the configuration file (defaults to `~/.config/cvdr/cvdr.toml`).
+To configure `cvdr`, you have to provide a configuration file by setting
+either `CVDR_SYSTEM_CONFIG_PATH` or `CVDR_USER_CONFIG_PATH` environment variable.
+
+To create a convenient alias, please run or add to `~/.bashrc`:
+
+```text
+export CVDR_USER_CONFIG_PATH=/path/to/cvdr.toml
+alias cvdr="$(realpath ./cvdr)"
+```
+
+### Examples
+
 See either
 [build/debian/cuttlefish_cvdremote/host/etc/cvdr.toml](/build/debian/cuttlefish_cvdremote/host/etc/cvdr.toml)
 or
@@ -68,13 +85,13 @@ Assuming you build AOSP from scratch, ensure you run `lunch $MY_BUILD_TARGET` wi
 To create an instance using the [build artifacts](https://cs.android.com/android/platform/superproject/+/master:device/google/cuttlefish/required_images) from your local AOSP repo, please run with your working directory being your AOSP root:
 
 ```bash
-CVDR_USER_CONFIG_PATH=/path/to/cvdr.toml cvdr create --local_image
+cvdr create --local_image
 ```
 
 Alternatively, manually specify the images and create an instance:
 
 ```bash
-CVDR_USER_CONFIG_PATH=/path/to/cvdr.toml cvdr --local_cvd_host_pkg_src="${ANDROID_PRODUCT_OUT}/dist/cvd-host_package.tar.gz --local_images_zip_src=${ANDROID_PRODUCT_OUT}/dist/your-target-img.zip"
+cvdr --local_cvd_host_pkg_src="${ANDROID_PRODUCT_OUT}/dist/cvd-host_package.tar.gz --local_images_zip_src=${ANDROID_PRODUCT_OUT}/dist/your-target-img.zip"
 ```
 
 For this to work, you have to build the .zip images using `m dist` in AOSP root beforehand.

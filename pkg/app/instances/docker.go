@@ -47,8 +47,11 @@ const DockerIMType IMType = "docker"
 // `cuttlefish-orchestration` container.
 type DockerIMConfig struct {
 	DockerImageName      string
+	GpuManufacturer      string
 	HostOrchestratorPort int
 }
+
+const gpuManufacturerNvidia = "nvidia"
 
 const (
 	dockerLabelCreatedBy      = "created_by"
@@ -72,11 +75,14 @@ const (
 	DeleteHostOPType OPType = "deletehost"
 )
 
-func NewDockerInstanceManager(cfg Config, cli *client.Client) *DockerInstanceManager {
+func NewDockerInstanceManager(cfg Config, cli *client.Client) (*DockerInstanceManager, error) {
+	if cfg.Docker.GpuManufacturer != "" && cfg.Docker.GpuManufacturer != gpuManufacturerNvidia {
+		return nil, fmt.Errorf("unsupported GPU manufacturer: %q", cfg.Docker.GpuManufacturer)
+	}
 	return &DockerInstanceManager{
 		Config: cfg,
 		Client: cli,
-	}
+	}, nil
 }
 
 func (m *DockerInstanceManager) ListZones() (*apiv1.ListZonesResponse, error) {
@@ -385,6 +391,9 @@ func (m *DockerInstanceManager) createDockerContainer(ctx context.Context, user 
 		Tty:         true,
 		Labels:      dockerLabelsDict(user),
 	}
+	if m.Config.Docker.GpuManufacturer == gpuManufacturerNvidia {
+		config.Env = []string{"NVIDIA_DRIVER_CAPABILITIES=all"}
+	}
 	hostConfig := &container.HostConfig{
 		CapAdd: []string{"NET_ADMIN"},
 		Mounts: []mount.Mount{
@@ -420,6 +429,17 @@ func (m *DockerInstanceManager) createDockerContainer(ctx context.Context, user 
 		},
 		// Without this option, an error occurs while launching Cuttlefish on docker instance.
 		SecurityOpt: []string{"seccomp=unconfined"},
+	}
+	if m.Config.Docker.GpuManufacturer == gpuManufacturerNvidia {
+		hostConfig.Resources = container.Resources{
+			DeviceRequests: []container.DeviceRequest{
+				{
+					Count:        -1,
+					Capabilities: [][]string{{"gpu"}},
+				},
+			},
+		}
+		hostConfig.Runtime = "nvidia"
 	}
 	createRes, err := m.Client.ContainerCreate(ctx, config, hostConfig, nil, nil, "")
 	if err != nil {

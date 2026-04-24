@@ -44,6 +44,7 @@ type HostClient interface {
 	Get(URLPath, URLQuery string, res *HostResponse) (int, error)
 	Post(URLPath, URLQuery string, bodyJSON any, res *HostResponse) (int, error)
 	GetReverseProxy() *httputil.ReverseProxy
+	WaitForHostReady() error
 }
 
 type HostResponse struct {

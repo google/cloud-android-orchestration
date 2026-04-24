@@ -24,6 +24,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -572,9 +573,14 @@ func TestWaitCreateInstanceOperationSucceeds(t *testing.T) {
 		Name:           "foo",
 		MachineType:    "mt",
 		MinCpuPlatform: "mcp",
+		NetworkInterfaces: []*compute.NetworkInterface{
+			{NetworkIP: "127.0.0.1"},
+		},
 	}
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch path := r.URL.Path; path {
+		case "/":
+			replyJSON(w, map[string]string{})
 		case "/projects/google.com:test-project/zones/us-central1-a/operations/operation-1/wait":
 			replyJSON(w, operation)
 		case "/projects/google.com:test-project/zones/us-central1-a/instances/foo":
@@ -584,7 +590,18 @@ func TestWaitCreateInstanceOperationSucceeds(t *testing.T) {
 		}
 	}))
 	defer ts.Close()
-	im := NewGCEInstanceManager(testConfig, buildTestService(t, ts), testNameGenerator)
+
+	tsURL, _ := url.Parse(ts.URL)
+	port, _ := strconv.Atoi(tsURL.Port())
+
+	cfg := testConfig
+	cfg.HostOrchestratorProtocol = "http"
+
+	gcpCfg := *cfg.GCP
+	gcpCfg.HostOrchestratorPort = port
+	cfg.GCP = &gcpCfg
+
+	im := NewGCEInstanceManager(cfg, buildTestService(t, ts), testNameGenerator)
 
 	res, _ := im.WaitOperation(zone, &TestUser{}, opName)
 

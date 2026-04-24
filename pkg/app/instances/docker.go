@@ -188,6 +188,13 @@ func (m *DockerInstanceManager) waitCreateHostOperation(host string) (*apiv1.Hos
 				return nil, fmt.Errorf("failed to inspect docker container: %w", err)
 			}
 			if res.State.Running {
+				client, err := m.GetHostClient("local", host)
+				if err != nil {
+					return nil, err
+				}
+				if err := client.WaitForHostReady(); err != nil {
+					return nil, err
+				}
 				return &apiv1.HostInstance{
 					Name: host,
 				}, nil

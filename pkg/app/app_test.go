@@ -111,6 +111,10 @@ func (hc *testHostClient) GetReverseProxy() *httputil.ReverseProxy {
 	return httputil.NewSingleHostReverseProxy(hc.url)
 }
 
+func (hc *testHostClient) WaitForHostReady() error {
+	return nil
+}
+
 func TestListZonesSucceeds(t *testing.T) {
 	controller := NewApp(&testInstanceManager{}, &testAccountManager{}, nil, nil, nil, "", nil, apiv1.InfraConfig{}, &config.Config{})
 	ts := httptest.NewServer(controller.Handler())

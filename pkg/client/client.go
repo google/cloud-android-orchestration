@@ -81,6 +81,8 @@ type Client interface {
 	HostClient(host string) hoclient.HostOrchestratorClient
 
 	HostServiceURL(host string) (*url.URL, error)
+
+	WaitHostAvailability(host string) error
 }
 
 type HostHTTPEndpointResolver interface {
@@ -126,20 +128,28 @@ func (c *clientImpl) CreateHost(req *apiv1.CreateHostRequest) (*apiv1.HostInstan
 		return nil, err
 	}
 
-	// There is a short delay between the creation of the host and the availability of the host
-	// orchestrator. This call ensures the host orchestrator had time to start before returning
-	// from the this function.
-	retryOpts := hoclient.RetryOptions{
-		StatusCodes: []int{http.StatusBadGateway},
-		RetryDelay:  5 * time.Second,
-		MaxWait:     2 * time.Minute,
-	}
-	hostPath := fmt.Sprintf("/hosts/%s/", ins.Name)
-	if err := c.httpHelper.NewGetRequest(hostPath).JSONResDoWithRetries(nil, retryOpts); err != nil {
-		return nil, fmt.Errorf("unable to communicate with host orchestrator: %w", err)
+	var err error
+	if waitErr := c.WaitHostAvailability(ins.Name); waitErr != nil {
+		// If WaitHostAvailability failed, use legacy wait logic.
+		if c.ErrOut != nil {
+			fmt.Fprintf(c.ErrOut, "Warning: Host availability check failed: %v. Retrying with legacy check...\n", waitErr)
+		}
+		// There is a short delay between the creation of the host and the availability of the host
+		// orchestrator. This call ensures the host orchestrator had time to start before returning
+		// from the this function.
+		retryOpts := hoclient.RetryOptions{
+			StatusCodes: []int{http.StatusBadGateway},
+			RetryDelay:  5 * time.Second,
+			MaxWait:     2 * time.Minute,
+		}
+		hostPath := fmt.Sprintf("/hosts/%s/", ins.Name)
+		if legacyErr := c.httpHelper.NewGetRequest(hostPath).JSONResDoWithRetries(nil, retryOpts); legacyErr != nil {
+			ins = nil
+			err = fmt.Errorf("unable to communicate with host orchestrator: %w", legacyErr)
+		}
 	}
 
-	return ins, nil
+	return ins, err
 }
 
 func (c *clientImpl) ListHosts() (*apiv1.ListHostsResponse, error) {
@@ -167,6 +177,12 @@ func (c *clientImpl) DeleteHosts(names []string) error {
 	}
 	wg.Wait()
 	return merr
+}
+
+func (c *clientImpl) WaitHostAvailability(host string) error {
+	path := fmt.Sprintf("/hosts/%s/:wait-host-availability", host)
+	var res apiv1.HostInstance
+	return c.httpHelper.NewPostRequest(path, nil).JSONResDo(&res)
 }
 
 func (c *clientImpl) waitForOperation(op *apiv1.Operation, res any) error {

@@ -95,6 +95,10 @@ func (m *testInstanceManager) GetHostClient(zone string, host string) (instances
 	return m.hostClientFactory(zone, host), nil
 }
 
+func (m *testInstanceManager) WaitHostAvailability(zone string, user accounts.User, host string) (*apiv1.HostInstance, error) {
+	return &apiv1.HostInstance{Name: host}, nil
+}
+
 type testHostClient struct {
 	url *url.URL
 }
@@ -109,6 +113,10 @@ func (hc *testHostClient) Post(path, query string, bodyJSON any, res *instances.
 
 func (hc *testHostClient) GetReverseProxy() *httputil.ReverseProxy {
 	return httputil.NewSingleHostReverseProxy(hc.url)
+}
+
+func (hc *testHostClient) WaitForHostReady() error {
+	return nil
 }
 
 func TestListZonesSucceeds(t *testing.T) {

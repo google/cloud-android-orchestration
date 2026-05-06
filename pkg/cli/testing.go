@@ -40,3 +40,7 @@ func (fakeClient) HostClient(host string) hoclient.HostOrchestratorClient {
 func (fakeClient) HostServiceURL(host string) (*url.URL, error) {
 	return nil, nil
 }
+
+func (fakeClient) WaitHostAvailability(host string) error {
+	return nil
+}

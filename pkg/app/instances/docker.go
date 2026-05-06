@@ -188,6 +188,13 @@ func (m *DockerInstanceManager) waitCreateHostOperation(host string) (*apiv1.Hos
 				return nil, fmt.Errorf("failed to inspect docker container: %w", err)
 			}
 			if res.State.Running {
+				client, err := m.GetHostClient("local", host)
+				if err != nil {
+					return nil, err
+				}
+				if err := client.WaitForHostReady(); err != nil {
+					return nil, err
+				}
 				return &apiv1.HostInstance{
 					Name: host,
 				}, nil
@@ -229,6 +236,22 @@ func (m *DockerInstanceManager) WaitOperation(zone string, _ accounts.User, name
 	default:
 		return nil, errors.NewBadRequestError(fmt.Sprintf("operation type %s not found.", opType), nil)
 	}
+}
+
+func (m *DockerInstanceManager) WaitHostAvailability(zone string, user accounts.User, host string) (*apiv1.HostInstance, error) {
+	if zone != "local" {
+		return nil, errors.NewBadRequestError("Invalid zone. It should be 'local'.", nil)
+	}
+	client, err := m.GetHostClient(zone, host)
+	if err != nil {
+		return nil, err
+	}
+	if err := client.WaitForHostReady(); err != nil {
+		return nil, err
+	}
+	return &apiv1.HostInstance{
+		Name: host,
+	}, nil
 }
 
 func (m *DockerInstanceManager) getIpAddr(container *types.Container) (string, error) {

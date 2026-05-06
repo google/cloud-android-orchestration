@@ -24,8 +24,10 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
 	apperr "github.com/google/cloud-android-orchestration/pkg/app/errors"
@@ -572,9 +574,14 @@ func TestWaitCreateInstanceOperationSucceeds(t *testing.T) {
 		Name:           "foo",
 		MachineType:    "mt",
 		MinCpuPlatform: "mcp",
+		NetworkInterfaces: []*compute.NetworkInterface{
+			{NetworkIP: "127.0.0.1"},
+		},
 	}
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch path := r.URL.Path; path {
+		case "/":
+			replyJSON(w, map[string]string{})
 		case "/projects/google.com:test-project/zones/us-central1-a/operations/operation-1/wait":
 			replyJSON(w, operation)
 		case "/projects/google.com:test-project/zones/us-central1-a/instances/foo":
@@ -584,13 +591,122 @@ func TestWaitCreateInstanceOperationSucceeds(t *testing.T) {
 		}
 	}))
 	defer ts.Close()
-	im := NewGCEInstanceManager(testConfig, buildTestService(t, ts), testNameGenerator)
+
+	tsURL, _ := url.Parse(ts.URL)
+	port, _ := strconv.Atoi(tsURL.Port())
+
+	cfg := testConfig
+	cfg.HostOrchestratorProtocol = "http"
+
+	gcpCfg := *cfg.GCP
+	gcpCfg.HostOrchestratorPort = port
+	cfg.GCP = &gcpCfg
+
+	im := NewGCEInstanceManager(cfg, buildTestService(t, ts), testNameGenerator)
 
 	res, _ := im.WaitOperation(zone, &TestUser{}, opName)
 
 	want, _ := BuildHostInstance(instance)
 	if diff := cmp.Diff(want, res); diff != "" {
 		t.Errorf("instance mismatch (-want +got):\n%s", diff)
+	}
+}
+
+func TestWaitCreateInstanceOperationHOTimeout(t *testing.T) {
+	zone := "us-central1-a"
+	opName := "operation-1"
+	operation := &compute.Operation{
+		Name:          opName,
+		OperationType: "insert",
+		TargetLink:    "https://xyzzy.com/compute/v1/projects/google.com:test-project/zones/us-central1-a/instances/foo",
+		Status:        "DONE",
+	}
+	instance := &compute.Instance{
+		Disks:          []*compute.AttachedDisk{{DiskSizeGb: 10}},
+		Name:           "foo",
+		MachineType:    "mt",
+		MinCpuPlatform: "mcp",
+		NetworkInterfaces: []*compute.NetworkInterface{
+			{NetworkIP: "127.0.0.1"},
+		},
+	}
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch path := r.URL.Path; path {
+		case "/":
+			w.WriteHeader(http.StatusBadGateway)
+		case "/projects/google.com:test-project/zones/us-central1-a/operations/operation-1/wait":
+			replyJSON(w, operation)
+		case "/projects/google.com:test-project/zones/us-central1-a/instances/foo":
+			replyJSON(w, instance)
+		default:
+			t.Fatalf("unexpected path: %q", path)
+		}
+	}))
+	defer ts.Close()
+
+	tsURL, _ := url.Parse(ts.URL)
+	port, _ := strconv.Atoi(tsURL.Port())
+
+	cfg := testConfig
+	cfg.HostOrchestratorProtocol = "http"
+
+	gcpCfg := *cfg.GCP
+	gcpCfg.HostOrchestratorPort = port
+	gcpCfg.HostReadyTimeout = 100 * time.Millisecond
+	cfg.GCP = &gcpCfg
+
+	im := NewGCEInstanceManager(cfg, buildTestService(t, ts), testNameGenerator)
+
+	_, err := im.WaitHostAvailability(zone, &TestUser{}, "foo")
+
+	if err == nil {
+		t.Error("expected error")
+	}
+	var appErr *apperr.AppError
+	if errors.As(err, &appErr) {
+		if appErr.StatusCode != http.StatusServiceUnavailable {
+			t.Errorf("expected status 503, got %d", appErr.StatusCode)
+		}
+	} else {
+		t.Errorf("expected AppError, got %T", err)
+	}
+}
+
+func TestWaitCreateInstanceOperationConcurrentDeletion(t *testing.T) {
+	zone := "us-central1-a"
+	opName := "operation-1"
+	operation := &compute.Operation{
+		Name:          opName,
+		OperationType: "insert",
+		TargetLink:    "https://xyzzy.com/compute/v1/projects/google.com:test-project/zones/us-central1-a/instances/foo",
+		Status:        "DONE",
+	}
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch path := r.URL.Path; path {
+		case "/projects/google.com:test-project/zones/us-central1-a/operations/operation-1/wait":
+			replyJSON(w, operation)
+		case "/projects/google.com:test-project/zones/us-central1-a/instances/foo":
+			w.WriteHeader(http.StatusNotFound)
+		default:
+			t.Fatalf("unexpected path: %q", path)
+		}
+	}))
+	defer ts.Close()
+
+	im := NewGCEInstanceManager(testConfig, buildTestService(t, ts), testNameGenerator)
+
+	_, err := im.WaitHostAvailability(zone, &TestUser{}, "foo")
+
+	if err == nil {
+		t.Error("expected error")
+	}
+	var appErr *apperr.AppError
+	if errors.As(err, &appErr) {
+		if appErr.StatusCode != http.StatusNotFound {
+			t.Errorf("expected status 404, got %d", appErr.StatusCode)
+		}
+	} else {
+		t.Errorf("expected AppError, got %T", err)
 	}
 }
 

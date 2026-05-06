@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"time"
 
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
 )
@@ -92,6 +93,21 @@ func (c *NetHostClient) Post(path, query string, bodyJSON any, out *HostResponse
 		err = parseReply(res, out.Result, out.Error)
 	}
 	return res.StatusCode, err
+}
+
+func (c *NetHostClient) WaitForHostReady() error {
+	maxWait := 2 * time.Minute
+	retryDelay := 5 * time.Second
+	deadline := time.Now().Add(maxWait)
+
+	for time.Now().Before(deadline) {
+		status, err := c.Get("/", "", nil)
+		if err == nil && status != http.StatusBadGateway {
+			return nil
+		}
+		time.Sleep(retryDelay)
+	}
+	return fmt.Errorf("wait for host orchestrator timed out")
 }
 
 func (c *NetHostClient) GetReverseProxy() *httputil.ReverseProxy {

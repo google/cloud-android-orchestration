@@ -3,6 +3,12 @@
 This page describes how to run cloud orchestrator at on-premise server, which
 manages docker instances containing the host orchestrator inside.
 
+**Warning:**
+- **Multiple instances on x86_64**: Due to the technical issue around
+  `vhost_user_vsock`, currently it's not available to create multiple
+  Cuttlefish instances across multiple docker instances on x86_64 machine.
+- **GPU acceleration**: GPU acceleration is not supported yet with this setup.
+
 ## Try cloud orchestrator
 
 Currently we're hosting docker images and its configuration files in Artifact

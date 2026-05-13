@@ -11,9 +11,9 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
     - name: Checkout repository
-      uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675 # aka v2
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
     - name: Install dependencies
-      uses: actions/setup-go@v3
+      uses: actions/setup-go@v6
       with:
         go-version: 1.23.4
     - run: go version
@@ -37,11 +37,11 @@ jobs:
       image: debian@sha256:9258a75a7e4323c9e5562b361effc84ee747920116d8adfc98a465a5cdc9150e # debian:bookworm-20250407 (amd64)
     steps:
     - name: Checkout repository
-      uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675 # aka v2
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
     - name: Build debian package cuttlefish-cvdremote
       uses: ./.github/actions/build-cuttlefish-cvdremote-debian-package
     - name: Upload debian package
-      uses: actions/upload-artifact@c7d193f32edcb7bfad88892161225aeda64e9392 # aka v4.0.0
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f  # v7.0.0
       with:
         name: cuttlefish-cvdremote-amd64
         path: cuttlefish-cvdremote_*.deb
@@ -52,11 +52,11 @@ jobs:
       image: debian@sha256:00cd074b40c4d99ff0c24540bdde0533ca3791edcdac0de36d6b9fb3260d89e2 # debian:bookworm-20250407 (arm64/v8)
     steps:
     - name: Checkout repository
-      uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675 # aka v2
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
     - name: Build debian package cuttlefish-cvdremote
       uses: ./.github/actions/build-cuttlefish-cvdremote-debian-package
     - name: Upload debian package
-      uses: actions/upload-artifact@c7d193f32edcb7bfad88892161225aeda64e9392 # aka v4.0.0
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f  # v7.0.0
       with:
         name: cuttlefish-cvdremote-arm64
         path: cuttlefish-cvdremote_*.deb
@@ -65,13 +65,13 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
     - name: Checkout repository
-      uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675 # aka v2
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
     - name: Build docker image
       run: docker build -t cuttlefish-cloud-orchestrator .
     - name: Save docker image
       run: docker save --output cuttlefish-cloud-orchestrator.tar cuttlefish-cloud-orchestrator
     - name: Publish docker image
-      uses: actions/upload-artifact@c7d193f32edcb7bfad88892161225aeda64e9392 # aka v4.0.0
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f  # v7.0.0
       with:
         name: cuttlefish-cloud-orchestrator-amd64
         path: cuttlefish-cloud-orchestrator.tar
@@ -80,13 +80,13 @@ jobs:
     runs-on: ubuntu-24.04-arm
     steps:
     - name: Checkout repository
-      uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675 # aka v2
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
     - name: Build docker image
       run: docker build -t cuttlefish-cloud-orchestrator .
     - name: Save docker image
       run: docker save --output cuttlefish-cloud-orchestrator.tar cuttlefish-cloud-orchestrator
     - name: Publish docker image
-      uses: actions/upload-artifact@c7d193f32edcb7bfad88892161225aeda64e9392 # aka v4.0.0
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f  # v7.0.0
       with:
         name: cuttlefish-cloud-orchestrator-arm64
         path: cuttlefish-cloud-orchestrator.tar
@@ -96,14 +96,14 @@ jobs:
     needs: [build-cuttlefish-cloud-orchestrator-amd64-docker-image, build-cuttlefish-cvdremote-amd64-debian-package]
     steps:
     - name: Checkout repository
-      uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675 # aka v2
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
     - name: Download cuttlefish-orchestration
       run: |
         IMAGE_TAG="us-docker.pkg.dev/android-cuttlefish-artifacts/cuttlefish-orchestration/cuttlefish-orchestration:nightly"
         docker pull ${IMAGE_TAG}
         echo "orchestration_image_tag=${IMAGE_TAG}" >> $GITHUB_ENV
     - name: Download cuttlefish-cloud-orchestrator
-      uses: actions/download-artifact@7a1cd3216ca9260cd8022db641d960b1db4d1be4 # aka v4.0.0
+      uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
       with:
         name: cuttlefish-cloud-orchestrator-amd64
     - name: Load and run cuttlefish-cloud-orchestrator
@@ -118,7 +118,7 @@ jobs:
           -v /var/run/docker.sock:/var/run/docker.sock \
           -t cuttlefish-cloud-orchestrator
     - name: Download cuttlefish-cvdremote
-      uses: actions/download-artifact@7a1cd3216ca9260cd8022db641d960b1db4d1be4 # aka v4.0.0
+      uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
       with:
         name: cuttlefish-cvdremote-amd64
     - name: Install cuttlefish-cvdremote

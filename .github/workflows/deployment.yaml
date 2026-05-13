@@ -66,7 +66,7 @@ jobs:
     - name: Get exact filename
       run: echo "path=$(find . -name cuttlefish-cvdremote_*.deb)" >> $GITHUB_ENV
     - name: Authentication on GCP project android-cuttlefish-artifacts
-      uses: 'google-github-actions/auth@v2'
+      uses: 'google-github-actions/auth@v3'
       with:
         credentials_json: '${{ secrets.artifact-registry-uploader-json-creds }}'
     - name: Deploy debian package cuttlefish-cvdremote
@@ -91,7 +91,7 @@ jobs:
     - name: Get exact filename
       run: echo "path=$(find . -name cuttlefish-cvdremote_*.deb)" >> $GITHUB_ENV
     - name: Authentication on GCP project android-cuttlefish-artifacts
-      uses: 'google-github-actions/auth@v2'
+      uses: 'google-github-actions/auth@v3'
       with:
         credentials_json: '${{ secrets.artifact-registry-uploader-json-creds }}'
     - name: Deploy debian package cuttlefish-cvdremote
@@ -110,11 +110,11 @@ jobs:
     - name: Build docker image
       run: docker build -t cuttlefish-cloud-orchestrator .
     - name: Authentication on GCP project android-cuttlefish-artifacts
-      uses: 'google-github-actions/auth@v2'
+      uses: 'google-github-actions/auth@v3'
       with:
         credentials_json: '${{ secrets.artifact-registry-uploader-json-creds }}'
     - name: Login to Artifact Registry
-      uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # aka v3.5.0
+      uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2  # v4.0.0
       with:
         registry: us-docker.pkg.dev
         username: _json_key
@@ -135,11 +135,11 @@ jobs:
     - name: Build docker image
       run: docker build -t cuttlefish-cloud-orchestrator .
     - name: Authentication on GCP project android-cuttlefish-artifacts
-      uses: 'google-github-actions/auth@v2'
+      uses: 'google-github-actions/auth@v3'
       with:
         credentials_json: '${{ secrets.artifact-registry-uploader-json-creds }}'
     - name: Login to Artifact Registry
-      uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # aka v3.5.0
+      uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2  # v4.0.0
       with:
         registry: us-docker.pkg.dev
         username: _json_key
@@ -158,11 +158,11 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675 # aka v2
     - name: Authentication on GCP project android-cuttlefish-artifacts
-      uses: 'google-github-actions/auth@v2'
+      uses: 'google-github-actions/auth@v3'
       with:
         credentials_json: '${{ secrets.artifact-registry-uploader-json-creds }}'
     - name: Login to Artifact Registry
-      uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # aka v3.5.0
+      uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2  # v4.0.0
       with:
         registry: us-docker.pkg.dev
         username: _json_key
@@ -186,11 +186,11 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675 # aka v2
     - name: Authentication on GCP project android-cuttlefish-artifacts
-      uses: 'google-github-actions/auth@v2'
+      uses: 'google-github-actions/auth@v3'
       with:
         credentials_json: '${{ secrets.artifact-registry-uploader-json-creds }}'
     - name: 'Set up Cloud SDK'
-      uses: 'google-github-actions/setup-gcloud@v3.0.0'
+      uses: 'google-github-actions/setup-gcloud@v3.0.1'
       with:
         version: '>= 363.0.0'
     - name: Deploy conf.toml

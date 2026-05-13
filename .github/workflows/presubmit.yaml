@@ -6,6 +6,9 @@ on:
     branches-ignore:
       - main  # push events to main branch occur after PRs are merged, when the same checks were run
 
+permissions:
+  contents: read
+
 jobs:
   build-test:
     runs-on: ubuntu-24.04

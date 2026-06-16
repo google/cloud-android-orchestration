@@ -1082,7 +1082,7 @@ func runStopCVDCommand(c *cobra.Command, args []string, flags *StopCVDFlags, opt
 	if err != nil {
 		return err
 	}
-	return srvClient.HostClient(flags.Host).Stop(flags.Group, flags.Name)
+	return srvClient.HostClient(flags.Host).StopInstance(flags.Group, flags.Name)
 }
 
 func runStartCVDCommand(c *cobra.Command, args []string, flags *StartCVDFlags, opts *subCommandOpts) error {
@@ -1094,7 +1094,7 @@ func runStartCVDCommand(c *cobra.Command, args []string, flags *StartCVDFlags, o
 	if flags.SnapshotID != "" {
 		req.SnapshotID = flags.SnapshotID
 	}
-	return srvClient.HostClient(flags.Host).Start(flags.Group, flags.Name, req)
+	return srvClient.HostClient(flags.Host).StartInstance(flags.Group, flags.Name, req)
 }
 
 func runSnapshotCVDCommand(c *cobra.Command, args []string, flags *SnapshotCVDFlags, opts *subCommandOpts) error {

@@ -10,8 +10,8 @@ require (
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/docker/docker v27.3.1+incompatible
 	github.com/google/android-cuttlefish/base/cvd/cuttlefish/host/commands/cvd/cli/parser/golang v0.0.0-20250725065612-ef53fac08041
-	github.com/google/android-cuttlefish/frontend/src/host_orchestrator v0.0.0-20250826235212-782478121679
-	github.com/google/android-cuttlefish/frontend/src/libhoclient v0.0.0-20250826235212-782478121679
+	github.com/google/android-cuttlefish/frontend/src/host_orchestrator v0.0.0-20260616184406-b0fe18997989
+	github.com/google/android-cuttlefish/frontend/src/libhoclient v0.0.0-20260616184406-b0fe18997989
 	github.com/google/android-cuttlefish/frontend/src/liboperator v0.0.0-20250826235212-782478121679
 	github.com/google/go-cmp v0.6.0
 	github.com/google/uuid v1.6.0

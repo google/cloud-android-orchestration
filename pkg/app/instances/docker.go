@@ -241,11 +241,16 @@ func (m *DockerInstanceManager) WaitOperation(zone string, _ accounts.User, name
 }
 
 func (m *DockerInstanceManager) getIpAddr(container *types.Container) (string, error) {
-	bridgeNetwork := container.NetworkSettings.Networks["bridge"]
-	if bridgeNetwork == nil {
-		return "", fmt.Errorf("failed to find network information of docker instance")
+	// Check default docker network named 'bridge' in advance.
+	if nw, ok := container.NetworkSettings.Networks["bridge"]; ok && nw != nil && nw.IPAddress != "" {
+		return nw.IPAddress, nil
 	}
-	return bridgeNetwork.IPAddress, nil
+	for _, nw := range container.NetworkSettings.Networks {
+		if nw != nil && nw.IPAddress != "" {
+			return nw.IPAddress, nil
+		}
+	}
+	return "", fmt.Errorf("failed to find network information of docker instance")
 }
 
 func (m *DockerInstanceManager) getHostAddr(host string) (string, error) {

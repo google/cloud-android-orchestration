@@ -58,7 +58,7 @@ jobs:
       image: debian@sha256:9258a75a7e4323c9e5562b361effc84ee747920116d8adfc98a465a5cdc9150e # debian:bookworm-20250407 (amd64)
     steps:
     - name: Checkout repository
-      uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675 # aka v2
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
     - name: Build debian package cuttlefish-cvdremote
       uses: ./.github/actions/build-cuttlefish-cvdremote-debian-package
       with:
@@ -83,7 +83,7 @@ jobs:
       image: debian@sha256:00cd074b40c4d99ff0c24540bdde0533ca3791edcdac0de36d6b9fb3260d89e2 # debian:bookworm-20250407 (arm64/v8)
     steps:
     - name: Checkout repository
-      uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675 # aka v2
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
     - name: Build debian package cuttlefish-cvdremote
       uses: ./.github/actions/build-cuttlefish-cvdremote-debian-package
       with:
@@ -106,7 +106,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
     - name: Checkout repository
-      uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675 # aka v2
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
     - name: Build docker image
       run: docker build -t cuttlefish-cloud-orchestrator .
     - name: Authentication on GCP project android-cuttlefish-artifacts
@@ -131,7 +131,7 @@ jobs:
     runs-on: ubuntu-24.04-arm
     steps:
     - name: Checkout repository
-      uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675 # aka v2
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
     - name: Build docker image
       run: docker build -t cuttlefish-cloud-orchestrator .
     - name: Authentication on GCP project android-cuttlefish-artifacts
@@ -156,7 +156,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
     - name: Checkout repository
-      uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675 # aka v2
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
     - name: Authentication on GCP project android-cuttlefish-artifacts
       uses: 'google-github-actions/auth@v2'
       with:
@@ -184,7 +184,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
     - name: Checkout repository
-      uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675 # aka v2
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
     - name: Authentication on GCP project android-cuttlefish-artifacts
       uses: 'google-github-actions/auth@v2'
       with:

@@ -209,11 +209,17 @@ func (m *DockerInstanceManager) waitCreateHostOperation(host string) (*apiv1.Hos
 func (m *DockerInstanceManager) waitDeleteHostOperation(host string) (*apiv1.HostInstance, error) {
 	ctx, cancel := context.WithTimeout(context.TODO(), 3*time.Minute)
 	defer cancel()
-	resCh, errCh := m.Client.ContainerWait(ctx, host, "")
+	if _, err := m.Client.ContainerInspect(ctx, host); err != nil && errdefs.IsNotFound(err) {
+		return &apiv1.HostInstance{Name: host}, nil
+	}
+	resCh, errCh := m.Client.ContainerWait(ctx, host, container.WaitConditionRemoved)
 	select {
 	case <-ctx.Done():
 		return nil, errors.NewServiceUnavailableError("Wait for operation timed out", nil)
 	case err := <-errCh:
+		if errdefs.IsNotFound(err) {
+			return &apiv1.HostInstance{Name: host}, nil
+		}
 		return nil, fmt.Errorf("error is thrown while waiting for deleting host: %w", err)
 	case <-resCh:
 		return &apiv1.HostInstance{
@@ -400,7 +406,8 @@ func (m *DockerInstanceManager) createDockerContainer(ctx context.Context, user 
 		Labels:      dockerLabelsDict(user),
 	}
 	hostConfig := &container.HostConfig{
-		CapAdd: []string{"NET_ADMIN"},
+		AutoRemove: true,
+		CapAdd:     []string{"NET_ADMIN"},
 		Mounts: []mount.Mount{
 			{
 				Type:   mount.TypeVolume,
@@ -466,9 +473,6 @@ func (m *DockerInstanceManager) deleteDockerContainer(ctx context.Context, user 
 	}
 	if err := m.Client.ContainerStop(ctx, host, container.StopOptions{}); err != nil {
 		return fmt.Errorf("failed to stop docker container: %w", err)
-	}
-	if err := m.Client.ContainerRemove(ctx, host, container.RemoveOptions{}); err != nil {
-		return fmt.Errorf("failed to remove docker container: %w", err)
 	}
 	return nil
 }

@@ -507,7 +507,7 @@ func listCVDs(srvClient client.Client, controlDir string) ([]*RemoteHost, error)
 		hostName := hosts[i]
 		listResult := <-ch
 		if listResult.Error != nil {
-			merr = multierror.Append(merr, fmt.Errorf("lists cvds for host %q failed: %w", hostName, err))
+			merr = multierror.Append(merr, fmt.Errorf("lists cvds for host %q failed: %w", hostName, listResult.Error))
 			continue
 		}
 		srvURL, err := srvClient.HostServiceURL(hostName)

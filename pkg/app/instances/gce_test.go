@@ -376,6 +376,39 @@ func TestGetHostAddrSuccess(t *testing.T) {
 	}
 }
 
+func TestGetHostClient(t *testing.T) {
+	cfg := testConfig
+	cfg.HostOrchestratorProtocol = "http"
+	tests := []struct {
+		name    string
+		labels  map[string]string
+		wantErr bool
+	}{
+		{name: "owned by user", labels: map[string]string{"cf-created_by": "johndoe"}, wantErr: false},
+		{name: "owned by other user", labels: map[string]string{"cf-created_by": "anothername"}, wantErr: true},
+		{name: "no owner label", labels: nil, wantErr: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				replyJSON(w, &compute.Instance{
+					Labels:            tc.labels,
+					NetworkInterfaces: []*compute.NetworkInterface{{}},
+				})
+			}))
+			defer ts.Close()
+			im := NewGCEInstanceManager(cfg, buildTestService(t, ts), testNameGenerator)
+
+			_, err := im.GetHostClient("us-central1-a", &TestUser{}, "foo")
+
+			if gotErr := err != nil; gotErr != tc.wantErr {
+				t.Errorf("expected error: %t, got: %v", tc.wantErr, err)
+			}
+		})
+	}
+}
+
 func TestListHostsRequestQuery(t *testing.T) {
 	var usedQuery string
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

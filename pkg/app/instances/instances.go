@@ -35,7 +35,7 @@ type Manager interface {
 	// is standard `Get`/`Create`/`Update`, the response should be the relevant resource.
 	WaitOperation(zone string, user accounts.User, name string) (any, error)
 	// Creates a connector to the given host.
-	GetHostClient(zone string, host string) (HostClient, error)
+	GetHostClient(zone string, user accounts.User, host string) (HostClient, error)
 }
 
 type HostReadinessChecker interface {

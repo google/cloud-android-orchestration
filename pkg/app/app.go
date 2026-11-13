@@ -160,7 +160,7 @@ func (a *App) ForwardToHost(w http.ResponseWriter, r *http.Request, user account
 		return nil
 	}
 
-	hostClient, err := a.instanceManager.GetHostClient(getZone(r), getHost(r))
+	hostClient, err := a.instanceManager.GetHostClient(getZone(r), user, getHost(r))
 	if err != nil {
 		return err
 	}

@@ -338,10 +338,13 @@ func (m *GCEInstanceManager) getHostClientWithIns(ins *compute.Instance) (HostCl
 	return NewNetHostClient(url, m.Config.AllowSelfSignedHostSSLCertificate), nil
 }
 
-func (m *GCEInstanceManager) GetHostClient(zone string, host string) (HostClient, error) {
+func (m *GCEInstanceManager) GetHostClient(zone string, user accounts.User, host string) (HostClient, error) {
 	ins, err := m.getHostInstance(zone, host)
 	if err != nil {
 		return nil, err
+	}
+	if ins.Labels[labelCreatedBy] != user.Username() {
+		return nil, errors.NewNotFoundError(fmt.Sprintf("Host instance %q not found.", host), nil)
 	}
 	return m.getHostClientWithIns(ins)
 }

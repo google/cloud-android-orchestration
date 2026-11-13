@@ -172,13 +172,6 @@ resource "google_service_account" "service_account" {
   ]
 }
 
-resource "google_service_account_iam_member" "token_creators" {
-  for_each           = var.service_accessors
-  service_account_id = google_service_account.service_account.id
-  role               = "roles/iam.serviceAccountTokenCreator"
-  member             = each.key
-}
-
 resource "google_secret_manager_secret_iam_member" "member" {
   secret_id = google_secret_manager_secret.co-config.secret_id
   role      = "roles/secretmanager.secretAccessor"

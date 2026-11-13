@@ -175,7 +175,7 @@ func DecodeOperationName(name string) (OPType, string, error) {
 	}
 }
 
-func (m *DockerInstanceManager) waitCreateHostOperation(host string) (*apiv1.HostInstance, error) {
+func (m *DockerInstanceManager) waitCreateHostOperation(user accounts.User, host string) (*apiv1.HostInstance, error) {
 	ctx, cancel := context.WithTimeout(context.TODO(), 3*time.Minute)
 	defer cancel()
 	for {
@@ -188,7 +188,7 @@ func (m *DockerInstanceManager) waitCreateHostOperation(host string) (*apiv1.Hos
 				return nil, fmt.Errorf("failed to inspect docker container: %w", err)
 			}
 			if res.State.Running {
-				client, err := m.GetHostClient("local", host)
+				client, err := m.GetHostClient("local", user, host)
 				if err != nil {
 					return nil, err
 				}
@@ -228,7 +228,7 @@ func (m *DockerInstanceManager) waitDeleteHostOperation(host string) (*apiv1.Hos
 	}
 }
 
-func (m *DockerInstanceManager) WaitOperation(zone string, _ accounts.User, name string) (any, error) {
+func (m *DockerInstanceManager) WaitOperation(zone string, user accounts.User, name string) (any, error) {
 	if zone != "local" {
 		return nil, errors.NewBadRequestError("Invalid zone. It should be 'local'.", nil)
 	}
@@ -238,7 +238,7 @@ func (m *DockerInstanceManager) WaitOperation(zone string, _ accounts.User, name
 	}
 	switch opType {
 	case CreateHostOPType:
-		return m.waitCreateHostOperation(host)
+		return m.waitCreateHostOperation(user, host)
 	case DeleteHostOPType:
 		return m.waitDeleteHostOperation(host)
 	default:
@@ -259,9 +259,11 @@ func (m *DockerInstanceManager) getIpAddr(container *types.Container) (string, e
 	return "", fmt.Errorf("failed to find network information of docker instance")
 }
 
-func (m *DockerInstanceManager) getHostAddr(host string) (string, error) {
+func (m *DockerInstanceManager) getHostAddr(user accounts.User, host string) (string, error) {
 	ctx := context.TODO()
-	listRes, err := m.Client.ContainerList(ctx, container.ListOptions{})
+	listRes, err := m.Client.ContainerList(ctx, container.ListOptions{
+		Filters: dockerFilter(user),
+	})
 	if err != nil {
 		return "", fmt.Errorf("failed to list docker containers: %w", err)
 	}
@@ -282,8 +284,8 @@ func (m *DockerInstanceManager) getHostPort() (int, error) {
 	return m.Config.Docker.HostOrchestratorPort, nil
 }
 
-func (m *DockerInstanceManager) getHostURL(host string) (*url.URL, error) {
-	addr, err := m.getHostAddr(host)
+func (m *DockerInstanceManager) getHostURL(user accounts.User, host string) (*url.URL, error) {
+	addr, err := m.getHostAddr(user, host)
 	if err != nil {
 		return nil, err
 	}
@@ -296,11 +298,11 @@ func (m *DockerInstanceManager) getHostURL(host string) (*url.URL, error) {
 
 // When creating docker instances as default, docker instance gets belonged
 // to the default network named 'bridge' with getting an assigned IP.
-func (m *DockerInstanceManager) GetHostClient(zone string, host string) (HostClient, error) {
+func (m *DockerInstanceManager) GetHostClient(zone string, user accounts.User, host string) (HostClient, error) {
 	if zone != "local" {
 		return nil, errors.NewBadRequestError("Invalid zone. It should be 'local'.", nil)
 	}
-	url, err := m.getHostURL(host)
+	url, err := m.getHostURL(user, host)
 	if err != nil {
 		return nil, err
 	}

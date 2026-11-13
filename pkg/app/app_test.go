@@ -91,7 +91,7 @@ func (m *testInstanceManager) WaitOperation(_ string, _ accounts.User, _ string)
 	return struct{}{}, nil
 }
 
-func (m *testInstanceManager) GetHostClient(zone string, host string) (instances.HostClient, error) {
+func (m *testInstanceManager) GetHostClient(zone string, _ accounts.User, host string) (instances.HostClient, error) {
 	return m.hostClientFactory(zone, host), nil
 }
 

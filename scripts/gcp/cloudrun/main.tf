@@ -232,7 +232,19 @@ resource "google_compute_firewall" "default" {
 
   allow {
     protocol = "tcp"
-    ports    = ["1080", "1443", "15550-15599"]
+    ports    = ["1080", "1443"]
+  }
+
+  source_ranges = [google_vpc_access_connector.connector.ip_cidr_range]
+}
+
+resource "google_compute_firewall" "webrtc" {
+  name    = "allow-cloud-orchestrator-webrtc"
+  network = google_compute_network.network.name
+
+  allow {
+    protocol = "tcp"
+    ports    = ["15550-15599"]
   }
 
   allow {

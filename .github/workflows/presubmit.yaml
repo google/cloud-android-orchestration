@@ -16,7 +16,7 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675 # aka v2
     - name: Install dependencies
-      uses: actions/setup-go@v3
+      uses: actions/setup-go@be3c94b385c4f180051c996d336f57a34c397495 # aka v3.6.1
       with:
         go-version: 1.23.4
     - run: go version
@@ -29,7 +29,7 @@ jobs:
     - name: Vet
       run: go vet ./...
     - name: Staticcheck
-      uses: dominikh/staticcheck-action@v1.3.1
+      uses: dominikh/staticcheck-action@fe1dd0c3658873b46f8c9bb3291096a617310ca6 # aka v1.3.1
       with:
         version: "latest"
         install-go: false
@@ -106,13 +106,13 @@ jobs:
         docker pull ${IMAGE_TAG}
         echo "orchestration_image_tag=${IMAGE_TAG}" >> $GITHUB_ENV
     - name: Download cuttlefish-cloud-orchestrator
-      uses: actions/download-artifact@7a1cd3216ca9260cd8022db641d960b1db4d1be4 # aka v4.0.0
+      uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # aka v8.0.2
       with:
         name: cuttlefish-cloud-orchestrator-amd64
     - name: Load and run cuttlefish-cloud-orchestrator
       run: |
         docker load --input cuttlefish-cloud-orchestrator.tar
-        sed -i "s|DockerImageName = .*|DockerImageName = \"${{ env.orchestration_image_tag }}\"|g" \
+        sed -i "s|DockerImageName = .*|DockerImageName = \"${orchestration_image_tag}\"|g" \
           scripts/on-premises/single-server/conf.toml
         docker run -d \
           -p 8080:8080 \
@@ -121,7 +121,7 @@ jobs:
           -v /var/run/docker.sock:/var/run/docker.sock \
           -t cuttlefish-cloud-orchestrator
     - name: Download cuttlefish-cvdremote
-      uses: actions/download-artifact@7a1cd3216ca9260cd8022db641d960b1db4d1be4 # aka v4.0.0
+      uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # aka v8.0.2
       with:
         name: cuttlefish-cvdremote-amd64
     - name: Install cuttlefish-cvdremote

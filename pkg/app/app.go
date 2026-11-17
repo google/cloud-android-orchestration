@@ -16,11 +16,11 @@ package app
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
-	"math/rand"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -573,7 +573,9 @@ func randomHexString() string {
 	// This produces a 64 char random string from the [0-9a-f] alphabet or 256 bits.
 	// The alternative of generating 32 random bytes and base64 encoding would add complexity and
 	// overhead while reducing the size of the generated string to 48 characters.
-	return fmt.Sprintf("%.16x%.16x%.16x%.16x", rand.Uint64(), rand.Uint64(), rand.Uint64(), rand.Uint64())
+	b := make([]byte, 32)
+	rand.Read(b)
+	return fmt.Sprintf("%x", b)
 }
 
 const (

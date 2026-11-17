@@ -17,6 +17,7 @@ package accounts
 import (
 	"html/template"
 	"net/http"
+	"net/url"
 	"strings"
 )
 
@@ -102,11 +103,17 @@ func HandleUsernameOnlyLogging(w http.ResponseWriter, r *http.Request, redirect 
 		Value: username,
 		Path:  "/",
 	})
-	if redirect != "" {
+	if isLocalPath(redirect) {
 		http.Redirect(w, r, redirect, http.StatusFound)
 		return nil
 	}
 	return loggingTemplate.Execute(w, LoggingData{
 		Username: username,
 	})
+}
+
+func isLocalPath(s string) bool {
+	u, err := url.Parse(s)
+	return err == nil && u.Scheme == "" && u.Host == "" &&
+		strings.HasPrefix(s, "/") && !strings.HasPrefix(s, "//") && !strings.HasPrefix(s, "/\\")
 }

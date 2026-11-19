@@ -287,6 +287,75 @@ func TestCreateHostAcloudCompatible(t *testing.T) {
 	}
 }
 
+func TestCreateHostMaxRunDuration(t *testing.T) {
+	tests := []struct {
+		name         string
+		accelerators []*apiv1.AcceleratorConfig
+		want         *compute.Scheduling
+	}{
+		{
+			name: "standard_instance",
+			want: &compute.Scheduling{
+				MaxRunDuration:            &compute.Duration{Seconds: 172800},
+				InstanceTerminationAction: "DELETE",
+			},
+		},
+		{
+			name: "accelerator_instance_preserves_terminate_on_maintenance",
+			accelerators: []*apiv1.AcceleratorConfig{
+				{AcceleratorCount: 1, AcceleratorType: "nvidia-tesla-t4"},
+			},
+			want: &compute.Scheduling{
+				OnHostMaintenance:         "TERMINATE",
+				MaxRunDuration:            &compute.Duration{Seconds: 172800},
+				InstanceTerminationAction: "DELETE",
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var postedInstance compute.Instance
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				body, _ := io.ReadAll(r.Body)
+				json.Unmarshal(body, &postedInstance)
+				replyJSON(w, &compute.Operation{Name: "operation-1"})
+			}))
+			defer ts.Close()
+			testService := buildTestService(t, ts)
+			im := GCEInstanceManager{
+				Config: Config{
+					GCP: &GCPIMConfig{
+						ProjectID:             "google.com:test-project",
+						HostImageFamily:       "projects/test-project-releases/global/images/family/foo",
+						MaxRunDurationSeconds: 172800,
+					},
+				},
+				Service:               testService,
+				InstanceNameGenerator: testNameGenerator,
+			}
+
+			_, err := im.CreateHost("us-central1-a",
+				&apiv1.CreateHostRequest{
+					HostInstance: &apiv1.HostInstance{
+						GCP: &apiv1.GCPInstance{
+							MachineType:        "n1-standard-1",
+							MinCPUPlatform:     "Intel Haswell",
+							AcceleratorConfigs: tc.accelerators,
+						},
+					},
+				},
+				&TestUser{})
+			if err != nil {
+				t.Fatalf("CreateHost() unexpected error: %v", err)
+			}
+			if diff := cmp.Diff(tc.want, postedInstance.Scheduling); diff != "" {
+				t.Errorf("CreateHost() scheduling mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
 func TestCreateHostSuccess(t *testing.T) {
 	expectedName := "operation-1"
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

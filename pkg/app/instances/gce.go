@@ -43,6 +43,9 @@ type GCPIMConfig struct {
 	UseExternalIP        bool
 	// If true, instances created should be compatible with `acloud CLI`.
 	AcloudCompatible bool
+	// Maximum duration in seconds a host instance can run before GCE terminates
+	// and deletes it. Zero means no limit.
+	MaxRunDurationSeconds int64
 }
 
 const (
@@ -157,6 +160,15 @@ func (m *GCEInstanceManager) CreateHost(zone string, req *apiv1.CreateHostReques
 		payload.Scheduling = &compute.Scheduling{
 			OnHostMaintenance: "TERMINATE",
 		}
+	}
+	if m.Config.GCP.MaxRunDurationSeconds > 0 {
+		if payload.Scheduling == nil {
+			payload.Scheduling = &compute.Scheduling{}
+		}
+		payload.Scheduling.MaxRunDuration = &compute.Duration{
+			Seconds: m.Config.GCP.MaxRunDurationSeconds,
+		}
+		payload.Scheduling.InstanceTerminationAction = "DELETE"
 	}
 	if m.Config.GCP.AcloudCompatible {
 		payload.Labels[labelAcloudCreatedBy] = user.Username()

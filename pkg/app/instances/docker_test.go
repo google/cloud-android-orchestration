@@ -15,6 +15,7 @@
 package instances
 
 import (
+	"regexp"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -50,5 +51,31 @@ func TestDecodeOperationFailsMissingUnderscore(t *testing.T) {
 	_, _, err := DecodeOperationName("foobar")
 	if err == nil {
 		t.Errorf("expected error")
+	}
+}
+
+func TestUAVolumeName(t *testing.T) {
+	dockerVolumeNameRe := regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_.-]+$`)
+
+	users := []string{
+		"johndoe",
+		"alice@example.com",
+		"alice@other.example.com",
+		"alice+tag@example.com",
+		"alice.smith@example.com",
+		"alice_smith@example.com",
+		"my-long-service-account-name@my-long-gcp-project-id.iam.gserviceaccount.com",
+	}
+
+	seen := make(map[string]string)
+	for _, u := range users {
+		vol := uaVolumeName(&staticTestUser{username: u})
+		if !dockerVolumeNameRe.MatchString(vol) {
+			t.Errorf("uaVolumeName(%q) = %q does not match Docker volume name pattern", u, vol)
+		}
+		if prev, exists := seen[vol]; exists {
+			t.Errorf("uaVolumeName collision between %q and %q: %q", prev, u, vol)
+		}
+		seen[vol] = u
 	}
 }

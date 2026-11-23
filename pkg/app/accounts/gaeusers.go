@@ -49,10 +49,10 @@ func emailFromRequest(r *http.Request) (string, error) {
 }
 
 func usernameFromEmail(email string) (string, error) {
-	if email == "" {
+	if strings.TrimSpace(email) == "" {
 		return "", errors.New("empty email")
 	}
-	return strings.SplitN(email, "@", 2)[0], nil
+	return strings.ToLower(email), nil
 }
 
 type GAEUser struct {

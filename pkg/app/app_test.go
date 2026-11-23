@@ -411,6 +411,76 @@ func TestHostForwarderInjectCredentialsUsingHTTPHeader(t *testing.T) {
 	}
 }
 
+func TestHostForwarderCrossDomainCredentialIsolation(t *testing.T) {
+	reqURL := "http://test.com/v1/zones/foo/hosts/bar/foo"
+	victimCreds := "victim-secret-token"
+	var leakedHeader string
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		leakedHeader = r.Header.Get(headerNameHOBuildAPICreds)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+	hostURL, _ := url.Parse(ts.URL)
+
+	am := accounts.NewGAEUsersAccountManager()
+	victimReq := httptest.NewRequest(http.MethodGet, reqURL, nil)
+	victimReq.Header.Set("X-Appengine-User-Email", "alice@corp.example")
+	victimUser, err := am.UserFromRequest(victimReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	dbs := database.NewInMemoryDBService()
+	es := encryption.NewFakeEncryptionService()
+	jsonToken, err := json.Marshal(&oauth2.Token{
+		AccessToken: victimCreds,
+		TokenType:   "Bearer",
+		Expiry:      time.Now().Add(1 * time.Hour),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	encryptedJSONToken, err := es.Encrypt(jsonToken)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := dbs.StoreBuildAPICredentials(victimUser.Username(), encryptedJSONToken); err != nil {
+		t.Fatal(err)
+	}
+
+	controller := NewApp(&testInstanceManager{
+		hostClientFactory: func(_, _ string) instances.HostClient {
+			return &testHostClient{hostURL}
+		},
+	}, am, nil, es, dbs, "", nil, apiv1.InfraConfig{}, &config.Config{})
+
+	// Same local-part on a different domain must not receive victim's Build API token.
+	attackerW := httptest.NewRecorder()
+	attackerReq := httptest.NewRequest(http.MethodGet, reqURL, nil)
+	attackerReq.Header.Set("X-Appengine-User-Email", "alice@external.example")
+	attackerReq.Header.Set(headerNameCOInjectBuildAPICreds, "1")
+	makeRequest(attackerW, attackerReq, controller)
+
+	if got := attackerW.Result().StatusCode; got != http.StatusUnauthorized {
+		t.Errorf("expected status %d for cross-domain user, got %d", http.StatusUnauthorized, got)
+	}
+	if leakedHeader != "" {
+		t.Errorf("unexpected credentials leaked to host: %q", leakedHeader)
+	}
+
+	// Victim herself still receives her Build API token.
+	victimW := httptest.NewRecorder()
+	victimReq.Header.Set(headerNameCOInjectBuildAPICreds, "1")
+	makeRequest(victimW, victimReq, controller)
+
+	if got := victimW.Result().StatusCode; got != http.StatusOK {
+		t.Errorf("expected status %d for victim user, got %d", http.StatusOK, got)
+	}
+	if diff := cmp.Diff(victimCreds, leakedHeader); diff != "" {
+		t.Errorf("credentials mismatch (-want +got):\n%s", diff)
+	}
+}
+
 func TestHostForwarderDoesNotInjectCredentials(t *testing.T) {
 	reqURL := "http://test.com/v1/zones/foo/hosts/bar/cvds"
 	msg, _ := json.Marshal(&hoapi.CreateCVDRequest{})

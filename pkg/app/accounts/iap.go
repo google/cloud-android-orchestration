@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"strings"
 
 	"google.golang.org/api/idtoken"
 )
@@ -50,11 +49,11 @@ func (g *IAPAccountManager) UserFromRequest(r *http.Request) (User, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse payload from %s header: %w", iapJWTHeaderKey, err)
 	}
-	email := payload.Claims["email"].(string)
-	if email == "" {
-		return nil, errors.New("empty email claim")
+	email, _ := payload.Claims["email"].(string)
+	username, err := usernameFromEmail(email)
+	if err != nil {
+		return nil, err
 	}
-	username := strings.SplitN(email, "@", 2)[0]
 	return &IAPUser{username: username, email: email}, nil
 }
 

@@ -16,6 +16,7 @@ package instances
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"log"
@@ -310,7 +311,7 @@ func (m *DockerInstanceManager) GetHostClient(zone string, user accounts.User, h
 }
 
 func uaVolumeName(user accounts.User) string {
-	return fmt.Sprintf("user_artifacts_%s", user.Username())
+	return fmt.Sprintf("user_artifacts_%x", sha256.Sum256([]byte(user.Username())))
 }
 
 func dockerFilter(user accounts.User) filters.Args {
@@ -381,11 +382,14 @@ func (m *DockerInstanceManager) createDockerVolumeIfNeeded(ctx context.Context, 
 	if err != nil {
 		return fmt.Errorf("failed to list docker volume: %w", err)
 	}
-	if len(volumeListRes.Volumes) > 0 {
-		return nil
+	name := uaVolumeName(user)
+	for _, v := range volumeListRes.Volumes {
+		if v.Name == name {
+			return nil
+		}
 	}
 	createOpts := volume.CreateOptions{
-		Name:   uaVolumeName(user),
+		Name:   name,
 		Labels: dockerLabelsDict(user),
 	}
 	if _, err := m.Client.VolumeCreate(ctx, createOpts); err != nil {
@@ -398,7 +402,7 @@ func (m *DockerInstanceManager) createDockerVolumeIfNeeded(ctx context.Context, 
 //   - An entrypoint starting cuttlefish-host_orchestrator service and its
 //     dependencies.
 //   - Network access through default docker0 bridge interface.
-//   - A volume named with `user_artifacts_<username>` for sharing user
+//   - A volume named with `user_artifacts_<sha256(username)>` for sharing user
 //     artifacts across containers.
 func (m *DockerInstanceManager) createDockerContainer(ctx context.Context, user accounts.User) (string, error) {
 	config := &container.Config{

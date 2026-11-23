@@ -16,12 +16,15 @@ package instances
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"net/http"
 	"net/url"
 	"path"
 	"regexp"
+	"strings"
 	"time"
 
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
@@ -49,7 +52,53 @@ const (
 	labelPrefix          = "cf-"
 	labelAcloudCreatedBy = "created_by" // required for acloud backwards compatibility
 	labelCreatedBy       = labelPrefix + "created_by"
+	maxGCELabelValueLen  = 63
 )
+
+func sanitizeGCELabelChars(s string) string {
+	var b strings.Builder
+	b.Grow(len(s))
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		switch {
+		case c >= 'a' && c <= 'z', c >= '0' && c <= '9', c == '_', c == '-':
+			b.WriteByte(c)
+		case c >= 'A' && c <= 'Z':
+			b.WriteByte(c + ('a' - 'A'))
+		default:
+			b.WriteByte('_')
+		}
+	}
+	return b.String()
+}
+
+// createdByLabelValue derives a GCE-valid (<=63 chars, [a-z0-9_-]),
+// collision-resistant label value from username.
+func createdByLabelValue(username string) string {
+	sum := sha256.Sum256([]byte(username))
+	hashSuffix := hex.EncodeToString(sum[:16])
+	maxPrefixLen := maxGCELabelValueLen - 1 - len(hashSuffix)
+	prefix := sanitizeGCELabelChars(username)
+	if len(prefix) > maxPrefixLen {
+		prefix = prefix[:maxPrefixLen]
+	}
+	prefix = strings.Trim(prefix, "-_")
+	if prefix == "" {
+		return hashSuffix
+	}
+	return prefix + "-" + hashSuffix
+}
+
+// acloudCreatedByLabelValue derives the non-authoritative "created_by" label
+// value used for backwards compatibility with the acloud CLI.
+func acloudCreatedByLabelValue(username string) string {
+	localPart := strings.SplitN(username, "@", 2)[0]
+	val := sanitizeGCELabelChars(localPart)
+	if len(val) > maxGCELabelValueLen {
+		val = val[:maxGCELabelValueLen]
+	}
+	return val
+}
 
 // GCP implementation of the instance manager.
 type GCEInstanceManager struct {
@@ -139,7 +188,7 @@ func (m *GCEInstanceManager) CreateHost(zone string, req *apiv1.CreateHostReques
 			},
 		},
 		Labels: map[string]string{
-			labelCreatedBy: user.Username(),
+			labelCreatedBy: createdByLabelValue(user.Username()),
 		},
 	}
 	if req.HostInstance.GCP.BootDiskSizeGB != 0 {
@@ -159,7 +208,7 @@ func (m *GCEInstanceManager) CreateHost(zone string, req *apiv1.CreateHostReques
 		}
 	}
 	if m.Config.GCP.AcloudCompatible {
-		payload.Labels[labelAcloudCreatedBy] = user.Username()
+		payload.Labels[labelAcloudCreatedBy] = acloudCreatedByLabelValue(user.Username())
 		startupScript := acloudSetupScript
 		payload.Metadata = &compute.Metadata{
 			Items: []*compute.MetadataItems{
@@ -190,7 +239,7 @@ func (m *GCEInstanceManager) ListHosts(zone string, user accounts.User, req *Lis
 		maxResults = listHostsRequestMaxResultsLimit
 	}
 	statusFilterExpr := "status=RUNNING"
-	ownerFilterExpr := fmt.Sprintf("labels.%s:%s", labelCreatedBy, user.Username())
+	ownerFilterExpr := fmt.Sprintf("labels.%s:%s", labelCreatedBy, createdByLabelValue(user.Username()))
 	res, err := m.Service.Instances.
 		List(m.Config.GCP.ProjectID, zone).
 		Context(context.TODO()).
@@ -217,7 +266,7 @@ func (m *GCEInstanceManager) ListHosts(zone string, user accounts.User, req *Lis
 
 func (m *GCEInstanceManager) DeleteHost(zone string, user accounts.User, name string) (*apiv1.Operation, error) {
 	nameFilterExpr := "name=" + name
-	ownerFilterExpr := fmt.Sprintf("labels.%s:%s", labelCreatedBy, user.Username())
+	ownerFilterExpr := fmt.Sprintf("labels.%s:%s", labelCreatedBy, createdByLabelValue(user.Username()))
 	res, err := m.Service.Instances.
 		List(m.Config.GCP.ProjectID, zone).
 		Context(context.TODO()).
@@ -343,7 +392,7 @@ func (m *GCEInstanceManager) GetHostClient(zone string, user accounts.User, host
 	if err != nil {
 		return nil, err
 	}
-	if ins.Labels[labelCreatedBy] != user.Username() {
+	if ins.Labels[labelCreatedBy] != createdByLabelValue(user.Username()) {
 		return nil, errors.NewNotFoundError(fmt.Sprintf("Host instance %q not found.", host), nil)
 	}
 	return m.getHostClientWithIns(ins)

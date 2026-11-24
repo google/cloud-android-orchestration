@@ -64,7 +64,8 @@ func (m *testAccountManager) OnOAuth2Exchange(w http.ResponseWriter, r *http.Req
 }
 
 type testInstanceManager struct {
-	hostClientFactory func(zone, host string) instances.HostClient
+	hostClientFactory     func(zone, host string) instances.HostClient
+	getHostClientWithUser func(zone string, user accounts.User, host string) (instances.HostClient, error)
 }
 
 func (m *testInstanceManager) GetHostURL(zone string, host string) (*url.URL, error) {
@@ -91,7 +92,10 @@ func (m *testInstanceManager) WaitOperation(_ string, _ accounts.User, _ string)
 	return struct{}{}, nil
 }
 
-func (m *testInstanceManager) GetHostClient(zone string, _ accounts.User, host string) (instances.HostClient, error) {
+func (m *testInstanceManager) GetHostClient(zone string, user accounts.User, host string) (instances.HostClient, error) {
+	if m.getHostClientWithUser != nil {
+		return m.getHostClientWithUser(zone, user, host)
+	}
 	return m.hostClientFactory(zone, host), nil
 }
 
@@ -478,6 +482,76 @@ func TestHostForwarderCrossDomainCredentialIsolation(t *testing.T) {
 	}
 	if diff := cmp.Diff(victimCreds, leakedHeader); diff != "" {
 		t.Errorf("credentials mismatch (-want +got):\n%s", diff)
+	}
+}
+
+func TestHostForwarderOwnershipAndReverseProxyHeaders(t *testing.T) {
+	backendCalled := false
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		backendCalled = true
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Write([]byte("<html><script>alert(1)</script></html>"))
+	}))
+	defer ts.Close()
+	hostURL, err := url.Parse(ts.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	am := accounts.NewGAEUsersAccountManager()
+	im := &testInstanceManager{
+		getHostClientWithUser: func(zone string, user accounts.User, host string) (instances.HostClient, error) {
+			if host == "owner-host" && user.Username() == "owner@corp.example" {
+				return instances.NewNetHostClient(hostURL, false), nil
+			}
+			return nil, apperr.NewNotFoundError("Host instance not found", nil)
+		},
+	}
+	controller := NewApp(im, am, nil, nil, nil, "", nil, apiv1.InfraConfig{}, &config.Config{})
+
+	// Other user cannot proxy to owner's host.
+	otherW := httptest.NewRecorder()
+	otherReq := httptest.NewRequest(http.MethodGet, "http://test.com/v1/zones/foo/hosts/owner-host/xss.html", nil)
+	otherReq.Header.Set("X-Appengine-User-Email", "victim@corp.example")
+	makeRequest(otherW, otherReq, controller)
+
+	if got := otherW.Result().StatusCode; got != http.StatusNotFound {
+		t.Errorf("expected status %d for unowned host, got %d", http.StatusNotFound, got)
+	}
+	if backendCalled {
+		t.Errorf("backend should not have been called for unowned host")
+	}
+
+	// Owner requesting non-WebUI path gets CSP: sandbox and X-Content-Type-Options: nosniff.
+	logW := httptest.NewRecorder()
+	logReq := httptest.NewRequest(http.MethodGet, "http://test.com/v1/zones/foo/hosts/owner-host/cvds/g/1/logs/logcat", nil)
+	logReq.Header.Set("X-Appengine-User-Email", "owner@corp.example")
+	makeRequest(logW, logReq, controller)
+
+	if got := logW.Result().StatusCode; got != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, got)
+	}
+	if got := logW.Header().Get("Content-Security-Policy"); got != "sandbox" {
+		t.Errorf("Content-Security-Policy = %q, want %q", got, "sandbox")
+	}
+	if got := logW.Header().Get("X-Content-Type-Options"); got != "nosniff" {
+		t.Errorf("X-Content-Type-Options = %q, want %q", got, "nosniff")
+	}
+
+	// Owner requesting WebRTC client HTML gets nosniff without CSP: sandbox.
+	uiW := httptest.NewRecorder()
+	uiReq := httptest.NewRequest(http.MethodGet, "http://test.com/v1/zones/foo/hosts/owner-host/devices/cvd-1/files/client.html", nil)
+	uiReq.Header.Set("X-Appengine-User-Email", "owner@corp.example")
+	makeRequest(uiW, uiReq, controller)
+
+	if got := uiW.Result().StatusCode; got != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, got)
+	}
+	if got := uiW.Header().Get("Content-Security-Policy"); got == "sandbox" {
+		t.Errorf("unexpected Content-Security-Policy: sandbox on WebRTC client.html")
+	}
+	if got := uiW.Header().Get("X-Content-Type-Options"); got != "nosniff" {
+		t.Errorf("X-Content-Type-Options = %q, want %q", got, "nosniff")
 	}
 }
 

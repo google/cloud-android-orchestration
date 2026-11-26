@@ -24,6 +24,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -48,13 +49,21 @@ var testConfig = Config{
 
 var testNameGenerator = &testConstantNameGenerator{name: "foo"}
 
-const fakeUsername = "johndoe"
+const fakeUsername = "johndoe@example.com"
 
 type TestUser struct{}
 
 func (i *TestUser) Username() string { return fakeUsername }
 
-func (i *TestUser) Email() string { return "" }
+func (i *TestUser) Email() string { return fakeUsername }
+
+type staticTestUser struct {
+	username string
+}
+
+func (u *staticTestUser) Username() string { return u.username }
+
+func (u *staticTestUser) Email() string { return u.username }
 
 func TestCreateHostInvalidRequests(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -163,7 +172,7 @@ func TestCreateHostRequestBody(t *testing.T) {
     }
   ],
   "labels": {
-    "cf-created_by": "` + fakeUsername + `"
+    "cf-created_by": "` + createdByLabelValue(fakeUsername) + `"
   },
   "machineType": "zones/us-central1-a/machineTypes/n1-standard-1",
   "minCpuPlatform": "Intel Haswell",
@@ -218,7 +227,7 @@ func TestCreateHostExternalIpRequestBody(t *testing.T) {
     }
   ],
   "labels": {
-    "cf-created_by": "` + fakeUsername + `"
+    "cf-created_by": "` + createdByLabelValue(fakeUsername) + `"
   },
   "machineType": "zones/us-central1-a/machineTypes/n1-standard-1",
   "minCpuPlatform": "Intel Haswell",
@@ -276,8 +285,11 @@ func TestCreateHostAcloudCompatible(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if diff := cmp.Diff(fakeUsername, postedInstance.Labels[labelAcloudCreatedBy]); diff != "" {
+	if diff := cmp.Diff("johndoe", postedInstance.Labels[labelAcloudCreatedBy]); diff != "" {
 		t.Errorf("created by acloud label (-want +got):\n%s", diff)
+	}
+	if diff := cmp.Diff(createdByLabelValue(fakeUsername), postedInstance.Labels[labelCreatedBy]); diff != "" {
+		t.Errorf("cf-created_by label (-want +got):\n%s", diff)
 	}
 	if diff := cmp.Diff("startup-script", postedInstance.Metadata.Items[0].Key); diff != "" {
 		t.Errorf("metadata item key (-want +got):\n%s", diff)
@@ -453,8 +465,9 @@ func TestGetHostClient(t *testing.T) {
 		labels  map[string]string
 		wantErr bool
 	}{
-		{name: "owned by user", labels: map[string]string{"cf-created_by": (&TestUser{}).Username()}, wantErr: false},
-		{name: "owned by other user", labels: map[string]string{"cf-created_by": "anothername"}, wantErr: true},
+		{name: "owned by user", labels: map[string]string{"cf-created_by": createdByLabelValue((&TestUser{}).Username())}, wantErr: false},
+		{name: "same local part different domain", labels: map[string]string{"cf-created_by": createdByLabelValue("johndoe@other.example.com")}, wantErr: true},
+		{name: "owned by other user", labels: map[string]string{"cf-created_by": createdByLabelValue("anothername@example.com")}, wantErr: true},
 		{name: "no owner label", labels: nil, wantErr: true},
 	}
 
@@ -495,7 +508,7 @@ func TestListHostsRequestQuery(t *testing.T) {
 	im.ListHosts("us-central1-a", &TestUser{}, req)
 
 	m, _ := url.ParseQuery(usedQuery)
-	got, expected := m["filter"][0], "labels.cf-created_by:johndoe AND status=RUNNING"
+	got, expected := m["filter"][0], "labels.cf-created_by:"+createdByLabelValue(fakeUsername)+" AND status=RUNNING"
 	if got != expected {
 		t.Errorf("expected <<%q>>, got %q", expected, got)
 	}
@@ -583,7 +596,7 @@ func TestDeleteHostVerifyUserOwnsTheHost(t *testing.T) {
 
 	im.DeleteHost("us-central1-a", &TestUser{}, "foo")
 
-	expected := "alt=json&filter=name%3Dfoo+AND+labels.cf-created_by%3Ajohndoe&prettyPrint=false"
+	expected := "alt=json&filter=name%3Dfoo+AND+labels.cf-created_by%3A" + createdByLabelValue(fakeUsername) + "&prettyPrint=false"
 	if usedListQuery != expected {
 		t.Errorf("expected <<%q>>, got %q", expected, usedListQuery)
 	}
@@ -885,4 +898,70 @@ type testConstantNameGenerator struct {
 
 func (g *testConstantNameGenerator) NewName() string {
 	return g.name
+}
+
+func TestCreatedByLabelValue(t *testing.T) {
+	gceLabelValueRe := regexp.MustCompile(`^[a-z0-9][a-z0-9_-]*$`)
+
+	inputs := []string{
+		"",
+		"---@@@___",
+		"johndoe",
+		"alice@example.com",
+		"alice@other.example.com",
+		"alice+tag@example.com",
+		"alice.smith@example.com",
+		"alice_smith@example.com",
+		"alice_at_a@b.com",
+		"alice@a.at.b.com",
+		"my-very-long-service-account-name@my-very-long-gcp-project-id.iam.gserviceaccount.com",
+		strings.Repeat("a", 200) + "@example.com",
+	}
+
+	seen := make(map[string]string)
+	for _, in := range inputs {
+		got := createdByLabelValue(in)
+		if len(got) > maxGCELabelValueLen {
+			t.Errorf("createdByLabelValue(%q) length = %d, exceeds max %d: %q", in, len(got), maxGCELabelValueLen, got)
+		}
+		if !gceLabelValueRe.MatchString(got) {
+			t.Errorf("createdByLabelValue(%q) = %q does not match valid GCE label pattern", in, got)
+		}
+		if prev, exists := seen[got]; exists {
+			t.Errorf("createdByLabelValue collision between %q and %q: %q", prev, in, got)
+		}
+		seen[got] = in
+	}
+
+	if got := createdByLabelValue("jemoreira@google.com"); !strings.HasPrefix(got, "jemoreira_google_com-") {
+		t.Errorf("expected readable prefix 'jemoreira_google_com-', got %q", got)
+	}
+}
+
+func TestAcloudCreatedByLabelValue(t *testing.T) {
+	gceLabelValueRe := regexp.MustCompile(`^[a-z0-9_-]*$`)
+
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{input: "jemoreira@google.com", want: "jemoreira"},
+		{input: "johndoe", want: "johndoe"},
+		{input: "Alice.Smith+tag@example.com", want: "alice_smith_tag"},
+		{input: strings.Repeat("x", 100) + "@example.com", want: strings.Repeat("x", 63)},
+		{input: "", want: ""},
+	}
+
+	for _, tc := range tests {
+		got := acloudCreatedByLabelValue(tc.input)
+		if len(got) > maxGCELabelValueLen {
+			t.Errorf("acloudCreatedByLabelValue(%q) length = %d, exceeds %d", tc.input, len(got), maxGCELabelValueLen)
+		}
+		if !gceLabelValueRe.MatchString(got) {
+			t.Errorf("acloudCreatedByLabelValue(%q) = %q contains invalid GCE label chars", tc.input, got)
+		}
+		if got != tc.want {
+			t.Errorf("acloudCreatedByLabelValue(%q) = %q, want %q", tc.input, got, tc.want)
+		}
+	}
 }

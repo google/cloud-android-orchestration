@@ -23,6 +23,8 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"path"
+	"strings"
 
 	apiv1 "github.com/google/cloud-android-orchestration/api/v1"
 )
@@ -100,12 +102,47 @@ func (c *NetHostClient) GetReverseProxy() *httputil.ReverseProxy {
 		// Make sure the reverse proxy has the same customizations as the http client.
 		devProxy.Transport = c.client.Transport
 	}
+	devProxy.ModifyResponse = func(res *http.Response) error {
+		if res.StatusCode == http.StatusSwitchingProtocols {
+			return nil
+		}
+		res.Header.Set("X-Content-Type-Options", "nosniff")
+		if !c.isWebUIResponse(res) {
+			res.Header.Set("Content-Security-Policy", "sandbox")
+		}
+		return nil
+	}
 	devProxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
 		log.Printf("request %q failed: proxy error: %v", r.Method+" "+r.URL.Path, err)
 		w.Header().Add("x-cutf-proxy", "co-host")
 		w.WriteHeader(http.StatusBadGateway)
 	}
 	return devProxy
+}
+
+func (c *NetHostClient) isWebUIResponse(res *http.Response) bool {
+	if res.Request == nil || res.Request.URL == nil {
+		return false
+	}
+	if rawPath := strings.ToLower(res.Request.URL.RawPath); rawPath != "" &&
+		(strings.Contains(rawPath, "%2f") || strings.Contains(rawPath, "%2e")) {
+		return false
+	}
+	reqPath := strings.TrimPrefix(res.Request.URL.Path, c.url.Path)
+	return isHostWebUIPath(reqPath)
+}
+
+func isHostWebUIPath(reqPath string) bool {
+	cleanPath := path.Clean("/" + reqPath)
+	if cleanPath == "/" || cleanPath == "/index.html" {
+		return true
+	}
+	parts := strings.Split(cleanPath, "/")
+	if len(parts) >= 4 && parts[1] == "devices" && parts[2] != "" &&
+		(parts[3] == "files" || parts[3] == "openwrt") {
+		return true
+	}
+	return false
 }
 
 func parseReply(res *http.Response, resObj any, resErr *apiv1.Error) error {
